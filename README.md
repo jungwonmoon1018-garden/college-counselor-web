@@ -1,13 +1,14 @@
 # College Counselor
 
-College Counselor is a local desktop application for evidence-grounded college
-application guidance. It combines deterministic FAFSA and deadline rules,
+College Counselor is an evidence-grounded college application guidance app with
+desktop and self-hosted website deployments. It combines deterministic FAFSA and deadline rules,
 student-specific planning tools, source-aware AI coaching, and explicit
 uncertainty instead of admissions guarantees.
 
-The supported deployment is a single household on Windows or macOS. Student
-records stay on that computer. OpenRouter receives redacted text only after the
-student grants the external-processing consents.
+The desktop deployment is a single household on Windows or macOS. The website
+deployment runs the same frontend and backend in one HTTPS service with a
+persistent encrypted data volume. OpenRouter receives redacted text only after
+the student grants the external-processing consents.
 
 ## Packages
 
@@ -16,6 +17,7 @@ student grants the external-processing consents.
 | `desktop/` | Electron host, operating-system secret storage, backend lifecycle, NSIS/DMG packaging |
 | `frontend/` | React student application and separate administrator screen |
 | `backend/` | Local Express API, encrypted PII vault, evidence/rules engines, IPEDS integration |
+| `Dockerfile` | Website build that serves the React frontend and Node backend together |
 
 The application deliberately has no student BYOK flow, arbitrary LLM endpoint,
 general web-search provider, Logseq integration, remote counselor dashboard, or
@@ -23,13 +25,15 @@ parent-notification email endpoint.
 
 ## Trust model
 
-- The backend binds to a random `127.0.0.1` port and is not a LAN service.
+- Desktop binds to a random `127.0.0.1` port. Website deployment binds to the
+  platform port and requires HTTPS, a persistent data volume, and same-origin access.
 - Student accounts require email and password; passwords and recovery codes are
   stored as salted hashes.
 - One localhost-only administrator can configure only the encryption,
   OpenRouter, and IPEDS/College Scorecard keys.
 - Secret values are encrypted with Windows DPAPI or macOS Keychain through
-  Electron `safeStorage`; they are never returned to the renderer.
+  Electron `safeStorage` on desktop. On the website they are encrypted with an
+  independent platform-managed wrapping key; they are never returned to a browser.
 - Student content is encrypted at rest. Export and deletion cover all
   student-owned records, sessions, attachments, vectors, and cached files.
 - Human review is not available in this release. The UI must never claim that
@@ -77,4 +81,5 @@ npm run dist:mac
 ```
 
 See [backend/SETUP.md](backend/SETUP.md) for administrator setup and
-[backend/DEPLOY.md](backend/DEPLOY.md) for packaging and release requirements.
+[backend/DEPLOY.md](backend/DEPLOY.md) for desktop packaging. See
+[WEB_DEPLOYMENT.md](WEB_DEPLOYMENT.md) for the website setup and deployment flow.

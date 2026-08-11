@@ -177,6 +177,13 @@ import { loadOrchestrationCatalog, buildOrchestration, isReasonableModelId, reda
 import { t, resolveLocale, localizeFriendlyLabels } from "./i18n.js";
 import { initAuthStore, isLoopbackAddress, normalizeEmail } from "./security-auth.js";
 import { exportLegacyNotebook, deleteLegacyNotebook } from "./legacy-notebook-export.js";
+import { OPENROUTER_MODEL_OPTIONS } from "./llm-adapters/tier-defaults.js";
+import {
+  mergeWebModels,
+  mergeWebSecret,
+  readWebSecretConfig,
+  writeWebSecretConfig,
+} from "./web-secret-store.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -185,6 +192,10 @@ const __dirname = path.dirname(__filename);
 // CONFIGURATION
 // ═══════════════════════════════════════════════════════════
 const PORT = parseInt(process.env.PORT || "3001", 10);
+const WEB_DEPLOYMENT = process.env.WEB_DEPLOYMENT === "1";
+const WEB_SECRETS_READY = !WEB_DEPLOYMENT || process.env.WEB_SECRETS_READY === "1";
+const WEB_CONFIG_KEY = String(process.env.WEB_CONFIG_KEY || "");
+const HOST = process.env.HOST || (WEB_DEPLOYMENT ? "0.0.0.0" : undefined);
 // Installation-wide OpenRouter key. Students never supply provider keys or
 // endpoints; every paid request uses this fixed provider boundary and is
 // charged against the authenticated student's grade-based monthly budget.
@@ -194,7 +205,10 @@ function resolveOperatorLLM() {
   return null;
 }
 const OPERATOR_LLM = resolveOperatorLLM();
-const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "http://localhost:3000,http://localhost:5173,http://localhost:5180").split(",").map(s => s.trim());
+const ALLOWED_ORIGINS = [...new Set([
+  ...(process.env.ALLOWED_ORIGINS || "http://localhost:3000,http://localhost:5173,http://localhost:5180").split(","),
+  process.env.PUBLIC_APP_URL || "",
+].map((value) => value.trim().replace(/\/$/, "")).filter(Boolean))];
 const NODE_ENV = process.env.NODE_ENV || "development";
 // Treat an unfilled `.env.example` placeholder (REPLACE_WITH…) as unset, so a
 // freshly-copied .env doesn't make the server think a bogus key is live data.
@@ -618,39 +632,53 @@ function readCookie(req, name) {
 const ADMIN_COOKIE = "cc_admin_session";
 
 function setAdminCookie(req, res, token) {
-  const secure = req.secure ? "; Secure" : "";
+  const secure = (req.secure || (WEB_DEPLOYMENT && process.env.WEB_COOKIE_SECURE !== "0")) ? "; Secure" : "";
   res.setHeader("Set-Cookie", `${ADMIN_COOKIE}=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/api/admin; Max-Age=604800${secure}`);
 }
 
 function clearAdminCookie(req, res) {
-  const secure = req.secure ? "; Secure" : "";
+  const secure = (req.secure || (WEB_DEPLOYMENT && process.env.WEB_COOKIE_SECURE !== "0")) ? "; Secure" : "";
   res.setHeader("Set-Cookie", `${ADMIN_COOKIE}=; HttpOnly; SameSite=Strict; Path=/api/admin; Max-Age=0${secure}`);
 }
 
+function isAllowedRequestOrigin(req) {
+  const origin = String(req.headers.origin || "").replace(/\/$/, "");
+  if (!origin) return true;
+  if (ALLOWED_ORIGINS.includes(origin)) return true;
+  if (NODE_ENV !== "production" && LOCALHOST_ORIGIN_RE.test(origin)) return true;
+  if (WEB_DEPLOYMENT) {
+    const sameOrigin = `${req.protocol}://${req.get("host")}`.replace(/\/$/, "");
+    return origin === sameOrigin;
+  }
+  return false;
+}
+
 function hasAllowedAdminOrigin(req) {
-  const origin = String(req.headers.origin || "");
-  if (!origin) return NODE_ENV !== "production";
-  return ALLOWED_ORIGINS.includes(origin);
+  const mutating = !["GET", "HEAD", "OPTIONS"].includes(req.method);
+  if (!req.headers.origin && mutating && NODE_ENV === "production") return false;
+  return isAllowedRequestOrigin(req);
 }
 
 function hasDesktopBootstrapProof(req) {
-  const expected = String(process.env.DESKTOP_BOOTSTRAP_TOKEN || "");
+  const expected = String(WEB_DEPLOYMENT
+    ? process.env.WEB_ADMIN_BOOTSTRAP_TOKEN
+    : process.env.DESKTOP_BOOTSTRAP_TOKEN || "");
   if (!expected) return NODE_ENV !== "production";
-  const received = String(req.headers["x-desktop-bootstrap"] || "");
+  const received = String(req.headers[WEB_DEPLOYMENT ? "x-web-setup-token" : "x-desktop-bootstrap"] || "");
   const actualHash = crypto.createHash("sha256").update(received).digest();
   const expectedHash = crypto.createHash("sha256").update(expected).digest();
   return crypto.timingSafeEqual(actualHash, expectedHash);
 }
 
-function requireLoopback(req, res, next) {
-  if (!isLoopbackAddress(req.socket?.remoteAddress)) {
+function requireAdminNetwork(req, res, next) {
+  if (!WEB_DEPLOYMENT && !isLoopbackAddress(req.socket?.remoteAddress)) {
     return res.status(403).json({ error: "Administrator access is local-only." });
   }
   next();
 }
 
 function requireCounselorAuth(req, res, next) {
-  if (!isLoopbackAddress(req.socket?.remoteAddress)) {
+  if (!WEB_DEPLOYMENT && !isLoopbackAddress(req.socket?.remoteAddress)) {
     return res.status(403).json({ error: "Administrator access is local-only." });
   }
   if (!hasAllowedAdminOrigin(req)) {
@@ -1119,6 +1147,7 @@ function buildAdmissionsCalendar(now = new Date()) {
 }
 
 const app = express();
+if (WEB_DEPLOYMENT) app.set("trust proxy", 1);
 
 // Assigned when pillar routes mount (see mountPillarRoutes call below). Route
 // handlers defined earlier in source order reference it lazily at request time
@@ -1145,23 +1174,30 @@ app.use(helmet({
 // (same-origin GETs send no Origin header, so they slipped through and looked
 // fine — masking the bug).
 const LOCALHOST_ORIGIN_RE = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i;
-app.use(cors({
-  origin: (origin, cb) => {
-    if (!origin && NODE_ENV !== "production") return cb(null, true);
-    if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
-    if (NODE_ENV !== "production" && typeof origin === "string" && LOCALHOST_ORIGIN_RE.test(origin)) {
-      return cb(null, true);
-    }
-    cb(new Error("CORS: Origin not allowed"));
-  },
-  credentials: true,
-}));
+const allowCors = cors({ origin: true, credentials: true });
+app.use((req, res, next) => {
+  if (!req.headers.origin) return next();
+  if (!isAllowedRequestOrigin(req)) return res.status(403).json({ error: "Origin not allowed." });
+  return allowCors(req, res, next);
+});
 
 app.use(express.json({ limit: "20mb" }));
 
 app.use((req, _res, next) => {
   req.requestId = crypto.randomUUID();
   next();
+});
+
+// A hosted installation cannot accept student data until the counselor has
+// supplied every required secret. Static files and the administrator setup
+// surface remain reachable during first run.
+app.use((req, res, next) => {
+  if (!WEB_DEPLOYMENT || WEB_SECRETS_READY || !req.path.startsWith("/api/")) return next();
+  if (req.path === "/api/health" || req.path === "/api/methodology" || req.path.startsWith("/api/admin/")) return next();
+  return res.status(503).json({
+    error: "Counselor setup is required before the student website can be used.",
+    code: "installation_setup_required",
+  });
 });
 
 // ── Rate limiters ──
@@ -1189,7 +1225,7 @@ app.get("/api/methodology", apiLimiter, (_req, res) => {
     const m = buildMethodology({
       providerMigration: { openrouter: OPENROUTER_STATUS },
       scorecardConfigured: !!SCORECARD_API_KEY,
-      cdsCycleLatest: process.env.CDS_REFRESH_CYCLE || "2024-25",
+      cdsCycleLatest: process.env.CDS_REFRESH_CYCLE || "2025-26",
       baselineYear: 2024,
       domainMonitorDaily: process.env.ENABLE_DOMAIN_MONITOR === "1",
       openRouterCatalog: { lastFetched: OPENROUTER_CATALOG.lastFetched, count: OPENROUTER_CATALOG.models.length, reachable: OPENROUTER_CATALOG.reachable },
@@ -1784,6 +1820,7 @@ app.post("/api/agents/orchestrate", apiLimiter, requireStudentAuth, async (req, 
       evidenceStmts,
       catalog: orchestrationCatalog,
       graphVaultContext,
+      modelConfig: { ...OPENROUTER_TARGETS },
     });
 
     res.json({
@@ -1882,12 +1919,18 @@ function adminSessionResponse(req, res, result, status = 200) {
   });
 }
 
-app.get("/api/admin/status", studentLimiter, requireLoopback, (_req, res) => {
-  res.json({ bootstrapped: authStore.adminBootstrapped() });
+app.get("/api/admin/status", studentLimiter, requireAdminNetwork, (_req, res) => {
+  res.json({
+    bootstrapped: authStore.adminBootstrapped(),
+    webDeployment: WEB_DEPLOYMENT,
+    installationReady: WEB_SECRETS_READY,
+  });
 });
 
-app.post("/api/admin/bootstrap", studentLimiter, requireLoopback, (req, res) => {
-  if (!hasDesktopBootstrapProof(req)) return res.status(403).json({ error: "Privileged desktop bootstrap proof required." });
+app.post("/api/admin/bootstrap", studentLimiter, requireAdminNetwork, (req, res) => {
+  if (!hasDesktopBootstrapProof(req)) return res.status(403).json({
+    error: WEB_DEPLOYMENT ? "The website setup token is invalid." : "Privileged desktop bootstrap proof required.",
+  });
   if (!hasAllowedAdminOrigin(req)) return res.status(403).json({ error: "Administrator origin is not allowed." });
   try {
     return adminSessionResponse(req, res, authStore.bootstrapAdmin(req.body?.password), 201);
@@ -1898,15 +1941,15 @@ app.post("/api/admin/bootstrap", studentLimiter, requireLoopback, (req, res) => 
   }
 });
 
-app.post("/api/admin/login", studentLimiter, requireLoopback, (req, res) => {
+app.post("/api/admin/login", studentLimiter, requireAdminNetwork, (req, res) => {
   if (!hasAllowedAdminOrigin(req)) return res.status(403).json({ error: "Administrator origin is not allowed." });
   const result = authStore.authenticateAdmin(req.body?.password);
   if (!result) return res.status(401).json({ error: "Invalid administrator credentials." });
   return adminSessionResponse(req, res, result);
 });
 
-app.post("/api/admin/recover", studentLimiter, requireLoopback, (req, res) => {
-  if (!hasDesktopBootstrapProof(req)) return res.status(403).json({ error: "Privileged desktop recovery proof required." });
+app.post("/api/admin/recover", studentLimiter, requireAdminNetwork, (req, res) => {
+  if (!WEB_DEPLOYMENT && !hasDesktopBootstrapProof(req)) return res.status(403).json({ error: "Privileged desktop recovery proof required." });
   if (!hasAllowedAdminOrigin(req)) return res.status(403).json({ error: "Administrator origin is not allowed." });
   try {
     const result = authStore.recoverAdmin(req.body?.recoveryCode, req.body?.newPassword);
@@ -1939,8 +1982,13 @@ app.post("/api/admin/logout-all", studentLimiter, requireCounselorAuth, (req, re
 });
 
 app.get("/api/admin/secrets/status", studentLimiter, requireCounselorAuth, (_req, res) => {
+  const encryptionConfigured = WEB_DEPLOYMENT
+    ? process.env.WEB_ENCRYPTION_CONFIGURED === "1"
+    : /^[0-9a-f]{64}$/i.test(ENCRYPTION_KEY);
   res.json({
-    encryption: { configured: /^[0-9a-f]{64}$/i.test(ENCRYPTION_KEY), mutable: false },
+    webDeployment: WEB_DEPLOYMENT,
+    installationReady: WEB_SECRETS_READY,
+    encryption: { configured: encryptionConfigured, mutable: WEB_DEPLOYMENT && !encryptionConfigured },
     openrouter: { configured: !!OPERATOR_LLM?.apiKey },
     scorecard: { configured: !!SCORECARD_API_KEY },
   });
@@ -1981,10 +2029,101 @@ app.post("/api/admin/secrets/validate", studentLimiter, requireCounselorAuth, as
   res.status(result.valid ? 200 : 400).json(result);
 });
 
-app.all(["/api/admin/secrets/openrouter", "/api/admin/secrets/scorecard", "/api/admin/secrets/encryption"],
-  requireCounselorAuth, (_req, res) => {
-    res.status(405).json({ error: "Secrets must be changed through privileged Electron safeStorage IPC.", code: "ipc_required" });
+function requireWebConfiguration(req, res, next) {
+  if (!WEB_DEPLOYMENT) {
+    return res.status(405).json({ error: "Secrets must be changed through privileged Electron safeStorage IPC.", code: "ipc_required" });
+  }
+  if (WEB_CONFIG_KEY.length < 32) {
+    return res.status(503).json({ error: "Encrypted website configuration is unavailable.", code: "web_config_unavailable" });
+  }
+  next();
+}
+
+function scheduleWebConfigurationRestart() {
+  setTimeout(() => {
+    if (typeof process.send === "function") process.send({ type: "web-config-updated" });
+  }, 200).unref();
+}
+
+app.put("/api/admin/secrets/:kind", studentLimiter, requireCounselorAuth, requireWebConfiguration, async (req, res) => {
+  const kind = String(req.params.kind || "").toLowerCase();
+  if (!new Set(["encryption", "openrouter", "scorecard"]).has(kind)) {
+    return res.status(404).json({ error: "Unknown secret." });
+  }
+  if (kind === "encryption" && process.env.WEB_ENCRYPTION_CONFIGURED === "1") {
+    return res.status(409).json({ error: "The vault encryption key cannot be replaced after it is configured.", code: "encryption_immutable" });
+  }
+  const validation = await validateAdminSecret(kind, req.body?.value);
+  if (!validation.valid) {
+    return res.status(validation.unavailable ? 503 : 400).json({
+      error: validation.unavailable ? "The key service could not be reached. Try again." : "The secret is not valid.",
+      ...validation,
+    });
+  }
+  try {
+    const current = readWebSecretConfig({ dataDir: DATA_DIR, configKey: WEB_CONFIG_KEY });
+    const updated = mergeWebSecret(current, kind, req.body?.value);
+    writeWebSecretConfig({ dataDir: DATA_DIR, configKey: WEB_CONFIG_KEY, config: updated });
+    res.status(202).json({ saved: true, restarting: true });
+    scheduleWebConfigurationRestart();
+  } catch (error) {
+    console.error("[ADMIN] Failed to save encrypted website configuration:", error.code || error.message);
+    res.status(500).json({ error: "The encrypted website configuration could not be saved." });
+  }
+});
+
+app.delete("/api/admin/secrets/:kind", studentLimiter, requireCounselorAuth, requireWebConfiguration, (req, res) => {
+  const kind = String(req.params.kind || "").toLowerCase();
+  if (!new Set(["openrouter", "scorecard"]).has(kind)) {
+    return res.status(409).json({ error: "The vault encryption key cannot be cleared after setup." });
+  }
+  try {
+    const current = readWebSecretConfig({ dataDir: DATA_DIR, configKey: WEB_CONFIG_KEY });
+    const updated = mergeWebSecret(current, kind, "");
+    writeWebSecretConfig({ dataDir: DATA_DIR, configKey: WEB_CONFIG_KEY, config: updated });
+    res.status(202).json({ cleared: true, restarting: true });
+    scheduleWebConfigurationRestart();
+  } catch (error) {
+    console.error("[ADMIN] Failed to clear encrypted website configuration:", error.code || error.message);
+    res.status(500).json({ error: "The encrypted website configuration could not be saved." });
+  }
+});
+
+app.get("/api/admin/models", studentLimiter, requireCounselorAuth, (_req, res) => {
+  res.json({
+    models: { ...OPENROUTER_TARGETS },
+    options: OPENROUTER_MODEL_OPTIONS.map((option) => {
+      const live = OPENROUTER_CATALOG.byId.get(option.id);
+      return {
+        ...option,
+        available: live ? true : (OPENROUTER_CATALOG.reachable === true ? false : null),
+        contextLength: live?.contextLength || null,
+        pricing: live?.pricing || null,
+      };
+    }),
+    catalogCheckedAt: OPENROUTER_CATALOG.lastFetched,
   });
+});
+
+app.put("/api/admin/models", studentLimiter, requireCounselorAuth, requireWebConfiguration, (req, res) => {
+  const models = req.body?.models || {};
+  const allowed = new Set(OPENROUTER_MODEL_OPTIONS.map(({ id }) => id));
+  for (const tier of ["small", "medium", "large"]) {
+    if (!allowed.has(String(models[tier] || ""))) {
+      return res.status(400).json({ error: `Choose a reviewed OpenRouter model for the ${tier} tier.` });
+    }
+  }
+  try {
+    const current = readWebSecretConfig({ dataDir: DATA_DIR, configKey: WEB_CONFIG_KEY });
+    const updated = mergeWebModels(current, models);
+    writeWebSecretConfig({ dataDir: DATA_DIR, configKey: WEB_CONFIG_KEY, config: updated });
+    res.status(202).json({ saved: true, restarting: true });
+    scheduleWebConfigurationRestart();
+  } catch (error) {
+    console.error("[ADMIN] Failed to save model configuration:", error.code || error.message);
+    res.status(500).json({ error: "The model configuration could not be saved." });
+  }
+});
 
 app.all([
   "/api/admin/seasonal-research/run",
@@ -6293,7 +6432,7 @@ try {
 // ═══════════════════════════════════════════════════════════
 // SERVE FRONTEND (production static files)
 // ═══════════════════════════════════════════════════════════
-const publicDir = path.join(__dirname, "public");
+const publicDir = process.env.PUBLIC_DIR ? path.resolve(process.env.PUBLIC_DIR) : path.join(__dirname, "public");
 if (fs.existsSync(publicDir)) {
   app.use(express.static(publicDir));
   app.get("*", (req, res) => {
@@ -6320,7 +6459,7 @@ app.use((err, _req, res, _next) => {
 // ═══════════════════════════════════════════════════════════
 // START SERVER
 // ═══════════════════════════════════════════════════════════
-app.listen(PORT, () => {
+app.listen(PORT, HOST, () => {
   console.log(`
 ╔════════════════════════════════════════════════════════════════╗
 ║  College Counselor Backend v2 (Rules-First Architecture)       ║

@@ -6,9 +6,10 @@ export default defineConfig({
   plugins: [react()],
   build: {
     rollupOptions: {
-      // The student app and the localhost-only administrator surface are
-      // separate entry points. The admin page receives the privileged
-      // Electron preload bridge; student pages never handle installation keys.
+      // The student app and counselor-only administrator surface are separate
+      // entry points. Desktop uses privileged Electron IPC; website deployment
+      // uses authenticated same-origin API calls. Student pages never handle
+      // installation keys.
       input: {
         main: resolve(__dirname, "index.html"),
         admin: resolve(__dirname, "admin.html"),

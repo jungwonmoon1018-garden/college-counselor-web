@@ -7,9 +7,9 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; min-height: 100vh; background: #10141b; }
-button, input { font: inherit; }
+button, input, select { font: inherit; }
 button, a { min-height: 44px; }
-button:focus-visible, input:focus-visible, a:focus-visible {
+button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible {
   outline: 3px solid #69b8ff;
   outline-offset: 2px;
 }
@@ -49,7 +49,7 @@ button:focus-visible, input:focus-visible, a:focus-visible {
 .admin-field { display: grid; gap: 7px; }
 .admin-field label { font-weight: 650; color: #e7edf4; }
 .admin-field small { color: #aeb9c7; line-height: 1.45; }
-.admin-field input {
+.admin-field input, .admin-field select {
   width: 100%;
   min-height: 46px;
   border: 1px solid #4a5666;
@@ -73,6 +73,7 @@ button:disabled { cursor: wait; opacity: .62; }
 .admin-alert { margin: 0 0 18px; padding: 12px 14px; border-radius: 6px; line-height: 1.5; }
 .admin-alert.error { border: 1px solid #a94d55; background: #351d23; color: #ffc0c5; }
 .admin-alert.success { border: 1px solid #3f8a69; background: #183328; color: #a9edce; }
+.admin-alert.setup { border: 1px solid #bf8a35; background: #312817; color: #ffe1a2; }
 .admin-recovery {
   margin: 18px 0 0;
   padding: 14px;
@@ -101,6 +102,10 @@ button:disabled { cursor: wait; opacity: .62; }
 .admin-editor label { grid-column: 1 / -1; font-weight: 650; }
 .admin-editor input { min-width: 0; min-height: 44px; border: 1px solid #4a5666; border-radius: 6px; background: #0f1319; padding: 9px 11px; }
 .admin-footnote { margin-top: 18px; color: #97a5b5; font-size: 13px; line-height: 1.5; }
+.admin-models { display: grid; gap: 16px; margin-top: 26px; padding-top: 24px; border-top: 1px solid #384250; }
+.admin-models h2 { margin: 0 0 4px; font-size: 18px; }
+.admin-models p { margin: 0; color: #aeb9c7; line-height: 1.45; }
+.admin-models select { appearance: auto; }
 
 @media (max-width: 620px) {
   .admin-header { align-items: flex-start; }

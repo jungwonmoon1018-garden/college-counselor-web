@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: college-counselor-web
+    runtime: docker
+    plan: starter
+    healthCheckPath: /api/health
+    envVars:
+      - key: WEB_CONFIG_KEY
+        generateValue: true
+      - key: WEB_ADMIN_BOOTSTRAP_TOKEN
+        generateValue: true
+      - key: WEB_COOKIE_SECURE
+        value: "1"
+      - key: DATA_DIR
+        value: /var/data/college-counselor
+    disk:
+      name: college-counselor-data
+      mountPath: /var/data/college-counselor
+      sizeGB: 1

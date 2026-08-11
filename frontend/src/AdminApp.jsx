@@ -45,6 +45,21 @@ const COPY = {
     cleared: "Secret cleared.",
     saved: "Secret saved. The local service restarted.",
     clearConfirm: "Clear this secret? Related features will stop working.",
+    webTitle: "Counselor administrator",
+    webLede: "Complete secure website setup and choose the OpenRouter models used for each workload tier. Secret values are never shown after saving.",
+    setupToken: "Website setup token",
+    setupTokenHint: "Enter the WEB_ADMIN_BOOTSTRAP_TOKEN supplied by the person who deployed this website.",
+    encryptionDescWeb: "Enter a 64-character hexadecimal key once. It encrypts student vault data and cannot be viewed or replaced after setup.",
+    webSafeNote: "Secret values are sent only to this website's same-origin backend and stored in an AES-256-GCM encrypted server file. They are never stored in browser storage or returned by the API.",
+    modelsTitle: "OpenRouter models",
+    modelsLede: "Choose a reviewed, currently listed OpenRouter model for each workload tier.",
+    smallTier: "Small · routine coaching",
+    mediumTier: "Medium · synthesis and strategy",
+    largeTier: "Large · complex review",
+    saveModels: "Save models and restart",
+    modelsSaved: "Model choices saved. The website service restarted.",
+    unavailable: "currently unavailable",
+    setupIncomplete: "Student access stays closed until all three secrets are configured.",
   },
   ko: {
     brand: "College Counselor 관리자",
@@ -116,11 +131,15 @@ export default function AdminApp() {
   const [recoveryMode, setRecoveryMode] = useState(false);
   const [oneTimeRecovery, setOneTimeRecovery] = useState("");
   const [secrets, setSecrets] = useState(null);
+  const [webDeployment, setWebDeployment] = useState(false);
+  const [setupToken, setSetupToken] = useState("");
+  const [models, setModels] = useState(null);
+  const [modelOptions, setModelOptions] = useState([]);
   const [editing, setEditing] = useState(null);
   const [secretValue, setSecretValue] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
-  const c = COPY[locale];
+  const c = useMemo(() => ({ ...COPY.en, ...COPY[locale] }), [locale]);
   const desktop = window.collegeCounselorDesktop;
 
   useEffect(() => {
@@ -129,7 +148,10 @@ export default function AdminApp() {
 
   useEffect(() => {
     jsonRequest("/api/admin/status")
-      .then((body) => setBootstrapped(Boolean(body.bootstrapped)))
+      .then((body) => {
+        setBootstrapped(Boolean(body.bootstrapped));
+        setWebDeployment(Boolean(body.webDeployment));
+      })
       .catch((error) => { setBootstrapped(false); setMessage({ type: "error", text: error.message }); });
   }, []);
 
@@ -139,9 +161,34 @@ export default function AdminApp() {
   }, [secrets]);
 
   async function refreshSecrets() {
-    if (!desktop?.adminSecrets) throw new Error(c.desktopOnly);
-    const status = await desktop.adminSecrets.status();
+    const status = desktop?.adminSecrets
+      ? await desktop.adminSecrets.status()
+      : await jsonRequest("/api/admin/secrets/status");
     setSecrets(status);
+    return status;
+  }
+
+  async function refreshModels() {
+    if (!webDeployment) return null;
+    const status = await jsonRequest("/api/admin/models");
+    setModels(status.models || null);
+    setModelOptions(status.options || []);
+    return status;
+  }
+
+  async function refreshAfterRestart() {
+    let lastError;
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 350));
+      try {
+        const status = await refreshSecrets();
+        if (webDeployment) await refreshModels();
+        return status;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError || new Error(c.genericError);
   }
 
   async function authenticate(event) {
@@ -153,7 +200,13 @@ export default function AdminApp() {
     try {
       const body = bootstrapped
         ? await jsonRequest("/api/admin/login", { method: "POST", body: JSON.stringify({ password }) })
-        : await desktop?.adminAuth?.bootstrap(password);
+        : (desktop?.adminAuth
+          ? await desktop.adminAuth.bootstrap(password)
+          : await jsonRequest("/api/admin/bootstrap", {
+            method: "POST",
+            headers: { "X-Web-Setup-Token": setupToken },
+            body: JSON.stringify({ password }),
+          }));
       if (!body) throw new Error(c.desktopOnly);
       setAuthenticated(true);
       setCsrfToken(body.csrfToken || "");
@@ -161,7 +214,9 @@ export default function AdminApp() {
       setOneTimeRecovery(body.recoveryCode || "");
       setPassword("");
       setConfirmPassword("");
+      setSetupToken("");
       await refreshSecrets();
+      if (webDeployment) await refreshModels();
     } catch (error) {
       setMessage({ type: "error", text: error.message || c.genericError });
     } finally {
@@ -175,7 +230,12 @@ export default function AdminApp() {
     if (newPassword.length < 12) { setMessage({ type: "error", text: c.shortPassword }); return; }
     setBusy(true);
     try {
-      const body = await desktop?.adminAuth?.recover(recoveryCode.trim(), newPassword);
+      const body = desktop?.adminAuth
+        ? await desktop.adminAuth.recover(recoveryCode.trim(), newPassword)
+        : await jsonRequest("/api/admin/recover", {
+          method: "POST",
+          body: JSON.stringify({ recoveryCode: recoveryCode.trim(), newPassword }),
+        });
       if (!body) throw new Error(c.desktopOnly);
       setAuthenticated(true);
       setCsrfToken(body.csrfToken || "");
@@ -184,6 +244,7 @@ export default function AdminApp() {
       setNewPassword("");
       setRecoveryMode(false);
       await refreshSecrets();
+      if (webDeployment) await refreshModels();
     } catch (error) {
       setMessage({ type: "error", text: error.message || c.genericError });
     } finally {
@@ -197,10 +258,19 @@ export default function AdminApp() {
     setBusy(true);
     setMessage({ type: "success", text: c.restarting });
     try {
-      await desktop.adminSecrets.set(editing, secretValue, csrfToken);
+      if (desktop?.adminSecrets) {
+        await desktop.adminSecrets.set(editing, secretValue, csrfToken);
+      } else {
+        await jsonRequest(`/api/admin/secrets/${editing}`, {
+          method: "PUT",
+          headers: { "X-CSRF-Token": csrfToken },
+          body: JSON.stringify({ value: secretValue }),
+        });
+      }
       setSecretValue("");
       setEditing(null);
-      await refreshSecrets();
+      if (webDeployment) await refreshAfterRestart();
+      else await refreshSecrets();
       setMessage({ type: "success", text: c.saved });
     } catch (error) {
       setMessage({ type: "error", text: error.message || c.genericError });
@@ -214,9 +284,37 @@ export default function AdminApp() {
     setBusy(true);
     setMessage({ type: "success", text: c.restarting });
     try {
-      await desktop.adminSecrets.clear(name, csrfToken);
-      await refreshSecrets();
+      if (desktop?.adminSecrets) {
+        await desktop.adminSecrets.clear(name, csrfToken);
+        await refreshSecrets();
+      } else {
+        await jsonRequest(`/api/admin/secrets/${name}`, {
+          method: "DELETE",
+          headers: { "X-CSRF-Token": csrfToken },
+        });
+        await refreshAfterRestart();
+      }
       setMessage({ type: "success", text: c.cleared });
+    } catch (error) {
+      setMessage({ type: "error", text: error.message || c.genericError });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveModels(event) {
+    event.preventDefault();
+    if (!models) return;
+    setBusy(true);
+    setMessage({ type: "success", text: c.restarting });
+    try {
+      await jsonRequest("/api/admin/models", {
+        method: "PUT",
+        headers: { "X-CSRF-Token": csrfToken },
+        body: JSON.stringify({ models }),
+      });
+      await refreshAfterRestart();
+      setMessage({ type: "success", text: c.modelsSaved });
     } catch (error) {
       setMessage({ type: "error", text: error.message || c.genericError });
     } finally {
@@ -231,12 +329,14 @@ export default function AdminApp() {
     setAuthenticated(false);
     setCsrfToken("");
     setSecrets(null);
+    setModels(null);
+    setModelOptions([]);
     setOneTimeRecovery("");
     setMessage(null);
   }
 
   const secretRows = [
-    { name: "encryption", title: c.encryption, description: c.encryptionDesc, mutable: false },
+    { name: "encryption", title: c.encryption, description: webDeployment ? c.encryptionDescWeb : c.encryptionDesc, mutable: webDeployment && normalizedSecrets.encryption?.mutable !== false },
     { name: "openrouter", title: c.openrouter, description: c.openrouterDesc, mutable: true },
     { name: "scorecard", title: c.scorecard, description: c.scorecardDesc, mutable: true },
   ];
@@ -254,8 +354,8 @@ export default function AdminApp() {
         </nav>
       </header>
       <main className="admin-main">
-        <h1>{c.title}</h1>
-        <p className="admin-lede">{c.lede}</p>
+        <h1>{webDeployment ? c.webTitle : c.title}</h1>
+        <p className="admin-lede">{webDeployment ? c.webLede : c.lede}</p>
         {message && <p className={"admin-alert " + message.type} role={message.type === "error" ? "alert" : "status"}>{message.text}</p>}
 
         {bootstrapped === null && <p role="status">{c.loading}</p>}
@@ -279,9 +379,16 @@ export default function AdminApp() {
               </form>
             ) : (
               <form className="admin-form" onSubmit={authenticate}>
+                {!bootstrapped && webDeployment && (
+                  <div className="admin-field">
+                    <label htmlFor="admin-setup-token">{c.setupToken}</label>
+                    <input id="admin-setup-token" type="password" value={setupToken} onChange={(event) => setSetupToken(event.target.value)} autoComplete="off" minLength={24} required autoFocus />
+                    <small>{c.setupTokenHint}</small>
+                  </div>
+                )}
                 <div className="admin-field">
                   <label htmlFor="admin-password">{c.password}</label>
-                  <input id="admin-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete={bootstrapped ? "current-password" : "new-password"} minLength={12} required autoFocus />
+                  <input id="admin-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete={bootstrapped ? "current-password" : "new-password"} minLength={12} required autoFocus={!webDeployment || bootstrapped} />
                   <small>{c.passwordHint}</small>
                 </div>
                 {!bootstrapped && (
@@ -301,7 +408,8 @@ export default function AdminApp() {
           <section className="admin-panel" aria-labelledby="admin-secrets-title">
             <h2 id="admin-secrets-title">{c.secretsTitle}</h2>
             {oneTimeRecovery && <div className="admin-recovery" role="status">{c.recoverySave}<code>{oneTimeRecovery}</code></div>}
-            {!desktop?.adminSecrets && <p className="admin-alert error" role="alert">{c.desktopOnly}</p>}
+            {webDeployment && secrets && !secrets.installationReady && <p className="admin-alert setup" role="status">{c.setupIncomplete}</p>}
+            {!webDeployment && !desktop?.adminSecrets && <p className="admin-alert error" role="alert">{c.desktopOnly}</p>}
             <div className="admin-secret-list">
               {secretRows.map((row) => {
                 const configured = Boolean(normalizedSecrets[row.name]?.configured);
@@ -314,10 +422,10 @@ export default function AdminApp() {
                     </div>
                     {row.mutable && (
                       <div className="admin-secret-actions">
-                        <button className="admin-secondary" type="button" disabled={busy || !desktop?.adminSecrets} onClick={() => { setEditing(row.name); setSecretValue(""); }}>
+                        <button className="admin-secondary" type="button" disabled={busy || (!desktop?.adminSecrets && !webDeployment)} onClick={() => { setEditing(row.name); setSecretValue(""); }}>
                           {configured ? c.replace : c.add}
                         </button>
-                        {configured && <button className="admin-danger" type="button" disabled={busy || !desktop?.adminSecrets} onClick={() => clearSecret(row.name)}>{c.clear}</button>}
+                        {configured && row.name !== "encryption" && <button className="admin-danger" type="button" disabled={busy || (!desktop?.adminSecrets && !webDeployment)} onClick={() => clearSecret(row.name)}>{c.clear}</button>}
                       </div>
                     )}
                     {editing === row.name && (
@@ -332,7 +440,33 @@ export default function AdminApp() {
                 );
               })}
             </div>
-            <p className="admin-footnote">{c.safeNote}</p>
+            <p className="admin-footnote">{webDeployment ? c.webSafeNote : c.safeNote}</p>
+
+            {webDeployment && models && (
+              <form className="admin-models" onSubmit={saveModels}>
+                <div>
+                  <h2>{c.modelsTitle}</h2>
+                  <p>{c.modelsLede}</p>
+                </div>
+                {[
+                  ["small", c.smallTier],
+                  ["medium", c.mediumTier],
+                  ["large", c.largeTier],
+                ].map(([tier, label]) => (
+                  <div className="admin-field" key={tier}>
+                    <label htmlFor={`model-${tier}`}>{label}</label>
+                    <select id={`model-${tier}`} value={models[tier] || ""} onChange={(event) => setModels((current) => ({ ...current, [tier]: event.target.value }))} required>
+                      {modelOptions.map((option) => (
+                        <option key={option.id} value={option.id} disabled={option.available === false && option.id !== models[tier]}>
+                          {option.label}{option.available === false ? ` · ${c.unavailable}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+                <button className="admin-primary" type="submit" disabled={busy}>{c.saveModels}</button>
+              </form>
+            )}
           </section>
         )}
       </main>

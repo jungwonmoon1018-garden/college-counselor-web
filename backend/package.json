@@ -13,6 +13,7 @@
     "refresh:cds": "node scripts/refresh-cds.mjs",
     "seed:embeddings": "node scripts/seed-embeddings.mjs",
     "start": "node server.js",
+    "start:web": "node web-launcher.mjs",
     "start:sim": "node simulation-sidecar.js",
     "dev": "node --watch server.js",
     "test": "node --test tests/*.test.js",

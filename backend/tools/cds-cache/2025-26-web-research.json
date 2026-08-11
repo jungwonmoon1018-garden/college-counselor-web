@@ -1,0 +1,29 @@
+{
+  "cycle": "2025-26",
+  "checkedAt": "2026-08-11",
+  "method": "Official university institutional-research pages and the documents they publish were located through web search; no inferred document URLs were added.",
+  "located": [
+    { "institution": "Brown University", "url": "https://oir.brown.edu/institutional-data/common-data-set" },
+    { "institution": "Carnegie Mellon University", "url": "https://www.cmu.edu/ira/CDS/pdf/cds_2025_26/cds_2025_full_pdf.pdf" },
+    { "institution": "Cornell University", "url": "https://irp.cornell.edu/wp-content/uploads/2026/06/CDS-Cornell-2025-2026-v2.xlsx" },
+    { "institution": "Duke University", "url": "https://ir.provost.duke.edu/sites/default/files/CDS_PDF_2025-2026-20260622-website-published-version.pdf" },
+    { "institution": "Georgia Institute of Technology", "url": "https://irp.gatech.edu/files/CDS/CDS_2025-2026_FINAL_R4_03JUN2026.pdf" },
+    { "institution": "Harvard University", "url": "https://oira.harvard.edu/files/2026/07/CDS_2025-2026.pdf" },
+    { "institution": "Johns Hopkins University", "url": "https://oira.jhu.edu/wp-content/uploads/2025-2026-CDS-Johns-Hopkins-University-v2.pdf" },
+    { "institution": "Massachusetts Institute of Technology", "url": "https://ir.mit.edu/projects/2025-26-common-data-set/" },
+    { "institution": "Princeton University", "url": "https://ir.princeton.edu/document/606" },
+    { "institution": "Rice University", "url": "https://ir.rice.edu/institutional-research/common-data-set" },
+    { "institution": "Stanford University", "url": "https://drive.google.com/file/d/1GIPKgVj1d86dkmLkHI_mZVCk_iY6kiCp/view" },
+    { "institution": "University of Michigan", "url": "https://obp.umich.edu/cds/cds_2025-26_umaa.pdf" },
+    { "institution": "University of Pennsylvania", "url": "https://ir.upenn.edu/common-data-set/" },
+    { "institution": "University of Virginia", "url": "https://ira.virginia.edu/common-data-set/common-data-set-2025-2026" },
+    { "institution": "University of Wisconsin-Madison", "url": "https://www.irp.wisc.edu/institutional/facts/cds.htm" },
+    { "institution": "Yale University", "url": "https://oir.yale.edu/sites/default/files/yale_cds_2025-26_md_20260616.pdf" }
+  ],
+  "notLocatedOnOfficialPage": [
+    { "institution": "California Institute of Technology", "officialPage": "https://iro.caltech.edu/data", "latestObservedCycle": "2024-25" },
+    { "institution": "Columbia University", "officialPage": "https://opir.columbia.edu/view_the_data/cds", "latestObservedCycle": "2024-25" },
+    { "institution": "Northwestern University", "officialPage": "https://enrollment.northwestern.edu/data/common-data-set.html", "latestObservedCycle": "2024-25" },
+    { "institution": "University of Chicago", "officialPage": "https://data.uchicago.edu/common-data-set/", "latestObservedCycle": "2024-25" }
+  ]
+}

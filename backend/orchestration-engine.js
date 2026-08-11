@@ -82,6 +82,7 @@ export function buildOrchestration({
   evidenceStmts,
   catalog,
   graphVaultContext = "",
+  modelConfig = null,
 }) {
   const cleanQuery = (query || "").trim();
 
@@ -104,8 +105,8 @@ export function buildOrchestration({
   const updatedRouting = routeRequest(cleanQuery, {}, evidence);
 
   // Step 5: Determine execution plan
-  const modelConfig = resolveModelConfig();
-  const executionPlan = buildExecutionPlan(updatedRouting, modelConfig, evidence);
+  const resolvedModels = modelConfig || resolveModelConfig();
+  const executionPlan = buildExecutionPlan(updatedRouting, resolvedModels, evidence);
 
   // Step 6: Build prompt package (only if model call needed)
   const promptPackage = executionPlan.requiresModel

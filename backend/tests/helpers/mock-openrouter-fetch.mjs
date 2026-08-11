@@ -3,9 +3,11 @@ import fs from "node:fs";
 const realFetch = globalThis.fetch;
 const callLogPath = process.env.TEST_OPENROUTER_CALL_LOG;
 const models = [
+  "deepseek/deepseek-v4-flash-0731",
+  "deepseek/deepseek-v4-pro",
+  "anthropic/claude-sonnet-5",
   "google/gemma-4-26b-a4b-it",
   "google/gemma-4-31b-it",
-  "deepseek/deepseek-v4-pro",
 ];
 
 globalThis.fetch = async (input, init = {}) => {

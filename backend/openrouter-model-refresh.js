@@ -23,18 +23,23 @@ const OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models";
 // endpoint overlays these for the openrouter provider; ES-module binding means
 // importers see live updates.
 export const OPENROUTER_TARGETS = {
-  small: TIER_DEFAULTS.openrouter?.small || "google/gemma-4-26b-a4b-it",
-  medium: TIER_DEFAULTS.openrouter?.medium || "google/gemma-4-31b-it",
-  large: TIER_DEFAULTS.openrouter?.large || "deepseek/deepseek-v4-pro",
+  small: process.env.OPENROUTER_MODEL_SMALL || TIER_DEFAULTS.openrouter?.small || "deepseek/deepseek-v4-flash-0731",
+  medium: process.env.OPENROUTER_MODEL_MEDIUM || TIER_DEFAULTS.openrouter?.medium || "deepseek/deepseek-v4-pro",
+  large: process.env.OPENROUTER_MODEL_LARGE || TIER_DEFAULTS.openrouter?.large || "anthropic/claude-sonnet-5",
 };
+const COUNSELOR_PINNED_TIERS = new Set([
+  ["small", process.env.OPENROUTER_MODEL_SMALL],
+  ["medium", process.env.OPENROUTER_MODEL_MEDIUM],
+  ["large", process.env.OPENROUTER_MODEL_LARGE],
+].filter(([, value]) => String(value || "").trim()).map(([tier]) => tier));
 
 // Per-tier preference lists used ONLY to pick a replacement when a current
 // default is retired. The refresh picks the first id that is actually live.
 // Free/low-cost first so new users aren't surprised by spend.
 const TIER_FALLBACKS = {
-  small: ["google/gemma-4-26b-a4b-it", "meta-llama/llama-3.3-70b-instruct:free", "openai/gpt-4o-mini"],
-  medium: ["google/gemma-4-31b-it", "meta-llama/llama-3.3-70b-instruct", "qwen/qwen-2.5-72b-instruct", "deepseek/deepseek-chat"],
-  large: ["deepseek/deepseek-v4-pro", "deepseek/deepseek-v4-flash", "z-ai/glm-5.1", "deepseek/deepseek-chat"],
+  small: ["deepseek/deepseek-v4-flash-0731", "deepseek/deepseek-v4-flash", "google/gemini-3.5-flash-lite", "openai/gpt-5.6-luna"],
+  medium: ["deepseek/deepseek-v4-pro", "google/gemini-3.6-flash", "openai/gpt-5.6-terra"],
+  large: ["anthropic/claude-sonnet-5", "openai/gpt-5.6-sol", "openai/gpt-5.6-terra"],
 };
 
 export const OPENROUTER_STATUS = {
@@ -170,7 +175,9 @@ export async function refreshOpenRouterTargets({ fetchImpl = fetch, reason = "sc
         to: replacement,
         reason: current ? `'${current}' is no longer offered by OpenRouter` : "no default set",
       });
-      OPENROUTER_TARGETS[tier] = replacement; // update the *recommendation*
+      // A counselor-persisted selection is never silently replaced. The admin
+      // page exposes the proposal and live availability so a human can choose.
+      if (!COUNSELOR_PINNED_TIERS.has(tier)) OPENROUTER_TARGETS[tier] = replacement;
     }
   }
 
