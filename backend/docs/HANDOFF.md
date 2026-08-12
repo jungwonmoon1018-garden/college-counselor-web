@@ -1,7 +1,8 @@
 # Backend Handoff
 
-Use Node.js 22. The backend is a private service launched by Electron, not a
-public multi-tenant web deployment.
+Use Node.js 22. The backend is launched by `web-launcher.mjs` as part of one
+self-hosted HTTPS service. Keep the service single-instance while it uses SQLite
+on a persistent disk.
 
 ## Before changing behavior
 

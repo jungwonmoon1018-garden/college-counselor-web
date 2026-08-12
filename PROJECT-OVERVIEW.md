@@ -1,29 +1,30 @@
 # College Counselor Architecture
 
-College Counselor is a local Windows/macOS desktop application for
-evidence-grounded college application guidance.
+College Counselor is a self-hosted website for evidence-grounded college
+application guidance.
 
 ## Runtime
 
 ```text
-Electron renderer
-  -> private static/proxy server on random 127.0.0.1 port
-  -> Express backend on a second random 127.0.0.1 port
+Browser
+  -> HTTPS Node.js web service
+  -> React static assets + Express API + simulation sidecar
   -> encrypted PII vault + operational/evidence SQLite databases
   -> fixed OpenRouter HTTPS endpoint for consented AI coaching
   -> api.data.gov and allowlisted official education sources
 ```
 
-Electron starts and stops the backend. Production secrets are encrypted with
-DPAPI or Keychain. The renderer cannot access Node, the filesystem, or secret
-values.
+The web launcher starts and stops the API and simulation sidecar. A persistent
+directory stores SQLite databases and encrypted configuration. Counselor-entered
+secret values are wrapped with a platform-managed key and are never returned to
+the browser.
 
 ## Identities
 
 Student accounts use email, password, recovery code, and revocable hashed
 sessions. Every student-facing resource enforces ownership through the
-authenticated student ID. One loopback-only administrator can manage only the
-encryption, OpenRouter, and IPEDS keys.
+authenticated student ID. One counselor administrator can manage only the vault
+encryption, OpenRouter, and IPEDS/College Scorecard keys.
 
 ## Advice pipeline
 
@@ -53,5 +54,5 @@ closed.
 Student export covers all content and provenance. Account deletion removes
 credentials, sessions, encrypted records, operational rows, vectors,
 attachments, caches, and legacy notebook artifacts. Logseq, BYOK, Tavily,
-parent email alerts, arbitrary provider URLs, and remote counselor dashboards
-are not part of this architecture.
+parent email alerts, arbitrary provider URLs, and student-accessible counselor
+configuration are not part of this architecture.

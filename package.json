@@ -1,0 +1,15 @@
+{
+  "name": "college-counselor-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Self-hosted College Counselor website",
+  "engines": {
+    "node": ">=22.13.0 <23.0.0"
+  },
+  "scripts": {
+    "build:web": "npm ci --prefix frontend && npm run build --prefix frontend && npm ci --omit=dev --prefix backend",
+    "start": "npm run start:web --prefix backend",
+    "test": "npm test --prefix frontend && npm test --prefix backend",
+    "lint": "npm run lint --prefix backend"
+  }
+}

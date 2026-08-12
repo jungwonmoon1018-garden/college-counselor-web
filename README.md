@@ -1,43 +1,40 @@
-# College Counselor
+# College Counselor Web
 
-College Counselor is an evidence-grounded college application guidance app with
-desktop and self-hosted website deployments. It combines deterministic FAFSA and deadline rules,
+College Counselor is an evidence-grounded, self-hosted college application
+guidance website. It combines deterministic FAFSA and deadline rules,
 student-specific planning tools, source-aware AI coaching, and explicit
 uncertainty instead of admissions guarantees.
 
-The desktop deployment is a single household on Windows or macOS. The website
-deployment runs the same frontend and backend in one HTTPS service with a
-persistent encrypted data volume. OpenRouter receives redacted text only after
-the student grants the external-processing consents.
+The React frontend, Express API, and simulation sidecar run as one native Node.js
+service with a persistent encrypted data directory. OpenRouter receives redacted
+text only after the student grants the external-processing consents.
 
 ## Packages
 
 | Path | Purpose |
 | --- | --- |
-| `desktop/` | Electron host, operating-system secret storage, backend lifecycle, NSIS/DMG packaging |
-| `frontend/` | React student application and separate administrator screen |
-| `backend/` | Local Express API, encrypted PII vault, evidence/rules engines, IPEDS integration |
-| `Dockerfile` | Website build that serves the React frontend and Node backend together |
+| `frontend/` | React student application and separate counselor administrator screen |
+| `backend/` | Express API, web launcher, encrypted PII vault, evidence/rules engines, IPEDS integration |
+| `render.yaml` | Native Node.js service and persistent-disk Blueprint |
 
 The application deliberately has no student BYOK flow, arbitrary LLM endpoint,
-general web-search provider, Logseq integration, remote counselor dashboard, or
-parent-notification email endpoint.
+general runtime web-search provider, Logseq integration, student-accessible
+counselor configuration, or parent-notification email endpoint.
 
 ## Trust model
 
-- Desktop binds to a random `127.0.0.1` port. Website deployment binds to the
-  platform port and requires HTTPS, a persistent data volume, and same-origin access.
+- The service binds to the platform port and requires HTTPS, a persistent data
+  directory, and same-origin access.
 - Student accounts require email and password; passwords and recovery codes are
   stored as salted hashes.
-- One localhost-only administrator can configure only the encryption,
-  OpenRouter, and IPEDS/College Scorecard keys.
-- Secret values are encrypted with Windows DPAPI or macOS Keychain through
-  Electron `safeStorage` on desktop. On the website they are encrypted with an
-  independent platform-managed wrapping key; they are never returned to a browser.
+- One counselor administrator configures only the vault encryption, OpenRouter,
+  and IPEDS/College Scorecard keys.
+- Counselor-entered secrets are encrypted with an independent platform-managed
+  wrapping key and are never returned to a browser.
 - Student content is encrypted at rest. Export and deletion cover all
   student-owned records, sessions, attachments, vectors, and cached files.
-- Human review is not available in this release. The UI must never claim that
-  an answer has been reviewed by a counselor.
+- Human review is not available in this release. The UI must never claim that an
+  answer has been reviewed by a counselor.
 
 ## Cost limits
 
@@ -52,34 +49,23 @@ Council is explicit-only and shows its estimated maximum cost before starting.
 
 ## Development
 
-Node.js 22.12 or newer is required.
+Node.js 22.13 through 22.x is required. Deployments are pinned to Node 22.22.
 
 ```powershell
-cd backend
-npm install
+npm ci --prefix backend
+npm ci --prefix frontend
 npm test
+npm run build:web
+```
 
-cd ..\frontend
-npm install
-npm run build
+To run the production website locally over HTTP:
 
-cd ..\desktop
-npm install
+```powershell
+$env:WEB_CONFIG_KEY = '<at least 32 random characters>'
+$env:WEB_ADMIN_BOOTSTRAP_TOKEN = '<at least 24 random characters>'
+$env:WEB_COOKIE_SECURE = '0'
 npm start
 ```
 
-Development may provide the three server secrets through environment variables.
-Packaged production builds use Electron `safeStorage` instead.
-
-## Build installers
-
-```powershell
-cd desktop
-npm run dist:win
-# On macOS:
-npm run dist:mac
-```
-
-See [backend/SETUP.md](backend/SETUP.md) for administrator setup and
-[backend/DEPLOY.md](backend/DEPLOY.md) for desktop packaging. See
-[WEB_DEPLOYMENT.md](WEB_DEPLOYMENT.md) for the website setup and deployment flow.
+Open `http://localhost:3001/admin.html` for counselor setup. See
+[WEB_DEPLOYMENT.md](WEB_DEPLOYMENT.md) for the complete setup and deployment flow.

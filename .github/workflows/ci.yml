@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: "22"
+          node-version-file: .node-version
           cache: npm
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
@@ -44,7 +44,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: "22"
+          node-version-file: .node-version
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
@@ -52,40 +52,17 @@ jobs:
       - run: npm run build
       - run: npm audit --audit-level=high
 
-  desktop:
-    name: Desktop (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest, macos-latest]
+  web:
+    name: Native Node web build
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
-          node-version: "22"
+          node-version-file: .node-version
           cache: npm
           cache-dependency-path: |
             backend/package-lock.json
             frontend/package-lock.json
-            desktop/package-lock.json
-      - run: npm ci --omit=dev
-        working-directory: backend
-      - run: npm ci
-        working-directory: frontend
-      - run: npm ci
-        working-directory: desktop
-      - run: npm run build
-        working-directory: frontend
-      - run: npm run rebuild:backend
-        working-directory: desktop
-      - name: Package unpacked Windows app
-        if: runner.os == 'Windows'
-        run: npx electron-builder --dir --win
-        working-directory: desktop
-      - name: Package unpacked macOS app
-        if: runner.os == 'macOS'
-        run: npx electron-builder --dir --mac
-        working-directory: desktop
-      - run: npm audit --audit-level=high
-        working-directory: desktop
+      - run: npm run build:web
+      - run: node --check backend/web-launcher.mjs

@@ -1,10 +1,14 @@
 services:
   - type: web
     name: college-counselor-web
-    runtime: docker
+    runtime: node
     plan: starter
+    buildCommand: npm run build:web
+    startCommand: npm start
     healthCheckPath: /api/health
     envVars:
+      - key: NODE_VERSION
+        value: 22.22.0
       - key: WEB_CONFIG_KEY
         generateValue: true
       - key: WEB_ADMIN_BOOTSTRAP_TOKEN
@@ -12,8 +16,8 @@ services:
       - key: WEB_COOKIE_SECURE
         value: "1"
       - key: DATA_DIR
-        value: /var/data/college-counselor
+        value: /opt/render/project/src/backend/data
     disk:
       name: college-counselor-data
-      mountPath: /var/data/college-counselor
+      mountPath: /opt/render/project/src/backend/data
       sizeGB: 1

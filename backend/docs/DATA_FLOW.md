@@ -1,17 +1,17 @@
 # Data Flow
 
-## Local runtime
+## Hosted runtime
 
 ```text
-React renderer
-  -> Electron private proxy (127.0.0.1, random port)
-  -> Express API (127.0.0.1, random port)
+Browser over HTTPS
+  -> Node.js web launcher
+  -> React static assets + Express API + private simulation sidecar
   -> encrypted PII vault / operational evidence stores
 ```
 
-The renderer has no Node or filesystem access. Electron main owns operating
-system secret storage and backend lifecycle. The backend is not reachable from
-the LAN.
+The browser has no Node or filesystem access. The launcher owns backend and
+sidecar lifecycle. The hosting platform provides TLS, an application port, and
+a persistent directory for encrypted configuration and student data.
 
 ## Student authentication
 
@@ -25,11 +25,11 @@ IDs are rejected when they do not match that identity.
 
 ## Administrator secrets
 
-The administrator authenticates locally with an HttpOnly session and CSRF
-token. Bootstrap/recovery and secret changes use privileged Electron IPC.
-Electron verifies the backend admin session, validates provider keys against a
-fixed endpoint, encrypts them with DPAPI or Keychain, and restarts the backend.
-No response contains a secret value.
+The administrator authenticates with an HttpOnly session and CSRF token.
+Bootstrap/recovery and secret changes use authenticated, CSRF-protected,
+same-origin routes. The backend validates provider keys against fixed endpoints,
+encrypts them with the platform wrapping key, and reloads the service. No
+response contains a secret value.
 
 ## Advice request
 
@@ -54,8 +54,8 @@ source action instead of a model guess.
 | api.data.gov | college identifier/query | configured IPEDS key |
 | allowlisted official education source | public source refresh | deterministic scheduled ingestion |
 
-There is no general web search, arbitrary URL, student BYOK, parent email
-notification, Logseq API, or remote counselor dashboard flow.
+There is no general runtime web search, arbitrary URL, student BYOK, parent email
+notification, Logseq API, or student-accessible counselor configuration flow.
 
 ## Export and deletion
 

@@ -7,9 +7,8 @@ export default defineConfig({
   build: {
     rollupOptions: {
       // The student app and counselor-only administrator surface are separate
-      // entry points. Desktop uses privileged Electron IPC; website deployment
-      // uses authenticated same-origin API calls. Student pages never handle
-      // installation keys.
+      // entry points. The administrator uses authenticated same-origin API
+      // calls; student pages never handle installation keys.
       input: {
         main: resolve(__dirname, "index.html"),
         admin: resolve(__dirname, "admin.html"),

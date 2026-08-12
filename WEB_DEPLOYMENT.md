@@ -1,8 +1,7 @@
 # Website deployment
 
-The website build serves the existing React student app, counselor administrator
-page, Express API, and simulation service from one container. It keeps the
-desktop flow intact.
+The website serves the React student app, counselor administrator page, Express
+API, and simulation service directly from one native Node.js process tree.
 
 ## Required platform configuration
 
@@ -12,13 +11,14 @@ Configure these values in the hosting platform, not in the repository:
   counselor configuration file and must not be rotated without first migrating it.
 - `WEB_ADMIN_BOOTSTRAP_TOKEN`: at least 24 random characters. The counselor uses
   it once when creating the first administrator account.
-- `DATA_DIR`: a persistent mounted directory, such as `/data`.
+- `DATA_DIR`: an absolute persistent mounted directory.
 - `PUBLIC_APP_URL`: the final HTTPS origin when the platform uses a custom domain.
   Same-origin deployments also work without it.
 
-`render.yaml` supplies a one-service Render Blueprint with generated platform
-secrets and a persistent disk. The app uses SQLite and local encrypted files, so
-run one service instance rather than horizontally scaling it.
+`render.yaml` supplies a native Node.js Render Blueprint with generated platform
+secrets and a persistent disk mounted at `/opt/render/project/src/backend/data`.
+The app uses SQLite and local encrypted files, so run one service instance rather
+than horizontally scaling it.
 
 ## Counselor first run
 
@@ -47,20 +47,31 @@ Source pages: [DeepSeek](https://openrouter.ai/deepseek),
 [Anthropic](https://openrouter.ai/anthropic), and
 [Google](https://openrouter.ai/google).
 
-## Local container check
+## Direct Node.js deployment
 
-Build the image, mount a persistent Docker volume at `/data`, and provide the two
-platform values as environment variables. For plain local HTTP only, set
-`WEB_COOKIE_SECURE=0`; hosted deployments should keep the default secure cookie.
+Render builds the frontend, installs the backend production dependencies, and
+starts the web launcher with the root package scripts. The equivalent local
+PowerShell flow is:
+
+```powershell
+npm run build:web
+$env:WEB_CONFIG_KEY = '<at least 32 random characters>'
+$env:WEB_ADMIN_BOOTSTRAP_TOKEN = '<at least 24 random characters>'
+$env:WEB_COOKIE_SECURE = '0'
+npm start
+```
+
+Use `WEB_COOKIE_SECURE=0` only for plain local HTTP. Hosted deployments should
+keep the secure-cookie default.
 
 Back up the persistent data directory together with the platform-managed
 `WEB_CONFIG_KEY`. Losing either the vault encryption key or wrapping key makes
 the corresponding encrypted data unrecoverable.
 
-## 2025–26 CDS research
+## 2025-26 CDS research
 
-The searchable source index includes 2025–26 official university publications
+The searchable source index includes 2025-26 official university publications
 where they could be verified. The dated research record is
 `backend/tools/cds-cache/2025-26-web-research.json`; institutions whose official
-pages still exposed only 2024–25 on the research date are recorded explicitly
+pages still exposed only 2024-25 on the research date are recorded explicitly
 instead of receiving guessed document URLs.

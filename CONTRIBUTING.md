@@ -18,8 +18,8 @@ guarantees, or unsafe handling of student data.
 ## Getting started
 
 ```bash
-git clone https://github.com/jungwonmoon1018-garden/college-counselor.git
-cd college-counselor
+git clone https://github.com/jungwonmoon1018-garden/college-counselor-web.git
+cd college-counselor-web
 
 # Backend (http://localhost:3001)
 cd backend && npm install && npm run dev
@@ -28,9 +28,9 @@ cd backend && npm install && npm run dev
 cd frontend && npm install && npm run dev
 ```
 
-The supported product is the packaged desktop application. Browser-only
-launch and beta-signup pages are no longer shipped. Never advertise a retired
-surface or fabricate adoption or impact metrics.
+The supported product is the self-hosted website. Retired desktop packaging and
+beta-signup pages are not shipped. Never advertise a retired surface or
+fabricate adoption or impact metrics.
 
 ## Ground rules
 

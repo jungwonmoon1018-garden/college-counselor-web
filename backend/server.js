@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════════════
-// COLLEGE COUNSELOR — LOCAL DESKTOP BACKEND
+// COLLEGE COUNSELOR — WEB BACKEND
 // ═══════════════════════════════════════════════════════════════════════
-// Electron starts this Express composition root on a private loopback port.
+// The web launcher starts this Express composition root on the hosting port.
 // Student routes require an authenticated student session and ownership
 // checks. The localhost administrator is limited to installation secrets.
 //
@@ -2031,7 +2031,7 @@ app.post("/api/admin/secrets/validate", studentLimiter, requireCounselorAuth, as
 
 function requireWebConfiguration(req, res, next) {
   if (!WEB_DEPLOYMENT) {
-    return res.status(405).json({ error: "Secrets must be changed through privileged Electron safeStorage IPC.", code: "ipc_required" });
+    return res.status(405).json({ error: "Secret changes require the website launcher.", code: "web_launcher_required" });
   }
   if (WEB_CONFIG_KEY.length < 32) {
     return res.status(503).json({ error: "Encrypted website configuration is unavailable.", code: "web_config_unavailable" });

@@ -4,7 +4,7 @@ const COPY = {
   en: {
     brand: "College Counselor Administrator",
     student: "Student app",
-    title: "Local administrator",
+    title: "Counselor administrator",
     lede: "Configure the three secrets used by this installation. The administrator cannot inspect student profiles, chats, or application records.",
     loading: "Loading administrator status...",
     createTitle: "Create administrator account",
@@ -23,7 +23,7 @@ const COPY = {
     logout: "Sign out",
     secretsTitle: "Installation secrets",
     encryption: "Vault encryption key",
-    encryptionDesc: "Generated once and protected by the operating system credential store. It cannot be viewed or replaced.",
+    encryptionDesc: "Enter a 64-character hexadecimal key once. It encrypts student vault data and cannot be viewed or replaced after setup.",
     openrouter: "OpenRouter API key",
     openrouterDesc: "Used for all model requests. Students never enter or receive this key.",
     scorecard: "IPEDS / College Scorecard API key",
@@ -37,8 +37,8 @@ const COPY = {
     save: "Save and restart",
     value: "New secret value",
     restarting: "Saving securely and restarting the local service...",
-    desktopOnly: "Secret changes are available only in the installed desktop app.",
-    safeNote: "Secret values are submitted directly to the Electron main process, encrypted with DPAPI or Keychain, and never stored in browser storage.",
+    setupRequired: "This administrator endpoint requires the website launcher.",
+    safeNote: "Secret values are sent only to this website's same-origin backend and stored in an AES-256-GCM encrypted server file. They are never stored in browser storage or returned by the API.",
     genericError: "The request could not be completed.",
     mismatch: "Passwords do not match.",
     shortPassword: "Password must be at least 12 characters.",
@@ -64,7 +64,7 @@ const COPY = {
   ko: {
     brand: "College Counselor 관리자",
     student: "학생 앱",
-    title: "로컬 관리자",
+    title: "상담사 관리자",
     lede: "이 설치에서 사용하는 세 가지 비밀 키를 설정합니다. 관리자는 학생 프로필, 대화 또는 지원 기록을 볼 수 없습니다.",
     loading: "관리자 상태를 불러오는 중...",
     createTitle: "관리자 계정 만들기",
@@ -83,7 +83,7 @@ const COPY = {
     logout: "로그아웃",
     secretsTitle: "설치 비밀 키",
     encryption: "보관함 암호화 키",
-    encryptionDesc: "한 번 생성되어 운영 체제 자격 증명 저장소로 보호됩니다. 확인하거나 교체할 수 없습니다.",
+    encryptionDesc: "64자의 16진수 키를 한 번 입력하세요. 학생 보관함 데이터를 암호화하며 설정 후에는 확인하거나 교체할 수 없습니다.",
     openrouter: "OpenRouter API 키",
     openrouterDesc: "모든 모델 요청에 사용됩니다. 학생은 이 키를 입력하거나 볼 수 없습니다.",
     scorecard: "IPEDS / College Scorecard API 키",
@@ -97,8 +97,8 @@ const COPY = {
     save: "저장 후 재시작",
     value: "새 비밀 키 값",
     restarting: "안전하게 저장하고 로컬 서비스를 재시작하는 중...",
-    desktopOnly: "비밀 키 변경은 설치된 데스크톱 앱에서만 가능합니다.",
-    safeNote: "비밀 키 값은 Electron 메인 프로세스로 직접 전송되고 DPAPI 또는 Keychain으로 암호화되며 브라우저 저장소에 저장되지 않습니다.",
+    setupRequired: "이 관리자 화면에는 웹사이트 런처가 필요합니다.",
+    safeNote: "비밀 키 값은 이 웹사이트의 동일 출처 백엔드로만 전송되고 AES-256-GCM 암호화 서버 파일에 저장됩니다. 브라우저 저장소에 저장되거나 API 응답으로 반환되지 않습니다.",
     genericError: "요청을 완료하지 못했습니다.",
     mismatch: "비밀번호가 일치하지 않습니다.",
     shortPassword: "비밀번호는 12자 이상이어야 합니다.",
@@ -140,7 +140,6 @@ export default function AdminApp() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
   const c = useMemo(() => ({ ...COPY.en, ...COPY[locale] }), [locale]);
-  const desktop = window.collegeCounselorDesktop;
 
   useEffect(() => {
     document.documentElement.lang = locale === "ko" ? "ko" : "en";
@@ -161,9 +160,7 @@ export default function AdminApp() {
   }, [secrets]);
 
   async function refreshSecrets() {
-    const status = desktop?.adminSecrets
-      ? await desktop.adminSecrets.status()
-      : await jsonRequest("/api/admin/secrets/status");
+    const status = await jsonRequest("/api/admin/secrets/status");
     setSecrets(status);
     return status;
   }
@@ -200,14 +197,12 @@ export default function AdminApp() {
     try {
       const body = bootstrapped
         ? await jsonRequest("/api/admin/login", { method: "POST", body: JSON.stringify({ password }) })
-        : (desktop?.adminAuth
-          ? await desktop.adminAuth.bootstrap(password)
-          : await jsonRequest("/api/admin/bootstrap", {
-            method: "POST",
-            headers: { "X-Web-Setup-Token": setupToken },
-            body: JSON.stringify({ password }),
-          }));
-      if (!body) throw new Error(c.desktopOnly);
+        : await jsonRequest("/api/admin/bootstrap", {
+          method: "POST",
+          headers: { "X-Web-Setup-Token": setupToken },
+          body: JSON.stringify({ password }),
+        });
+      if (!body) throw new Error(c.setupRequired);
       setAuthenticated(true);
       setCsrfToken(body.csrfToken || "");
       setBootstrapped(true);
@@ -230,13 +225,11 @@ export default function AdminApp() {
     if (newPassword.length < 12) { setMessage({ type: "error", text: c.shortPassword }); return; }
     setBusy(true);
     try {
-      const body = desktop?.adminAuth
-        ? await desktop.adminAuth.recover(recoveryCode.trim(), newPassword)
-        : await jsonRequest("/api/admin/recover", {
-          method: "POST",
-          body: JSON.stringify({ recoveryCode: recoveryCode.trim(), newPassword }),
-        });
-      if (!body) throw new Error(c.desktopOnly);
+      const body = await jsonRequest("/api/admin/recover", {
+        method: "POST",
+        body: JSON.stringify({ recoveryCode: recoveryCode.trim(), newPassword }),
+      });
+      if (!body) throw new Error(c.setupRequired);
       setAuthenticated(true);
       setCsrfToken(body.csrfToken || "");
       setOneTimeRecovery(body.recoveryCode || "");
@@ -258,15 +251,11 @@ export default function AdminApp() {
     setBusy(true);
     setMessage({ type: "success", text: c.restarting });
     try {
-      if (desktop?.adminSecrets) {
-        await desktop.adminSecrets.set(editing, secretValue, csrfToken);
-      } else {
-        await jsonRequest(`/api/admin/secrets/${editing}`, {
-          method: "PUT",
-          headers: { "X-CSRF-Token": csrfToken },
-          body: JSON.stringify({ value: secretValue }),
-        });
-      }
+      await jsonRequest(`/api/admin/secrets/${editing}`, {
+        method: "PUT",
+        headers: { "X-CSRF-Token": csrfToken },
+        body: JSON.stringify({ value: secretValue }),
+      });
       setSecretValue("");
       setEditing(null);
       if (webDeployment) await refreshAfterRestart();
@@ -284,16 +273,11 @@ export default function AdminApp() {
     setBusy(true);
     setMessage({ type: "success", text: c.restarting });
     try {
-      if (desktop?.adminSecrets) {
-        await desktop.adminSecrets.clear(name, csrfToken);
-        await refreshSecrets();
-      } else {
-        await jsonRequest(`/api/admin/secrets/${name}`, {
-          method: "DELETE",
-          headers: { "X-CSRF-Token": csrfToken },
-        });
-        await refreshAfterRestart();
-      }
+      await jsonRequest(`/api/admin/secrets/${name}`, {
+        method: "DELETE",
+        headers: { "X-CSRF-Token": csrfToken },
+      });
+      await refreshAfterRestart();
       setMessage({ type: "success", text: c.cleared });
     } catch (error) {
       setMessage({ type: "error", text: error.message || c.genericError });
@@ -409,7 +393,7 @@ export default function AdminApp() {
             <h2 id="admin-secrets-title">{c.secretsTitle}</h2>
             {oneTimeRecovery && <div className="admin-recovery" role="status">{c.recoverySave}<code>{oneTimeRecovery}</code></div>}
             {webDeployment && secrets && !secrets.installationReady && <p className="admin-alert setup" role="status">{c.setupIncomplete}</p>}
-            {!webDeployment && !desktop?.adminSecrets && <p className="admin-alert error" role="alert">{c.desktopOnly}</p>}
+            {!webDeployment && <p className="admin-alert error" role="alert">{c.setupRequired}</p>}
             <div className="admin-secret-list">
               {secretRows.map((row) => {
                 const configured = Boolean(normalizedSecrets[row.name]?.configured);
@@ -422,10 +406,10 @@ export default function AdminApp() {
                     </div>
                     {row.mutable && (
                       <div className="admin-secret-actions">
-                        <button className="admin-secondary" type="button" disabled={busy || (!desktop?.adminSecrets && !webDeployment)} onClick={() => { setEditing(row.name); setSecretValue(""); }}>
+                        <button className="admin-secondary" type="button" disabled={busy || !webDeployment} onClick={() => { setEditing(row.name); setSecretValue(""); }}>
                           {configured ? c.replace : c.add}
                         </button>
-                        {configured && row.name !== "encryption" && <button className="admin-danger" type="button" disabled={busy || (!desktop?.adminSecrets && !webDeployment)} onClick={() => clearSecret(row.name)}>{c.clear}</button>}
+                        {configured && row.name !== "encryption" && <button className="admin-danger" type="button" disabled={busy || !webDeployment} onClick={() => clearSecret(row.name)}>{c.clear}</button>}
                       </div>
                     )}
                     {editing === row.name && (
