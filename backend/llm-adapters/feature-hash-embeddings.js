@@ -1,10 +1,9 @@
 import crypto from "node:crypto";
 
-// Deterministic local feature hashing for retrieval. This is deliberately not
-// an LLM or downloaded embedding model: it has no network access, native code,
-// model cache, or executable schema parser.
+// Deterministic feature hashing for retrieval. This is an ordinary hashing
+// algorithm, not an LLM or downloaded embedding model.
 const DEFAULT_DIMENSIONS = 384;
-const MODEL_ID = "local-feature-hash-v1";
+const MODEL_ID = "feature-hash-v1";
 
 function features(text) {
   const normalized = String(text)

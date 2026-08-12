@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildOrchestration, DEFAULT_MODELS } from '../orchestration-engine.js';
-import { MODEL_TIERS } from '../policy-router.js';
+import { buildOrchestration } from '../orchestration-engine.js';
 import { TIER_DEFAULTS } from '../llm-adapters/index.js';
 
 test('orchestration ignores runtime model overrides and selects OpenRouter', () => {
@@ -18,5 +17,19 @@ test('orchestration ignores runtime model overrides and selects OpenRouter', () 
   assert.equal(result.executionPlan.requiresModel, true);
   assert.equal(result.executionPlan.provider, 'openrouter');
   assert.equal(result.executionPlan.model, TIER_DEFAULTS.openrouter.medium);
-  assert.equal(DEFAULT_MODELS[MODEL_TIERS.EMBEDDED_SMALL], undefined);
+});
+
+test('orchestration applies counselor-configured workload tiers', () => {
+  const result = buildOrchestration({
+    query: 'How can I improve my extracurricular profile?',
+    studentContext: {},
+    catalog: {},
+    modelConfig: {
+      small: 'google/gemma-4-26b-a4b-it',
+      medium: 'openai/gpt-5.6-terra',
+      large: 'openai/gpt-5.6-luna',
+    },
+  });
+  assert.equal(result.executionPlan.tier, 'sonnet');
+  assert.equal(result.executionPlan.model, 'openai/gpt-5.6-terra');
 });

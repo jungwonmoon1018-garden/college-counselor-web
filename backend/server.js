@@ -10,9 +10,9 @@
 // explicit verified/student-provided/coaching lanes. Student content is
 // encrypted at rest across the PII vault and chat store.
 //
-// Retired public dashboards, parent notification, generic provider/BYOK,
-// setup-token, and notebook surfaces remain only as explicit compatibility
-// responses where old clients may still call them.
+// Retired public dashboards, parent notification, generic provider/BYOK, and
+// setup-token surfaces remain only as explicit compatibility responses where
+// old clients may still call them.
 // ═══════════════════════════════════════════════════════════════════════
 
 import dotenv from "dotenv";
@@ -176,7 +176,6 @@ import {
 import { loadOrchestrationCatalog, buildOrchestration, isReasonableModelId, redactPayloadForModel, buildSystemPrompt } from "./orchestration-engine.js";
 import { t, resolveLocale, localizeFriendlyLabels } from "./i18n.js";
 import { initAuthStore, isLoopbackAddress, normalizeEmail } from "./security-auth.js";
-import { exportLegacyNotebook, deleteLegacyNotebook } from "./legacy-notebook-export.js";
 import { OPENROUTER_MODEL_OPTIONS } from "./llm-adapters/tier-defaults.js";
 import {
   mergeWebModels,
@@ -1555,14 +1554,6 @@ app.get("/api/context/bundle", studentLimiter, requireStudentAuth, async (req, r
 // The frontend tier is mapped by server policy to an allowlisted model; caller
 // model overrides and tool definitions are not allowed or forwarded.
 
-// Legacy graph/notebook augmentation has been removed. Preserve an empty
-// compatibility field until the internal orchestration shape is simplified.
-async function buildGraphVaultInjection(studentId, query) {
-  void studentId;
-  void query;
-  return "";
-}
-
 function messageText(message) {
   if (typeof message?.content === "string") return message.content;
   if (!Array.isArray(message?.content)) return "";
@@ -1807,19 +1798,13 @@ app.post("/api/agents/orchestrate", apiLimiter, requireStudentAuth, async (req, 
       }
     }
 
-    // Step 6: Build orchestration. Inject the compact graph/vault context so
-    // synthesis cites the student's structured memory (gated + graceful "").
-    const graphVaultContext = await buildGraphVaultInjection(
-      req.studentId,
-      inputScreen.redacted ? inputScreen.redactedText : query,
-    );
+    // Step 6: Build orchestration from the screened query and retrieved evidence.
     const orchestration = buildOrchestration({
       query: inputScreen.redacted ? inputScreen.redactedText : query,
       studentContext: context.studentContext,
       factStmts,
       evidenceStmts,
       catalog: orchestrationCatalog,
-      graphVaultContext,
       modelConfig: { ...OPENROUTER_TARGETS },
     });
 
@@ -2663,31 +2648,6 @@ app.get("/api/students/export", studentLimiter, requireStudentAuth, (req, res) =
   } catch (err) {
     console.error("[EXPORT] Student data export error:", err.message);
     return res.status(500).json({ error: "Data export failed" });
-  }
-});
-
-app.get("/api/students/legacy-notebook/export", studentLimiter, requireStudentAuth, async (req, res) => {
-  try {
-    const date = new Date().toISOString().slice(0, 10);
-    res.setHeader("Content-Type", "application/zip");
-    res.setHeader("Content-Disposition", `attachment; filename="legacy-notebook-${date}.zip"`);
-    await exportLegacyNotebook(req.studentId, DATA_DIR, res);
-  } catch (error) {
-    if (res.headersSent) return res.destroy(error);
-    const status = error.code === "LEGACY_NOTEBOOK_NOT_FOUND" ? 404 : 500;
-    res.status(status).json({ error: error.message, code: error.code || "legacy_export_failed" });
-  }
-});
-
-app.delete("/api/students/legacy-notebook", studentLimiter, requireStudentAuth, async (req, res) => {
-  if (req.body?.confirm !== true) {
-    return res.status(400).json({ error: "Explicit confirmation is required before deleting the legacy notebook." });
-  }
-  try {
-    await deleteLegacyNotebook(req.studentId, DATA_DIR);
-    res.json({ deleted: true });
-  } catch (error) {
-    res.status(500).json({ error: "Legacy notebook deletion failed.", code: error.code });
   }
 });
 
@@ -6326,11 +6286,11 @@ app.get("/api/health", (_req, res) => {
 // COUNSELOR DASHBOARD (HTML UI)
 // ═══════════════════════════════════════════════════════════
 
-// PILLAR ROUTES (embedded status, knowledge-graph, notebook, council)
+// PILLAR ROUTES (knowledge graph and Strategy Council)
 // ═══════════════════════════════════════════════════════════
 // Mounted before the static catch-all so /api/* paths resolve here. All
-// accessors are optional from the module's perspective — when an embedded
-// model / graphify / Logseq isn't installed the routes degrade gracefully.
+// The routes are mounted before the static catch-all and use the shared
+// authenticated-student boundary.
 try {
   // Bridge the existing requireStudentAuth (sets req.studentId) to the shape
   // the pillar routes expect (req.user.studentId).
@@ -6349,11 +6309,11 @@ try {
     { index: 4, role: "Moderator", tier: "none", deterministic: true },
   ]);
 
-  function beginCouncilBudget({ studentId, requestId }) {
+  function beginCouncilBudget({ studentId, operationId }) {
     const grade = authStore.getStudentGrade(studentId);
     const session = {
       studentId,
-      requestId,
+      operationId,
       stages: councilBudgetStages.map((stage) => ({ ...stage })),
     };
     try {
@@ -6362,17 +6322,17 @@ try {
         const reservation = reserveBudget(db, {
           studentId,
           grade,
-          requestId: "council:" + studentId + ":" + requestId + ":" + stage.index,
+          requestId: "council:" + studentId + ":" + operationId + ":" + stage.index,
           model,
           maxInputTokens: 8_000,
           maxOutputTokens: 600,
         });
         if (!reservation.allowed || reservation.idempotent) {
           const error = new Error(reservation.idempotent
-            ? "This Council request_id has already been used."
+            ? "The internal Council budget reservation conflicted."
             : (reservation.reason || "The full Council request exceeds the remaining monthly budget."));
-          error.status = reservation.idempotent ? 409 : 402;
-          error.code = reservation.idempotent ? "duplicate_request_id" : (reservation.code || "council_budget_denied");
+          error.status = reservation.idempotent ? 500 : 402;
+          error.code = reservation.idempotent ? "council_budget_conflict" : (reservation.code || "council_budget_denied");
           throw error;
         }
         stage.model = model;

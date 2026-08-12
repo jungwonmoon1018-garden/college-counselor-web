@@ -15,9 +15,7 @@ import {
   councilErrorMessage,
   createCouncilPayload,
   formatCouncilResult,
-  isAmbiguousCouncilFailure,
   reconcileCouncilFailureMessages,
-  resolveCouncilRequest,
 } from "./strategy-council.js";
 
 // ═══════════════════════════════════════════════════════════
@@ -1272,7 +1270,7 @@ function sanitizeInput(text) {
 // Original design (Mar 2026) gated to 15/min + 3/10s when the app
 // proxied through the operator's key and every chat turn
 // cost real money. The backend enforces the grade-based monthly budget and
-// OpenRouter tier mix (Gemma 4 26B A4B / 31B / DeepSeek V4 Pro)
+// OpenRouter tier mix (Gemma 4 / DeepSeek V4 Flash 0731 / GPT-5.6 Luna)
 // keeps a typical turn at fractions of a cent, the per-minute cap
 // just frustrates legitimate use. Per-IP backend rate limits
 // (apiLimiter, studentLimiter) still guard against credential
@@ -1568,7 +1566,7 @@ async function runAgent(agent, userContent, data, setData, signal, history = [])
   // supervisor) need consistent output — set to 0.1. Specialist
   // agents need to feel coherent but shouldn't invent facts — 0.3.
   // This dramatically reduces hallucination on cheap open-weight
-  // models (Gemma 4 26B/31B, GLM, DeepSeek) compared to provider
+  // models (Gemma 4 and DeepSeek) compared to provider
   // default (~0.7-1.0).
   const temperature = (
     agent.id === "gatekeeper" || agent.id === "validator" || agent.id === "supervisor"
@@ -1944,7 +1942,7 @@ async function orchestrate(userMsg,data,setData,setStatus,signal,pendingFileData
     gate=JSON.parse(raw.replace(/```json|```/g,"").trim());
 
     // ── Override unreliable "off_topic" classifications ───────────
-    // Open-weight models (Gemma 4 26B/31B via OpenRouter) over-trigger
+    // Open-weight models such as Gemma 4 via OpenRouter can over-trigger
     // off_topic when the question references technical context. If
     // files are attached or the bare question explicitly names an
     // academic / EC / college concept, force a safe_multi route. The
@@ -2507,10 +2505,6 @@ export default function App() {
   // Null means ordinary chat. Any value is a one-message, explicitly selected
   // Strategy Council mode and is cleared as soon as that request starts.
   const [councilDecisionType, setCouncilDecisionType] = useState(null);
-  // An ambiguous network/5xx result may arrive after paid work completed.
-  // Reuse its opaque ID only when the student explicitly retries the exact
-  // same question and decision type, preventing accidental double spend.
-  const councilRequestRef = useRef(null);
   const councilTurnSequenceRef = useRef(0);
 
   // ─── Chat thread history ───
@@ -2835,15 +2829,7 @@ export default function App() {
   // back in the right language). Persisted to localStorage so reloads stick.
   const [locale, setLocaleState] = useState(detectLocale());
   const conveneStrategyCouncil = useCallback(async (question, decisionType, signal) => {
-    const request = resolveCouncilRequest(
-      councilRequestRef.current,
-      question,
-      decisionType,
-      () => globalThis.crypto?.randomUUID?.(),
-    );
-    if (!request.requestId) throw new Error("This browser cannot create a secure Council request ID.");
-    const payload = createCouncilPayload(request.question, request.decisionType, request.requestId);
-    councilRequestRef.current = request;
+    const payload = createCouncilPayload(question, decisionType);
     setAgentStatus({
       active: "strategy_council",
       phase: locale === "ko"
@@ -2862,16 +2848,12 @@ export default function App() {
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      if (!isAmbiguousCouncilFailure(response.status) && councilRequestRef.current?.requestId === request.requestId) {
-        councilRequestRef.current = null;
-      }
       const error = new Error(councilErrorMessage(response.status, body, locale));
       error.status = response.status;
       error.body = body;
       throw error;
     }
     const formatted = formatCouncilResult(body, locale);
-    if (councilRequestRef.current?.requestId === request.requestId) councilRequestRef.current = null;
     return formatted;
   }, [authedFetch, locale]);
   // Lightweight modal panel selector: "narrative" | "candidates" | "deadlines" | null.
@@ -5473,9 +5455,7 @@ export default function App() {
               type="button"
               onClick={() => setCouncilDecisionType((current) => {
                 if (current) return null;
-                return councilRequestRef.current?.question === input.trim()
-                  ? councilRequestRef.current.decisionType
-                  : "course-selection";
+                return "course-selection";
               })}
               disabled={loading || Boolean(pendingFile) || chatFiles.length > 0}
               title={(pendingFile || chatFiles.length > 0)

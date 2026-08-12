@@ -22,7 +22,7 @@ import {
   embed as embedText,
   isEmbeddingsAvailable,
   EMBEDDING_DIMENSIONS,
-} from "./llm-adapters/embedded-embeddings.js";
+} from "./llm-adapters/feature-hash-embeddings.js";
 import { llmDebug } from "./llm-adapters/llm-log.js";
 
 // ─── Initialize vector store database ───

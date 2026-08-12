@@ -4,7 +4,7 @@
 // Holds a HARD veto. If this seat returns stance="oppose" the moderator
 // downgrades the council output regardless of the other 4 votes.
 // Uses the configured medium tier because mis-classifying compliance carries
-// real legal/safety risk; the embedded 1.5B is not strong enough here.
+// real legal/safety risk, so this seat uses the mid tier.
 //
 // Checks:
 //   - Recommendation cannot be misread as an admissions guarantee.
@@ -51,4 +51,3 @@ export function getSystemPrompt(student) {
 }
 
 export const TIER = "medium";
-export const PREFER_EMBEDDED = false;

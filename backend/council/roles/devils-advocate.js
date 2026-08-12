@@ -26,4 +26,3 @@ export function getSystemPrompt(student) {
 }
 
 export const TIER = "small";
-export const PREFER_EMBEDDED = true;

@@ -55,14 +55,13 @@ source action instead of a model guess.
 | allowlisted official education source | public source refresh | deterministic scheduled ingestion |
 
 There is no general runtime web search, arbitrary URL, student BYOK, parent email
-notification, Logseq API, or student-accessible counselor configuration flow.
+notification, or student-accessible counselor configuration flow.
 
 ## Export and deletion
 
 Export includes profile, consents, chats, advice claims and sources, deadlines,
-Council output, usage, narratives, attachments, and legacy notebook Markdown.
+Council output, usage, narratives, and attachments.
 
 Deletion revokes sessions and removes credentials, encrypted PII, operational
-rows, evidence/vectors owned by the student, attachments, caches, exports, and
-legacy notebook files. Success is returned only after all deletion steps
-complete.
+rows, evidence/vectors owned by the student, attachments, caches, and exports.
+Success is returned only after all deletion steps complete.

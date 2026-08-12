@@ -1,5 +1,6 @@
 // Student knowledge-graph and explicit Strategy Council routes.
 
+import crypto from "node:crypto";
 import {
   rebuildStudentGraph,
   queryStudentGraph,
@@ -81,11 +82,6 @@ export function mountPillarRoutes(app, deps) {
     res.json(await getStudentGraphStatus(req.params.id, { dataDir }));
   });
 
-  // Notebook/Logseq was removed. Keep only an explicit compatibility response.
-  app.use("/api/students/:id/notebook", requireAuth, requireSelf, (_req, res) => {
-    res.status(410).json({ error: "Notebook integration has been removed.", code: "FEATURE_REMOVED" });
-  });
-
   app.post("/api/council/convene", studentLimiter, requireAuth, async (req, res) => {
     const studentId = req.user?.studentId;
     if (!studentId) return res.status(401).json({ error: "Authentication required." });
@@ -108,7 +104,7 @@ export function mountPillarRoutes(app, deps) {
 
     // Crisis support is deterministic and must not be suppressed by malformed
     // Council metadata. It runs after authentication/size checks but before
-    // request-id, explicit-action, consent, budget, or model validation.
+    // explicit-action, consent, budget, or model validation.
     const localeHeader = req.headers["x-collegeapp-locale"] || req.headers["accept-language"] || "";
     const locale = String(localeHeader).toLowerCase().startsWith("ko") ? "ko" : "en-US";
     if (isCouncilCrisisText(question)) {
@@ -123,20 +119,6 @@ export function mountPillarRoutes(app, deps) {
       });
     }
 
-    if (typeof req.body?.request_id !== "string" || !req.body.request_id.trim()) {
-      return res.status(400).json({
-        error: "request_id is required",
-        code: "COUNCIL_REQUEST_ID_REQUIRED",
-      });
-    }
-    const requestId = req.body.request_id.trim();
-    const rawRequestId = req.body.request_id;
-    if (rawRequestId.length > 128) {
-      return res.status(400).json({
-        error: "request_id must be 128 characters or fewer",
-        code: "COUNCIL_REQUEST_ID_TOO_LONG",
-      });
-    }
     if (req.body?.explicit !== true || req.body?.auto === true) {
       return res.status(400).json({
         error: "Strategy Council requires an explicit, cost-disclosed student action.",
@@ -203,7 +185,8 @@ export function mountPillarRoutes(app, deps) {
       releaseCouncilBudget(budgetSession);
     };
     try {
-      budgetSession = await beginCouncilBudget({ studentId, requestId });
+      const operationId = crypto.randomUUID();
+      budgetSession = await beginCouncilBudget({ studentId, operationId });
       const student = typeof getStudentProfile === "function"
         ? await getStudentProfile(studentId)
         : null;
@@ -212,15 +195,14 @@ export function mountPillarRoutes(app, deps) {
         dataDir,
         question: screenedQuestion,
         explicit: true,
-        requestId,
         decisionType,
         student,
         llm,
         councilStmts,
         factStmts,
         evidenceStmts,
-        beforeStage: (stage) => beforeCouncilStage({ ...stage, studentId, requestId, budgetSession }),
-        afterStage: (stage) => afterCouncilStage({ ...stage, studentId, requestId, budgetSession }),
+        beforeStage: (stage) => beforeCouncilStage({ ...stage, studentId, operationId, budgetSession }),
+        afterStage: (stage) => afterCouncilStage({ ...stage, studentId, operationId, budgetSession }),
         triggerSource: "manual",
       });
       const sanitizeText = (value) => {

@@ -8,23 +8,6 @@ export const COUNCIL_DECISION_OPTIONS = Object.freeze([
 
 const VALID_TYPES = new Set(COUNCIL_DECISION_OPTIONS.map((option) => option.value));
 
-export function resolveCouncilRequest(previous, question, decisionType, createRequestId) {
-  const normalizedQuestion = String(question || "").trim();
-  if (
-    previous?.question === normalizedQuestion &&
-    previous?.decisionType === decisionType &&
-    previous?.requestId
-  ) {
-    return previous;
-  }
-  const requestId = typeof createRequestId === "function" ? createRequestId() : "";
-  return { question: normalizedQuestion, decisionType, requestId };
-}
-
-export function isAmbiguousCouncilFailure(status) {
-  return status == null || Number(status) >= 500;
-}
-
 export function reconcileCouncilFailureMessages(messages, clientTurnId, errorText) {
   const prior = Array.isArray(messages) ? messages : [];
   const retained = clientTurnId
@@ -36,16 +19,13 @@ export function reconcileCouncilFailureMessages(messages, clientTurnId, errorTex
   ];
 }
 
-export function createCouncilPayload(question, decisionType, requestId) {
+export function createCouncilPayload(question, decisionType) {
   const text = String(question || "").trim();
-  const id = String(requestId || "").trim();
   if (!text) throw new Error("A self-contained Council question is required.");
   if (text.length > 2000) throw new Error("Council questions are limited to 2,000 characters.");
   if (!VALID_TYPES.has(decisionType)) throw new Error("Choose a valid Council decision type.");
-  if (!id || id.length > 128) throw new Error("A valid Council request ID is required.");
   return {
     question: text,
-    request_id: id,
     explicit: true,
     auto: false,
     decision_type: decisionType,

@@ -73,7 +73,6 @@ describe("sequential Strategy Council", () => {
     };
     const result = await convene({
       explicit: true,
-      requestId: "request-1",
       studentId: "student-1",
       question: "Should I expand my robotics role?",
       student: { grade: 11 },
@@ -107,18 +106,7 @@ describe("sequential Strategy Council", () => {
     const audit = db.prepare("SELECT * FROM council_convenings").get();
     assert.equal(audit.question.includes("Should I"), false);
     assert.equal(audit.recommendation.includes("robotics"), false);
-    assert.equal(audit.request_id, "request-1");
-    await assert.rejects(convene({
-      explicit: true,
-      requestId: "request-1",
-      studentId: "student-1",
-      question: "Should I expand my robotics role?",
-      councilStmts: prepareCouncilStatements(db),
-      contextOverride: context,
-      llm: { apiKey: "admin-key", model: "test/model" },
-      callModel,
-    }), (error) => error.code === "COUNCIL_DUPLICATE_REQUEST");
-    assert.equal(calls.length, 4, "duplicate request must be rejected before another model call");
+    assert.equal(Object.hasOwn(audit, "request_id"), false);
     db.close();
   });
 
@@ -158,7 +146,7 @@ describe("Council citation validation", () => {
     const checked = validateCitations([
       { type: "baseline_fact", id: "fact-1" },
       { type: "baseline_fact", id: "missing" },
-      { type: "logseq_block", id: "old" },
+      { type: "unknown", id: "old" },
     ], "Robotics leadership is sustained.", context.evidenceIndex);
     assert.equal(checked.valid.length, 1);
     assert.equal(checked.invalid.length, 2);

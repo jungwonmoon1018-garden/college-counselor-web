@@ -4,9 +4,7 @@ import {
   councilErrorMessage,
   createCouncilPayload,
   formatCouncilResult,
-  isAmbiguousCouncilFailure,
   reconcileCouncilFailureMessages,
-  resolveCouncilRequest,
 } from "./strategy-council.js";
 
 describe("Strategy Council client contract", () => {
@@ -14,11 +12,9 @@ describe("Strategy Council client contract", () => {
     const payload = createCouncilPayload(
       "Which AP science should I take next year?",
       "course-selection",
-      "request-123",
     );
     expect(payload).toEqual({
       question: "Which AP science should I take next year?",
-      request_id: "request-123",
       explicit: true,
       auto: false,
       decision_type: "course-selection",
@@ -28,13 +24,12 @@ describe("Strategy Council client contract", () => {
       "decision_type",
       "explicit",
       "question",
-      "request_id",
     ]);
   });
 
   it("rejects invalid categories and overlong questions before a request", () => {
-    expect(() => createCouncilPayload("question", "not-a-type", "id")).toThrow(/valid/i);
-    expect(() => createCouncilPayload("x".repeat(2001), "other", "id")).toThrow(/2,000/);
+    expect(() => createCouncilPayload("question", "not-a-type")).toThrow(/valid/i);
+    expect(() => createCouncilPayload("x".repeat(2001), "other")).toThrow(/2,000/);
     expect(COUNCIL_DECISION_OPTIONS).toHaveLength(5);
   });
 
@@ -62,19 +57,6 @@ describe("Strategy Council client contract", () => {
   it("returns actionable messages for budget and consent failures", () => {
     expect(councilErrorMessage(402)).toMatch(/remaining monthly AI budget/i);
     expect(councilErrorMessage(403)).toMatch(/consent/i);
-  });
-
-  it("reuses an ambiguous request ID only for the identical explicit retry", () => {
-    let sequence = 0;
-    const createId = () => `request-${++sequence}`;
-    const first = resolveCouncilRequest(null, "  Should I take AP Biology?  ", "course-selection", createId);
-    const retry = resolveCouncilRequest(first, "Should I take AP Biology?", "course-selection", createId);
-    const changed = resolveCouncilRequest(first, "Should I take AP Chemistry?", "course-selection", createId);
-    expect(retry).toBe(first);
-    expect(changed.requestId).toBe("request-2");
-    expect(isAmbiguousCouncilFailure(undefined)).toBe(true);
-    expect(isAmbiguousCouncilFailure(503)).toBe(true);
-    expect(isAmbiguousCouncilFailure(403)).toBe(false);
   });
 
   it("removes a failed optimistic Council turn and keeps its error transient", () => {
