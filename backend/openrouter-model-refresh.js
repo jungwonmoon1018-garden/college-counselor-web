@@ -23,9 +23,9 @@ const OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models";
 // endpoint overlays these for the openrouter provider; ES-module binding means
 // importers see live updates.
 export const OPENROUTER_TARGETS = {
-  small: process.env.OPENROUTER_MODEL_SMALL || TIER_DEFAULTS.openrouter?.small || "deepseek/deepseek-v4-flash-0731",
-  medium: process.env.OPENROUTER_MODEL_MEDIUM || TIER_DEFAULTS.openrouter?.medium || "deepseek/deepseek-v4-pro",
-  large: process.env.OPENROUTER_MODEL_LARGE || TIER_DEFAULTS.openrouter?.large || "anthropic/claude-sonnet-5",
+  small: process.env.OPENROUTER_MODEL_SMALL || TIER_DEFAULTS.openrouter?.small || "google/gemma-4-26b-a4b-it",
+  medium: process.env.OPENROUTER_MODEL_MEDIUM || TIER_DEFAULTS.openrouter?.medium || "deepseek/deepseek-v4-flash-0731",
+  large: process.env.OPENROUTER_MODEL_LARGE || TIER_DEFAULTS.openrouter?.large || "openai/gpt-5.6-luna",
 };
 const COUNSELOR_PINNED_TIERS = new Set([
   ["small", process.env.OPENROUTER_MODEL_SMALL],
@@ -37,9 +37,9 @@ const COUNSELOR_PINNED_TIERS = new Set([
 // default is retired. The refresh picks the first id that is actually live.
 // Free/low-cost first so new users aren't surprised by spend.
 const TIER_FALLBACKS = {
-  small: ["deepseek/deepseek-v4-flash-0731", "deepseek/deepseek-v4-flash", "google/gemini-3.5-flash-lite", "openai/gpt-5.6-luna"],
-  medium: ["deepseek/deepseek-v4-pro", "google/gemini-3.6-flash", "openai/gpt-5.6-terra"],
-  large: ["anthropic/claude-sonnet-5", "openai/gpt-5.6-sol", "openai/gpt-5.6-terra"],
+  small: ["google/gemma-4-26b-a4b-it", "google/gemma-4-31b-it"],
+  medium: ["deepseek/deepseek-v4-flash-0731", "deepseek/deepseek-v4-flash"],
+  large: ["openai/gpt-5.6-luna", "openai/gpt-5.6-terra", "openai/gpt-5.6-sol"],
 };
 
 export const OPENROUTER_STATUS = {

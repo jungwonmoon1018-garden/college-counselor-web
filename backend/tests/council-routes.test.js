@@ -3,11 +3,7 @@ import assert from "node:assert/strict";
 import express from "express";
 import Database from "better-sqlite3";
 import { mountPillarRoutes } from "../server-routes-pillars.js";
-import {
-  initCouncilTables,
-  prepareCouncilStatements,
-  recordConvening,
-} from "../council/audit-trail.js";
+import { initCouncilTables } from "../council/audit-trail.js";
 
 const API_KEY = "sk-proj-abcdefghijklmnopqrstuvwxyz012345";
 
@@ -100,7 +96,6 @@ async function postCouncil(harness, body, headers = {}) {
 function explicitRequest(overrides = {}) {
   return {
     question: "Should I revise my college list?",
-    request_id: "request-1",
     explicit: true,
     auto: false,
     decision_type: "other",
@@ -130,7 +125,6 @@ test("Council rejects invalid and blocked requests without model work", async (t
   const cases = [
     [explicitRequest({ question: { nested: true } }), "COUNCIL_QUESTION_INVALID"],
     [explicitRequest({ question: "a".repeat(2001) }), "COUNCIL_QUESTION_TOO_LONG"],
-    [explicitRequest({ request_id: { nested: true } }), "COUNCIL_REQUEST_ID_REQUIRED"],
     [explicitRequest({ decision_type: "unsupported" }), "COUNCIL_DECISION_TYPE_INVALID"],
     [explicitRequest({ question: "My API key is " + API_KEY }), "COUNCIL_INPUT_BLOCKED"],
     [explicitRequest({ question: "Write my college essay for me." }), "COUNCIL_INPUT_BLOCKED"],
@@ -174,11 +168,13 @@ test("Council screens provider input and every user-visible recommendation", asy
   assert.equal(harness.calls.begin.length, 1);
   assert.equal(harness.calls.convene.length, 1);
   assert.equal(harness.calls.release.length, 1);
+  assert.match(harness.calls.begin[0].operationId, /^[0-9a-f-]{36}$/i);
 
   const args = harness.calls.convene[0];
   assert.equal(args.explicit, true);
   assert.equal(args.triggerSource, "manual");
   assert.equal(args.decisionType, "college-list");
+  assert.equal(Object.hasOwn(args, "requestId"), false);
   assert.doesNotMatch(args.question, /\$1,234/);
   assert.match(args.question, /\[FINANCIAL_REDACTED_[0-9a-f]{8}\]/);
 
@@ -215,62 +211,14 @@ test("Every Council HTTP surface invokes the student limiter", async (t) => {
   assert.equal(harness.calls.limiter - before, cases.length);
 });
 
-test("Council request IDs are unique per student after migrating the legacy index", async () => {
+test("new Council audit tables do not require request IDs", () => {
   const db = new Database(":memory:");
   try {
     initCouncilTables(db);
-    db.exec("DROP INDEX idx_council_request");
-    db.exec(
-      "CREATE UNIQUE INDEX idx_council_request ON council_convenings(request_id) " +
-      "WHERE request_id IS NOT NULL",
-    );
-    initCouncilTables(db);
-
-    const columns = db.prepare("PRAGMA index_info(idx_council_request)")
+    const columns = db.prepare("PRAGMA table_info(council_convenings)")
       .all()
       .map((row) => row.name);
-    assert.deepEqual(columns, ["student_id", "request_id"]);
-
-    const stmts = prepareCouncilStatements(db);
-    const envelope = {
-      recommendation: "Use a balanced list.",
-      moderator_rule: "supported_consensus",
-      confidence: 0.8,
-      dissent: null,
-      dissents: [],
-      citations: [],
-      council_breakdown: [],
-    };
-    const first = await recordConvening({
-      stmts,
-      studentId: "student-1",
-      decisionType: "college-list",
-      question: "Question one",
-      envelope,
-      requestId: "shared-request",
-    });
-    const second = await recordConvening({
-      stmts,
-      studentId: "student-2",
-      decisionType: "college-list",
-      question: "Question two",
-      envelope,
-      requestId: "shared-request",
-    });
-    const repeated = await recordConvening({
-      stmts,
-      studentId: "student-1",
-      decisionType: "college-list",
-      question: "Question one repeated",
-      envelope,
-      requestId: "shared-request",
-    });
-    assert.notEqual(first, second);
-    assert.equal(repeated, first);
-    assert.equal(
-      db.prepare("SELECT COUNT(*) AS count FROM council_convenings").get().count,
-      2,
-    );
+    assert.equal(columns.includes("request_id"), false);
   } finally {
     db.close();
   }

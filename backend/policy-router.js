@@ -8,7 +8,6 @@
 // IMPORTANT: This module is 100% deterministic — no LLM calls.
 // ═══════════════════════════════════════════════════════════════════════
 
-import { isEmbeddedAvailable } from "./llm-adapters/index.js";
 import { llmDebug } from "./llm-adapters/llm-log.js";
 
 // ─── Topic Type Definitions ───
@@ -43,11 +42,6 @@ export const MODEL_TIERS = {
   SMALL: "haiku",
   MEDIUM: "sonnet",
   LARGE: "opus",
-  // Reserved compatibility tier. Local model inference is disabled.
-  // selectModelTier() would normally pick HAIKU/SMALL AND the embedded
-  // provider is fully wired (GGUF present, dep loadable). Orchestration
-  // engine dispatches this through callLLM({provider:"embedded"}).
-  EMBEDDED_SMALL: "embedded_small",
   // Strategy Council (Pillar 9). Dispatched to council.convene() instead
   // of callLLM. Council execution is explicit and sequential.
   COUNCIL: "council",
@@ -358,27 +352,10 @@ export function enforceGates(topicType, subIntent, availableEvidence = []) {
 
 // ─── Model tier selection with escalation logic ───
 //
-// Embedded-first rule (Pillar 2): when the resolver lands on HAIKU/SMALL
-// AND the embedded provider is fully wired (GGUF on disk), upgrade the
-// return value to EMBEDDED_SMALL so the dispatcher routes through the
-// zero-cost in-process model. The escalation ladder (SONNET → OPUS on
-// low confidence) is unchanged — embedded just slots in below SONNET.
-//
 // Strategy Council rule (Pillar 9): when the subIntent is in the
 // council-eligible set AND we're not already inside a council-spawned
 // sub-call, return COUNCIL instead of OPUS. The orchestration engine
 // detects the marker and dispatches to council.convene().
-function downgradeToEmbeddedIfAvailable(tier) {
-  if (tier !== MODEL_TIERS.HAIKU) return tier;
-  try {
-    const embedded = isEmbeddedAvailable();
-    llmDebug("TIER", "embedded downgrade check", { from: tier, embeddedAvailable: embedded, to: embedded ? MODEL_TIERS.EMBEDDED_SMALL : tier });
-    return embedded ? MODEL_TIERS.EMBEDDED_SMALL : tier;
-  } catch {
-    return tier;
-  }
-}
-
 export function selectModelTier(...args) {
   const tier = selectModelTierInner(...args);
   const [topicType, subIntent, queryComplexity] = args;
@@ -426,7 +403,7 @@ function selectModelTierInner(topicType, subIntent, queryComplexity = "normal", 
 
   // Coaching
   if (topicType === TOPIC_TYPES.COACHING) {
-    if (subIntent === "gpa_benchmark") return downgradeToEmbeddedIfAvailable(MODEL_TIERS.NONE);
+    if (subIntent === "gpa_benchmark") return MODEL_TIERS.NONE;
 
     // Heavy strategic subintents — convene the 5-seat Strategy Council
     // when allowed. Falls back to OPUS when the caller is already inside

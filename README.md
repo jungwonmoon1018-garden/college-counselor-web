@@ -18,8 +18,8 @@ text only after the student grants the external-processing consents.
 | `render.yaml` | Native Node.js service and persistent-disk Blueprint |
 
 The application deliberately has no student BYOK flow, arbitrary LLM endpoint,
-general runtime web-search provider, Logseq integration, student-accessible
-counselor configuration, or parent-notification email endpoint.
+general runtime web-search provider, student-accessible counselor
+configuration, or parent-notification email endpoint.
 
 ## Trust model
 

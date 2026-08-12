@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 // One tiny, dependency-free logger so we can see every inference path: which
 // tier the policy router picked, which adapter the dispatcher called, whether
-// the embedded models actually ran or fell back, and exactly where the native
+// model dispatch behavior and exactly where provider calls
 // module was entered (critical for diagnosing a native segfault that JS can't
 // catch).
 //
@@ -16,7 +16,7 @@
 //                                 buffered and can be lost on a hard crash).
 //   since(start)                — elapsed ms from a hrtime/Date start.
 //
-// Tags in use: TIER, DISPATCH, LLAMA, EMBED, COUNCIL.
+// Tags in use: TIER, DISPATCH, COUNCIL.
 // ═══════════════════════════════════════════════════════════════════════
 
 function fmtFields(fields) {

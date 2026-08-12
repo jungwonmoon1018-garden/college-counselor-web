@@ -97,11 +97,6 @@ export async function validateKey({ provider = 'openrouter', apiKey, baseUrl, fe
   });
 }
 
-// Compatibility probe for legacy callers while embedded inference is removed.
-export function isEmbeddedAvailable() {
-  return false;
-}
-
 export function listKnownModels(provider) {
   return provider === 'openrouter' ? [...OPENROUTER_ALLOWED_MODELS] : [];
 }

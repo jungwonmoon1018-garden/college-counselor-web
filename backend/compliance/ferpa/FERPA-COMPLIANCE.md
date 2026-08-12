@@ -34,8 +34,7 @@ AI output is advisory and is not a school record decision.
 ## Student Controls
 
 An authenticated student can export their own stored data and request deletion
-of their own account data. Legacy local Markdown notebooks can be exported
-before an explicit deletion. Product logs must not expose student content,
+of their own account data. Product logs must not expose student content,
 credentials, encryption material, or provider keys.
 
 ## Deployment Limits

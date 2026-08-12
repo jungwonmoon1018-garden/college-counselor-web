@@ -1,9 +1,8 @@
 // ═══════════════════════════════════════════════════════════════════════
 // DATA CHECKER — verifies claims against the student's knowledge graph
 // ═══════════════════════════════════════════════════════════════════════
-// Runs second in the explicit Council sequence using the configured model tier.
-// because verification work benefits from a model with stronger reading
-// comprehension than the embedded 1.5B. Reads the Strategist's
+// Runs second in the explicit Council sequence using the configured mid tier
+// for stronger reading comprehension. Reads the Strategist's
 // recommendation (passed in via context) and the same shared subgraph,
 // then flags every load-bearing claim with one of:
 //   - "verified"      → backed by an EXTRACTED edge or baseline fact.
@@ -39,4 +38,3 @@ export function getSystemPrompt(student) {
 }
 
 export const TIER = "medium";
-export const PREFER_EMBEDDED = false;

@@ -11,11 +11,19 @@ function seat(role, stance, confidence, citations = []) {
   return { role, stance, confidence, citations, recommendation: `${role} says`, reasoning: "because", model: "m", provider: "p" };
 }
 
-// ── resolveCouncilModel: OpenRouter councils standardize on DeepSeek V4 Pro ──
+// ── resolveCouncilModel: OpenRouter councils follow workload tiers ──
 
-test("resolveCouncilModel pins OpenRouter seats to DeepSeek V4 Pro", () => {
+test("resolveCouncilModel uses the mid-tier OpenRouter default", () => {
   delete process.env.COUNCIL_MODEL;
-  assert.equal(resolveCouncilModel({ provider: "openrouter" }, "medium"), "deepseek/deepseek-v4-pro");
+  assert.equal(resolveCouncilModel({ provider: "openrouter" }, "medium"), "deepseek/deepseek-v4-flash-0731");
+});
+
+test("resolveCouncilModel honors counselor tier choices", () => {
+  delete process.env.COUNCIL_MODEL;
+  assert.equal(resolveCouncilModel({
+    provider: "openrouter",
+    models: { small: "google/gemma-4-26b-a4b-it" },
+  }, "small"), "google/gemma-4-26b-a4b-it");
 });
 
 test("resolveCouncilModel honors COUNCIL_MODEL override", () => {
@@ -34,8 +42,8 @@ test("resolveCouncilModel off OpenRouter: explicit model wins, else no tier defa
   assert.equal(resolveCouncilModel({ provider: "openai", model: "gpt-4.1" }, "medium"), "gpt-4.1");
 });
 
-test("DeepSeek V4 Pro is a reasoning model (so the council bumps its token cap)", () => {
-  assert.equal(isReasoningModel("deepseek/deepseek-v4-pro"), true);
+test("DeepSeek V4 Flash is a reasoning model (so the council bumps its token cap)", () => {
+  assert.equal(isReasoningModel("deepseek/deepseek-v4-flash-0731"), true);
   assert.equal(isReasoningModel("google/gemma-4-31b-it"), false);
 });
 
@@ -58,7 +66,7 @@ test("ungrounded high-confidence support is clamped below strong consensus", () 
 test("grounded support keeps its confidence and is marked grounded", () => {
   const env = moderate([
     seat("Strategist", "support", 0.85, [{ type: "graph_node", id: "n1" }]),
-    seat("Skeptic", "support", 0.8, [{ type: "logseq_block", id: "b1" }]),
+    seat("Skeptic", "support", 0.8, [{ type: "graph_node", id: "b1" }]),
   ]);
   const strat = env.council_breakdown.find((s) => s.role === "Strategist");
   assert.equal(strat.grounded, true);

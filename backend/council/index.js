@@ -81,11 +81,6 @@ export async function convene(opts = {}) {
   if (!question) throw new Error("convene() requires question");
   if (!councilStmts) throw new Error("convene() requires councilStmts");
   if (!llm?.apiKey) throw new Error("convene() requires the administrator's OpenRouter key");
-  if (opts.requestId && councilStmts.getByRequestId?.get(opts.requestId, studentId)) {
-    const error = new Error("This Council request has already been processed.");
-    error.code = "COUNCIL_DUPLICATE_REQUEST";
-    throw error;
-  }
 
   const decisionType = opts.decisionType ||
     subIntentToDecisionType(opts.subIntent) ||
@@ -144,7 +139,6 @@ export async function convene(opts = {}) {
     envelope,
     totalTokens,
     triggerSource: opts.triggerSource || "manual",
-    requestId: opts.requestId || null,
   });
 
   return {

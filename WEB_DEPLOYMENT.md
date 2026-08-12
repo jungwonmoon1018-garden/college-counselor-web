@@ -29,23 +29,23 @@ than horizontally scaling it.
 4. Enter a 64-character hexadecimal vault encryption key. This is a distinct
    counselor-held key and is immutable after it is saved.
 5. Enter the OpenRouter API key and the IPEDS / College Scorecard API key.
-6. Review the Small, Medium, and Large OpenRouter model choices and save them.
+6. Review the Low, Mid, and High OpenRouter model choices and save them.
 
 Student API access remains closed until all three counselor secrets are valid.
 The browser receives configuration status only, never a stored secret value.
 
 ## Current reviewed OpenRouter choices
 
-The model registry was checked against OpenRouter on 2026-08-11. The reviewed
-choices are DeepSeek V4 Flash 0731 and V4 Pro, OpenAI GPT-5.6 Luna, Terra, and Sol,
-Anthropic Claude Sonnet 5, and Google Gemini 3.6 Flash and 3.5 Flash Lite.
+The model registry was checked against OpenRouter on 2026-08-12. The default
+mapping is Low = Google Gemma 4 26B A4B, Mid = DeepSeek V4 Flash 0731, and
+High = OpenAI GPT-5.6 Luna. Other reviewed choices remain available in the
+counselor screen.
 The backend also refreshes OpenRouter's live catalog daily and shows current
 availability in the counselor screen.
 
-Source pages: [DeepSeek](https://openrouter.ai/deepseek),
-[OpenAI](https://openrouter.ai/openai),
-[Anthropic](https://openrouter.ai/anthropic), and
-[Google](https://openrouter.ai/google).
+Source pages: [Gemma 4 26B A4B](https://openrouter.ai/google/gemma-4-26b-a4b-it),
+[DeepSeek V4 Flash 0731](https://openrouter.ai/deepseek/deepseek-v4-flash-0731),
+and [GPT-5.6 Luna](https://openrouter.ai/openai/gpt-5.6-luna).
 
 ## Direct Node.js deployment
 

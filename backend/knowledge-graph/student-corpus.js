@@ -6,7 +6,7 @@ import {
 } from "../student-storage.js";
 
 // Build a transient corpus from explicit evidence and narrative versions. The
-// former plaintext notebook vault is intentionally never included.
+// only supported encrypted student records are included.
 export async function prepareStudentCorpus(opts) {
   const { studentId, dataDir } = opts;
   ensureStudentStorage(studentId, dataDir, { withGraph: true });

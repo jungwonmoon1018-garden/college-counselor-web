@@ -6,21 +6,20 @@ import { llmLog, llmDebug } from "../llm-adapters/llm-log.js";
 
 const PARSE_TRIES = 2;
 const MAX_OUTPUT_TOKENS = 600;
-// Reasoning-by-default models (DeepSeek V4 Pro, o1/o3, …) burn their budget on
+// Reasoning-by-default models can burn their budget on
 // hidden thinking before emitting visible text. At 600 tokens the whole budget
 // can disappear into reasoning, leaving an empty envelope that fails to parse
 // and forces an abstention. Give those seats far more headroom.
 const REASONING_OUTPUT_TOKENS = MAX_OUTPUT_TOKENS * 6;
 
-// Which model each council seat calls. This build is OpenRouter-only, and the
-// council standardizes on DeepSeek V4 Pro — frontier reasoning at low per-token
-// cost — rather than the per-student tier model: cheaper for a 5-seat fan-out
-// and strong enough for deliberation. `COUNCIL_MODEL` overrides for operators
-// who want a different seat model.
+// Each council seat follows the counselor-configured OpenRouter tier.
+// COUNCIL_MODEL remains available as an operator emergency override.
 export function resolveCouncilModel(llm, tier) {
   const override = (process.env.COUNCIL_MODEL || "").trim();
   if (override) return override;
-  if ((llm?.provider || "openrouter") === "openrouter") return "deepseek/deepseek-v4-pro";
+  if ((llm?.provider || "openrouter") === "openrouter") {
+    return llm?.models?.[tier] || resolveTierDefault("openrouter", tier);
+  }
   return llm?.model || resolveTierDefault(llm?.provider, tier);
 }
 const CITATION_TYPES = new Set(["graph_node", "baseline_fact", "evidence_item"]);

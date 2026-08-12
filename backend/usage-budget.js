@@ -327,10 +327,6 @@ export function checkBudget(piiVault, ragStmts, studentId) {
   }
 }
 
-export function recordEmbeddedCall() {
-  return false;
-}
-
 export function recordCouncilCall() {
   return false;
 }

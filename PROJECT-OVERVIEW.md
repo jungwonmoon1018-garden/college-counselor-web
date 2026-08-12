@@ -53,6 +53,6 @@ closed.
 
 Student export covers all content and provenance. Account deletion removes
 credentials, sessions, encrypted records, operational rows, vectors,
-attachments, caches, and legacy notebook artifacts. Logseq, BYOK, Tavily,
-parent email alerts, arbitrary provider URLs, and student-accessible counselor
-configuration are not part of this architecture.
+attachments, and caches. BYOK, Tavily, parent email alerts, arbitrary provider
+URLs, and student-accessible counselor configuration are not part of this
+architecture.

@@ -61,6 +61,11 @@ const DEFAULT_MODELS = {
   // this tier and routes to council.convene() instead of callLLM.
   [MODEL_TIERS.COUNCIL]: null,
 };
+const MODEL_CONFIG_KEYS = Object.freeze({
+  [MODEL_TIERS.HAIKU]: "small",
+  [MODEL_TIERS.SONNET]: "medium",
+  [MODEL_TIERS.OPUS]: "large",
+});
 
 // ─── Load grounding corpora ───
 export function loadOrchestrationCatalog({ fafsaPath = "", deadlinesPath = "" } = {}) {
@@ -81,7 +86,6 @@ export function buildOrchestration({
   factStmts,
   evidenceStmts,
   catalog,
-  graphVaultContext = "",
   modelConfig = null,
 }) {
   const cleanQuery = (query || "").trim();
@@ -110,7 +114,7 @@ export function buildOrchestration({
 
   // Step 6: Build prompt package (only if model call needed)
   const promptPackage = executionPlan.requiresModel
-    ? buildPromptPackage(updatedRouting, cleanQuery, evidence, studentContext, catalog, graphVaultContext)
+    ? buildPromptPackage(updatedRouting, cleanQuery, evidence, studentContext, catalog)
     : null;
 
   return {
@@ -179,7 +183,8 @@ function buildExecutionPlan(routing, modelConfig, evidence) {
     };
   }
 
-  const model = modelConfig[modelTier] || DEFAULT_MODELS[modelTier];
+  const configKey = MODEL_CONFIG_KEYS[modelTier] || modelTier;
+  const model = modelConfig[configKey] || modelConfig[modelTier] || DEFAULT_MODELS[modelTier];
 
   return {
     requiresModel: true,
@@ -238,7 +243,7 @@ function gatherEvidence({ routing, matchedColleges, factStmts, evidenceStmts, ca
 }
 
 // ─── Build prompt package for model calls ───
-function buildPromptPackage(routing, query, evidence, studentContext, catalog, graphVaultContext = "") {
+function buildPromptPackage(routing, query, evidence, studentContext, catalog) {
   const { classification } = routing;
   const parts = [];
 
@@ -248,17 +253,6 @@ function buildPromptPackage(routing, query, evidence, studentContext, catalog, g
     cacheable: true,
     content: buildSystemPrompt(classification),
   });
-
-  // Student's own structured memory (graph subgraph + vault). Non-cacheable —
-  // it's student-specific and changes as the vault is edited. Replaces broad
-  // retrieval rather than adding to it (kept compact upstream).
-  if (graphVaultContext) {
-    parts.push({
-      role: "context",
-      cacheable: false,
-      content: `Student knowledge graph / notebook:\n${graphVaultContext}`,
-    });
-  }
 
   // Evidence context (small-context: only relevant items)
   if (evidence.length > 0) {

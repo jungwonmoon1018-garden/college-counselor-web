@@ -18,12 +18,6 @@ export function getStudentRoot(studentId, dataDir) {
   return path.join(getRoot(dataDir), studentDirHash(studentId));
 }
 
-// Kept only for one-time export/removal of vaults created by older releases.
-// No runtime feature may read from or write to this directory.
-export function getLegacyNotebookPath(studentId, dataDir) {
-  return path.join(getStudentRoot(studentId, dataDir), "vault");
-}
-
 export function getStudentKnowledgeGraphPath(studentId, dataDir) {
   return path.join(getStudentRoot(studentId, dataDir), "knowledge-graph");
 }
@@ -37,10 +31,6 @@ export function ensureStudentStorage(studentId, dataDir, { withGraph = true } = 
   fs.mkdirSync(root, { recursive: true });
   if (withGraph) fs.mkdirSync(getStudentKnowledgeGraphPath(studentId, dataDir), { recursive: true });
   return root;
-}
-
-export function hasLegacyNotebook(studentId, dataDir) {
-  return fs.existsSync(getLegacyNotebookPath(studentId, dataDir));
 }
 
 export function hasStudentGraph(studentId, dataDir) {
