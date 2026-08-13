@@ -1,10 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import Database from "better-sqlite3";
 import {
   initAuthStore,
   isLoopbackAddress,
   normalizeEmail,
+  PASSWORD_KDF_CURRENT,
 } from "../security-auth.js";
 
 function store() {
@@ -17,12 +19,42 @@ test("student credentials require a password and duplicate email cannot authenti
   assert.throws(() => auth.createStudentCredential("s1", "email-hash", "short"), /12-256/);
   const created = auth.createStudentCredential("s1", "email-hash", "correct horse battery staple", { grade: 11 });
   assert.ok(created.recoveryCode.length >= 30);
+  assert.equal(db.prepare("SELECT password_kdf FROM student_credentials").get().password_kdf, PASSWORD_KDF_CURRENT);
   assert.equal(auth.authenticateStudent("email-hash", "wrong password value"), null);
   assert.equal(auth.authenticateStudent("email-hash", "correct horse battery staple").studentId, "s1");
   assert.throws(
     () => auth.createStudentCredential("s2", "email-hash", "another secure password", { grade: 11 }),
     (error) => error.code === "account_exists",
   );
+  db.close();
+});
+
+test("successful legacy login migrates the password hash without invalidating the account", () => {
+  const db = new Database(":memory:");
+  db.exec(`CREATE TABLE student_credentials (
+    student_id TEXT PRIMARY KEY,
+    email_hash TEXT UNIQUE NOT NULL,
+    password_salt TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
+    recovery_hash TEXT NOT NULL,
+    grade INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  )`);
+  const password = "legacy correct horse password";
+  const salt = crypto.randomBytes(16).toString("hex");
+  const legacyHash = crypto.scryptSync(password, salt, 64, { N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 }).toString("hex");
+  db.prepare(`INSERT INTO student_credentials
+    (student_id, email_hash, password_salt, password_hash, recovery_hash, grade, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run("legacy-student", "legacy-email", salt, legacyHash, "0".repeat(64), 11, 1, 1);
+
+  const auth = initAuthStore(db, { sessionTtlMs: 60_000 });
+  assert.equal(db.prepare("SELECT password_kdf FROM student_credentials").get().password_kdf, "scrypt-v1");
+  assert.equal(auth.authenticateStudent("legacy-email", password).studentId, "legacy-student");
+  const upgraded = db.prepare("SELECT password_kdf, password_hash FROM student_credentials").get();
+  assert.equal(upgraded.password_kdf, PASSWORD_KDF_CURRENT);
+  assert.notEqual(upgraded.password_hash, legacyHash);
+  assert.equal(auth.authenticateStudent("legacy-email", password).studentId, "legacy-student");
   db.close();
 });
 

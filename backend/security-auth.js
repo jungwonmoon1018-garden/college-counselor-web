@@ -4,7 +4,12 @@ const PASSWORD_MIN_LENGTH = 12;
 const PASSWORD_MAX_LENGTH = 256;
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const SCRYPT_KEYLEN = 64;
-const SCRYPT_OPTIONS = Object.freeze({ N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 });
+export const PASSWORD_KDF_LEGACY = "scrypt-v1";
+export const PASSWORD_KDF_CURRENT = "scrypt-v2";
+const SCRYPT_OPTIONS = Object.freeze({
+  [PASSWORD_KDF_LEGACY]: Object.freeze({ N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 }),
+  [PASSWORD_KDF_CURRENT]: Object.freeze({ N: 131072, r: 8, p: 1, maxmem: 256 * 1024 * 1024 }),
+});
 
 function now() {
   return Date.now();
@@ -26,20 +31,22 @@ export function hashOpaqueToken(token) {
   return crypto.createHash("sha256").update(String(token || "")).digest("hex");
 }
 
-function derivePassword(password, salt) {
-  return crypto.scryptSync(password, salt, SCRYPT_KEYLEN, SCRYPT_OPTIONS).toString("hex");
+function derivePassword(password, salt, kdf = PASSWORD_KDF_CURRENT) {
+  const options = SCRYPT_OPTIONS[kdf];
+  if (!options) throw new Error("Unsupported password KDF");
+  return crypto.scryptSync(password, salt, SCRYPT_KEYLEN, options).toString("hex");
 }
 
 function passwordRecord(password) {
   assertValidPassword(password);
   const salt = crypto.randomBytes(16).toString("hex");
-  return { salt, hash: derivePassword(password, salt) };
+  return { salt, hash: derivePassword(password, salt), kdf: PASSWORD_KDF_CURRENT };
 }
 
-function passwordMatches(password, salt, expectedHex) {
+function passwordMatches(password, salt, expectedHex, kdf = PASSWORD_KDF_LEGACY) {
   if (typeof password !== "string" || !salt || !expectedHex) return false;
   try {
-    const actual = Buffer.from(derivePassword(password, salt), "hex");
+    const actual = Buffer.from(derivePassword(password, salt, kdf), "hex");
     const expected = Buffer.from(expectedHex, "hex");
     return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
   } catch {
@@ -68,6 +75,7 @@ export function initAuthStore(db, { sessionTtlMs = SESSION_TTL_MS } = {}) {
       email_hash TEXT UNIQUE NOT NULL,
       password_salt TEXT NOT NULL,
       password_hash TEXT NOT NULL,
+      password_kdf TEXT NOT NULL DEFAULT 'scrypt-v2',
       recovery_hash TEXT NOT NULL,
       grade INTEGER NOT NULL CHECK (grade BETWEEN 9 AND 12),
       created_at INTEGER NOT NULL,
@@ -87,6 +95,7 @@ export function initAuthStore(db, { sessionTtlMs = SESSION_TTL_MS } = {}) {
       singleton_id INTEGER PRIMARY KEY CHECK (singleton_id = 1),
       password_salt TEXT NOT NULL,
       password_hash TEXT NOT NULL,
+      password_kdf TEXT NOT NULL DEFAULT 'scrypt-v2',
       recovery_hash TEXT NOT NULL,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
@@ -104,20 +113,29 @@ export function initAuthStore(db, { sessionTtlMs = SESSION_TTL_MS } = {}) {
     db.exec("ALTER TABLE admin_sessions ADD COLUMN csrf_hash TEXT");
   }
   const credentialColumns = db.prepare("PRAGMA table_info(student_credentials)").all();
+  if (!credentialColumns.some((column) => column.name === "password_kdf")) {
+    db.exec("ALTER TABLE student_credentials ADD COLUMN password_kdf TEXT NOT NULL DEFAULT 'scrypt-v1'");
+  }
   if (!credentialColumns.some((column) => column.name === "grade")) {
     db.exec("ALTER TABLE student_credentials ADD COLUMN grade INTEGER CHECK (grade BETWEEN 9 AND 12)");
+  }
+  const adminColumns = db.prepare("PRAGMA table_info(admin_account)").all();
+  if (!adminColumns.some((column) => column.name === "password_kdf")) {
+    db.exec("ALTER TABLE admin_account ADD COLUMN password_kdf TEXT NOT NULL DEFAULT 'scrypt-v1'");
   }
 
   const stmts = {
     credentialByStudent: db.prepare("SELECT * FROM student_credentials WHERE student_id = ?"),
     credentialByEmail: db.prepare("SELECT * FROM student_credentials WHERE email_hash = ?"),
     insertCredential: db.prepare(`INSERT INTO student_credentials
-      (student_id, email_hash, password_salt, password_hash, recovery_hash, grade, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`),
+      (student_id, email_hash, password_salt, password_hash, password_kdf, recovery_hash, grade, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`),
     updateGrade: db.prepare("UPDATE student_credentials SET grade = ?, updated_at = ? WHERE student_id = ?"),
     updateCredential: db.prepare(`UPDATE student_credentials
-      SET password_salt = ?, password_hash = ?, recovery_hash = ?, updated_at = ?
+      SET password_salt = ?, password_hash = ?, password_kdf = ?, recovery_hash = ?, updated_at = ?
       WHERE student_id = ?`),
+    upgradeCredentialHash: db.prepare(`UPDATE student_credentials
+      SET password_salt = ?, password_hash = ?, password_kdf = ?, updated_at = ? WHERE student_id = ?`),
     deleteCredential: db.prepare("DELETE FROM student_credentials WHERE student_id = ?"),
     insertSession: db.prepare(`INSERT INTO session_tokens
       (token_hash, email_hash, student_id, expires_at, created_at) VALUES (?, ?, ?, ?, ?)`),
@@ -128,10 +146,12 @@ export function initAuthStore(db, { sessionTtlMs = SESSION_TTL_MS } = {}) {
     cleanSessions: db.prepare("DELETE FROM session_tokens WHERE expires_at < ?"),
     getAdmin: db.prepare("SELECT * FROM admin_account WHERE singleton_id = 1"),
     insertAdmin: db.prepare(`INSERT INTO admin_account
-      (singleton_id, password_salt, password_hash, recovery_hash, created_at, updated_at)
-      VALUES (1, ?, ?, ?, ?, ?)`),
+      (singleton_id, password_salt, password_hash, password_kdf, recovery_hash, created_at, updated_at)
+      VALUES (1, ?, ?, ?, ?, ?, ?)`),
     updateAdmin: db.prepare(`UPDATE admin_account
-      SET password_salt = ?, password_hash = ?, recovery_hash = ?, updated_at = ? WHERE singleton_id = 1`),
+      SET password_salt = ?, password_hash = ?, password_kdf = ?, recovery_hash = ?, updated_at = ? WHERE singleton_id = 1`),
+    upgradeAdminHash: db.prepare(`UPDATE admin_account
+      SET password_salt = ?, password_hash = ?, password_kdf = ?, updated_at = ? WHERE singleton_id = 1`),
     insertAdminSession: db.prepare("INSERT INTO admin_sessions (token_hash, csrf_hash, expires_at, created_at) VALUES (?, ?, ?, ?)"),
     adminSessionByHash: db.prepare("SELECT csrf_hash, expires_at FROM admin_sessions WHERE token_hash = ?"),
     touchAdminSession: db.prepare("UPDATE admin_sessions SET expires_at = ? WHERE token_hash = ?"),
@@ -166,7 +186,7 @@ export function initAuthStore(db, { sessionTtlMs = SESSION_TTL_MS } = {}) {
         err.code = "invalid_grade";
         throw err;
       }
-      stmts.insertCredential.run(studentId, emailHash, pw.salt, pw.hash, recovery.hash, gradeNumber, timestamp, timestamp);
+      stmts.insertCredential.run(studentId, emailHash, pw.salt, pw.hash, pw.kdf, recovery.hash, gradeNumber, timestamp, timestamp);
       return { recoveryCode: recovery.code };
     },
     getStudentGrade(studentId) {
@@ -180,16 +200,20 @@ export function initAuthStore(db, { sessionTtlMs = SESSION_TTL_MS } = {}) {
     },
     authenticateStudent(emailHash, password) {
       const row = stmts.credentialByEmail.get(emailHash);
-      if (!row || !passwordMatches(password, row.password_salt, row.password_hash)) return null;
+      if (!row || !passwordMatches(password, row.password_salt, row.password_hash, row.password_kdf)) return null;
+      if (row.password_kdf !== PASSWORD_KDF_CURRENT) {
+        const upgraded = passwordRecord(password);
+        stmts.upgradeCredentialHash.run(upgraded.salt, upgraded.hash, upgraded.kdf, now(), row.student_id);
+      }
       return { studentId: row.student_id, emailHash: row.email_hash };
     },
     changeStudentPassword(studentId, currentPassword, newPassword) {
       const row = stmts.credentialByStudent.get(studentId);
-      if (!row || !passwordMatches(currentPassword, row.password_salt, row.password_hash)) return null;
+      if (!row || !passwordMatches(currentPassword, row.password_salt, row.password_hash, row.password_kdf)) return null;
       const pw = passwordRecord(newPassword);
       const recovery = newRecoveryCode();
       const tx = db.transaction(() => {
-        stmts.updateCredential.run(pw.salt, pw.hash, recovery.hash, now(), studentId);
+        stmts.updateCredential.run(pw.salt, pw.hash, pw.kdf, recovery.hash, now(), studentId);
         stmts.deleteStudentSessions.run(studentId);
       });
       tx();
@@ -204,7 +228,7 @@ export function initAuthStore(db, { sessionTtlMs = SESSION_TTL_MS } = {}) {
       const pw = passwordRecord(newPassword);
       const recovery = newRecoveryCode();
       const tx = db.transaction(() => {
-        stmts.updateCredential.run(pw.salt, pw.hash, recovery.hash, now(), row.student_id);
+        stmts.updateCredential.run(pw.salt, pw.hash, pw.kdf, recovery.hash, now(), row.student_id);
         stmts.deleteStudentSessions.run(row.student_id);
       });
       tx();
@@ -249,12 +273,16 @@ export function initAuthStore(db, { sessionTtlMs = SESSION_TTL_MS } = {}) {
       const pw = passwordRecord(password);
       const recovery = newRecoveryCode();
       const timestamp = now();
-      stmts.insertAdmin.run(pw.salt, pw.hash, recovery.hash, timestamp, timestamp);
+      stmts.insertAdmin.run(pw.salt, pw.hash, pw.kdf, recovery.hash, timestamp, timestamp);
       return { ...this.issueAdminSession(), recoveryCode: recovery.code };
     },
     authenticateAdmin(password) {
       const row = stmts.getAdmin.get();
-      if (!row || !passwordMatches(password, row.password_salt, row.password_hash)) return null;
+      if (!row || !passwordMatches(password, row.password_salt, row.password_hash, row.password_kdf)) return null;
+      if (row.password_kdf !== PASSWORD_KDF_CURRENT) {
+        const upgraded = passwordRecord(password);
+        stmts.upgradeAdminHash.run(upgraded.salt, upgraded.hash, upgraded.kdf, now());
+      }
       return this.issueAdminSession();
     },
     recoverAdmin(recoveryCode, newPassword) {
@@ -266,7 +294,7 @@ export function initAuthStore(db, { sessionTtlMs = SESSION_TTL_MS } = {}) {
       const pw = passwordRecord(newPassword);
       const recovery = newRecoveryCode();
       const tx = db.transaction(() => {
-        stmts.updateAdmin.run(pw.salt, pw.hash, recovery.hash, now());
+        stmts.updateAdmin.run(pw.salt, pw.hash, pw.kdf, recovery.hash, now());
         stmts.deleteAdminSessions.run();
       });
       tx();

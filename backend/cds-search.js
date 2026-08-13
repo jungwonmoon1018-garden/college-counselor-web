@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { extractImage, extractPDF, extractPdfOCR, extractText, isSupportedMime } from "./file-extractors.js";
+import { extractImage, extractPDF, extractPdfOCR, extractText, isSupportedMime, validateFileContent } from "./file-extractors.js";
 
 export const CDS_REPOSITORY_URL = "https://www.collegetransitions.com/dataverse/common-data-set-repository/";
 export const CDS_REPOSITORY_HOST = "www.collegetransitions.com";
@@ -458,6 +458,7 @@ export async function extractCdsDocumentText(buffer, {
   const buf = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer || "");
 
   if (isPdfContentType(contentType, url)) {
+    validateFileContent(buf, "application/pdf");
     const pdf = await pdfTextExtractor(buf);
     const pdfText = String(pdf.text || "");
     if (hasUsefulCdsText(pdfText) || typeof ocrPdfExtractor !== "function") {
@@ -481,6 +482,7 @@ export async function extractCdsDocumentText(buffer, {
   }
 
   if (isImageContentType(contentType)) {
+    validateFileContent(buf, contentType);
     const ocr = await extractImage(buf, imageOcrOptions);
     return {
       text: String(ocr.text || ""),

@@ -10,10 +10,14 @@
 // ═══════════════════════════════════════════════════════════════════════
 
 import { createRequire } from "node:module";
+import { inflateRawSync } from "node:zlib";
 const require = createRequire(import.meta.url);
 
 export const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 export const MAX_EXTRACTED_CHARS = 50_000;
+export const MAX_ARCHIVE_ENTRIES = 1_024;
+export const MAX_ARCHIVE_UNCOMPRESSED_BYTES = 25 * 1024 * 1024;
+export const MAX_ARCHIVE_COMPRESSION_RATIO = 100;
 
 export const SUPPORTED_MIME_TYPES = Object.freeze({
   "application/pdf": "pdf",
@@ -40,6 +44,149 @@ function asBuffer(input) {
   if (input instanceof Uint8Array) return Buffer.from(input);
   if (typeof input === "string") return Buffer.from(input, "utf8");
   throw new ExtractionError("invalid_input", "Expected a Buffer or Uint8Array");
+}
+
+function contentMismatch(message) {
+  throw new ExtractionError("content_type_mismatch", message);
+}
+
+function validatePlainText(buf) {
+  if (buf.includes(0)) contentMismatch("Plain-text uploads cannot contain NUL bytes");
+  try {
+    new TextDecoder("utf-8", { fatal: true }).decode(buf);
+  } catch {
+    contentMismatch("Plain-text upload is not valid UTF-8");
+  }
+  const disallowedControls = [...buf].filter((byte) => byte < 0x20 && ![0x09, 0x0a, 0x0d].includes(byte)).length;
+  if (disallowedControls > Math.max(2, Math.floor(buf.length * 0.01))) {
+    contentMismatch("Plain-text upload contains binary control data");
+  }
+}
+
+function findEndOfCentralDirectory(buf) {
+  const first = Math.max(0, buf.length - 65_557);
+  for (let offset = buf.length - 22; offset >= first; offset -= 1) {
+    if (buf.readUInt32LE(offset) === 0x06054b50) return offset;
+  }
+  contentMismatch("DOCX archive has no valid central directory");
+}
+
+function validateDocxArchive(buf) {
+  if (buf.length < 22 || buf.readUInt32LE(0) !== 0x04034b50) {
+    contentMismatch("DOCX upload does not have a ZIP signature");
+  }
+  const eocdOffset = findEndOfCentralDirectory(buf);
+  const diskNumber = buf.readUInt16LE(eocdOffset + 4);
+  const centralDisk = buf.readUInt16LE(eocdOffset + 6);
+  const entriesOnDisk = buf.readUInt16LE(eocdOffset + 8);
+  const entryCount = buf.readUInt16LE(eocdOffset + 10);
+  const centralSize = buf.readUInt32LE(eocdOffset + 12);
+  const centralOffset = buf.readUInt32LE(eocdOffset + 16);
+  if (diskNumber !== 0 || centralDisk !== 0 || entriesOnDisk !== entryCount) {
+    contentMismatch("Multi-disk DOCX archives are not supported");
+  }
+  if (entryCount === 0xffff || centralSize === 0xffffffff || centralOffset === 0xffffffff) {
+    throw new ExtractionError("archive_limits_exceeded", "ZIP64 DOCX archives are not accepted");
+  }
+  if (entryCount < 1 || entryCount > MAX_ARCHIVE_ENTRIES) {
+    throw new ExtractionError("archive_limits_exceeded", `DOCX archive contains too many entries (${entryCount})`);
+  }
+  if (centralOffset + centralSize > eocdOffset || centralOffset < 0) {
+    contentMismatch("DOCX central directory points outside the upload");
+  }
+
+  const names = new Set();
+  let totalUncompressed = 0;
+  let cursor = centralOffset;
+  for (let index = 0; index < entryCount; index += 1) {
+    if (cursor + 46 > eocdOffset || buf.readUInt32LE(cursor) !== 0x02014b50) {
+      contentMismatch("DOCX central directory is malformed");
+    }
+    const flags = buf.readUInt16LE(cursor + 8);
+    const method = buf.readUInt16LE(cursor + 10);
+    const compressedSize = buf.readUInt32LE(cursor + 20);
+    const uncompressedSize = buf.readUInt32LE(cursor + 24);
+    const nameLength = buf.readUInt16LE(cursor + 28);
+    const extraLength = buf.readUInt16LE(cursor + 30);
+    const commentLength = buf.readUInt16LE(cursor + 32);
+    const localOffset = buf.readUInt32LE(cursor + 42);
+    const next = cursor + 46 + nameLength + extraLength + commentLength;
+    if (next > eocdOffset) contentMismatch("DOCX central-directory entry is truncated");
+    if (flags & 0x0001) contentMismatch("Encrypted DOCX archives are not accepted");
+    if (![0, 8].includes(method)) contentMismatch("DOCX archive uses an unsupported compression method");
+    const name = buf.subarray(cursor + 46, cursor + 46 + nameLength).toString("utf8").replace(/\\/g, "/");
+    if (!name || name.startsWith("/") || name.includes("../") || /^[A-Za-z]:/.test(name)) {
+      contentMismatch("DOCX archive contains an unsafe entry path");
+    }
+    names.add(name);
+    totalUncompressed += uncompressedSize;
+    if (totalUncompressed > MAX_ARCHIVE_UNCOMPRESSED_BYTES) {
+      throw new ExtractionError("archive_limits_exceeded", "DOCX expands beyond the allowed size");
+    }
+    if (uncompressedSize > 0 && uncompressedSize / Math.max(1, compressedSize) > MAX_ARCHIVE_COMPRESSION_RATIO) {
+      throw new ExtractionError("archive_limits_exceeded", "DOCX entry has a suspicious compression ratio");
+    }
+
+    if (localOffset + 30 > centralOffset || buf.readUInt32LE(localOffset) !== 0x04034b50) {
+      contentMismatch("DOCX local entry points outside the upload");
+    }
+    const localFlags = buf.readUInt16LE(localOffset + 6);
+    const localMethod = buf.readUInt16LE(localOffset + 8);
+    const localCompressedSize = buf.readUInt32LE(localOffset + 18);
+    const localUncompressedSize = buf.readUInt32LE(localOffset + 22);
+    const localNameLength = buf.readUInt16LE(localOffset + 26);
+    const localExtraLength = buf.readUInt16LE(localOffset + 28);
+    if (localFlags !== flags || localMethod !== method) contentMismatch("DOCX local and central entry metadata disagree");
+    const localName = buf.subarray(localOffset + 30, localOffset + 30 + localNameLength).toString("utf8").replace(/\\/g, "/");
+    if (localName !== name) contentMismatch("DOCX local and central entry names disagree");
+    if (!(flags & 0x0008) && (localCompressedSize !== compressedSize || localUncompressedSize !== uncompressedSize)) {
+      contentMismatch("DOCX entry sizes are inconsistent");
+    }
+    const dataStart = localOffset + 30 + localNameLength + localExtraLength;
+    const dataEnd = dataStart + compressedSize;
+    if (dataEnd > centralOffset) contentMismatch("DOCX compressed entry is truncated");
+    const compressed = buf.subarray(dataStart, dataEnd);
+    let actualSize;
+    try {
+      actualSize = method === 0
+        ? compressed.length
+        : inflateRawSync(compressed, { maxOutputLength: MAX_ARCHIVE_UNCOMPRESSED_BYTES + 1 }).length;
+    } catch (error) {
+      if (error?.code === "ERR_BUFFER_TOO_LARGE") {
+        throw new ExtractionError("archive_limits_exceeded", "DOCX entry expands beyond the allowed size", error);
+      }
+      contentMismatch("DOCX contains invalid compressed data");
+    }
+    if (actualSize !== uncompressedSize) contentMismatch("DOCX entry expands to an unexpected size");
+    cursor = next;
+  }
+  if (cursor !== centralOffset + centralSize) contentMismatch("DOCX central-directory size is inconsistent");
+  if (!names.has("[Content_Types].xml") || !names.has("word/document.xml") || !names.has("_rels/.rels")) {
+    contentMismatch("ZIP upload is not a structurally valid DOCX document");
+  }
+}
+
+export function validateFileContent(input, mimeType) {
+  const buf = asBuffer(input);
+  const normalizedMime = String(mimeType || "").toLowerCase();
+  const kind = SUPPORTED_MIME_TYPES[normalizedMime];
+  if (!kind) throw new ExtractionError("unsupported_mime", `Unsupported MIME type: ${mimeType}`);
+  if (buf.length === 0) contentMismatch("Uploaded file is empty");
+
+  if (kind === "pdf" && !buf.subarray(0, 5).equals(Buffer.from("%PDF-"))) {
+    contentMismatch("PDF upload does not have a PDF signature");
+  } else if (kind === "docx") {
+    validateDocxArchive(buf);
+  } else if (normalizedMime === "image/png" && !buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) {
+    contentMismatch("PNG upload does not have a PNG signature");
+  } else if (["image/jpeg", "image/jpg"].includes(normalizedMime) && !(buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff)) {
+    contentMismatch("JPEG upload does not have a JPEG signature");
+  } else if (normalizedMime === "image/webp" && !(buf.length >= 12 && buf.toString("ascii", 0, 4) === "RIFF" && buf.toString("ascii", 8, 12) === "WEBP")) {
+    contentMismatch("WebP upload does not have a WebP signature");
+  } else if (kind === "text") {
+    validatePlainText(buf);
+  }
+  return { kind, mimeType: normalizedMime };
 }
 
 // ─── Plain text ─────────────────────────────────────────────
@@ -204,10 +351,7 @@ export async function extractPdfOCR(input, {
  * @returns {Promise<{ text: string, pageCount?: number|null, warning?: string|null, kind: string }>}
  */
 export async function extractText(input, mimeType) {
-  const kind = SUPPORTED_MIME_TYPES[String(mimeType || "").toLowerCase()];
-  if (!kind) {
-    throw new ExtractionError("unsupported_mime", `Unsupported MIME type: ${mimeType}`);
-  }
+  const { kind } = validateFileContent(input, mimeType);
 
   let result;
   if (kind === "pdf") result = await extractPDF(input);
