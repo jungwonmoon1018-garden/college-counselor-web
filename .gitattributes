@@ -6,3 +6,10 @@
 *.json text eol=lf
 *.md text eol=lf
 *.yml text eol=lf
+
+# These legacy files are stored with CRLF; preserve those line endings so targeted
+# patches do not rewrite every line in otherwise reviewable changes.
+backend/cds-search.js -text
+backend/file-extractors.js -text
+backend/tests/cds-search.test.js -text
+backend/tests/file-extractors.test.js -text

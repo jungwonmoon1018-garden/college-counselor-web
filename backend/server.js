@@ -176,6 +176,13 @@ import {
 import { loadOrchestrationCatalog, buildOrchestration, isReasonableModelId, redactPayloadForModel, buildSystemPrompt } from "./orchestration-engine.js";
 import { t, resolveLocale, localizeFriendlyLabels } from "./i18n.js";
 import { initAuthStore, isLoopbackAddress, normalizeEmail } from "./security-auth.js";
+import {
+  ADMIN_AUTH_RATE_LIMIT,
+  AUTH_RATE_LIMIT,
+  buildHealthResponse,
+  securityResponseMiddleware,
+  shouldUseSecureAdminCookie,
+} from "./security-hardening.js";
 import { OPENROUTER_MODEL_OPTIONS } from "./llm-adapters/tier-defaults.js";
 import {
   mergeWebModels,
@@ -631,12 +638,12 @@ function readCookie(req, name) {
 const ADMIN_COOKIE = "cc_admin_session";
 
 function setAdminCookie(req, res, token) {
-  const secure = (req.secure || (WEB_DEPLOYMENT && process.env.WEB_COOKIE_SECURE !== "0")) ? "; Secure" : "";
+  const secure = shouldUseSecureAdminCookie({ requestSecure: req.secure, webDeployment: WEB_DEPLOYMENT }) ? "; Secure" : "";
   res.setHeader("Set-Cookie", `${ADMIN_COOKIE}=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/api/admin; Max-Age=604800${secure}`);
 }
 
 function clearAdminCookie(req, res) {
-  const secure = (req.secure || (WEB_DEPLOYMENT && process.env.WEB_COOKIE_SECURE !== "0")) ? "; Secure" : "";
+  const secure = shouldUseSecureAdminCookie({ requestSecure: req.secure, webDeployment: WEB_DEPLOYMENT }) ? "; Secure" : "";
   res.setHeader("Set-Cookie", `${ADMIN_COOKIE}=; HttpOnly; SameSite=Strict; Path=/api/admin; Max-Age=0${secure}`);
 }
 
@@ -1156,15 +1163,20 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       connectSrc: ["'self'"],
       imgSrc: ["'self'", "data:", "blob:"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
     },
   },
   strictTransportSecurity: NODE_ENV === "production" ? { maxAge: 31536000, includeSubDomains: true } : false,
 }));
+app.use(securityResponseMiddleware({ production: NODE_ENV === "production" }));
 
 // Localhost (any port) in development. The Vite dev server and the preview
 // tooling bind to varying ports (5173, 5180, 3001, …), so a fixed allowlist
@@ -1203,6 +1215,16 @@ app.use((req, res, next) => {
 const apiLimiter = rateLimit({ windowMs: 60_000, max: 30, keyGenerator: (req) => hashIP(req.ip), message: { error: "Too many requests." } });
 const studentLimiter = rateLimit({ windowMs: 60_000, max: 30, keyGenerator: (req) => hashIP(req.ip) });
 const scorecardLimiter = rateLimit({ windowMs: 60_000, max: 40, keyGenerator: (req) => hashIP(req.ip), message: { error: "Too many college search requests." } });
+const authLimiter = rateLimit({
+  ...AUTH_RATE_LIMIT,
+  keyGenerator: (req) => hashIP(req.ip),
+  message: { error: "Too many authentication attempts. Try again later.", code: "auth_rate_limited" },
+});
+const adminAuthLimiter = rateLimit({
+  ...ADMIN_AUTH_RATE_LIMIT,
+  keyGenerator: (req) => hashIP(req.ip),
+  message: { error: "Too many administrator authentication attempts. Try again later.", code: "admin_auth_rate_limited" },
+});
 
 
 // ═══════════════════════════════════════════════════════════
@@ -1912,7 +1934,7 @@ app.get("/api/admin/status", studentLimiter, requireAdminNetwork, (_req, res) =>
   });
 });
 
-app.post("/api/admin/bootstrap", studentLimiter, requireAdminNetwork, (req, res) => {
+app.post("/api/admin/bootstrap", adminAuthLimiter, requireAdminNetwork, (req, res) => {
   if (!hasDesktopBootstrapProof(req)) return res.status(403).json({
     error: WEB_DEPLOYMENT ? "The website setup token is invalid." : "Privileged desktop bootstrap proof required.",
   });
@@ -1926,14 +1948,14 @@ app.post("/api/admin/bootstrap", studentLimiter, requireAdminNetwork, (req, res)
   }
 });
 
-app.post("/api/admin/login", studentLimiter, requireAdminNetwork, (req, res) => {
+app.post("/api/admin/login", adminAuthLimiter, requireAdminNetwork, (req, res) => {
   if (!hasAllowedAdminOrigin(req)) return res.status(403).json({ error: "Administrator origin is not allowed." });
   const result = authStore.authenticateAdmin(req.body?.password);
   if (!result) return res.status(401).json({ error: "Invalid administrator credentials." });
   return adminSessionResponse(req, res, result);
 });
 
-app.post("/api/admin/recover", studentLimiter, requireAdminNetwork, (req, res) => {
+app.post("/api/admin/recover", adminAuthLimiter, requireAdminNetwork, (req, res) => {
   if (!WEB_DEPLOYMENT && !hasDesktopBootstrapProof(req)) return res.status(403).json({ error: "Privileged desktop recovery proof required." });
   if (!hasAllowedAdminOrigin(req)) return res.status(403).json({ error: "Administrator origin is not allowed." });
   try {
@@ -2135,7 +2157,7 @@ app.all(["/api/setup/status", "/api/setup/initialize", "/api/students/apikey"], 
   res.status(410).json({ error: "Legacy setup-token and student BYOK APIs have been removed.", code: "surface_removed" });
 });
 
-app.post("/api/students/register", studentLimiter, (req, res) => {
+app.post("/api/students/register", authLimiter, (req, res) => {
   const email = normalizeEmail(req.body?.email);
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return res.status(400).json({ error: "A valid email is required.", code: "invalid_email" });
@@ -2180,7 +2202,7 @@ app.post("/api/students/register", studentLimiter, (req, res) => {
   }
 });
 
-app.post("/api/students/auth", studentLimiter, (req, res) => {
+app.post("/api/students/auth", authLimiter, (req, res) => {
   try {
     const email = normalizeEmail(req.body?.email);
     const account = email ? authStore.authenticateStudent(hashEmail(email), req.body?.password) : null;
@@ -2203,7 +2225,7 @@ app.post("/api/students/logout-all", studentLimiter, requireStudentAuth, (req, r
   res.json({ loggedOut: true, all: true });
 });
 
-app.post("/api/students/recover", studentLimiter, (req, res) => {
+app.post("/api/students/recover", authLimiter, (req, res) => {
   try {
     const email = normalizeEmail(req.body?.email);
     const result = email ? authStore.recoverStudent(hashEmail(email), req.body?.recoveryCode, req.body?.newPassword) : null;
@@ -2216,7 +2238,7 @@ app.post("/api/students/recover", studentLimiter, (req, res) => {
   }
 });
 
-app.put("/api/students/password", studentLimiter, requireStudentAuth, (req, res) => {
+app.put("/api/students/password", authLimiter, requireStudentAuth, (req, res) => {
   try {
     const result = authStore.changeStudentPassword(req.studentId, req.body?.currentPassword, req.body?.newPassword);
     if (!result) return res.status(401).json({ error: "Current password is invalid.", code: "invalid_credentials" });
@@ -3290,10 +3312,14 @@ app.post("/api/files/extract-text", studentLimiter, requireStudentAuth, async (r
         mime,
       });
     } catch (e) {
-      const msg = e instanceof ExtractionError
-        ? `${e.code}: ${e.message}`
-        : (e?.message || "Extraction failed");
-      return res.status(422).json({ error: msg });
+      if (!(e instanceof ExtractionError)) console.error("[FILE-EXTRACT] parser error:", e?.message || e);
+      const status = e instanceof ExtractionError && e.code === "archive_limits_exceeded"
+        ? 413
+        : (e instanceof ExtractionError && e.code === "content_type_mismatch" ? 415 : 422);
+      return res.status(status).json({
+        error: status === 413 ? "Uploaded archive exceeds safe processing limits." : "Uploaded file could not be safely processed.",
+        code: e?.code || "extraction_failed",
+      });
     }
   } catch (err) {
     console.error("[FILE-EXTRACT] error:", err.message);
@@ -3307,7 +3333,7 @@ app.post("/api/ec/upload", studentLimiter, requireStudentAuth, (req, res) => {
       if (mErr.code === "UNSUPPORTED_MIME") {
         return res.status(415).json({
           error: mErr.message,
-          supported: Array.from(SUPPORTED_MIME_TYPES),
+          supported: Object.keys(SUPPORTED_MIME_TYPES),
         });
       }
       if (mErr.code === "LIMIT_FILE_SIZE") {
@@ -3333,6 +3359,15 @@ app.post("/api/ec/upload", studentLimiter, requireStudentAuth, (req, res) => {
       extractedText = (result?.text || "").slice(0, 20_000);
       warning = result?.warning || null;
     } catch (e) {
+      if (e instanceof ExtractionError && ["content_type_mismatch", "archive_limits_exceeded"].includes(e.code)) {
+        try { if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath); } catch {}
+        return res.status(e.code === "archive_limits_exceeded" ? 413 : 415).json({
+          error: e.code === "archive_limits_exceeded"
+            ? "Uploaded archive exceeds safe processing limits."
+            : "Uploaded file content does not match its declared type.",
+          code: e.code,
+        });
+      }
       extractionStatus = "failed";
       extractionError = e instanceof ExtractionError
         ? `${e.code}: ${e.message}`
@@ -6151,7 +6186,10 @@ app.post("/api/cds/parse", studentLimiter, requireStudentAuth, (req, res) => {
         ? `${err.code}: ${err.message}`
         : String(err?.message || err).slice(0, 240);
       console.error("[CDS parse] Error:", message);
-      res.status(400).json({ error: "CDS parse failed", detail: message });
+      const validationStatus = err instanceof ExtractionError && err.code === "archive_limits_exceeded"
+        ? 413
+        : (err instanceof ExtractionError && err.code === "content_type_mismatch" ? 415 : 400);
+      res.status(validationStatus).json({ error: "CDS parse failed", code: err?.code || "cds_parse_failed", detail: message });
     } finally {
       try {
         if (req.file?.path && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
@@ -6270,15 +6308,17 @@ app.get("/api/admissions-intel/ipeds-growth", studentLimiter, requireStudentAuth
 
 app.get("/api/health", (_req, res) => {
   const crisisCount = stmts.getCrisisCount24h.get();
-  res.json({
-    status: "ok",
+  res.json(buildHealthResponse({
+    production: NODE_ENV === "production",
     uptime: process.uptime(),
-    scorecard: !!SCORECARD_API_KEY,
-    crisisLast24h: crisisCount.count,
-    retentionMode: RETENTION_MODE,
-    databases: { operational: "counselor.db", piiVault: "pii-vault.db", vectors: "vectors.db" },
     timestamp: new Date().toISOString(),
-  });
+    details: {
+      scorecard: !!SCORECARD_API_KEY,
+      crisisLast24h: crisisCount.count,
+      retentionMode: RETENTION_MODE,
+      databases: { operational: "counselor.db", piiVault: "pii-vault.db", vectors: "vectors.db" },
+    },
+  }));
 });
 
 

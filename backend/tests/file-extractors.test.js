@@ -15,9 +15,11 @@ import {
   extractDOCX,
   extractImage,
   extractText,
+  validateFileContent,
   isSupportedMime,
   SUPPORTED_MIME_TYPES,
   MAX_FILE_BYTES,
+  MAX_ARCHIVE_COMPRESSION_RATIO,
   ExtractionError,
 } from "../file-extractors.js";
 
@@ -194,6 +196,57 @@ test("extractText rejects unsupported MIME", async () => {
   await assert.rejects(
     async () => extractText(Buffer.from(""), "application/x-msdownload"),
     (err) => err instanceof ExtractionError && err.code === "unsupported_mime",
+  );
+});
+
+test("extractText rejects a spoofed declared MIME type before parser dispatch", async () => {
+  await assert.rejects(
+    async () => extractText(Buffer.from("MZ executable data"), "application/pdf"),
+    (err) => err instanceof ExtractionError && err.code === "content_type_mismatch",
+  );
+  await assert.rejects(
+    async () => extractText(Buffer.from([0xff, 0xd8, 0xff, 0x00]), "image/png"),
+    (err) => err instanceof ExtractionError && err.code === "content_type_mismatch",
+  );
+});
+
+test("validateFileContent accepts supported file signatures and valid UTF-8 text", () => {
+  assert.equal(validateFileContent(Buffer.from("%PDF-1.7\n"), "application/pdf").kind, "pdf");
+  assert.equal(validateFileContent(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), "image/png").kind, "image");
+  assert.equal(validateFileContent(Buffer.from([0xff, 0xd8, 0xff, 0xd9]), "image/jpeg").kind, "image");
+  assert.equal(validateFileContent(Buffer.from("RIFF0000WEBP", "ascii"), "image/webp").kind, "image");
+  assert.equal(validateFileContent(Buffer.from("safe utf-8 narrative"), "text/plain").kind, "text");
+  assert.throws(
+    () => validateFileContent(Buffer.from([0x61, 0x00, 0x62]), "text/plain"),
+    (err) => err instanceof ExtractionError && err.code === "content_type_mismatch",
+  );
+});
+
+test("DOCX validation enforces structure and compression-bomb limits", () => {
+  const valid = buildMinimalDocx("A normal document");
+  assert.equal(validateFileContent(valid, "application/vnd.openxmlformats-officedocument.wordprocessingml.document").kind, "docx");
+
+  const bomb = buildMinimalDocx("x".repeat(MAX_ARCHIVE_COMPRESSION_RATIO + 200));
+  const eocd = bomb.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+  let cursor = bomb.readUInt32LE(eocd + 16);
+  while (cursor < eocd) {
+    const nameLength = bomb.readUInt16LE(cursor + 28);
+    const extraLength = bomb.readUInt16LE(cursor + 30);
+    const commentLength = bomb.readUInt16LE(cursor + 32);
+    const name = bomb.subarray(cursor + 46, cursor + 46 + nameLength).toString("utf8");
+    if (name === "word/document.xml") {
+      bomb.writeUInt32LE(1, cursor + 20);
+      break;
+    }
+    cursor += 46 + nameLength + extraLength + commentLength;
+  }
+  assert.throws(
+    () => validateFileContent(bomb, "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+    (err) => err instanceof ExtractionError && err.code === "archive_limits_exceeded",
+  );
+  assert.throws(
+    () => validateFileContent(Buffer.from("PK not really a docx"), "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+    (err) => err instanceof ExtractionError && err.code === "content_type_mismatch",
   );
 });
 

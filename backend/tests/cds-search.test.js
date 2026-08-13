@@ -217,7 +217,7 @@ test("parseCdsDocument extracts text first, then parses CDS fields", async () =>
 
 test("extractCdsDocumentText falls back to injected PDF OCR when PDF text is low signal", async () => {
   let ocrCalled = false;
-  const result = await extractCdsDocumentText(Buffer.from("%PDF fake"), {
+  const result = await extractCdsDocumentText(Buffer.from("%PDF-1.7 fake"), {
     contentType: "application/pdf",
     pdfTextExtractor: async () => ({
       text: "tiny",
@@ -254,7 +254,7 @@ test("resolveAndParseCdsTargets records OCR extraction metadata for scanned PDFs
     return {
       ok: true,
       headers: { get: () => "application/pdf" },
-      arrayBuffer: async () => Buffer.from("%PDF fake"),
+      arrayBuffer: async () => Buffer.from("%PDF-1.7 fake"),
     };
   };
 
