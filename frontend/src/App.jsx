@@ -1348,6 +1348,16 @@ function formatStructuredChatResponse(body) {
   return parts.filter(Boolean).join("\n\n");
 }
 
+// Unique id for the backend's budget ledger. /api/chat REQUIRES a request_id
+// for every paid model call (it reserves the per-student budget under it and
+// rejects duplicates); without one the route 400s with "request_id is
+// required for paid model calls" — which surfaced in the UI as the generic
+// "Something went wrong while answering that" on every model-backed turn.
+function newChatRequestId() {
+  try { if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID(); } catch { /* fall through */ }
+  return "req-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+}
+
 async function requestChat(payload, signal, locale = "en-US") {
   const lang = locale === "ko" ? "ko" : "en-US";
   const url = `${CHAT_PATH}?locale=${encodeURIComponent(lang)}`;
@@ -1356,8 +1366,13 @@ async function requestChat(payload, signal, locale = "en-US") {
   if (window.__CC_SESSION_TOKEN__) {
     headers["Authorization"] = `Bearer ${window.__CC_SESSION_TOKEN__}`;
   }
+  // Fresh id per call — each agent/tool-loop invocation is its own billed
+  // model call, so ids must never repeat. The 401 re-auth retry below reuses
+  // the same body safely: the first attempt failed auth before any budget
+  // reservation happened.
+  const requestBody = JSON.stringify({ request_id: newChatRequestId(), ...payload });
 
-  let r = await fetch(url, { method: "POST", credentials: "same-origin", headers, body: JSON.stringify(payload), signal });
+  let r = await fetch(url, { method: "POST", credentials: "same-origin", headers, body: requestBody, signal });
 
   // Auto re-authenticate on 401 (backend may have restarted, clearing in-memory tokens)
   if (r.status === 401) {
@@ -1365,7 +1380,7 @@ async function requestChat(payload, signal, locale = "en-US") {
     const refreshed = await _tryReAuth();
     if (refreshed) {
       headers["Authorization"] = `Bearer ${window.__CC_SESSION_TOKEN__}`;
-      r = await fetch(url, { method: "POST", credentials: "same-origin", headers, body: JSON.stringify(payload), signal });
+      r = await fetch(url, { method: "POST", credentials: "same-origin", headers, body: requestBody, signal });
     }
   }
 

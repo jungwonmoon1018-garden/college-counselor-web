@@ -312,3 +312,28 @@ test("transcript import succeeds on repeated uploads for the same student", asyn
   assert.equal(second.status, 200, JSON.stringify(second.data));
   assert.equal(second.data.courseCount, 1);
 });
+
+test("chat route serves a coaching turn with a request_id and rejects one without", async () => {
+  const token = await registerStudent("chat-route");
+  for (const consentType of ["data_processing", "ai_interaction", "cross_border_transfer"]) {
+    const consent = await request("POST", "/api/consent/grant", {
+      token,
+      body: { consentType, grantedBy: "student" },
+    });
+    assert.equal(consent.status, 200, JSON.stringify(consent.data));
+  }
+
+  const messages = [{ role: "user", content: "What extracurriculars should I add for a computer science major?" }];
+
+  // The frontend must send a request_id with every paid model call — the
+  // budget ledger reserves under it. A turn without one is rejected, which
+  // (before the frontend fix) surfaced as a generic error on every
+  // model-backed chat turn, most visibly file-attachment turns.
+  const missingId = await request("POST", "/api/chat", { token, body: { messages } });
+  assert.equal(missingId.status, 400, JSON.stringify(missingId.data));
+  assert.match(String(missingId.data.error), /request_id/);
+
+  const ok = await request("POST", "/api/chat", { token, body: { messages, request_id: "chat-route-test-1" } });
+  assert.equal(ok.status, 200, `${JSON.stringify(ok.data)}\n${serverOutput}`);
+  assert.ok(String(ok.data.answer || "").length > 0);
+});
