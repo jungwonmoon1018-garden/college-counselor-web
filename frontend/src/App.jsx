@@ -779,7 +779,7 @@ IMPORTANT: ALWAYS call fetch_rag_context with focus="extracurriculars" as your F
 
 const COLLEGE_AGENT = {
   id:"college",label:"College Fit",color:"#D4537E",tier:"medium",maxTokens:1500,
-  system:`You are the COLLEGE FIT specialist for students ages 14-18. Handle: structured college retrieval (IPEDS + web), fit comparison, reach/match/safety lists, and — when asked about a school's "values" — extraction of what the school explicitly says it cares about.
+  system:`You are the COLLEGE FIT specialist for students ages 14-18. Handle: structured college retrieval (IPEDS + web), fit comparison, reach/match/safety lists, general financial-aid information (FAFSA, CSS Profile, aid types, need-blind vs need-aware), and — when asked about a school's "values" — extraction of what the school explicitly says it cares about.
 
 NAMED-SCHOOL FOCUS — STRICTLY ENFORCED:
 If the student names one or more specific schools in their question, your ENTIRE response must be about THOSE schools and only those schools.
@@ -817,7 +817,7 @@ SAFETY BARRIERS:
 3. NEVER guarantee admission. Use "your profile aligns with the middle 50%."
 4. NEVER rank schools as "better/worse" — fit is personal, not hierarchical.
 5. NEVER dismiss a student's dream school — suggest it as aspirational if it's a reach.
-6. NEVER give financial advice — state tuition from IPEDS only, say "consult your family and financial aid office."
+6. FINANCIAL AID — answer informational questions, don't deflect. Explain how the FAFSA and CSS Profile work, the kinds of aid (grants, scholarships, loans, work-study; merit vs need-based), what need-blind / need-aware / meets-full-need mean, and how net price calculators work. Cite official sources (studentaid.gov, the school's aid page, IPEDS for cost figures). Boundaries: never predict a specific award or tell a family what to pay/borrow (that's personalized financial advice — direct them to the school's aid office); never state specific aid amounts without a cited source; never ask for FSA IDs, SSNs, or tax documents; official actions happen only on StudentAid.gov.
 7. If no data, say "I couldn't verify that from authoritative sources — check the school's own admissions site or nces.ed.gov/ipeds."
 
 TOOLS:
@@ -1402,12 +1402,14 @@ async function screenUploadForSafety(fileData, signal) {
     system: `You are a content safety screener for a K-12 education app used by students ages 14-18.
 You review uploaded files (images, PDFs) BEFORE they are processed by the counseling system.
 Your ONLY job: determine if the content is safe for an educational context.
-REJECT if the file contains: explicit/sexual content, violence/gore, CSAM (child sexual abuse material),
-hate speech, drug paraphernalia, weapons, nudity, or anything not appropriate for a school setting.
-ACCEPT if the file is: a report card, transcript, score report, school document, academic certificate,
-resume, or other education-related document.
+REJECT ONLY if the file clearly contains: explicit/sexual content, violence/gore, CSAM (child sexual abuse material),
+hate speech, drug paraphernalia, weapons, or nudity.
+ACCEPT everything else that is plausibly a student's document: report cards, transcripts, score reports,
+schedules, school documents, academic certificates, resumes, essay drafts, activity lists, award or
+financial-aid letters, notes, screenshots of school portals — even if partially blurry, scanned, or oddly formatted.
+A hard-to-read school document is SAFE — reject only for unsafe CONTENT, never for quality or ambiguity.
 Respond ONLY with JSON: {"safe":true|false,"reason":"one sentence"}
-When in doubt, REJECT. Student safety is paramount.`,
+If uncertain whether the content is unsafe, ACCEPT — downstream moderation runs on everything extracted from it.`,
     tools: []
   };
 
@@ -2454,6 +2456,9 @@ export default function App() {
   const [sCourseYear, setSCourseYear] = useState("freshman"); // which year tab is active
   const [sCourses, setSCourses] = useState({ freshman:[], sophomore:[], junior:[], senior:[] });
   const [sCourseInput, setSCourseInput] = useState({ name:"", type:"regular", grade:"A", semester:"full_year" });
+  // Transcript import (PDF / image / DOCX → parsed course list for review)
+  const [sImportBusy, setSImportBusy] = useState(false);
+  const [sImportNote, setSImportNote] = useState("");
   // Tests — expanded categories
   const [sTests, setSTests] = useState([]);
   const [sTestCategory, setSTestCategory] = useState("sat"); // which test type tab
@@ -2691,8 +2696,22 @@ export default function App() {
         content: m.content,
         attachment: m.attachment_name ? { name: m.attachment_name } : null,
       })));
+      // Lazy auto-name: conversations that predate the auto-naming feature
+      // (or whose first naming attempt failed) still carry the placeholder
+      // title or the raw first-line truncation. Rename them the first time
+      // they're opened. Fire-and-forget — the server is crisis-safe and
+      // skips silently when no model key is configured. User-set custom
+      // titles are untouched because they never equal the derived fallback.
+      const title = data.thread?.title || "";
+      const firstUser = (data.messages || []).find(m => m.role === "user");
+      const derived = String(firstUser?.content || "").split(/\r?\n/)[0].trim().slice(0, 60);
+      if (firstUser && title !== "Support resources" && (title === "New conversation" || title === derived)) {
+        authedFetch(`/api/students/threads/${threadId}/autoname`, { method: "POST" })
+          .then(res => { if (res.ok) refreshThreadList(); })
+          .catch(() => {});
+      }
     } catch (err) { console.warn("[CHAT] openThread failed:", err?.message); }
-  }, [authedFetch]);
+  }, [authedFetch, refreshThreadList]);
 
   // Append a turn to the active thread (no-op if no thread).
   // Called from `send()` after each user + assistant message.
@@ -3502,26 +3521,33 @@ export default function App() {
     if (attempts.count >= 5 && now - attempts.lastFail >= 5 * 60 * 1000) {
       setLoginAttempts(prev => ({ ...prev, [email]: { count: 0, lastFail: 0 } }));
     }
-    // The on-device vault both verifies the passphrase and carries the
-    // student's identity — there is no plaintext registry to consult.
+    // The on-device vault verifies the passphrase offline and carries the
+    // student's identity + data when present. It is a CACHE, not the
+    // credential authority — the backend owns the credential. A missing vault
+    // (new device or browser, cleared site data, a browser that wipes storage
+    // on close) must NOT dead-end the student: fall through to server
+    // authentication and re-seed the vault from the session. The old hard
+    // stop here ("create a new account") combined with the backend's
+    // duplicate-email rejection to lock returning students out entirely.
     const storageKey = await storageKeyFor(email);
     let identity = null;
+    let vaultData = null;
+    let vaultMissing = false;
     try {
       const saved = await storageApi.get(storageKey);
       if (!saved?.value) {
-        // No vault on this device — cannot verify the passphrase offline.
-        setLError("Account data not found. It may have been cleared. Please create a new account.");
-        return;
+        vaultMissing = true; // verify against the server below
+      } else {
+        const d = await decrypt(saved.value, lPass, email);
+        if (!d) {
+          setLoginAttempts(prev => ({ ...prev, [email]: { count: (prev[email]?.count || 0) + 1, lastFail: Date.now() } }));
+          setLError("Wrong passphrase. Your data is encrypted — only the correct passphrase can unlock it.");
+          return;
+        }
+        identity = readVaultIdentity(d);
+        // A verifier-only vault has no student data to restore yet.
+        if (!d._verifier) { vaultData = readVaultData(d); setData(vaultData); }
       }
-      const d = await decrypt(saved.value, lPass, email);
-      if (!d) {
-        setLoginAttempts(prev => ({ ...prev, [email]: { count: (prev[email]?.count || 0) + 1, lastFail: Date.now() } }));
-        setLError("Wrong passphrase. Your data is encrypted — only the correct passphrase can unlock it.");
-        return;
-      }
-      identity = readVaultIdentity(d);
-      // A verifier-only vault has no student data to restore yet.
-      if (!d._verifier) { setData(readVaultData(d)); }
     } catch (err) {
       console.warn("Login decryption error:", err?.message);
       setLError("Couldn't unlock your data. Please try again.");
@@ -3539,6 +3565,13 @@ export default function App() {
     if (!sess.ok && !sess.offline) {
       setLoginAttempts(prev => ({ ...prev, [email]: { count: (prev[email]?.count || 0) + 1, lastFail: Date.now() } }));
       setLError(sess.reason || "Invalid email or password.");
+      return;
+    }
+    // No vault on this device AND no reachable server: nothing can verify the
+    // passphrase, so we can't open anything yet. (With a vault present,
+    // offline mode proceeds on the on-device data below.)
+    if (vaultMissing && !sess.ok) {
+      setLError("Couldn't reach the server, and there's no data saved on this device yet. Reconnect and sign in again.");
       return;
     }
     // Offline-first: the vault already decrypted above, so an unreachable
@@ -3573,6 +3606,11 @@ export default function App() {
     // adopt it now — so the student sees their real transcript instead
     // of an empty survey, and isn't forced to re-do onboarding.
     let backendHasProfile = false;
+    // Same convention as api.js: __CC_PROXY_URL__ is the chat endpoint, and
+    // the same-origin default keeps this working on the deployed website.
+    // (`proxyUrl` was previously read here without ever being declared — the
+    // second dangling reference that crashed every returning login.)
+    const proxyUrl = window.__CC_PROXY_URL__ || "/api/chat";
     if (window.__CC_SESSION_TOKEN__ && proxyUrl) {
       try {
         const base = proxyUrl.replace(/\/chat\/?$/,"");
@@ -3612,9 +3650,16 @@ export default function App() {
     // backend and would otherwise strand the student on the API-key screen).
     // Land them directly on their local data — CHAT if onboarding is done,
     // else the (local) survey.
-    if (serverUnreachable) {
-      if (acct.surveyCompleted) {
-        setMessages([{ role:"assistant", content:`Hey ${acct.name}! You're offline right now — your data is here and safe. Chat resumes once your connection's back.` }]);
+    // NOTE: this tail previously referenced `serverUnreachable` and `acct` —
+    // leftovers from the removed account registry that no longer existed
+    // anywhere. Every returning login threw a ReferenceError right after the
+    // server session was established, so the screen never advanced past LOGIN
+    // and the deployed site appeared to lock users out after their first
+    // visit. Route on `sess.offline` and the decrypted vault data instead.
+    const surveyCompleted = Boolean(vaultData?.surveyCompleted);
+    if (sess.offline) {
+      if (surveyCompleted) {
+        setMessages([{ role:"assistant", content:`Hey ${identity.name}! You're offline right now — your data is here and safe. Chat resumes once your connection's back.` }]);
         setScreen(S.CHAT);
       } else {
         setSurveyStep(0);
@@ -3627,13 +3672,13 @@ export default function App() {
     // effectively done — go straight to chat (recovered data shows in
     // the sidebar, and "Edit profile" re-pulls it). Otherwise honor the
     // local surveyCompleted flag.
-    if (!backendHasProfile && !acct.surveyCompleted) {
+    if (!backendHasProfile && !surveyCompleted) {
       setSurveyStep(0);
       setScreen(S.SURVEY);
       return;
     }
 
-    setMessages([{ role:"assistant", content:`Hey ${acct.name}! What would you like to work on?` }]);
+    setMessages([{ role:"assistant", content:`Hey ${identity.name}! What would you like to work on?` }]);
     setScreen(S.CHAT);
   }, [lEmail, lPass, loginAttempts]);
 
@@ -4208,6 +4253,65 @@ export default function App() {
       setSCourses(p=>({...p,[sCourseYear]:[...p[sCourseYear],{...sCourseInput,name:sCourseInput.name.trim().slice(0,100)}]}));
       setSCourseInput({name:"",type:sCourseInput.type,grade:"A",semester:sCourseInput.semester||"full_year"});
     };
+    // Import a transcript file (PDF / image / DOCX): the backend extracts text
+    // locally, parses courses on the small model tier, and returns them for
+    // review here — nothing is saved until the student finishes the survey.
+    // Courses whose grade couldn't be read arrive as "IP" so nothing is
+    // fabricated; the note below tells the student to fix them.
+    const importTranscript = async (file) => {
+      if (!file || sImportBusy) return;
+      setSurveyError(""); setSImportNote("");
+      if (file.size > MAX_SCHOOL_FILE_SIZE_BYTES) { setSurveyError("File too large. Maximum 4MB."); return; }
+      setSImportBusy(true);
+      try {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        let binary = "";
+        for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+          binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+        }
+        const r = await authedFetch("/api/students/transcript-import", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ base64: btoa(binary), mimeType: file.type || "", filename: file.name || "transcript" }),
+        });
+        const body = await r.json().catch(() => ({}));
+        if (!r.ok) { setSurveyError(body.error || `Import failed (HTTP ${r.status})`); return; }
+
+        // Merge outside the state updater (StrictMode double-invokes updaters).
+        const merged = { ...sCourses };
+        const existing = new Set(SURVEY_YEARS.flatMap(y => (merged[y] || []).map(c => y + ":" + c.name.toLowerCase())));
+        let total = Object.values(merged).flat().length;
+        let added = 0, skipped = 0;
+        for (const [year, list] of Object.entries(body.courses || {})) {
+          const targetYear = SURVEY_YEARS.includes(year) ? year : sCourseYear;
+          for (const c of (Array.isArray(list) ? list : [])) {
+            const name = String(c?.name || "").trim().slice(0, 100);
+            const key = targetYear + ":" + name.toLowerCase();
+            if (!name || existing.has(key) || total >= MAX_ITEMS) { skipped += 1; continue; }
+            existing.add(key);
+            merged[targetYear] = [...(merged[targetYear] || []), {
+              name,
+              type: c.type || "regular",
+              grade: c.grade || "IP",
+              semester: c.semester || "full_year",
+            }];
+            total += 1; added += 1;
+          }
+        }
+        setSCourses(merged);
+        if (body.gpa != null && !sGpaUw) setSGpaUw(String(body.gpa));
+
+        const notes = [`Imported ${added} course${added === 1 ? "" : "s"}${skipped ? ` (${skipped} skipped — duplicates or over the ${MAX_ITEMS}-course cap)` : ""}.`];
+        if (body.gpa != null) notes.push(`Transcript GPA: ${body.gpa}.`);
+        if (Array.isArray(body.warnings) && body.warnings.length) notes.push(body.warnings.join(" "));
+        notes.push("Double-click any course chip to fix its name, rigor, or grade before continuing.");
+        setSImportNote(notes.join(" "));
+      } catch (err) {
+        setSurveyError(err?.message || "Transcript import failed");
+      } finally {
+        setSImportBusy(false);
+      }
+    };
     const addTest = () => {
       if (!sTestInput.totalScore || sTests.length >= MAX_ITEMS) return;
       const score = Number(sTestInput.totalScore);
@@ -4314,6 +4418,18 @@ export default function App() {
           {/* STEP 1: TRANSCRIPT per year */}
           {surveyStep===1 && (<div>
             <div style={{display:"flex",gap:2,marginBottom:14,borderBottom:"1px solid rgba(255,255,255,0.05)"}}>{YEARS.map(y=>tab(sCourseYear===y,()=>setSCourseYear(y),ylbl(y),sCourses[y]?.length))}</div>
+            {/* Transcript file import — extracts + parses courses for review */}
+            <div style={{marginBottom:12}}>
+              <input type="file" id="transcriptImportInput" accept=".pdf,.png,.jpg,.jpeg,.webp,.docx" style={{display:"none"}}
+                onChange={e=>{ const f=e.target.files?.[0]; e.target.value=""; if (f) importTranscript(f); }} />
+              <button
+                onClick={()=>document.getElementById("transcriptImportInput")?.click()}
+                disabled={sImportBusy}
+                style={{width:"100%",padding:"10px 14px",borderRadius:10,border:"1px dashed rgba(99,179,237,0.4)",background:sImportBusy?"rgba(255,255,255,0.03)":"rgba(55,138,221,0.08)",color:sImportBusy?"#666":"#63b3ed",fontSize:12,fontWeight:600,cursor:sImportBusy?"default":"pointer"}}
+              >{sImportBusy ? "Reading transcript…" : "📄 Import courses from a transcript (PDF, image, or DOCX)"}</button>
+              {sImportNote && <div style={{marginTop:6,fontSize:11,color:"#68d391",lineHeight:1.5}}>{sImportNote}</div>}
+              {!sImportNote && <div style={{marginTop:6,fontSize:10,color:"#6a6a7a"}}>Parsed courses land in the year tabs above for you to review — nothing is saved until you finish the survey.</div>}
+            </div>
             {(sCourses[sCourseYear]||[]).length>0 && (<div style={{marginBottom:12,display:"flex",flexWrap:"wrap"}}>{sCourses[sCourseYear].map((c,i)=>{
               const bg=c.type==="ap"?"rgba(246,173,85,0.15)":c.type==="ib"?"rgba(127,119,221,0.15)":c.type==="honors"?"rgba(99,179,237,0.15)":c.type==="dual_enrollment"?"rgba(29,158,117,0.15)":c.type==="elective"?"rgba(218,165,109,0.12)":"";
               // Double-click loads the course into the input form below
@@ -4352,7 +4468,7 @@ export default function App() {
             {sCourseInput.type && <div style={{fontSize:10,color:"#6a8ab5",marginBottom:8}}>{RIGOR[sCourseInput.type]}</div>}
             {sCourseInput.type==="ap" && (<div style={{marginBottom:8}}><select value={sCourseInput.name} onChange={e=>setSCourseInput(p=>({...p,name:e.target.value}))} style={sl}><option value="">Select AP course (CollegeBoard)</option>{AP_COURSES.map(c=>(<option key={c} value={c}>{`AP ${c}`}</option>))}</select></div>)}
             <div style={{display:"flex",gap:8}}>
-              <div style={{flex:1}}><select value={sCourseInput.grade} onChange={e=>setSCourseInput(p=>({...p,grade:e.target.value}))} style={sl}>{COURSE_GRADES.map(g=>(<option key={g} value={g}>{gradeLabel(g)}</option>))}</select></div>
+              <div style={{flex:1}}><select value={sCourseInput.grade} onChange={e=>setSCourseInput(p=>({...p,grade:e.target.value}))} style={sl}>{COURSE_GRADES.map(g=>(<option key={g} value={g}>{gradeLabel(g)}</option>))}<option value="IP">In Progress</option></select></div>
               <div style={{flex:1}}><select value={sCourseInput.semester||"full_year"} onChange={e=>setSCourseInput(p=>({...p,semester:e.target.value}))} style={sl}><option value="fall">Fall</option><option value="spring">Spring</option><option value="full_year">Full Year</option></select></div>
               <button onClick={addCourse} style={{padding:"0 20px",borderRadius:12,border:"none",background:sCourseInput.name.trim()?"linear-gradient(135deg,#378ADD,#667eea)":"rgba(255,255,255,0.03)",color:sCourseInput.name.trim()?"#fff":"#444",fontSize:14,fontWeight:600,cursor:sCourseInput.name.trim()?"pointer":"default"}}>Add</button>
             </div>

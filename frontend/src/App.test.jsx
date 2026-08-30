@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { webcrypto } from "node:crypto";
 import App from "./App.jsx";
 
 // These tests exist because the local-account-registry removal left App.jsx
@@ -48,4 +49,45 @@ describe("App boot", () => {
     // The legacy registry is purged on mount rather than read.
     expect(window.localStorage.getItem("cc_accounts_registry")).toBeNull();
   });
+});
+
+describe("Returning login", () => {
+  beforeEach(() => {
+    // jsdom lacks crypto.subtle; the login flow hashes the email and re-seeds
+    // the vault with WebCrypto, so back it with Node's implementation.
+    if (!globalThis.crypto?.subtle) vi.stubGlobal("crypto", webcrypto);
+    vi.stubGlobal("localStorage", memoryStorage());
+    vi.stubGlobal("fetch", vi.fn(async (url, options = {}) => {
+      const path = String(url);
+      const method = String(options.method || "GET").toUpperCase();
+      const json = (body) => ({ ok: true, status: 200, json: async () => body });
+      if (method === "POST" && path.includes("/api/students/auth")) {
+        return json({ token: "tok_test_1", studentId: "stu_test_1" });
+      }
+      if (path.includes("/api/students/budget")) return json({ grade: 11 });
+      if (path.includes("/api/students/export")) return json({ profile: { name: "Jiyeon Kim" } });
+      return json({});
+    }));
+  });
+
+  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+  // Regression: the post-login routing referenced `serverUnreachable` and
+  // `acct` — leftovers from the removed account registry that existed nowhere
+  // — so EVERY returning login threw a ReferenceError after the server session
+  // was established and the screen never left LOGIN. On the deployed site this
+  // looked like the app locking users out after their first visit. This walks
+  // the worst variant (device vault also missing): server-authoritative login
+  // must recover identity, re-seed the vault, and land in the app.
+  it("signs a returning student in even when the device vault is missing", async () => {
+    render(<App />);
+    await screen.findByText("Welcome back");
+
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "jiyeon@school.edu" } });
+    fireEvent.change(screen.getByLabelText("Passphrase"), { target: { value: "correct-horse-battery" } });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+
+    // No vault data and no backend profile → onboarding survey, step 0 (GPA).
+    expect(await screen.findByText("What's your current GPA?", {}, { timeout: 15000 })).toBeVisible();
+  }, 20000);
 });

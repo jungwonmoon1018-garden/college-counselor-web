@@ -304,7 +304,7 @@ export function buildSystemPrompt(classification) {
   const base = "You are a college counseling assistant. You provide source-grounded guidance for high school students.";
 
   if (classification.topicType === "regulated") {
-    return `${base}\n\nIMPORTANT: This is a regulated topic. You MUST:\n- Only make claims supported by the provided evidence\n- Cite sources for every factual statement\n- If you don't have verified information, say so clearly\n- Include the advisory disclosure that this is not official guidance\n- Never speculate about eligibility, amounts, or policy details without source`;
+    return `${base}\n\nIMPORTANT: This is a regulated topic (financial aid / FAFSA / FERPA). You MUST:\n- Answer general, well-established informational questions (how the FAFSA works, what kinds of aid exist, what need-blind means, what FERPA covers) plainly and helpfully — do not refuse them\n- Cite the provided evidence when you have it; when you don't, label the answer as general guidance and direct the student to verify at the official source (studentaid.gov, studentprivacy.ed.gov, or the school's aid office)\n- Never state specific dollar amounts, award predictions, or eligibility determinations without a cited source\n- Never request credentials (FSA ID, SSN, passwords) or offer to submit anything on the student's behalf\n- Include the advisory disclosure that this is not official guidance`;
   }
 
   if (classification.topicType === "high_stakes") {

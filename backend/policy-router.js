@@ -313,11 +313,45 @@ export function enforceGates(topicType, subIntent, availableEvidence = []) {
     );
 
     if (verifiedEvidence.length === 0) {
+      // REGULATED (FAFSA / financial-aid / FERPA) informational questions:
+      // a flat "no verified answer" refusal stonewalled students asking
+      // things like "how does the FAFSA work?". Allow grounded GENERAL
+      // guidance instead — the answer must be labeled unverified, carry the
+      // advisory disclosure, and point at the official source. Specifics
+      // (amounts, eligibility determinations, credentials, submissions on a
+      // student's behalf) remain out of bounds via the synthesis prompt and
+      // the FAFSA advisory posture.
+      if (normalizedType === TOPIC_TYPES.REGULATED) {
+        results.push({
+          gate: "no_source_no_answer",
+          passed: true,
+          action: "allow_unverified_general_guidance",
+          reason: "No verified source matched — answering with general guidance labeled as unverified, with an official-source pointer.",
+        });
+        results.push({
+          gate: "advisory_only_disclosure",
+          passed: true,
+          action: "attach_advisory_disclosure",
+          reason: "General regulated-topic guidance always carries the advisory disclosure.",
+        });
+        return {
+          allowed: true,
+          gates: results,
+          fallback: null,
+          generalGuidance: {
+            unverified: true,
+            suggestedSource: getSuggestedOfficialSource(subIntent),
+          },
+        };
+      }
+
+      // HIGH_STAKES lookups (deadlines, official stats) stay hard-gated:
+      // a wrong deadline or admit rate is worse than no answer.
       results.push({
         gate: "no_source_no_answer",
         passed: false,
         action: "return_no_verified_answer",
-        reason: "No verified source available for this regulated/high-stakes topic.",
+        reason: "No verified source available for this high-stakes topic.",
       });
       return {
         allowed: false,
@@ -427,7 +461,12 @@ function selectModelTierInner(topicType, subIntent, queryComplexity = "normal", 
 }
 
 // ─── Check if query can be fully handled by rules engine (T0) ───
-export function canHandleDeterministically(topicType, subIntent) {
+// `query` is optional: when provided, a FAFSA-tagged question is only routed
+// to the deterministic eligibility checker when it actually asks about
+// eligibility/qualification. General FAFSA questions ("how does the FAFSA
+// work?") used to get squeezed into an eligibility-rules answer; they now
+// fall through to grounded synthesis under the general-guidance gate.
+export function canHandleDeterministically(topicType, subIntent, query = "") {
   const deterministicRoutes = new Set([
     `${TOPIC_TYPES.CRISIS}:crisis_detected`,
     `${TOPIC_TYPES.REGULATED}:fafsa`,        // Eligibility checks
@@ -437,7 +476,11 @@ export function canHandleDeterministically(topicType, subIntent) {
     `${TOPIC_TYPES.COACHING}:gpa_benchmark`,
     `${TOPIC_TYPES.ADMINISTRATIVE}:empty_query`,
   ]);
-  return deterministicRoutes.has(`${topicType}:${subIntent}`);
+  if (!deterministicRoutes.has(`${topicType}:${subIntent}`)) return false;
+  if (topicType === TOPIC_TYPES.REGULATED && subIntent === "fafsa" && String(query || "").trim()) {
+    return /\b(eligib|qualif|am\s*i|do\s*i|can\s*i)\b/i.test(query);
+  }
+  return true;
 }
 
 // ─── Check Opus budget ───
@@ -472,7 +515,7 @@ export function routeRequest(query, conversationContext = {}, availableEvidence 
     };
   }
 
-  const modelTier = selectModelTier(
+  let modelTier = selectModelTier(
     classification.topicType,
     classification.subIntent,
     conversationContext.queryComplexity || "normal",
@@ -484,7 +527,16 @@ export function routeRequest(query, conversationContext = {}, availableEvidence 
     },
   );
 
-  const isDeterministic = canHandleDeterministically(classification.topicType, classification.subIntent);
+  const isDeterministic = canHandleDeterministically(classification.topicType, classification.subIntent, query);
+
+  // General-guidance mode (regulated topic, no verified evidence): the rules
+  // engine has nothing to answer with and a fact-store lookup would come back
+  // empty, so route to medium-tier synthesis. The composer labels everything
+  // as unverified coaching with the official-source pointer.
+  if (!isDeterministic && gateResult.generalGuidance && modelTier === MODEL_TIERS.NONE) {
+    modelTier = MODEL_TIERS.SONNET;
+  }
+
   let action;
   if (isDeterministic) action = "rules_engine";
   else if (modelTier === MODEL_TIERS.NONE) action = "fact_store_lookup";
@@ -497,6 +549,7 @@ export function routeRequest(query, conversationContext = {}, availableEvidence 
     modelTier,
     isDeterministic,
     action,
+    generalGuidance: gateResult.generalGuidance || null,
   };
 }
 

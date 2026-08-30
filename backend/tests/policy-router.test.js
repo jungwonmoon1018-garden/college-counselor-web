@@ -58,8 +58,19 @@ describe("classifyTopic", () => {
 });
 
 describe("enforceGates", () => {
-  it("blocks a REGULATED topic with no verified evidence (no-source-no-answer)", () => {
+  it("allows a REGULATED topic with no verified evidence as labeled general guidance", () => {
     const result = enforceGates(TOPIC_TYPES.REGULATED, "fafsa", []);
+    assert.equal(result.allowed, true);
+    assert.equal(result.fallback, null);
+    assert.ok(result.generalGuidance);
+    assert.equal(result.generalGuidance.unverified, true);
+    assert.ok(result.generalGuidance.suggestedSource?.url?.includes("studentaid.gov"));
+    assert.ok(result.gates.some((g) => g.gate === "no_source_no_answer" && g.action === "allow_unverified_general_guidance"));
+    assert.ok(result.gates.some((g) => g.gate === "advisory_only_disclosure" && g.passed === true));
+  });
+
+  it("still blocks a HIGH_STAKES topic with no verified evidence (no-source-no-answer)", () => {
+    const result = enforceGates(TOPIC_TYPES.HIGH_STAKES, "deadlines", []);
     assert.equal(result.allowed, false);
     assert.ok(result.fallback);
     assert.ok(result.gates.some((g) => g.gate === "no_source_no_answer" && g.passed === false));
@@ -85,19 +96,26 @@ describe("enforceGates", () => {
     assert.ok(result.gates.some((g) => g.gate === "source_verification" && g.passed === true));
   });
 
-  it("rejects extracted, expired, and irrelevant evidence", () => {
+  it("rejects extracted, expired, and irrelevant evidence as verification", () => {
     const common = {
       fact_key: "fafsa_eligibility",
       source_url: "https://studentaid.gov",
       source_domain: "studentaid.gov",
       trust_level: "official",
     };
-    assert.equal(enforceGates(TOPIC_TYPES.REGULATED, "fafsa", [
+    // Non-verified evidence must never pass source verification. For REGULATED
+    // topics that now means general-guidance mode (allowed, labeled
+    // unverified) rather than a hard block.
+    const extracted = enforceGates(TOPIC_TYPES.REGULATED, "fafsa", [
       { ...common, confidence: "extracted" },
-    ]).allowed, false);
-    assert.equal(enforceGates(TOPIC_TYPES.REGULATED, "fafsa", [
+    ]);
+    assert.ok(extracted.generalGuidance);
+    assert.ok(!extracted.gates.some((g) => g.gate === "source_verification" && g.passed === true));
+    const expired = enforceGates(TOPIC_TYPES.REGULATED, "fafsa", [
       { ...common, confidence: "verified", expires_at: "2000-01-01T00:00:00.000Z" },
-    ]).allowed, false);
+    ]);
+    assert.ok(expired.generalGuidance);
+    assert.ok(!expired.gates.some((g) => g.gate === "source_verification" && g.passed === true));
     assert.equal(enforceGates(TOPIC_TYPES.HIGH_STAKES, "deadlines", [
       { ...common, confidence: "verified", expires_at: "2099-01-01T00:00:00.000Z" },
     ]).allowed, false);
@@ -174,5 +192,22 @@ describe("routeRequest", () => {
     const result = routeRequest("I want to hurt myself");
     assert.equal(result.classification.topicType, TOPIC_TYPES.CRISIS);
     assert.equal(result.modelTier, MODEL_TIERS.NONE);
+  });
+
+  it("routes a general FAFSA question to labeled synthesis instead of refusing", () => {
+    const result = routeRequest("How does the FAFSA work?");
+    assert.equal(result.classification.topicType, TOPIC_TYPES.REGULATED);
+    assert.equal(result.isDeterministic, false);
+    assert.equal(result.action, "model_synthesis");
+    assert.equal(result.modelTier, MODEL_TIERS.SONNET);
+    assert.ok(result.generalGuidance);
+    assert.equal(result.generalGuidance.unverified, true);
+  });
+
+  it("keeps FAFSA eligibility questions on the deterministic rules engine", () => {
+    const result = routeRequest("Am I eligible for FAFSA?");
+    assert.equal(result.classification.topicType, TOPIC_TYPES.REGULATED);
+    assert.equal(result.isDeterministic, true);
+    assert.equal(result.action, "rules_engine");
   });
 });

@@ -131,11 +131,16 @@ import {
 } from "./narrative-store.js";
 import {
   extractText,
+  extractPdfOCR,
   isSupportedMime,
   SUPPORTED_MIME_TYPES,
   MAX_FILE_BYTES,
   ExtractionError,
 } from "./file-extractors.js";
+import {
+  buildTranscriptParseMessages,
+  parseTranscriptModelReply,
+} from "./transcript-import.js";
 import { GPA_BASELINES, SAT_BASELINES, ACT_BASELINES, EC_BENCHMARKS, COLLEGE_PROFILES, COMPETITIVE_ACTIVITY_BENCHMARKS } from "./baseline-data.js";
 import { searchScorecard, getCollegeById, compareColleges, getFinancialAidProfile, getCollegeHistory } from "./college-scorecard.js";
 import {
@@ -3448,10 +3453,114 @@ app.post("/api/ec/upload", studentLimiter, requireStudentAuth, (req, res) => {
   });
 });
 
-// (POST /api/students/transcript-text removed — the survey-side
-//  AP/standardized-test/transcript score-report readers and the chat
-//  PDF score-report fast-path were retired. Generic file extraction
-//  for chat attachments lives at /api/files/extract-text.)
+// POST /api/students/transcript-import — parse an uploaded transcript
+// (PDF / image / DOCX) into survey-shaped courses. Replaces the retired
+// transcript-text reader. Pipeline: extract text locally (pdf-parse, with an
+// OCR fallback for scanned PDFs) → redact through the provider boundary →
+// small-tier model parses courses into JSON → sanitize against the survey
+// enums. The student reviews the parsed courses in the survey UI before
+// anything is saved; nothing is written server-side here.
+app.post("/api/students/transcript-import", studentLimiter, requireStudentAuth, async (req, res) => {
+  try {
+    const { base64, mimeType, filename } = req.body || {};
+    if (typeof base64 !== "string" || !base64) {
+      return res.status(400).json({ error: "base64 required" });
+    }
+    if (base64.length * 0.75 > CHAT_EXTRACT_MAX_BYTES) {
+      return res.status(413).json({ error: `File exceeds ${CHAT_EXTRACT_MAX_BYTES} bytes` });
+    }
+    let mime = String(mimeType || "").toLowerCase();
+    if (!mime || !isSupportedMime(mime)) {
+      const ext = String(filename || "").split(".").pop()?.toLowerCase() || "";
+      if (ext === "docx") mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+      else if (ext === "pdf") mime = "application/pdf";
+      else if (ext === "txt" || ext === "md") mime = "text/plain";
+    }
+    if (!isSupportedMime(mime)) {
+      return res.status(415).json({
+        error: `Unsupported mime type: ${mime || "(unknown)"}`,
+        supported: Object.keys(SUPPORTED_MIME_TYPES),
+      });
+    }
+    let buf;
+    try { buf = Buffer.from(base64, "base64"); }
+    catch { return res.status(400).json({ error: "Invalid base64" }); }
+    if (buf.length > CHAT_EXTRACT_MAX_BYTES) {
+      return res.status(413).json({ error: `Decoded file exceeds ${CHAT_EXTRACT_MAX_BYTES} bytes` });
+    }
+
+    let extraction;
+    try {
+      extraction = await extractText(buf, mime);
+      // Scanned transcripts have no text layer — pdf-parse returns almost
+      // nothing. Fall back to per-page OCR before giving up.
+      if (extraction.kind === "pdf" && String(extraction.text || "").trim().length < 40) {
+        try { extraction = { ...await extractPdfOCR(buf), kind: "pdf" }; } catch { /* keep first result */ }
+      }
+    } catch (e) {
+      if (!(e instanceof ExtractionError)) console.error("[TRANSCRIPT-IMPORT] parser error:", e?.message || e);
+      const status = e instanceof ExtractionError && e.code === "archive_limits_exceeded"
+        ? 413
+        : (e instanceof ExtractionError && e.code === "content_type_mismatch" ? 415 : 422);
+      return res.status(status).json({
+        error: status === 413 ? "Uploaded archive exceeds safe processing limits." : "Uploaded file could not be safely processed.",
+        code: e?.code || "extraction_failed",
+      });
+    }
+    const extractedText = String(extraction?.text || "").trim();
+    if (!extractedText) {
+      return res.status(422).json({ error: "No readable text was found in this document.", code: "no_text" });
+    }
+
+    const consents = validateRequiredConsents(piiStmts, req.studentId, "ai_interaction");
+    if (!consents.allowed) {
+      return res.status(403).json({ error: "AI consent is required before transcript parsing.", code: "consent_required" });
+    }
+    const requestId = "transcript-import:" + req.studentId;
+    const { modelConfig, callLLM } = buildStudentCallLLM(req.studentId, { requestIdPrefix: requestId });
+    if (!modelConfig || !callLLM) {
+      return res.status(503).json({ error: "AI parsing is not configured on this server.", code: "openrouter_not_configured" });
+    }
+
+    // Provider boundary: strip student/school identifiers before the text
+    // leaves the machine. The parser only needs course lines.
+    const masked = redactProviderText(extractedText);
+    const { system, user } = buildTranscriptParseMessages(masked.text);
+    const result = await callLLM({
+      model: modelConfig.models?.small || undefined,
+      max_tokens: 2000,
+      temperature: 0,
+      system,
+      messages: [{ role: "user", content: user }],
+      requestId,
+    });
+    const replyText = (result?.content || [])
+      .filter((b) => b && b.type === "text" && typeof b.text === "string")
+      .map((b) => b.text).join("");
+
+    let parsed;
+    try {
+      parsed = parseTranscriptModelReply(replyText);
+    } catch (e) {
+      console.warn("[TRANSCRIPT-IMPORT] model reply unparseable:", e.message);
+      return res.status(422).json({ error: "Could not read course data from this document. Try a clearer copy, or add courses manually.", code: "parse_failed" });
+    }
+
+    res.json({
+      gpa: parsed.gpa,
+      courses: parsed.years,
+      courseCount: parsed.courseCount,
+      warnings: [
+        ...(extraction.warning ? [String(extraction.warning)] : []),
+        ...parsed.warnings,
+      ],
+      extractedChars: extractedText.length,
+    });
+  } catch (err) {
+    console.error("[TRANSCRIPT-IMPORT] error:", err.message);
+    res.status(500).json({ error: "Transcript import failed" });
+  }
+});
 
 // POST /api/ec/narrative — save a new narrative (deactivates prior active)
 app.post("/api/ec/narrative", studentLimiter, requireStudentAuth, (req, res) => {
