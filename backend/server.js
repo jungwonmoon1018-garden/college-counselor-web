@@ -57,6 +57,8 @@ import { callLLM as adapterCallLLM, validateKey as adapterValidateKey, isReasona
 import { screenInput, screenOutput, restorePII, redactProviderText } from "./content-moderation.js";
 import { grantConsent, hasActiveConsent, validateRequiredConsents, getOnboardingConsentRequirements } from "./consent.js";
 import { initDomainMonitor, prepareMonitorStatements } from "./domain-monitor.js";
+import { initCollegeResearch, researchCollegeValues, researchCollegeDeadlines, readCachedDeadlines } from "./college-research.js";
+import { computeFit } from "./college-values.js";
 import { runRetentionCleanup, getRetentionReport } from "./retention.js";
 import { registerStandardJobs, registerJob, startAllJobs, stopAllJobs, getJobStatus } from "./batch-jobs.js";
 import { initVectorStore, prepareVectorStatements, keywordSearch, getVectorStoreStats } from "./vector-store.js";
@@ -394,6 +396,7 @@ ensureCdsStoreSeeded(ragStmts)
 const factStmts = prepareFactStatements(db);
 const evidenceStmts = prepareEvidenceStatements(db);
 const monitorStmts = prepareMonitorStatements(db);
+const collegeResearchStmts = initCollegeResearch(db);
 
 // Seed fact store and evidence graph from baseline data
 seedCollegeFacts(factStmts, COLLEGE_PROFILES, db);
@@ -2569,11 +2572,61 @@ app.get("/api/students/threads-search", studentLimiter, requireStudentAuth, (req
 // administrator-configured OpenRouter credential and a fixed server model;
 // students cannot supply provider keys or model overrides.
 
-app.all("/api/colleges/values*", studentLimiter, requireStudentAuth, (_req, res) => {
-  res.status(410).json({
-    error: "LLM-based web extraction of college values has been removed. Use validated official-source records instead.",
-    code: "unverified_web_extraction_removed",
-  });
+// POST /api/colleges/values — official-source values lookup, rebuilt at the
+// owner's request. Only pages on the school's own site (resolved via the
+// College Scorecard) are fetched; the model summarizes fetched text and every
+// quote is verified verbatim before serving. Results are cached (90 days) and
+// scored against the student's profile with the deterministic fit scorer.
+app.post("/api/colleges/values", studentLimiter, requireStudentAuth, async (req, res) => {
+  try {
+    const { collegeName, hintUrl, force } = req.body || {};
+    if (!collegeName || typeof collegeName !== "string") {
+      return res.status(400).json({ error: "collegeName is required" });
+    }
+    const consents = validateRequiredConsents(piiStmts, req.studentId, "ai_interaction");
+    if (!consents.allowed) {
+      return res.status(403).json({ error: "AI consent is required before web research.", code: "consent_required", missing: consents.missing });
+    }
+    const { modelConfig, callLLM } = buildStudentCallLLM(req.studentId, { requestIdPrefix: "college-values:" + req.studentId });
+    if (!modelConfig || !callLLM) {
+      return res.status(503).json({ error: "AI research is not configured on this server.", code: "openrouter_not_configured" });
+    }
+
+    const result = await researchCollegeValues({
+      collegeName: collegeName.slice(0, 120),
+      hintUrl: typeof hintUrl === "string" ? hintUrl.slice(0, 300) : null,
+      scorecardKey: SCORECARD_API_KEY || null,
+      callLLM: (args) => callLLM({ ...args, requestId: "college-values:" + req.studentId + ":" + crypto.randomUUID() }),
+      model: modelConfig.models?.medium || undefined,
+      stmts: collegeResearchStmts,
+      force: force === true,
+    });
+
+    const profile = assembleProfileForGeneration(req.studentId);
+    const fit = profile ? computeFit(result.values, profile) : null;
+    res.json({ ...result, fit, locale: resolveLocale(req) });
+  } catch (err) {
+    if (err?.code && err?.status === 404) {
+      return res.status(404).json({ error: err.message, code: err.code });
+    }
+    if (err?.status === 402 || err?.code === "budget_exceeded") {
+      return res.status(402).json({ error: "The monthly AI budget doesn't allow this lookup right now.", code: err.code || "budget_exceeded" });
+    }
+    console.error("[COLLEGE-VALUES] lookup failed:", err?.code || "", err?.message);
+    res.status(502).json({ error: "College values lookup failed. Try again, or paste the school's mission-page URL as a hint.", code: err?.code || "research_failed" });
+  }
+});
+
+// DELETE /api/colleges/values — clear the cached extractions so the next
+// lookup re-fetches (used when a cached extraction was wrong).
+app.delete("/api/colleges/values", studentLimiter, requireStudentAuth, (_req, res) => {
+  try {
+    const deleted = collegeResearchStmts.clearKind.run("values").changes || 0;
+    res.json({ deleted });
+  } catch (err) {
+    console.error("[COLLEGE-VALUES] cache clear failed:", err.message);
+    res.status(500).json({ error: "Cache clear failed" });
+  }
 });
 
 function quoteSqlIdentifier(identifier) {
@@ -5627,17 +5680,52 @@ function safeParse(json) {
 
 // POST /api/calendar/context — date awareness for the consultant agent.
 // Returns today plus a deterministic current-cycle calendar (phase, typical
-// deadlines, and approximate HS breaks). Target schools are labeled with the
-// typical fallback because exact dates require direct verification on each
-// school's official site. Recomputed per call to stay date-aware.
+// deadlines, and approximate HS breaks). Per-school dates come from the
+// official-source deadline cache when available. Live research of a school's
+// own admissions pages runs only when the caller asks for it (research: true,
+// at most 3 schools), the student holds the AI consents, and OpenRouter is
+// configured — otherwise schools fall back to the labeled typical dates.
 app.post("/api/calendar/context", studentLimiter, requireStudentAuth, async (req, res) => {
   try {
     const locale = resolveLocale(req);
     const calendar = buildAdmissionsCalendar(new Date());
     const targetSchools = resolveTargetSchools(req.studentId, req.body?.targetSchools);
 
-    let schools = targetSchools.map((s) => ({ school: s, deadlines: null, source: "typical" }));
-    let deadlinesSource = targetSchools.length ? "typical" : "none";
+    const wantsResearch = req.body?.research === true && targetSchools.length <= 3;
+    let researcher = null;
+    if (wantsResearch) {
+      const consents = validateRequiredConsents(piiStmts, req.studentId, "ai_interaction");
+      if (consents.allowed) {
+        const { modelConfig, callLLM } = buildStudentCallLLM(req.studentId, { requestIdPrefix: "deadline-research:" + req.studentId });
+        if (modelConfig && callLLM) {
+          researcher = { callLLM, model: modelConfig.models?.medium || undefined };
+        }
+      }
+    }
+
+    const schools = [];
+    for (const school of targetSchools) {
+      let record = readCachedDeadlines(collegeResearchStmts, school);
+      if (!record && researcher) {
+        try {
+          record = await researchCollegeDeadlines({
+            collegeName: school,
+            scorecardKey: SCORECARD_API_KEY || null,
+            callLLM: (args) => researcher.callLLM({ ...args, requestId: "deadline-research:" + req.studentId + ":" + crypto.randomUUID() }),
+            model: researcher.model,
+            stmts: collegeResearchStmts,
+          });
+        } catch (err) {
+          console.warn(`[calendar context] deadline research failed for ${school}:`, err?.code || err?.message);
+        }
+      }
+      schools.push(record
+        ? { school, deadlines: record.deadlines, source: record.sourceUrl, cycle: record.cycle, extractedAt: record.extractedAt }
+        : { school, deadlines: null, source: "typical" });
+    }
+    const deadlinesSource = schools.some((s) => s.deadlines)
+      ? "official_pages"
+      : (targetSchools.length ? "typical" : "none");
 
     res.json({ ok: true, today: calendar.today, calendar, schools, deadlinesSource, targetSchools, locale });
   } catch (err) {

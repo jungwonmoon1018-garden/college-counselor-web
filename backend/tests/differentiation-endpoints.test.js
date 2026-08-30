@@ -114,12 +114,21 @@ test("calendar builds a deterministic cycle calendar + typical target-school fal
   assert.doesNotMatch(SERVER, /fetchSchoolDeadlinesViaWeb/);
 });
 
-test("calendar context does not dispatch a paid model or web lookup", () => {
+test("calendar context deadline research is opt-in, consent-gated, and cache-first", () => {
   const start = SERVER.indexOf('app.post("/api/calendar/context"');
   const end = SERVER.indexOf("// GET: retrieve historical directionality", start);
   const route = SERVER.slice(start, end);
   assert.ok(start >= 0 && end > start);
-  assert.doesNotMatch(route, /buildStudentCallLLM|callLLM|reserveStudentModelCall|deepseek/i);
+  // Live research of a school's own admissions pages never runs implicitly:
+  // it requires the explicit request flag, a small school count, the AI
+  // consents, and the administrator's configured provider.
+  assert.match(route, /research === true/);
+  assert.match(route, /targetSchools\.length <= 3/);
+  assert.match(route, /validateRequiredConsents/);
+  // The cache is consulted before any live fetch, and non-researched schools
+  // keep the labeled typical fallback.
+  assert.match(route, /readCachedDeadlines/);
+  assert.match(route, /source: "typical"/);
 });
 
 test("bulk deadlines endpoint exists (collapses the add-school burst)", () => {

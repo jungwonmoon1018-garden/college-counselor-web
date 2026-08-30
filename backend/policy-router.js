@@ -88,7 +88,7 @@ const PATTERNS = {
     official_stats: /\bacceptance\s*rate\b|\badmission\s*rate\b|\bclass\s*profile\b|\bmiddle\s*50\b|\b(25th|75th)\s*percentile\b/i,
   },
   coaching: {
-    ec_strategy: /\bextracurricular\b|\bec\b|\bactivit(y|ies)\b|\bspike\b|\bhook\b|\bsummer\s*(program|activit|plan)\b|\bleadership\b|\bvolunteer\b|\binternship\b|\bresearch\b/i,
+    ec_strategy: /\bextracurricular(s)?\b|\becs?\b|\bactivit(y|ies)\b|\bspike\b|\bhook\b|\bsummer\s*(program|activit|plan)\b|\bleadership\b|\bvolunteer\b|\binternship\b|\bresearch\b/i,
     essay: /\bessay\b|\bnarrative\b|\bpersonal\s*statement\b|\bsupplement\b|\bcommon\s*app\s*essay\b|\bwriting\b.*\b(help|review|feedback)\b/i,
     college_list: /\bcollege\s*list\b|\bschool\s*list\b|\breach\b|\bmatch\b|\bsafety\b|\btarget\b|\bchance\s*me\b|\bcan\s*i\s*get\s*in\b|\bfit\b|\bcompare\s*college/i,
     course_planning: /\bcourse\s*(selection|load|rigor|plan|planning|schedul)\b|\b(what|which)\s+(aps?|ib|honors|classes|courses|electives)\b|\b(classes|courses|schedule|curriculum)\b[^.?!]{0,40}\b(take|pick|choose|next\s+(year|semester|fall|spring))\b/i,

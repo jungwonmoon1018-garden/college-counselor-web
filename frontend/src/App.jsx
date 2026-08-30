@@ -1924,7 +1924,7 @@ async function orchestrate(userMsg,data,setData,setStatus,signal,pendingFileData
   // Falls through to the LLM gatekeeper for ambiguous messages.
   const ESSAY_WRITE_KEYWORDS = /\b(write|draft|compose|generate)\s+(my\s+)?(essay|personal\s+statement|supplemental|common\s+app\s+essay)/i;
   const ACADEMIC_KW = /\b(gpa|grade|course|class|ap|honors|ib|dual\s*enroll|sat|act|psat|toefl|ielts|transcript|study|exam|test\s*score|rigor|study\s*plan)\b/i;
-  const EC_KW = /\b(ec|extracurric|club|sport|volunteer|activity|activities|hackathon|research|project|internship|leadership|community\s*service|jrotc|robotics|debate)\b/i;
+  const EC_KW = /\b(ecs?|extracurric\w*|club|sport|volunteer|activity|activities|hackathon|research|project|internship|leadership|community\s*service|jrotc|robotics|debate)\b/i;
   const COLLEGE_KW = /\b(college|university|admission|admit|reach|match|safety|ivy|t20|t30|early\s*decision|early\s*action|regular\s*decision|common\s*app|coalition|application|essay\s*topic|recommendation|scholarship|fafsa|cs[s]?\s*profile|tuition|financial\s*aid|merit\s*aid)\b/i;
   const STRATEGY_KW = /\b(timeline|plan|prioritize|gap|strategy|junior\s*year|senior\s*year|sophomore\s*year|freshman\s*year|when\s+should)\b/i;
 
@@ -2002,7 +2002,7 @@ async function orchestrate(userMsg,data,setData,setStatus,signal,pendingFileData
     // specialist agents and output validator still run, so this isn't
     // a safety bypass — it just prevents the gatekeeper from being
     // the single point of failure.
-    const inScopeKeywords = /\b(ec|extracurric|activity|activities|project|hackathon|club|sport|volunteer|research|essay|college|university|application|admiss|major|gpa|sat|act|ap\s+exam|ib|honors|transcript|recommendation|scholarship|fafsa|deadline|major|career|profile|strength|weakness|advice|plan|strategy|review|evaluate|critique|brainstorm)\b/i;
+    const inScopeKeywords = /\b(ecs?|extracurric\w*|activity|activities|project|hackathon|club|sport|volunteer|research|essay|college|university|application|admiss|major|gpa|sat|act|ap\s+exam|ib|honors|transcript|recommendation|scholarship|fafsa|deadline|major|career|profile|strength|weakness|advice|plan|strategy|review|evaluate|critique|brainstorm|recommend\w*|suggest\w*)\b/i;
     if (gate?.category === "off_topic") {
       if (msgHasFilePreface || inScopeKeywords.test(gatekeeperInput)) {
         console.log(`[gatekeeper] Override: ${gate.category} → safe_multi (files=${msgHasFilePreface}, keywords matched)`);
@@ -3160,7 +3160,10 @@ export default function App() {
       const r = await authedFetch("/api/calendar/context", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetSchools: [name] }),
+        // research: true → the backend fetches this school's own admissions
+        // pages (cached 30 days) so the created deadlines carry the school's
+        // actual dates instead of the typical-cycle fallbacks.
+        body: JSON.stringify({ targetSchools: [name], research: true }),
       });
       if (r.ok) {
         const body = await r.json();
