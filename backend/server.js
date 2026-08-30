@@ -1217,16 +1217,22 @@ app.use((req, res, next) => {
 });
 
 // ── Rate limiters ──
-const apiLimiter = rateLimit({ windowMs: 60_000, max: 30, keyGenerator: (req) => hashIP(req.ip), message: { error: "Too many requests." } });
-const studentLimiter = rateLimit({ windowMs: 60_000, max: 30, keyGenerator: (req) => hashIP(req.ip) });
-const scorecardLimiter = rateLimit({ windowMs: 60_000, max: 40, keyGenerator: (req) => hashIP(req.ip), message: { error: "Too many college search requests." } });
+// RATE_LIMIT_RELAXED=1 multiplies every ceiling so sequential route tests
+// sharing one loopback IP don't trip the per-IP limits. Only the test
+// harnesses set it — production (web-launcher) and development never do.
+const relaxedMax = (max) => process.env.RATE_LIMIT_RELAXED === "1" ? max * 100 : max;
+const apiLimiter = rateLimit({ windowMs: 60_000, max: relaxedMax(30), keyGenerator: (req) => hashIP(req.ip), message: { error: "Too many requests." } });
+const studentLimiter = rateLimit({ windowMs: 60_000, max: relaxedMax(30), keyGenerator: (req) => hashIP(req.ip) });
+const scorecardLimiter = rateLimit({ windowMs: 60_000, max: relaxedMax(40), keyGenerator: (req) => hashIP(req.ip), message: { error: "Too many college search requests." } });
 const authLimiter = rateLimit({
   ...AUTH_RATE_LIMIT,
+  max: relaxedMax(AUTH_RATE_LIMIT.max),
   keyGenerator: (req) => hashIP(req.ip),
   message: { error: "Too many authentication attempts. Try again later.", code: "auth_rate_limited" },
 });
 const adminAuthLimiter = rateLimit({
   ...ADMIN_AUTH_RATE_LIMIT,
+  max: relaxedMax(ADMIN_AUTH_RATE_LIMIT.max),
   keyGenerator: (req) => hashIP(req.ip),
   message: { error: "Too many administrator authentication attempts. Try again later.", code: "admin_auth_rate_limited" },
 });
@@ -3514,7 +3520,13 @@ app.post("/api/students/transcript-import", studentLimiter, requireStudentAuth, 
 
     const consents = validateRequiredConsents(piiStmts, req.studentId, "ai_interaction");
     if (!consents.allowed) {
-      return res.status(403).json({ error: "AI consent is required before transcript parsing.", code: "consent_required" });
+      // `missing` lets the frontend re-grant the exact onboarding consents
+      // (older signup builds never recorded cross_border_transfer) and retry.
+      return res.status(403).json({
+        error: "AI consent is required before transcript parsing.",
+        code: "consent_required",
+        missing: consents.missing,
+      });
     }
     const requestId = "transcript-import:" + req.studentId;
     const { modelConfig, callLLM } = buildStudentCallLLM(req.studentId, { requestIdPrefix: requestId });
@@ -5700,6 +5712,23 @@ app.get("/api/consent/requirements", (req, res) => {
   const isMinor = req.query.isMinor !== "false";
   const locale = req.query.locale || "en-US";
   res.json(getOnboardingConsentRequirements(isMinor, locale));
+});
+
+// GET /api/consent/status — which onboarding consents are active for the
+// signed-in student. Lets the frontend heal accounts from older signup builds
+// that recorded only two of the three required rows (cross_border_transfer was
+// never granted, which 403'd every AI feature for those accounts).
+app.get("/api/consent/status", studentLimiter, requireStudentAuth, (req, res) => {
+  try {
+    const types = ["data_processing", "ai_interaction", "cross_border_transfer"];
+    const consents = Object.fromEntries(types.map((type) => [
+      type, hasActiveConsent(piiStmts, req.studentId, type).hasConsent,
+    ]));
+    res.json({ consents, missing: types.filter((type) => !consents[type]) });
+  } catch (err) {
+    console.error("[CONSENT] Status error:", err.message);
+    res.status(500).json({ error: "Consent status failed" });
+  }
 });
 
 app.post("/api/consent/grant", studentLimiter, requireStudentAuth, (req, res) => {

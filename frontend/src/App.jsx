@@ -266,6 +266,42 @@ async function establishServerSession({ email, password, name, grade, mode }) {
 
 const GRADE_LABELS = { 9: "Freshman", 10: "Sophomore", 11: "Junior", 12: "Senior" };
 
+// ─── Onboarding consents ─────────────────────────────────────────────────
+// The backend gates every AI operation on all three of these (see consent.js
+// getRequiredConsentsForOperation). Signup must grant all three; older builds
+// granted only the first two, so cross_border_transfer was missing and every
+// AI feature 403'd. grantOnboardingConsents is shared by signup, the login
+// heal, and the transcript-import retry.
+const ONBOARDING_CONSENT_TYPES = ["data_processing", "ai_interaction", "cross_border_transfer"];
+
+async function grantOnboardingConsents(types = ONBOARDING_CONSENT_TYPES) {
+  const token = window.__CC_SESSION_TOKEN__;
+  if (!token) return false;
+  const headers = { "Content-Type": "application/json", "Authorization": `Bearer ${token}` };
+  const results = await Promise.allSettled(types.map((consentType) =>
+    fetch("/api/consent/grant", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ consentType, grantedBy: "student" }),
+    })
+  ));
+  return results.every((r) => r.status === "fulfilled" && r.value.ok);
+}
+
+// Grant only the onboarding consents the backend reports as missing — used to
+// heal accounts created before signup recorded all three. Best-effort.
+async function healMissingConsents() {
+  const token = window.__CC_SESSION_TOKEN__;
+  if (!token) return;
+  try {
+    const r = await fetch("/api/consent/status", { headers: { Authorization: `Bearer ${token}` } });
+    if (!r.ok) return;
+    const body = await r.json();
+    const missing = (body.missing || []).filter((type) => ONBOARDING_CONSENT_TYPES.includes(type));
+    if (missing.length) await grantOnboardingConsents(missing);
+  } catch { /* best-effort — the import retry covers the rest */ }
+}
+
 // ─── Identity recovery from the backend ──────────────────────────────────
 // The vault is the normal home for name/grade, but a passphrase reset writes a
 // fresh vault that cannot inherit them (the old blob is undecryptable by
@@ -3489,13 +3525,10 @@ export default function App() {
     setStudentRecoveryCode(sess.recoveryCode || "");
 
     // Grant onboarding consents now that we hold a verified server session.
-    if (window.__CC_SESSION_TOKEN__) {
-      const consentHeaders = { "Content-Type": "application/json", "Authorization": `Bearer ${window.__CC_SESSION_TOKEN__}` };
-      await Promise.allSettled([
-        fetch("/api/consent/grant", { method: "POST", headers: consentHeaders, body: JSON.stringify({ consentType: "data_processing", grantedBy: "student" }) }),
-        fetch("/api/consent/grant", { method: "POST", headers: consentHeaders, body: JSON.stringify({ consentType: "ai_interaction", grantedBy: "student" }) }),
-      ]);
-    }
+    // All three are required by the backend for any AI operation — granting
+    // only data_processing + ai_interaction (as older builds did) left
+    // cross_border_transfer missing and 403'd every AI feature.
+    await grantOnboardingConsents();
 
     setSurveyStep(0);
     setScreen(S.SURVEY);
@@ -3580,6 +3613,13 @@ export default function App() {
     // mode instead of blocking — server features resume when the backend
     // returns; authedFetch re-auths lazily on the next call.
     setOfflineMode(!!sess.offline);
+
+    // Heal onboarding consents for accounts created by older signup builds,
+    // which recorded only two of the three required rows — the missing
+    // cross_border_transfer consent 403'd every AI feature (chat, auto-naming,
+    // transcript parsing). The signup UI has always required accepting the AI
+    // and data-processing terms to create the account.
+    if (sess.ok) await healMissingConsents();
 
     // A vault written by a passphrase reset carries no identity. Rebuild it
     // from the session we just established, then persist it so later logins
@@ -4167,7 +4207,7 @@ export default function App() {
               </div>
               <div style={{ display:"flex",alignItems:"flex-start",gap:8 }}>
                 <input type="checkbox" id="consentAI" checked={cConsentAI} onChange={e=>setCConsentAI(e.target.checked)} style={{ marginTop:3,accentColor:"#378ADD",flexShrink:0 }} />
-                <label htmlFor="consentAI" style={{ fontSize:11,color:"#8a8a9a",lineHeight:1.5,cursor:"pointer" }}>I understand my questions are processed by an AI system. Responses are advisory only and may contain errors. For official information, I should verify with school counselors and official sources.</label>
+                <label htmlFor="consentAI" style={{ fontSize:11,color:"#8a8a9a",lineHeight:1.5,cursor:"pointer" }}>I understand my questions are processed by an AI system: redacted content is sent to an external AI provider (OpenRouter), which may process it in another country. Responses are advisory only and may contain errors. For official information, I should verify with school counselors and official sources.</label>
               </div>
               <div style={{ display:"flex",alignItems:"flex-start",gap:8 }}>
                 <input type="checkbox" id="consentData" checked={cConsentData} onChange={e=>setCConsentData(e.target.checked)} style={{ marginTop:3,accentColor:"#378ADD",flexShrink:0 }} />
@@ -4269,12 +4309,23 @@ export default function App() {
         for (let offset = 0; offset < bytes.length; offset += 0x8000) {
           binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
         }
-        const r = await authedFetch("/api/students/transcript-import", {
+        const postImport = () => authedFetch("/api/students/transcript-import", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ base64: btoa(binary), mimeType: file.type || "", filename: file.name || "transcript" }),
         });
-        const body = await r.json().catch(() => ({}));
+        let r = await postImport();
+        let body = await r.json().catch(() => ({}));
+        // Accounts from older signup builds are missing the cross-border
+        // consent row the backend requires before AI parsing. Re-grant the
+        // onboarding consents the student accepted at signup, then retry once.
+        if (r.status === 403 && body.code === "consent_required") {
+          const missing = (Array.isArray(body.missing) ? body.missing : [])
+            .filter((type) => ONBOARDING_CONSENT_TYPES.includes(type));
+          await grantOnboardingConsents(missing.length ? missing : undefined);
+          r = await postImport();
+          body = await r.json().catch(() => ({}));
+        }
         if (!r.ok) { setSurveyError(body.error || `Import failed (HTTP ${r.status})`); return; }
 
         // Merge outside the state updater (StrictMode double-invokes updaters).

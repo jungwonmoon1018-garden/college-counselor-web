@@ -128,6 +128,7 @@ before(async () => {
       ...process.env,
       PORT: String(port),
       NODE_ENV: "test",
+      RATE_LIMIT_RELAXED: "1",
       DATA_DIR: testDataDir,
       DB_PATH: path.join(testDataDir, "operational.db"),
       ENCRYPTION_KEY: "ab".repeat(32),
@@ -246,4 +247,30 @@ test("deadline cascade is tenant-scoped and matches literal school names and com
   assert.ok(!firstTitles.includes("Exact unit ID"));
   assert.ok(firstTitles.includes("Containing-but-different unit ID"));
   assert.ok((await listDeadlineTitles(secondToken)).includes("Same unit ID, different student"));
+});
+
+test("consent status reports missing onboarding rows and clears once granted", async () => {
+  const token = await registerStudent("consent-status");
+
+  // Registration alone grants nothing (the frontend records consents), so a
+  // fresh account must surface the missing rows here instead of features
+  // silently 403ing later. cross_border_transfer is the row older signup
+  // builds never granted.
+  const before = await request("GET", "/api/consent/status", { token });
+  assert.equal(before.status, 200, JSON.stringify(before.data));
+  assert.ok(before.data.missing.includes("cross_border_transfer"));
+  assert.equal(before.data.consents.cross_border_transfer, false);
+
+  for (const consentType of ["data_processing", "ai_interaction", "cross_border_transfer"]) {
+    const granted = await request("POST", "/api/consent/grant", {
+      token,
+      body: { consentType, grantedBy: "student" },
+    });
+    assert.equal(granted.status, 200, JSON.stringify(granted.data));
+  }
+
+  const after = await request("GET", "/api/consent/status", { token });
+  assert.equal(after.status, 200, JSON.stringify(after.data));
+  assert.deepEqual(after.data.missing, []);
+  assert.equal(after.data.consents.cross_border_transfer, true);
 });
