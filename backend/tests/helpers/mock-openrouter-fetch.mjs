@@ -27,12 +27,25 @@ globalThis.fetch = async (input, init = {}) => {
   if (url === "https://openrouter.ai/api/v1/chat/completions") {
     const body = JSON.parse(String(init.body || "{}"));
     if (callLogPath) fs.appendFileSync(callLogPath, `${JSON.stringify(body)}\n`, "utf8");
+    // Transcript-parse requests (identified by their prompt) get valid
+    // transcript JSON; everything else gets the auto-name style title reply.
+    const isTranscriptParse = JSON.stringify(body.messages || []).includes("Transcript text:");
+    const content = isTranscriptParse
+      ? JSON.stringify({
+        gpa: 3.8,
+        years: {
+          freshman: [], sophomore: [],
+          junior: [{ name: "AP Calculus BC", type: "ap", grade: "A", semester: "full_year" }],
+          senior: [], unknown: [],
+        },
+      })
+      : "\"Junior Year Course Plan.\"";
     return Response.json({
-      id: "mock-autoname",
+      id: "mock-completion",
       model: body.model,
       choices: [{
         index: 0,
-        message: { role: "assistant", content: "\"Junior Year Course Plan.\"" },
+        message: { role: "assistant", content },
         finish_reason: "stop",
       }],
       usage: { prompt_tokens: 20, completion_tokens: 5 },

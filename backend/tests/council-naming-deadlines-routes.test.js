@@ -274,3 +274,41 @@ test("consent status reports missing onboarding rows and clears once granted", a
   assert.deepEqual(after.data.missing, []);
   assert.equal(after.data.consents.cross_border_transfer, true);
 });
+
+test("transcript import succeeds on repeated uploads for the same student", async () => {
+  const token = await registerStudent("transcript-import");
+  for (const consentType of ["data_processing", "ai_interaction", "cross_border_transfer"]) {
+    const consent = await request("POST", "/api/consent/grant", {
+      token,
+      body: { consentType, grantedBy: "student" },
+    });
+    assert.equal(consent.status, 200, JSON.stringify(consent.data));
+  }
+
+  const transcriptText = [
+    "Official High School Transcript",
+    "Grade 11 (Junior Year)",
+    "AP Calculus BC  A  Full Year",
+    "Cumulative unweighted GPA: 3.8",
+  ].join("\n");
+  const upload = () => request("POST", "/api/students/transcript-import", {
+    token,
+    body: {
+      base64: Buffer.from(transcriptText, "utf8").toString("base64"),
+      mimeType: "text/plain",
+      filename: "transcript.txt",
+    },
+  });
+
+  // Regression: the route once reused one constant budget request_id per
+  // student, so the ledger's idempotency check made the FIRST import work
+  // and every later one fail. Both of these must succeed.
+  const first = await upload();
+  assert.equal(first.status, 200, JSON.stringify(first.data));
+  assert.equal(first.data.gpa, 3.8);
+  assert.equal(first.data.courses.junior[0].name, "AP Calculus BC");
+
+  const second = await upload();
+  assert.equal(second.status, 200, JSON.stringify(second.data));
+  assert.equal(second.data.courseCount, 1);
+});

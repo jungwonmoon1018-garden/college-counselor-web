@@ -2510,7 +2510,10 @@ app.post("/api/students/threads/:id/autoname", studentLimiter, requireStudentAut
 
     const consents = validateRequiredConsents(piiStmts, req.studentId, "ai_interaction");
     if (!consents.allowed) return res.json({ title: currentTitle, skipped: "consent_required" });
-    const requestId = "autoname:" + req.studentId + ":" + req.params.id;
+    // Unique per call — the budget ledger dedupes request ids, so a constant
+    // "autoname:<student>:<thread>" id let a thread be auto-named exactly once
+    // and made every retry fail with a duplicate-reservation error.
+    const requestId = "autoname:" + req.studentId + ":" + req.params.id + ":" + crypto.randomUUID();
     const { modelConfig, callLLM } = buildStudentCallLLM(req.studentId, { requestIdPrefix: requestId });
     if (!modelConfig || !callLLM) return res.json({ title: currentTitle, skipped: "openrouter_not_configured" });
 
@@ -3499,9 +3502,16 @@ app.post("/api/students/transcript-import", studentLimiter, requireStudentAuth, 
     try {
       extraction = await extractText(buf, mime);
       // Scanned transcripts have no text layer — pdf-parse returns almost
-      // nothing. Fall back to per-page OCR before giving up.
+      // nothing. Fall back to per-page OCR before giving up. Kept small on
+      // purpose: transcripts are 1-3 pages, and unbounded OCR (25 pages at
+      // 2x scale, 60s each) can outlive the hosting proxy's request window
+      // and strain a small instance's memory.
       if (extraction.kind === "pdf" && String(extraction.text || "").trim().length < 40) {
-        try { extraction = { ...await extractPdfOCR(buf), kind: "pdf" }; } catch { /* keep first result */ }
+        try {
+          extraction = { ...await extractPdfOCR(buf, { maxPages: 4, scale: 1.5, timeoutMs: 20_000 }), kind: "pdf" };
+        } catch (ocrErr) {
+          console.warn("[TRANSCRIPT-IMPORT] OCR fallback failed:", ocrErr?.code || "", ocrErr?.message);
+        }
       }
     } catch (e) {
       if (!(e instanceof ExtractionError)) console.error("[TRANSCRIPT-IMPORT] parser error:", e?.message || e);
@@ -3528,8 +3538,12 @@ app.post("/api/students/transcript-import", studentLimiter, requireStudentAuth, 
         missing: consents.missing,
       });
     }
-    const requestId = "transcript-import:" + req.studentId;
-    const { modelConfig, callLLM } = buildStudentCallLLM(req.studentId, { requestIdPrefix: requestId });
+    // Request ids must be unique per call: the budget ledger enforces
+    // request_id uniqueness for idempotency, so a constant id (as this route
+    // originally used) made the FIRST import succeed and every later one fail
+    // with a duplicate-reservation error. Suffix a UUID per model call.
+    const requestPrefix = "transcript-import:" + req.studentId;
+    const { modelConfig, callLLM } = buildStudentCallLLM(req.studentId, { requestIdPrefix: requestPrefix });
     if (!modelConfig || !callLLM) {
       return res.status(503).json({ error: "AI parsing is not configured on this server.", code: "openrouter_not_configured" });
     }
@@ -3538,22 +3552,58 @@ app.post("/api/students/transcript-import", studentLimiter, requireStudentAuth, 
     // leaves the machine. The parser only needs course lines.
     const masked = redactProviderText(extractedText);
     const { system, user } = buildTranscriptParseMessages(masked.text);
-    const result = await callLLM({
-      model: modelConfig.models?.small || undefined,
-      max_tokens: 2000,
-      temperature: 0,
-      system,
-      messages: [{ role: "user", content: user }],
-      requestId,
-    });
-    const replyText = (result?.content || [])
-      .filter((b) => b && b.type === "text" && typeof b.text === "string")
-      .map((b) => b.text).join("");
 
-    let parsed;
-    try {
-      parsed = parseTranscriptModelReply(replyText);
-    } catch (e) {
+    // Small tier first; if its reply isn't valid transcript JSON (small open
+    // models are the flakiest part of this pipeline), retry once on the
+    // medium tier. Provider/budget errors stop immediately — a bigger model
+    // won't fix those.
+    const tiers = [...new Set([modelConfig.models?.small, modelConfig.models?.medium].filter(Boolean))];
+    if (tiers.length === 0) tiers.push(undefined);
+    let parsed = null;
+    let lastFailure = null;
+    for (const model of tiers) {
+      try {
+        const result = await callLLM({
+          model,
+          max_tokens: 3000,
+          temperature: 0,
+          system,
+          messages: [{ role: "user", content: user }],
+          requestId: requestPrefix + ":" + crypto.randomUUID(),
+        });
+        const replyText = (result?.content || [])
+          .filter((b) => b && b.type === "text" && typeof b.text === "string")
+          .map((b) => b.text).join("");
+        parsed = parseTranscriptModelReply(replyText);
+        break;
+      } catch (e) {
+        lastFailure = e;
+        if (e?.status || e?.provider || e?.budget) break; // provider/budget error — don't burn another call
+        console.warn(`[TRANSCRIPT-IMPORT] parse attempt failed (${model || "default model"}):`, e.message);
+      }
+    }
+
+    if (!parsed) {
+      const e = lastFailure || {};
+      if (e.status === 402 || e.code === "budget_exceeded" || e.code === "request_id_conflict") {
+        return res.status(402).json({
+          error: "The monthly AI budget doesn't allow this request right now. Try again later, or ask the counselor to review the budget.",
+          code: e.code || "budget_exceeded",
+        });
+      }
+      if (e.code === "auth_rejected") {
+        return res.status(503).json({
+          error: "The AI provider rejected the server's API key. Ask the counselor to re-check the OpenRouter key in the admin page.",
+          code: "auth_rejected",
+        });
+      }
+      if (e.status || e.provider) {
+        console.error("[TRANSCRIPT-IMPORT] provider call failed:", e.code || "", e.message);
+        return res.status(502).json({
+          error: "The AI provider request failed. Wait a moment and try again.",
+          code: e.code || "provider_error",
+        });
+      }
       console.warn("[TRANSCRIPT-IMPORT] model reply unparseable:", e.message);
       return res.status(422).json({ error: "Could not read course data from this document. Try a clearer copy, or add courses manually.", code: "parse_failed" });
     }
