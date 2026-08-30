@@ -204,9 +204,27 @@ async function fetchOfficialPage(url, { fetchImpl = fetch } = {}) {
   }
 }
 
+// Academic hosts a caller-provided hint URL may point at: US .edu plus
+// international academic TLD families (ac.kr, ac.uk, edu.au, …).
+const ACADEMIC_HOST_RE = /(\.edu|\.ac\.[a-z]{2,3}|\.edu\.[a-z]{2,3})$/i;
+
+// Choose the Scorecard result that best matches what the student typed —
+// the API substring-matches, so "Princeton" returns Princeton Theological
+// Seminary before Princeton University without this.
+export function pickScorecardHit(results, collegeName) {
+  const list = (Array.isArray(results) ? results : []).filter((r) => r?.website);
+  if (!list.length) return null;
+  const wanted = String(collegeName || "").trim().toLowerCase();
+  const nameOf = (r) => String(r.name || "").toLowerCase();
+  return list.find((r) => nameOf(r) === wanted)
+    || list.find((r) => nameOf(r).startsWith(wanted))
+    || list.find((r) => nameOf(r).includes(wanted))
+    || list[0];
+}
+
 // Resolve the school's OFFICIAL site. The College Scorecard (U.S. Dept. of
 // Education) is the authority; a caller-provided hint URL is honored only on
-// .edu or the resolved domain.
+// academic hosts or the resolved domain.
 async function resolveOfficialSite({ collegeName, hintUrl, scorecardKey, fetchImpl }) {
   let displayName = String(collegeName || "").trim();
   let homepage = null;
@@ -214,9 +232,15 @@ async function resolveOfficialSite({ collegeName, hintUrl, scorecardKey, fetchIm
 
   if (scorecardKey) {
     try {
-      const search = await searchScorecard(scorecardKey, { name: displayName, limit: 3 });
-      const hit = (search?.results || [])[0];
-      if (hit?.website) {
+      let search = await searchScorecard(scorecardKey, { name: displayName, limit: 5 });
+      let hit = pickScorecardHit(search?.results, displayName);
+      if (!hit) {
+        // Graduate-predominant institutions fall outside the default
+        // bachelor's-only search — retry without the level filter.
+        search = await searchScorecard(scorecardKey, { name: displayName, limit: 5, anyLevel: true });
+        hit = pickScorecardHit(search?.results, displayName);
+      }
+      if (hit) {
         homepage = normalizeHomepage(hit.website);
         displayName = hit.name || displayName;
         unitId = hit.unitId ?? hit.id ?? null;
@@ -226,7 +250,7 @@ async function resolveOfficialSite({ collegeName, hintUrl, scorecardKey, fetchIm
 
   let safeHint = null;
   const normalizedHint = normalizeHomepage(hintUrl);
-  if (normalizedHint && (hostOf(normalizedHint).endsWith(".edu") || (homepage && sameSite(normalizedHint, homepage)))) {
+  if (normalizedHint && (ACADEMIC_HOST_RE.test(hostOf(normalizedHint)) || (homepage && sameSite(normalizedHint, homepage)))) {
     safeHint = normalizedHint;
   }
   if (!homepage && safeHint) {
@@ -303,7 +327,7 @@ export async function researchCollegeValues({
 
   const site = await resolveOfficialSite({ collegeName, hintUrl, scorecardKey, fetchImpl });
   if (!site.homepage && !site.hintUrl) {
-    throw researchError("school_site_not_found", `Couldn't resolve an official site for "${collegeName}". Try the exact campus name, or paste the school's .edu URL as a hint.`);
+    throw researchError("school_site_not_found", `Couldn't find "${collegeName}" in the US College Scorecard. Try the exact official name (e.g. "Stony Brook University", not "SBU") — or, for non-US universities, paste an official page URL (.edu, .ac.xx, or .edu.xx) in the URL field.`);
   }
   const pages = await gatherPages({ homepage: site.homepage, hintUrl: site.hintUrl, keywordRe: VALUES_LINK_RE, fetchImpl });
   if (pages.length === 0) {

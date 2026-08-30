@@ -2573,6 +2573,7 @@ export default function App() {
   const [collegeValues, setCollegeValues] = useState(null); // { displayName, values, fit, ... }
   const [collegeValuesLoading, setCollegeValuesLoading] = useState(false);
   const [collegeValuesQuery, setCollegeValuesQuery] = useState("");
+  const [collegeValuesHint, setCollegeValuesHint] = useState(""); // optional official page URL
   // Calibrated positioning for the looked-up college (reach/target/safety).
   const [collegePositioning, setCollegePositioning] = useState(null);
   const [collegePositioningLoading, setCollegePositioningLoading] = useState(false);
@@ -4977,10 +4978,10 @@ export default function App() {
                 // on submit (server-side cache), so this isn't wasteful.
                 if (collegeValues) setCollegeValues(null);
               }}
-              onKeyDown={e => { if (e.key === "Enter" && collegeValuesQuery.trim()) lookupCollege(collegeValuesQuery.trim()); }}
+              onKeyDown={e => { if (e.key === "Enter" && collegeValuesQuery.trim()) lookupCollege(collegeValuesQuery.trim(), collegeValuesHint.trim() || undefined); }}
               style={{ flex:1,padding:"6px 9px",borderRadius:6,border:"1px solid rgba(255,255,255,0.06)",background:"rgba(255,255,255,0.02)",color:"#bbb",fontSize:11,outline:"none" }}
             />
-            <button onClick={() => collegeValuesQuery.trim() && lookupCollege(collegeValuesQuery.trim())}
+            <button onClick={() => collegeValuesQuery.trim() && lookupCollege(collegeValuesQuery.trim(), collegeValuesHint.trim() || undefined)}
               disabled={collegeValuesLoading || !collegeValuesQuery.trim()}
               style={{ padding:"5px 10px",borderRadius:6,border:"1px solid rgba(104,211,145,0.25)",background:collegeValuesLoading?"rgba(255,255,255,0.04)":"rgba(104,211,145,0.10)",color:collegeValuesLoading?"#666":"#68d391",fontSize:11,fontWeight:600,cursor:(collegeValuesLoading||!collegeValuesQuery.trim())?"default":"pointer" }}>
               {collegeValuesLoading ? "…" : "Look up"}
@@ -4993,8 +4994,19 @@ export default function App() {
               >✕</button>
             )}
           </div>
+          {/* Optional official-page URL — needed for non-US universities
+              (not in the US College Scorecard) and schools whose sites
+              block the homepage crawl. Academic hosts only (.edu / .ac.xx /
+              .edu.xx); the backend rejects anything else. */}
+          <input
+            value={collegeValuesHint}
+            onChange={e => setCollegeValuesHint(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter" && collegeValuesQuery.trim()) lookupCollege(collegeValuesQuery.trim(), collegeValuesHint.trim() || undefined); }}
+            placeholder="Official page URL (optional — for non-US schools, use an .edu / .ac.xx page)"
+            style={{ width:"100%",padding:"5px 9px",borderRadius:6,border:"1px solid rgba(255,255,255,0.05)",background:"rgba(255,255,255,0.015)",color:"#999",fontSize:10,outline:"none",marginTop:-2,marginBottom:4,boxSizing:"border-box" }}
+          />
           {/* Tip: be specific about campus to avoid branch confusion */}
-          <div style={{fontSize:9,color:"#555",marginTop:-4,marginBottom:6,fontStyle:"italic"}}>
+          <div style={{fontSize:9,color:"#555",marginTop:0,marginBottom:6,fontStyle:"italic"}}>
             For multi-campus systems, name the specific campus (e.g. "UC Berkeley", not "University of California").
           </div>
           {/* Clear server-side cache button — useful when a previous

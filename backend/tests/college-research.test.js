@@ -12,6 +12,7 @@ import {
   harvestLinks,
   verifyQuote,
   sanitizeDeadlineDates,
+  pickScorecardHit,
 } from "../college-research.js";
 import { classifyTopic, TOPIC_TYPES, MODEL_TIERS } from "../policy-router.js";
 
@@ -87,6 +88,23 @@ describe("sanitizeDeadlineDates", () => {
     assert.equal(out.financialAid, null);
     assert.equal(out.commitBy, null);
     assert.equal(out.decisionRelease, "2027-03-28");
+  });
+});
+
+describe("pickScorecardHit", () => {
+  const results = [
+    { name: "Princeton Theological Seminary", website: "www.ptsem.edu" },
+    { name: "Princeton University", website: "www.princeton.edu" },
+    { name: "No Website U", website: "" },
+  ];
+  it("prefers the result whose name starts with what the student typed", () => {
+    assert.equal(pickScorecardHit(results, "Princeton U").name, "Princeton University");
+    assert.equal(pickScorecardHit(results, "princeton university").name, "Princeton University");
+  });
+  it("falls back to the first result with a website, and null on none", () => {
+    assert.equal(pickScorecardHit(results, "Somewhere Else").name, "Princeton Theological Seminary");
+    assert.equal(pickScorecardHit([{ name: "X", website: "" }], "X"), null);
+    assert.equal(pickScorecardHit([], "X"), null);
   });
 });
 

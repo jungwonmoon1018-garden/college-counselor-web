@@ -337,3 +337,39 @@ test("chat route serves a coaching turn with a request_id and rejects one withou
   assert.equal(ok.status, 200, `${JSON.stringify(ok.data)}\n${serverOutput}`);
   assert.ok(String(ok.data.answer || "").length > 0);
 });
+
+test("chat does not serve the FAFSA checklist for non-aid eligibility questions", async () => {
+  const token = await registerStudent("eligibility-chat");
+  for (const consentType of ["data_processing", "ai_interaction", "cross_border_transfer"]) {
+    const consent = await request("POST", "/api/consent/grant", {
+      token,
+      body: { consentType, grantedBy: "student" },
+    });
+    assert.equal(consent.status, 200, JSON.stringify(consent.data));
+  }
+
+  // Regression: any chat message containing "eligible" used to get the full
+  // federal FAFSA eligibility checklist. Admissions-eligibility questions
+  // must reach the model instead.
+  const admissions = await request("POST", "/api/chat", {
+    token,
+    body: {
+      messages: [{ role: "user", content: "Am I eligible for Princeton with a 3.8 GPA?" }],
+      request_id: "eligibility-chat-1",
+    },
+  });
+  assert.equal(admissions.status, 200, `${JSON.stringify(admissions.data)}\n${serverOutput}`);
+  assert.doesNotMatch(String(admissions.data.answer), /eligibility item/i);
+  assert.equal(admissions.data._meta.deterministic, false);
+
+  // Genuine federal-aid eligibility checks still get the deterministic
+  // rules-engine answer without a model call.
+  const federal = await request("POST", "/api/chat", {
+    token,
+    body: {
+      messages: [{ role: "user", content: "Am I eligible for FAFSA federal student aid?" }],
+    },
+  });
+  assert.equal(federal.status, 200, JSON.stringify(federal.data));
+  assert.equal(federal.data._meta.deterministic, true);
+});

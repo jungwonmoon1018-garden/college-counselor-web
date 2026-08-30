@@ -210,4 +210,26 @@ describe("routeRequest", () => {
     assert.equal(result.isDeterministic, true);
     assert.equal(result.action, "rules_engine");
   });
+
+  it("does NOT serve the federal checklist for non-aid eligibility questions", () => {
+    // "eligible/eligibility" phrasing without federal-aid context spans
+    // admissions and scholarship questions — these must reach synthesis,
+    // not the FAFSA eligibility checker.
+    const result = routeRequest("Am I eligible for Princeton with a 3.8 GPA?");
+    assert.equal(result.classification.topicType, TOPIC_TYPES.REGULATED);
+    assert.equal(result.classification.subIntent, "eligibility");
+    assert.equal(result.isDeterministic, false);
+    assert.equal(result.action, "model_synthesis");
+    assert.ok(result.generalGuidance);
+  });
+
+  it("allows general cost/aid-amount questions as labeled guidance while deadlines stay gated", () => {
+    const cost = enforceGates(TOPIC_TYPES.HIGH_STAKES, "financial_amounts", []);
+    assert.equal(cost.allowed, true);
+    assert.ok(cost.generalGuidance);
+    const deadlines = enforceGates(TOPIC_TYPES.HIGH_STAKES, "deadlines", []);
+    assert.equal(deadlines.allowed, false);
+    const stats = enforceGates(TOPIC_TYPES.HIGH_STAKES, "official_stats", []);
+    assert.equal(stats.allowed, false);
+  });
 });

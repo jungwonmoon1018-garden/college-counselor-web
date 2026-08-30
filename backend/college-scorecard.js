@@ -74,8 +74,10 @@ export async function searchScorecard(apiKey, filters = {}) {
   if (filters.sizePreference === "medium") params.set("latest.student.size__range", "5000..20000");
   if (filters.sizePreference === "large")  params.set("latest.student.size__range", "20000..");
 
-  // Always filter to degree-granting, primarily 4-year institutions
-  params.set("school.degrees_awarded.predominant", "3"); // 3 = Bachelor's
+  // Filter to degree-granting, primarily 4-year institutions unless the
+  // caller opts out (anyLevel) — graduate-predominant universities are
+  // otherwise invisible to name lookups.
+  if (!filters.anyLevel) params.set("school.degrees_awarded.predominant", "3"); // 3 = Bachelor's
   params.set("school.operating", "1"); // Currently operating
 
   try {

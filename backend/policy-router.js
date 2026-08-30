@@ -313,15 +313,16 @@ export function enforceGates(topicType, subIntent, availableEvidence = []) {
     );
 
     if (verifiedEvidence.length === 0) {
-      // REGULATED (FAFSA / financial-aid / FERPA) informational questions:
-      // a flat "no verified answer" refusal stonewalled students asking
-      // things like "how does the FAFSA work?". Allow grounded GENERAL
-      // guidance instead — the answer must be labeled unverified, carry the
-      // advisory disclosure, and point at the official source. Specifics
-      // (amounts, eligibility determinations, credentials, submissions on a
-      // student's behalf) remain out of bounds via the synthesis prompt and
-      // the FAFSA advisory posture.
-      if (normalizedType === TOPIC_TYPES.REGULATED) {
+      // Informational questions must not be stonewalled: REGULATED topics
+      // (FAFSA / financial-aid / FERPA) and non-lookup HIGH_STAKES topics
+      // (costs, aid amounts in general terms, school policies) get grounded
+      // GENERAL guidance labeled unverified, with the advisory disclosure
+      // and an official-source pointer. Only the pure-lookup topics — exact
+      // deadlines and official statistics — keep the hard no-source-no-answer
+      // gate, because a wrong date or admit rate is worse than no answer.
+      const hardLookup = normalizedType === TOPIC_TYPES.HIGH_STAKES &&
+        ["deadlines", "official_stats"].includes(String(subIntent || "").toLowerCase());
+      if (!hardLookup) {
         results.push({
           gate: "no_source_no_answer",
           passed: true,
@@ -477,8 +478,14 @@ export function canHandleDeterministically(topicType, subIntent, query = "") {
     `${TOPIC_TYPES.ADMINISTRATIVE}:empty_query`,
   ]);
   if (!deterministicRoutes.has(`${topicType}:${subIntent}`)) return false;
-  if (topicType === TOPIC_TYPES.REGULATED && subIntent === "fafsa" && String(query || "").trim()) {
-    return /\b(eligib|qualif|am\s*i|do\s*i|can\s*i)\b/i.test(query);
+  // The deterministic checker answers FEDERAL-AID eligibility checks only.
+  // "Eligible/qualify" phrasing alone spans admissions ("am I eligible for
+  // Princeton?"), scholarships, and program questions — serving those the
+  // federal FAFSA checklist buried real questions under boilerplate. Require
+  // both an eligibility verb AND explicit federal-aid context.
+  if (topicType === TOPIC_TYPES.REGULATED && (subIntent === "fafsa" || subIntent === "eligibility") && String(query || "").trim()) {
+    return /\b(eligib\w*|qualif\w*)\b/i.test(query)
+      && /\b(fafsa|federal|financial\s+aid|student\s+aid|pell|loan|grant)\b/i.test(query);
   }
   return true;
 }
