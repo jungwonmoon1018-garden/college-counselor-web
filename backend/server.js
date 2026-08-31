@@ -57,7 +57,7 @@ import { callLLM as adapterCallLLM, validateKey as adapterValidateKey, isReasona
 import { screenInput, screenOutput, restorePII, redactProviderText } from "./content-moderation.js";
 import { grantConsent, hasActiveConsent, validateRequiredConsents, getOnboardingConsentRequirements } from "./consent.js";
 import { initDomainMonitor, prepareMonitorStatements } from "./domain-monitor.js";
-import { initCollegeResearch, researchCollegeValues, researchCollegeDeadlines, readCachedDeadlines } from "./college-research.js";
+import { initCollegeResearch, researchCollegeValues, researchCollegeDeadlines, readCachedDeadlines, pickScorecardHit } from "./college-research.js";
 import { computeFit } from "./college-values.js";
 import { runRetentionCleanup, getRetentionReport } from "./retention.js";
 import { registerStandardJobs, registerJob, startAllJobs, stopAllJobs, getJobStatus } from "./batch-jobs.js";
@@ -3044,6 +3044,38 @@ app.post("/api/positioning/targets", studentLimiter, requireStudentAuth, async (
         source: cdsFirst ? "cds_store" : (collegeRow?.source || (storedCds ? "cds_store" : "baseline_colleges")),
       };
 
+      // ── College Scorecard fallback ──────────────────────────────────
+      // The CDS store covers a few dozen schools and, on a fresh deployment,
+      // baseline_colleges holds only the manually curated set — so most
+      // searched schools reached this point with NO stats at all and the fit
+      // calibration had nothing to work with. The live Scorecard API (the
+      // Dept. of Education's IPEDS data) fills admit rate and test ranges for
+      // any US school, connecting the CDS pipeline to Scorecard data.
+      if (SCORECARD_API_KEY &&
+          collegeContext.sat25 == null && collegeContext.act25 == null && collegeContext.acceptanceRate == null) {
+        try {
+          const scorecardHit = collegeContext.unitId
+            ? await getCollegeById(SCORECARD_API_KEY, collegeContext.unitId)
+            : pickScorecardHit(
+              (await searchScorecard(SCORECARD_API_KEY, { name: collegeContext.name, limit: 5 }))?.results,
+              collegeContext.name,
+            );
+          if (scorecardHit) {
+            collegeContext.unitId = collegeContext.unitId || scorecardHit.unitId || null;
+            collegeContext.name = collegeContext.name || scorecardHit.name;
+            collegeContext.state = collegeContext.state || scorecardHit.state || null;
+            collegeContext.sat25 = scorecardHit.sat25 ?? null;
+            collegeContext.sat75 = scorecardHit.sat75 ?? null;
+            collegeContext.act25 = scorecardHit.act25 ?? null;
+            collegeContext.act75 = scorecardHit.act75 ?? null;
+            collegeContext.acceptanceRate = scorecardHit.acceptanceRate ?? null;
+            collegeContext.source = "college_scorecard";
+          }
+        } catch (err) {
+          console.warn("[POSITIONING] Scorecard fallback failed:", err?.message);
+        }
+      }
+
       const majorPolicy =
         resolveMajorPolicyForSchool(admissionsIntelStmts, {
           unitId: collegeContext.unitId,
@@ -3074,9 +3106,14 @@ app.post("/api/positioning/targets", studentLimiter, requireStudentAuth, async (
       // Surface where the numbers came from so the card can link to the CDS
       // source and show the reporting year.
       positioning.dataProvenance = effectiveCds?.provenance || {
-        kind: storedCds ? "cds_store" : (cdsResult?.fetchStatus === "ok" ? "cds_live" : "baseline_only"),
+        kind: storedCds
+          ? "cds_store"
+          : (cdsResult?.fetchStatus === "ok"
+            ? "cds_live"
+            : (collegeContext.source === "college_scorecard" ? "college_scorecard" : "baseline_only")),
         validated: Boolean(storedCds),
-        sourceUrl: effectiveCds?.sourceUrl || null,
+        sourceUrl: effectiveCds?.sourceUrl
+          || (collegeContext.source === "college_scorecard" ? "https://collegescorecard.ed.gov/" : null),
       };
       return positioning;
     }));

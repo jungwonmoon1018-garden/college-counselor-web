@@ -133,7 +133,7 @@ before(async () => {
       DB_PATH: path.join(testDataDir, "operational.db"),
       ENCRYPTION_KEY: "ab".repeat(32),
       OPENROUTER_API_KEY: "sk-or-test-openrouter-key",
-      SCORECARD_API_KEY: "",
+      SCORECARD_API_KEY: "test-scorecard-key",
       SIM_URL: `http://127.0.0.1:${port + 1}`,
       SIM_INTERNAL_TOKEN: "route-test-sidecar-token",
       TEST_OPENROUTER_CALL_LOG: callLogPath,
@@ -412,4 +412,30 @@ test("chat injects the student profile and theme guard into model calls", async 
   assert.match(wire, /STUDENT PROFILE/);
   assert.match(wire, /AP Calculus BC/);
   assert.match(wire, /Robotics Club/);
+});
+
+test("college fit falls back to College Scorecard stats when CDS and baselines have nothing", async () => {
+  const token = await registerStudent("fit-scorecard");
+  const synced = await request("POST", "/api/students/sync", {
+    token,
+    body: {
+      profile: { gpa: { unweighted: 3.7 }, courses: [{ name: "AP Physics 1", type: "ap", grade: "A" }], testScores: [{ test: "sat", totalScore: 1400 }], apScores: [] },
+      activities: [],
+      majorInterest: "Computer Science",
+      goals: [],
+    },
+  });
+  assert.equal(synced.status, 200, JSON.stringify(synced.data));
+
+  // Stony Brook is in neither the seeded CDS store nor the manual IPEDS
+  // baselines — before the Scorecard fallback its fit calibration ran with
+  // no admit rate or test ranges at all.
+  const fit = await request("POST", "/api/positioning/targets", {
+    token,
+    body: { targets: [{ schoolName: "Stony Brook University" }], searchCds: false },
+  });
+  assert.equal(fit.status, 200, `${JSON.stringify(fit.data)}\n${serverOutput}`);
+  const target = (fit.data.targets || [])[0];
+  assert.ok(target, JSON.stringify(fit.data));
+  assert.match(JSON.stringify(target), /college_scorecard/);
 });

@@ -52,6 +52,34 @@ globalThis.fetch = async (input, init = {}) => {
     });
   }
 
+  // College Scorecard API — canned single-school result so the positioning
+  // route's Scorecard fallback can be exercised without the network.
+  if (String(url || "").startsWith("https://api.data.gov/ed/collegescorecard/")) {
+    return Response.json({
+      metadata: { total: 1, page: 0 },
+      results: [{
+        id: 196097,
+        "school.name": "Stony Brook University",
+        "school.state": "NY",
+        "school.city": "Stony Brook",
+        "school.school_url": "https://www.stonybrook.edu/",
+        "school.ownership": 1,
+        "latest.admissions.admission_rate.overall": 0.49,
+        "latest.admissions.sat_scores.25th_percentile.critical_reading": 650,
+        "latest.admissions.sat_scores.25th_percentile.math": 680,
+        "latest.admissions.sat_scores.75th_percentile.critical_reading": 720,
+        "latest.admissions.sat_scores.75th_percentile.math": 770,
+        "latest.student.size": 17000,
+      }],
+    });
+  }
+
+  // The CDS repository index — return an empty page so live CDS resolution
+  // finds nothing and the route exercises its fallbacks.
+  if (String(url || "").includes("collegetransitions.com")) {
+    return new Response("<html><body></body></html>", { headers: { "Content-Type": "text/html" } });
+  }
+
   if (/^https?:/i.test(String(url || ""))) {
     throw new Error(`Unexpected external request in route integration test: ${url}`);
   }
