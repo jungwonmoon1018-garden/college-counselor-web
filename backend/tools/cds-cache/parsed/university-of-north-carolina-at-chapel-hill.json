@@ -1,0 +1,50 @@
+{
+  "slug": "university-of-north-carolina-at-chapel-hill",
+  "school": "University of North Carolina at Chapel Hill",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": null,
+  "yieldRate": null,
+  "enrolledSAT": {
+    "p25": 1400,
+    "p75": 1530
+  },
+  "enrolledACT": {
+    "p25": 29,
+    "p75": 34
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "important",
+    "gpa": "important",
+    "test_scores": "considered",
+    "application_essay": "very_important",
+    "recommendations": "very_important",
+    "interview": "not_considered",
+    "ec": "very_important",
+    "talent_ability": "very_important",
+    "character": "very_important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "very_important",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "important",
+    "work_experience": "important",
+    "level_of_interest": "not_considered"
+  },
+  "b1": null,
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://oira.unc.edu/wp-content/uploads/sites/297/2026/06/CDS_UNCCH_2025-26_20260615.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 3,
+  "parserNotes": [],
+  "ingestedAt": "2026-08-31 04:13:33",
+  "updatedAt": "2026-08-31 04:13:33"
+}

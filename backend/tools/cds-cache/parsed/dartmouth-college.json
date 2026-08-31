@@ -1,0 +1,50 @@
+{
+  "slug": "dartmouth-college",
+  "school": "Dartmouth College",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": null,
+  "yieldRate": null,
+  "enrolledSAT": {
+    "p25": 1440,
+    "p75": 1550
+  },
+  "enrolledACT": {
+    "p25": 32,
+    "p75": 35
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "very_important",
+    "gpa": "very_important",
+    "test_scores": "very_important",
+    "application_essay": "very_important",
+    "recommendations": "very_important",
+    "interview": "considered",
+    "ec": "very_important",
+    "talent_ability": "important",
+    "character": "very_important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": null,
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.dartmouth.edu/oir/pdfs/cds_2025-26.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 3,
+  "parserNotes": [],
+  "ingestedAt": "2026-08-31 04:13:25",
+  "updatedAt": "2026-08-31 04:13:25"
+}

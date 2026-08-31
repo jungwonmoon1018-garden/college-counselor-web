@@ -1,0 +1,55 @@
+{
+  "slug": "university-of-washington",
+  "school": "University of Washington",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.4175,
+  "yieldRate": 0.2339,
+  "enrolledSAT": {
+    "p25": 1320,
+    "p75": 1502
+  },
+  "enrolledACT": {
+    "p25": 30,
+    "p75": 34
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "not_considered",
+    "gpa": "very_important",
+    "test_scores": "not_considered",
+    "application_essay": "very_important",
+    "recommendations": "not_considered",
+    "interview": "not_considered",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "considered",
+    "first_generation": "important",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "very_important",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "important",
+    "work_experience": "important",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 72933,
+    "admitted": 30446,
+    "enrolled": 7120
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://cdn.uw.edu/wp-content/uploads/sites/162/2026/02/27111247/CDS_2025-2026_Seattle.pdf",
+  "sourceKind": "pdf_merged",
+  "parserVersion": 3,
+  "parserNotes": [
+    "merged_form_fields"
+  ],
+  "ingestedAt": "2026-08-31 04:13:39",
+  "updatedAt": "2026-08-31 04:13:39"
+}

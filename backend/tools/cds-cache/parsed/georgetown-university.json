@@ -1,0 +1,47 @@
+{
+  "slug": "georgetown-university",
+  "school": "Georgetown University",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.1291,
+  "yieldRate": 0.4668,
+  "enrolledSAT": {
+    "p25": 1400,
+    "p75": 1540
+  },
+  "enrolledACT": {
+    "p25": 31,
+    "p75": 35
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 26131,
+    "admitted": 3374,
+    "enrolled": 1575
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 10768,
+        "admitted": 1393,
+        "admitRate": 0.1294
+      },
+      "women": {
+        "applied": 15102,
+        "admitted": 1953,
+        "admitRate": 0.1293
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1msvBhqWzTph5m5dUBiyzH6ev4kwzYS03",
+  "sourceKind": "pdf_text",
+  "parserVersion": 3,
+  "parserNotes": [],
+  "ingestedAt": "2026-08-31 04:13:30",
+  "updatedAt": "2026-08-31 04:13:30"
+}

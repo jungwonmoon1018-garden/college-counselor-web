@@ -110,10 +110,25 @@ export function countCdsRecords(ragStmts) {
   }
 }
 
-// Ingest only when the table is empty (boot path), unless force=true.
+// Ingest on boot when the table is empty OR when the parsed cache on disk
+// contains schools the store doesn't have yet. The old only-when-empty guard
+// stranded newly committed CDS schools on disk forever on deployments whose
+// persistent DB was already populated. The ingest itself is an idempotent
+// upsert, so a top-up re-persists existing schools harmlessly.
 export async function ensureCdsStoreSeeded(ragStmts, { dir = DEFAULT_PARSED_CDS_DIR, force = false } = {}) {
-  if (!force && countCdsRecords(ragStmts) > 0) {
-    return { seeded: false, reason: "already_populated" };
+  if (!force) {
+    const storedSlugs = new Set(loadAllValidatedRecords(ragStmts).map((record) => record.slug).filter(Boolean));
+    if (storedSlugs.size > 0) {
+      let diskSlugs = [];
+      try {
+        diskSlugs = fs.readdirSync(dir)
+          .filter((file) => file.endsWith(".json") && !file.startsWith("_"))
+          .map((file) => file.replace(/\.json$/, ""));
+      } catch { /* unreadable dir → nothing to top up */ }
+      const missing = diskSlugs.filter((slug) => !storedSlugs.has(slug));
+      if (missing.length === 0) return { seeded: false, reason: "already_populated" };
+      console.log(`[cds-store] topping up ${missing.length} new parsed CDS record(s): ${missing.slice(0, 8).join(", ")}${missing.length > 8 ? ", …" : ""}`);
+    }
   }
   const res = await ingestParsedCdsCache(ragStmts, { dir });
   return { seeded: true, ...res };

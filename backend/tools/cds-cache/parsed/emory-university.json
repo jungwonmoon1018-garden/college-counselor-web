@@ -1,0 +1,50 @@
+{
+  "slug": "emory-university",
+  "school": "Emory University",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": null,
+  "yieldRate": null,
+  "enrolledSAT": {
+    "p25": 1480,
+    "p75": 1540
+  },
+  "enrolledACT": {
+    "p25": 33,
+    "p75": 35
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "very_important",
+    "application_essay": "important",
+    "recommendations": "important",
+    "interview": "considered",
+    "ec": "very_important",
+    "talent_ability": "very_important",
+    "character": "very_important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "important",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": null,
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://provost.emory.edu/planning-administration/_includes/documents/sections/institutional-data/emory-common-date-set-2025-2026.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 3,
+  "parserNotes": [],
+  "ingestedAt": "2026-08-31 04:13:41",
+  "updatedAt": "2026-08-31 04:13:41"
+}

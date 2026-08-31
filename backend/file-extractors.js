@@ -337,7 +337,9 @@ export async function extractPdfOCR(input, {
     if (err instanceof ExtractionError) throw err;
     throw new ExtractionError("pdf_ocr_failed", `PDF OCR failed: ${err.message}`, err);
   } finally {
-    if (pdf) await pdf.destroy();
+    // pdfjs-dist v6 removed PDFDocumentProxy.destroy(); cleanup lives on the
+    // loading task. A cleanup failure must never mask a successful OCR.
+    try { if (pdf) await (pdf.destroy?.() ?? pdf.loadingTask?.destroy?.()); } catch { /* best-effort */ }
   }
 }
 

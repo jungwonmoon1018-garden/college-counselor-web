@@ -87,17 +87,66 @@ export function parseCdsRepositoryIndex(html) {
   return entries;
 }
 
+// Strict key that KEEPS the institution-type word. normalizeSchoolName strips
+// "university"/"college", which collapsed "Boston University" and "Boston
+// College" to the same key — the repository lookup then bound BU to BC's CDS.
+function strictRepositoryKey(name) {
+  return String(name || "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\b(the)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const INSTITUTION_TYPE_WORDS = ["university", "college", "institute", "academy", "school"];
+
+function institutionTypeOf(strictName) {
+  return INSTITUTION_TYPE_WORDS.find((word) => new RegExp(`\\b${word}\\b`).test(strictName)) || null;
+}
+
+// Two names may refer to the same school only when their institution-type
+// words don't conflict ("X University" never matches "X College").
+function institutionTypesCompatible(a, b) {
+  const typeA = institutionTypeOf(a);
+  const typeB = institutionTypeOf(b);
+  return !typeA || !typeB || typeA === typeB;
+}
+
 export function findBestRepositoryEntry(entries, schoolName) {
+  const list = Array.isArray(entries) ? entries : [];
+  const strictQuery = strictRepositoryKey(schoolName);
+  if (!strictQuery) return null;
+  // Operator-appended index entries may carry `name` and no
+  // normalizedSchoolName — the old code crashed on .split(undefined).
+  const nameOf = (entry) => entry?.schoolName || entry?.name || "";
+  const strictOf = (entry) => strictRepositoryKey(nameOf(entry));
+  const normalizedOf = (entry) => entry?.normalizedSchoolName || normalizeSchoolName(nameOf(entry)) || "";
+
+  // 1. Strict exact match (institution-type word preserved).
+  const strictExact = list.find((entry) => strictOf(entry) === strictQuery);
+  if (strictExact) return strictExact;
+  // 2. Strict prefix-extension either way ("Columbia University" ⊂
+  //    "Columbia University in the City of New York").
+  const strictPrefix = list.find((entry) => {
+    const cand = strictOf(entry);
+    return cand && (cand.startsWith(`${strictQuery} `) || strictQuery.startsWith(`${cand} `));
+  });
+  if (strictPrefix) return strictPrefix;
+
   const normalized = normalizeSchoolName(schoolName);
   if (!normalized) return null;
-  const exact = entries.find((entry) => entry.normalizedSchoolName === normalized);
+  const exact = list.find((entry) =>
+    normalizedOf(entry) === normalized && institutionTypesCompatible(strictQuery, strictOf(entry)));
   if (exact) return exact;
 
   const normalizedParts = new Set(normalized.split(" ").filter(Boolean));
   let best = null;
   let bestScore = 0;
-  for (const entry of entries) {
-    const parts = entry.normalizedSchoolName.split(" ").filter(Boolean);
+  for (const entry of list) {
+    if (!institutionTypesCompatible(strictQuery, strictOf(entry))) continue;
+    const parts = normalizedOf(entry).split(" ").filter(Boolean);
     let overlap = 0;
     for (const part of parts) {
       if (normalizedParts.has(part)) overlap += 1;

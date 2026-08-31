@@ -58,7 +58,9 @@ export async function extractItems(pdfPath, { method = "auto", ocrMaxPages = 25 
     }
   }
   const numPages = pdf.numPages;
-  await pdf.destroy();
+  // pdfjs-dist v6 removed PDFDocumentProxy.destroy() — cleanup lives on the
+  // loading task now. Best-effort: a cleanup failure must not void a parse.
+  try { await loadingTask.destroy(); } catch { /* cleanup best-effort */ }
 
   // ─── OCR fallback ─────────────────────────────────────────────────
   // Some smaller-school CDSes are scanned PDFs with no text layer. If
@@ -172,7 +174,8 @@ export async function extractItemsViaOCR(pdfPath, maxPages = 25) {
     }
     page.cleanup();
   }
-  await pdf.destroy();
+  // pdfjs-dist v6: destroy moved to the loading task (pdf.loadingTask).
+  try { await (pdf.destroy?.() ?? pdf.loadingTask?.destroy?.()); } catch { /* cleanup best-effort */ }
   return items;
 }
 

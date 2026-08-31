@@ -1,0 +1,30 @@
+{
+  "slug": "university-of-southern-california",
+  "school": "University of Southern California",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": null,
+  "yieldRate": null,
+  "enrolledSAT": {
+    "p25": 1470,
+    "p75": 1540
+  },
+  "enrolledACT": {
+    "p25": 32,
+    "p75": 35
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {},
+  "b1": null,
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://oir.usc.edu/wp-content/uploads/sites/3/2026/10/CDS_2025-26_FINAL.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 3,
+  "parserNotes": [],
+  "ingestedAt": "2026-08-31 04:13:29",
+  "updatedAt": "2026-08-31 04:13:29"
+}

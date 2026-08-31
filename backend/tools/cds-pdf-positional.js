@@ -39,7 +39,7 @@ export async function extractItems(pdfPath) {
       items.push({ page: p, x: round1(x), y: round1(y), str, width: it.width || 0 });
     }
   }
-  await pdf.destroy();
+  try { await (pdf.destroy?.() ?? pdf.loadingTask?.destroy?.()); } catch { /* pdfjs v6: destroy moved to the loading task */ }
   return items;
 }
 

@@ -1,0 +1,50 @@
+{
+  "slug": "washington-university-in-st-louis",
+  "school": "Washington University in St. Louis",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": null,
+  "yieldRate": null,
+  "enrolledSAT": {
+    "p25": 1500,
+    "p75": 1550
+  },
+  "enrolledACT": {
+    "p25": 33,
+    "p75": 35
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "very_important",
+    "gpa": "very_important",
+    "test_scores": "very_important",
+    "application_essay": "very_important",
+    "recommendations": "very_important",
+    "interview": "not_considered",
+    "ec": "important",
+    "talent_ability": "very_important",
+    "character": "very_important",
+    "first_generation": "important",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": null,
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://washu.edu/app/uploads/2026/06/2025-2026-WashU-CDS.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 3,
+  "parserNotes": [],
+  "ingestedAt": "2026-08-31 04:13:37",
+  "updatedAt": "2026-08-31 04:13:37"
+}

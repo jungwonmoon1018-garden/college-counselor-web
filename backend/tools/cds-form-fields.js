@@ -74,7 +74,7 @@ export async function extractFormFields(pdfPath) {
       if (fields[key] == null) fields[key] = v;
     }
   }
-  await pdf.destroy();
+  try { await (pdf.destroy?.() ?? pdf.loadingTask?.destroy?.()); } catch { /* pdfjs v6: destroy moved to the loading task */ }
   return fields;
 }
 

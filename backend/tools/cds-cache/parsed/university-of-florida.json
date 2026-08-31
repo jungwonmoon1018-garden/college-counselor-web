@@ -1,0 +1,30 @@
+{
+  "slug": "university-of-florida",
+  "school": "University of Florida",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": null,
+  "yieldRate": null,
+  "enrolledSAT": {
+    "p25": 1330,
+    "p75": 1490
+  },
+  "enrolledACT": {
+    "p25": 29,
+    "p75": 33
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": null,
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://data-apps.ir.aa.ufl.edu/public/cds/CDS%202025-26_v8_08.14.2026.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 3,
+  "parserNotes": [],
+  "ingestedAt": "2026-08-31 04:13:38",
+  "updatedAt": "2026-08-31 04:13:38"
+}
