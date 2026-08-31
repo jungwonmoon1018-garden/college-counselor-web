@@ -1675,7 +1675,12 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
     const studentId = req.studentId;
     const userText = messageText(payload.messages[payload.messages.length - 1]).slice(0, 12_000);
     if (!userText.trim()) return res.status(400).json({ error: "The final user message must contain text." });
-    const inputScreen = screenInput(userText);
+    // Classification and screening run on the student's QUESTION only. The
+    // client appends reference data (calendar, cached counseling context) in
+    // a sentinel-wrapped appendix — "FAFSA opens Oct 1" inside the calendar
+    // block was getting EC questions classified as regulated aid lookups.
+    const questionText = userText.replace(/\[context appendix[\s\S]*?(\[end context appendix\]|$)/gi, "").trim() || userText;
+    const inputScreen = screenInput(questionText);
     if (inputScreen.blocked) {
       stmts.insertAudit.run(
         crypto.randomUUID(), new Date().toISOString(), "input_blocked",
@@ -1684,7 +1689,7 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
       return res.status(400).json({ error: inputScreen.reason, blocked: true });
     }
 
-    const classification = classifyTopic(userText);
+    const classification = classifyTopic(questionText);
     const locale = req.headers["accept-language"]?.startsWith("ko") ? "ko" : "en-US";
     if (classification.topicType === TOPIC_TYPES.CRISIS) {
       const built = buildCrisisResponse(locale);
@@ -1705,7 +1710,7 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
     }
 
     let evidence = [];
-    try { evidence = searchFacts(factStmts, userText, 12) || []; } catch { /* fail closed below */ }
+    try { evidence = searchFacts(factStmts, questionText, 12) || []; } catch { /* fail closed below */ }
     let regulatedSystemPrefix = null;
     if (
       classification.topicType === TOPIC_TYPES.REGULATED ||
@@ -1716,10 +1721,10 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
       // lookups). This branch used to swallow EVERY regulated/high-stakes-
       // classified message — any chat containing "eligible" got the full
       // FAFSA checklist regardless of what was asked.
-      if (canHandleDeterministically(classification.topicType, classification.subIntent, userText)) {
+      if (canHandleDeterministically(classification.topicType, classification.subIntent, questionText)) {
         let result = regulatedResultForChat(classification, payload);
         if (String(classification.subIntent || "").includes("deadline")) {
-          const cached = deadlinesFromResearchCache(userText);
+          const cached = deadlinesFromResearchCache(questionText);
           if (cached) result = cached;
         }
         const composed = composeDeterministicAnswer({ classification, result, evidence, locale });
@@ -1732,7 +1737,7 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
       // Informational regulated/high-stakes questions flow to the model:
       // the gate blocks only hard lookups without verified data, and hands
       // back the advisory system prefix for everything it allows.
-      const gate = regulatedChatGate(classification, studentId, userText, locale);
+      const gate = regulatedChatGate(classification, studentId, questionText, locale);
       if (gate.block) return res.json(gate.response);
       regulatedSystemPrefix = gate.systemPrefix || null;
     }
@@ -1758,7 +1763,7 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
     }
 
     if (ragStmts.apConcepts) {
-      try { processStudentInputForConcepts(ragStmts.apConcepts, studentId, userText, { source: "prompt" }); }
+      try { processStudentInputForConcepts(ragStmts.apConcepts, studentId, questionText, { source: "prompt" }); }
       catch { /* concept extraction must not block chat */ }
     }
 

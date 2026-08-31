@@ -1922,7 +1922,11 @@ async function orchestrate(userMsg,data,setData,setStatus,signal,pendingFileData
   // the LLM with a stale profile lookup. The user attached files
   // because they want them read by the model.
   const msgHasFilePreface = /\[attached files —/i.test(userMsg || "") || /\[end of attached files\]/i.test(userMsg || "");
-  const quickReply = (!pendingFileData && !msgHasFilePreface) ? maybeHandleQuickQuery(userMsg, data) : null;
+  // The sentinel-wrapped context appendix (memory + calendar reference data)
+  // must never influence routing or quick-query matching — classify only the
+  // student's actual question.
+  const coreMsg = (userMsg || "").replace(/\[context appendix[\s\S]*?(\[end context appendix\]|$)/gi, "").trim();
+  const quickReply = (!pendingFileData && !msgHasFilePreface) ? maybeHandleQuickQuery(coreMsg, data) : null;
   if (quickReply) {
     return { text: quickReply, blocked: false };
   }
@@ -1943,7 +1947,7 @@ async function orchestrate(userMsg,data,setData,setStatus,signal,pendingFileData
       const orchRes = await fetch(`${base}/agents/orchestrate`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ query: sanitizeInput(userMsg), studentData: data.profile || {} }),
+        body: JSON.stringify({ query: sanitizeInput(coreMsg), studentData: data.profile || {} }),
         signal
       });
       if (orchRes.ok) {
@@ -1969,7 +1973,7 @@ async function orchestrate(userMsg,data,setData,setStatus,signal,pendingFileData
   // reflects the actual question.
   setStatus({active:"gatekeeper",phase:"Screening..."});
   let gate;
-  let gatekeeperInput = userMsg || "";
+  let gatekeeperInput = coreMsg;
   gatekeeperInput = gatekeeperInput
     .replace(/\[Attached files —[\s\S]*?\[End of attached files\]\s*/i, "")
     .replace(/\[Note:[^\]]*?skipped[^\]]*?\]\s*/gi, "")
@@ -4115,7 +4119,14 @@ export default function App() {
       // stale "today"; re-injected fresh every turn.
       const calPreamble = buildCalendarPreamble(calendarCtx, targetSchools);
       const memPreamble = buildMemoryPreamble(requestData);
-      const modelMsg = [msg, memPreamble, calPreamble].filter(Boolean).join("\n\n");
+      // Reference data rides in an explicit sentinel-wrapped appendix so the
+      // topic classifiers (frontend router AND the backend policy router)
+      // can exclude it — "FAFSA opens Oct 1" inside the calendar block was
+      // getting EC questions classified as regulated aid lookups.
+      const contextAppendix = [memPreamble, calPreamble].filter(Boolean).join("\n\n");
+      const modelMsg = contextAppendix
+        ? `${msg}\n\n[Context appendix — reference data for the assistant; not part of the student's question]\n${contextAppendix}\n[End context appendix]`
+        : msg;
       const result = councilTypeForTurn
         ? await conveneStrategyCouncil(baseMsg, councilTypeForTurn, abortRef.current.signal)
         : await orchestrate(modelMsg, requestData, setData, setAgentStatus, abortRef.current.signal, attachment || null, messages);

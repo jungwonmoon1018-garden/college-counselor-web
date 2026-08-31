@@ -442,3 +442,33 @@ test("college fit falls back to College Scorecard stats when CDS and baselines h
   assert.ok(target, JSON.stringify(fit.data));
   assert.match(JSON.stringify(target), /college_scorecard/);
 });
+
+test("the context appendix does not poison chat topic classification", async () => {
+  const token = await registerStudent("appendix-chat");
+  for (const consentType of ["data_processing", "ai_interaction", "cross_border_transfer"]) {
+    const consent = await request("POST", "/api/consent/grant", {
+      token,
+      body: { consentType, grantedBy: "student" },
+    });
+    assert.equal(consent.status, 200, JSON.stringify(consent.data));
+  }
+
+  // Regression: the client appends calendar reference data after the
+  // question. "FAFSA opens 2026-10-01" inside it classified EC questions as
+  // regulated aid lookups, decorating replies with StudentAid.gov actions.
+  const content = [
+    "What extracurriculars should I add next for a computer science major?",
+    "",
+    "[Context appendix — reference data for the assistant; not part of the student's question]",
+    "Typical US deadlines — EA/ED 2026-11-01; RD 2027-01-01; FAFSA opens 2026-10-01.",
+    "[End context appendix]",
+  ].join("\n");
+  const turn = await request("POST", "/api/chat", {
+    token,
+    body: { messages: [{ role: "user", content }], request_id: "appendix-chat-1" },
+  });
+  assert.equal(turn.status, 200, `${JSON.stringify(turn.data)}\n${serverOutput}`);
+  assert.equal(turn.data._meta.deterministic, false);
+  assert.equal(turn.data.topic_type, "coaching");
+  assert.doesNotMatch(String(turn.data.answer), /eligibility item/i);
+});
