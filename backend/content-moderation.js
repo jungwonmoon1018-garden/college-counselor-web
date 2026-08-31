@@ -200,11 +200,36 @@ export function screenInput(text, options = {}) {
   };
 }
 
+// Pseudo-tool-call markup. Open-weight models sometimes emit fake tool-call
+// syntax as plain text (e.g. <|tool_call>call:fetch_rag_context(focus="x")
+// <tool_call|>) when a prompt mentions tools that don't exist in this
+// environment. Never legitimate counselor output — strip it.
+const PSEUDO_TOOL_PATTERNS = [
+  /<\|?\/?\s*tool_call\s*\|?>/gi,
+  /<\/?tool_(?:code|outputs?|results?)>/gi,
+  /```tool_(?:code|call)[\s\S]*?```/g,
+  /\bcall:\s*[a-z_][\w.]*\s*\([^()\n]*\)/gi,
+  /^[ \t]*(?:fetch_rag_context|fetch_student_trends|fetch_milestones|get_student_profile|get_extracurriculars|update_extracurriculars|update_student_profile|analyze_ec_strength|suggest_ecs|get_ap_rigor|get_sat_context|search_colleges|fetch_college_match|generate_study_notes)\s*\([^)\n]*\)[ \t]*$/gim,
+];
+
 // ─── Screen output before returning to user ───
 export function screenOutput(text, options = {}) {
   if (!text || typeof text !== "string") return { safe: true, text: text || "" };
 
   const issues = [];
+
+  // Strip pseudo-tool-call markup before anything else.
+  let strippedToolMarkup = false;
+  for (const pattern of PSEUDO_TOOL_PATTERNS) {
+    if (text.match(pattern)) {
+      strippedToolMarkup = true;
+      text = text.replace(pattern, "");
+    }
+  }
+  if (strippedToolMarkup) {
+    issues.push({ type: "pseudo_tool_markup", message: "Tool-call markup detected in model output — removed." });
+    text = text.replace(/\n{3,}/g, "\n\n").trim();
+  }
 
   // Check for leaked PII in model output. We redact the NON-restorable PII
   // types (SSN, phone) — these should never legitimately appear in a
