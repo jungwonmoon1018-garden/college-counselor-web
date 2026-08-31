@@ -1815,6 +1815,69 @@ function maybeHandleQuickQuery(userMsg, data, user) {
 
 // FIX UX-1: Cache gatekeeper classifications for follow-up questions in the same topic
 const gatekeeperCache = { lastCategory: null, lastRoutes: null, lastTopic: null };
+
+// ═══════════════════════════════════════════════════════════
+// COUNSELOR MEMORY — important chat exchanges cached in the account vault
+// ═══════════════════════════════════════════════════════════
+// Lives inside the `data` state, so it rides the existing passphrase-
+// encrypted vault autosave (on-device only — never synced to the server).
+// Deliberately flexible and replaceable rather than an archive:
+//   • one entry per topic key (ec / academics / college / strategy /
+//     council:<type>) — a fresh discussion REPLACES the previous one,
+//     because a student's plans (especially ECs) churn constantly;
+//   • entries expire after CHAT_MEMORY_TTL_DAYS;
+//   • EC-keyed entries carry a fingerprint of the activity list and are
+//     auto-invalidated the moment the student's activities change;
+//   • the whole store is one "Clear AI memory" click away.
+const CHAT_MEMORY_MAX_ENTRIES = 10;
+const CHAT_MEMORY_TTL_DAYS = 30;
+
+function activitiesFingerprintOf(activities) {
+  return (activities || []).map((a) => String(a?.name || "").toLowerCase()).sort().join("|");
+}
+
+function rememberExchange(setData, key, { threadId, question, answer }) {
+  if (!key || !answer) return;
+  setData((prev) => {
+    const base = prev || {};
+    const memory = { ...(base.chatMemory || {}) };
+    memory[key] = {
+      key,
+      threadId: threadId || null,
+      question: String(question || "").slice(0, 280),
+      answer: String(answer || "").slice(0, 700),
+      updatedAt: new Date().toISOString(),
+      activitiesFingerprint: activitiesFingerprintOf(base.activities),
+    };
+    const keys = Object.keys(memory);
+    if (keys.length > CHAT_MEMORY_MAX_ENTRIES) {
+      keys.sort((a, b) => String(memory[a]?.updatedAt || "").localeCompare(String(memory[b]?.updatedAt || "")));
+      for (const stale of keys.slice(0, keys.length - CHAT_MEMORY_MAX_ENTRIES)) delete memory[stale];
+    }
+    return { ...base, chatMemory: memory };
+  });
+}
+
+function buildMemoryPreamble(data) {
+  const memory = data?.chatMemory || {};
+  const cutoff = Date.now() - CHAT_MEMORY_TTL_DAYS * 24 * 60 * 60 * 1000;
+  const fingerprint = activitiesFingerprintOf(data?.activities);
+  const entries = Object.values(memory)
+    .filter((entry) => entry?.answer && Date.parse(entry.updatedAt) > cutoff)
+    // EC guidance goes stale the moment the activity list changes — drop it
+    // instead of letting outdated advice steer a new conversation.
+    .filter((entry) => !String(entry.key).startsWith("ec") || entry.activitiesFingerprint === fingerprint)
+    .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))
+    .slice(0, 4);
+  if (!entries.length) return "";
+  const lines = [
+    "[Cached counseling context — highlights of this student's recent conversations. If any entry conflicts with the current STUDENT PROFILE, the profile wins.]",
+  ];
+  for (const entry of entries) {
+    lines.push(`• (${entry.key}, ${String(entry.updatedAt).slice(0, 10)}) Student asked: ${entry.question || "(attachment)"} → Advice given: ${entry.answer}`);
+  }
+  return lines.join("\n");
+}
 function isSimpleProfileQuery(msg) {
   const simple = /^(what('?s| is) my (profile|gpa|score|grades|courses|ecs|activities|test)\??|show (my )?(profile|gpa|score)|my (gpa|profile|scores?))$/i;
   return simple.test(msg.trim());
@@ -2169,7 +2232,7 @@ SOURCES (required):
   const validatorSafeSkip = !isSimple && draftLen > 0 && draftLen < 600 && !RISKY_OUTPUT_TOKENS.test(draft) && (gate.category === "safe_academic" || gate.category === "safe_ec");
   if (isSimple || validatorSafeSkip) {
     if (validatorSafeSkip) console.log("[validator] skip — short safe response, no risky tokens");
-    return{text:draft,blocked:false};
+    return{text:draft,blocked:false,routeKey:routes[0]||null};
   }
   setStatus({active:"validator",phase:"Final safety check..."});
   let final=draft;
@@ -2184,7 +2247,7 @@ SOURCES (required):
   if(!validationPassed){
     final = draft + "\n\n_Note: This response could not be fully verified. Statistics may need independent confirmation._";
   }
-  return{text:final,blocked:false};
+  return{text:final,blocked:false,routeKey:routes[0]||null};
 }
 
 // Multimodal agent runner — sends file content directly to Claude for OCR
@@ -4051,7 +4114,8 @@ export default function App() {
       // the stored `modelContent` (above) so replayed history never carries a
       // stale "today"; re-injected fresh every turn.
       const calPreamble = buildCalendarPreamble(calendarCtx, targetSchools);
-      const modelMsg = calPreamble ? `${msg}\n\n${calPreamble}` : msg;
+      const memPreamble = buildMemoryPreamble(requestData);
+      const modelMsg = [msg, memPreamble, calPreamble].filter(Boolean).join("\n\n");
       const result = councilTypeForTurn
         ? await conveneStrategyCouncil(baseMsg, councilTypeForTurn, abortRef.current.signal)
         : await orchestrate(modelMsg, requestData, setData, setAgentStatus, abortRef.current.signal, attachment || null, messages);
@@ -4065,6 +4129,19 @@ export default function App() {
       }
       if (threadIdForTurn && result?.text) {
         await persistTurn(threadIdForTurn, "assistant", result.text);
+      }
+      // ── Counselor memory capture ──
+      // Cache the substantive part of this exchange in the encrypted vault,
+      // keyed by topic so the newest discussion replaces the previous one.
+      // Deterministic quick replies (short) and backend rules answers
+      // (threeLane) are cheap to recompute and skipped.
+      if (result?.text && !result.blocked && !result.uploadRejected && !result.threeLane && result.text.length >= 200) {
+        const memoryKey = councilTypeForTurn ? `council:${councilTypeForTurn}` : (result.routeKey || "general");
+        rememberExchange(setData, memoryKey, {
+          threadId: threadIdForTurn,
+          question: baseMsg,
+          answer: result.text,
+        });
       }
       // Auto-name a brand-new conversation from its first message (LLM, small
       // tier, crisis-safe server-side). Best-effort; the first-line title stays
@@ -5064,6 +5141,13 @@ export default function App() {
           <div style={{ fontSize:11,fontWeight:600,color:"#6a6a7a",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10 }}>Profile</div>
           <div style={{display:"flex",gap:8,marginBottom:12}}>
             <button onClick={()=>openProfileEditor(0)} style={{padding:"7px 10px",borderRadius:8,border:"1px solid rgba(55,138,221,0.18)",background:"rgba(55,138,221,0.08)",color:"#63b3ed",fontSize:11,cursor:"pointer"}}>Edit profile</button>
+            {Object.keys(data?.chatMemory || {}).length > 0 && (
+              <button
+                onClick={() => { if (confirm("Clear the counselor's cached conversation highlights? Chat history itself is kept.")) setData(prev => ({ ...prev, chatMemory: {} })); }}
+                title="The counselor caches highlights of recent conversations (in your encrypted vault) to stay consistent across chats. Clear them if they've gone stale."
+                style={{padding:"7px 10px",borderRadius:8,border:"1px solid rgba(255,255,255,0.08)",background:"transparent",color:"#8a8a9a",fontSize:11,cursor:"pointer"}}
+              >Clear AI memory</button>
+            )}
             {/* Transparency: weights, thresholds, and live "data as of"
                 freshness (models + college data). Opens the methodology as an
                 in-app popup (same overlay as Disclosures). */}

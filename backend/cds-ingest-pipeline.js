@@ -332,13 +332,20 @@ export async function ingestOne(stmts, schoolName, options = {}) {
   } catch (e) {
     return { school: entry.name, slug: entry.slug, status: "download_failed", error: String(e.message).slice(0, 200) };
   }
-  if (dl.kind !== "pdf") {
+  if (dl.kind !== "pdf" && dl.kind !== "xlsx") {
     return { school: entry.name, slug: entry.slug, status: "non_pdf", kind: dl.kind, year: dl.year };
   }
 
   let parsed;
   try {
-    parsed = await parseCDSPositional(dl.path);
+    if (dl.kind === "xlsx") {
+      // Excel-published CDS (Stony Brook, Berkeley, UIUC, …): same section
+      // extractors, fed from workbook cells instead of PDF text positions.
+      const { parseCDSXlsxFile } = await import("./cds-xlsx-parser.js");
+      parsed = await parseCDSXlsxFile(dl.path);
+    } else {
+      parsed = await parseCDSPositional(dl.path);
+    }
   } catch (e) {
     return { school: entry.name, slug: entry.slug, status: "parse_failed", error: String(e.message).slice(0, 200) };
   }
@@ -351,7 +358,9 @@ export async function ingestOne(stmts, schoolName, options = {}) {
     tier,
     sourcePdfPath: dl.path,
     sourceUrl: dl.url,
-    sourceKind: parsed.parserNotes?.includes?.("merged_form_fields") ? "pdf_merged" : "pdf_text",
+    sourceKind: dl.kind === "xlsx"
+      ? "xlsx"
+      : (parsed.parserNotes?.includes?.("merged_form_fields") ? "pdf_merged" : "pdf_text"),
   };
 
   const result = await persistAndValidate(stmts, recordForValidator, { tier, sourceUrl: dl.url });

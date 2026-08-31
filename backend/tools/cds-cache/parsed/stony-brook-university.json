@@ -1,0 +1,50 @@
+{
+  "slug": "stony-brook-university",
+  "school": "Stony Brook University",
+  "year": null,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": null,
+  "yieldRate": null,
+  "enrolledSAT": {
+    "p25": 1350,
+    "p75": 1470
+  },
+  "enrolledACT": {
+    "p25": 30,
+    "p75": 34
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "not_considered",
+    "class_rank": "considered",
+    "gpa": "not_considered",
+    "test_scores": "not_considered",
+    "application_essay": "not_considered",
+    "recommendations": "very_important",
+    "interview": "considered",
+    "ec": "considered",
+    "talent_ability": "considered",
+    "character": "considered",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": null,
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.stonybrook.edu/irpe/_media/Common_data_sets/CDS_2025-2026.xlsx",
+  "sourceKind": "xlsx",
+  "parserVersion": 3,
+  "parserNotes": [],
+  "ingestedAt": "2026-08-31 06:56:35",
+  "updatedAt": "2026-08-31 06:56:35"
+}

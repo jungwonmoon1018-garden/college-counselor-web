@@ -1,0 +1,38 @@
+{
+  "slug": "university-of-illinois-urbana-champaign",
+  "school": "University of Illinois Urbana-Champaign",
+  "year": null,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": null,
+  "yieldRate": null,
+  "enrolledSAT": {
+    "p25": 1390,
+    "p75": 1520
+  },
+  "enrolledACT": {
+    "p25": 31,
+    "p75": 34
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": null,
+  "c1Breakdown": {
+    "byDecisionPlan": {
+      "earlyDecision": {
+        "applied": 528,
+        "admitted": 14656,
+        "admitRate": 27.7576
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://uofi.box.com/shared/static/orx4vnmzkt2drmgoiksxpfs39pr42uor.xlsx",
+  "sourceKind": "xlsx",
+  "parserVersion": 3,
+  "parserNotes": [],
+  "ingestedAt": "2026-08-31 06:56:35",
+  "updatedAt": "2026-08-31 06:56:35"
+}

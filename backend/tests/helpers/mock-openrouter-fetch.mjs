@@ -52,17 +52,19 @@ globalThis.fetch = async (input, init = {}) => {
     });
   }
 
-  // College Scorecard API — canned single-school result so the positioning
+  // College Scorecard API — canned result echoing the requested school name
+  // (the picker requires a genuine name match now), so the positioning
   // route's Scorecard fallback can be exercised without the network.
   if (String(url || "").startsWith("https://api.data.gov/ed/collegescorecard/")) {
+    const requestedName = new URL(url).searchParams.get("school.name") || "Stony Brook University";
     return Response.json({
       metadata: { total: 1, page: 0 },
       results: [{
         id: 196097,
-        "school.name": "Stony Brook University",
+        "school.name": requestedName,
         "school.state": "NY",
-        "school.city": "Stony Brook",
-        "school.school_url": "https://www.stonybrook.edu/",
+        "school.city": "Testville",
+        "school.school_url": "https://www.example-university.edu/",
         "school.ownership": 1,
         "latest.admissions.admission_rate.overall": 0.49,
         "latest.admissions.sat_scores.25th_percentile.critical_reading": 650,
