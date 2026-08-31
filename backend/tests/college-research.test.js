@@ -13,6 +13,7 @@ import {
   verifyQuote,
   sanitizeDeadlineDates,
   pickScorecardHit,
+  expandCollegeAlias,
 } from "../college-research.js";
 import { classifyTopic, TOPIC_TYPES, MODEL_TIERS } from "../policy-router.js";
 
@@ -101,10 +102,38 @@ describe("pickScorecardHit", () => {
     assert.equal(pickScorecardHit(results, "Princeton U").name, "Princeton University");
     assert.equal(pickScorecardHit(results, "princeton university").name, "Princeton University");
   });
-  it("falls back to the first result with a website, and null on none", () => {
-    assert.equal(pickScorecardHit(results, "Somewhere Else").name, "Princeton Theological Seminary");
+  it("returns null instead of guessing when nothing matches", () => {
+    // The Scorecard name filter is a tokenized keyword search — a blind
+    // first-result fallback used to bind unrelated schools.
+    assert.equal(pickScorecardHit(results, "Somewhere Else"), null);
     assert.equal(pickScorecardHit([{ name: "X", website: "" }], "X"), null);
     assert.equal(pickScorecardHit([], "X"), null);
+  });
+  it("finds the exact school even when tokenized noise ranks first (NYU regression)", () => {
+    // Real Scorecard ordering for the query "New York University".
+    const noisy = [
+      { name: "State University of New York at New Paltz", website: "www.newpaltz.edu" },
+      { name: "Dominican University New York", website: "www.duny.edu" },
+      { name: "St. John's University-New York", website: "www.stjohns.edu" },
+      { name: "University at Buffalo", website: "www.buffalo.edu" },
+      { name: "Columbia University in the City of New York", website: "www.columbia.edu" },
+      { name: "Stony Brook University", website: "www.stonybrook.edu" },
+      { name: "New York University", website: "www.nyu.edu" },
+    ];
+    assert.equal(pickScorecardHit(noisy, "New York University").name, "New York University");
+    // Without the real school in the list, no near-miss is acceptable.
+    assert.equal(pickScorecardHit(noisy.slice(0, 5), "New York University"), null);
+  });
+});
+
+describe("expandCollegeAlias", () => {
+  it("maps common abbreviations to official Scorecard names", () => {
+    assert.equal(expandCollegeAlias("NYU"), "New York University");
+    assert.equal(expandCollegeAlias("washu"), "Washington University in St Louis");
+    assert.equal(expandCollegeAlias("UC Berkeley"), "University of California-Berkeley");
+  });
+  it("passes unknown names through untouched", () => {
+    assert.equal(expandCollegeAlias("Oberlin College"), "Oberlin College");
   });
 });
 

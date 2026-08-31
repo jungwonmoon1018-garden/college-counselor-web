@@ -57,7 +57,7 @@ import { callLLM as adapterCallLLM, validateKey as adapterValidateKey, isReasona
 import { screenInput, screenOutput, restorePII, redactProviderText } from "./content-moderation.js";
 import { grantConsent, hasActiveConsent, validateRequiredConsents, getOnboardingConsentRequirements } from "./consent.js";
 import { initDomainMonitor, prepareMonitorStatements } from "./domain-monitor.js";
-import { initCollegeResearch, researchCollegeValues, researchCollegeDeadlines, readCachedDeadlines, pickScorecardHit } from "./college-research.js";
+import { initCollegeResearch, researchCollegeValues, researchCollegeDeadlines, readCachedDeadlines, pickScorecardHit, expandCollegeAlias } from "./college-research.js";
 import { computeFit } from "./college-values.js";
 import { runRetentionCleanup, getRetentionReport } from "./retention.js";
 import { registerStandardJobs, registerJob, startAllJobs, stopAllJobs, getJobStatus } from "./batch-jobs.js";
@@ -3054,11 +3054,12 @@ app.post("/api/positioning/targets", studentLimiter, requireStudentAuth, async (
       if (SCORECARD_API_KEY &&
           collegeContext.sat25 == null && collegeContext.act25 == null && collegeContext.acceptanceRate == null) {
         try {
+          const scorecardName = expandCollegeAlias(collegeContext.name);
           const scorecardHit = collegeContext.unitId
             ? await getCollegeById(SCORECARD_API_KEY, collegeContext.unitId)
             : pickScorecardHit(
-              (await searchScorecard(SCORECARD_API_KEY, { name: collegeContext.name, limit: 5 }))?.results,
-              collegeContext.name,
+              (await searchScorecard(SCORECARD_API_KEY, { name: scorecardName, limit: 20 }))?.results,
+              scorecardName,
             );
           if (scorecardHit) {
             collegeContext.unitId = collegeContext.unitId || scorecardHit.unitId || null;

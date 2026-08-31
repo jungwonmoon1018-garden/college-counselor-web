@@ -208,18 +208,88 @@ async function fetchOfficialPage(url, { fetchImpl = fetch } = {}) {
 // international academic TLD families (ac.kr, ac.uk, edu.au, …).
 const ACADEMIC_HOST_RE = /(\.edu|\.ac\.[a-z]{2,3}|\.edu\.[a-z]{2,3})$/i;
 
-// Choose the Scorecard result that best matches what the student typed —
-// the API substring-matches, so "Princeton" returns Princeton Theological
-// Seminary before Princeton University without this.
+// Common abbreviations → the school's official Scorecard name. The Scorecard
+// name filter is a tokenized keyword search, so "NYU" matches nothing at all
+// while its official name resolves cleanly. (The chat-side COLLEGE_ALIASES
+// map is unusable here — many of its values are themselves nicknames.)
+const COLLEGE_NAME_ALIASES = {
+  "nyu": "New York University",
+  "mit": "Massachusetts Institute of Technology",
+  "caltech": "California Institute of Technology",
+  "usc": "University of Southern California",
+  "ucla": "University of California-Los Angeles",
+  "uc berkeley": "University of California-Berkeley",
+  "berkeley": "University of California-Berkeley",
+  "ucsd": "University of California-San Diego",
+  "uc davis": "University of California-Davis",
+  "uiuc": "University of Illinois Urbana-Champaign",
+  "umich": "University of Michigan-Ann Arbor",
+  "cmu": "Carnegie Mellon University",
+  "uva": "University of Virginia-Main Campus",
+  "unc": "University of North Carolina at Chapel Hill",
+  "ut austin": "The University of Texas at Austin",
+  "utexas": "The University of Texas at Austin",
+  "uw": "University of Washington-Seattle Campus",
+  "bu": "Boston University",
+  "bc": "Boston College",
+  "georgia tech": "Georgia Institute of Technology-Main Campus",
+  "gatech": "Georgia Institute of Technology-Main Campus",
+  "osu": "Ohio State University-Main Campus",
+  "penn": "University of Pennsylvania",
+  "upenn": "University of Pennsylvania",
+  "penn state": "Pennsylvania State University-Main Campus",
+  "sbu": "Stony Brook University",
+  "suny stony brook": "Stony Brook University",
+  "jhu": "Johns Hopkins University",
+  "wustl": "Washington University in St Louis",
+  "washu": "Washington University in St Louis",
+  "uf": "University of Florida",
+  "umd": "University of Maryland-College Park",
+  "rutgers": "Rutgers University-New Brunswick",
+  "asu": "Arizona State University",
+  "msu": "Michigan State University",
+  "fsu": "Florida State University",
+  "ucf": "University of Central Florida",
+  "rpi": "Rensselaer Polytechnic Institute",
+  "wpi": "Worcester Polytechnic Institute",
+  "njit": "New Jersey Institute of Technology",
+  "virginia tech": "Virginia Tech",
+};
+
+export function expandCollegeAlias(name) {
+  const key = String(name || "").toLowerCase()
+    .replace(/[^a-z0-9&\s]/g, " ").replace(/\s+/g, " ").trim();
+  return COLLEGE_NAME_ALIASES[key] || name;
+}
+
+// Choose the Scorecard result that actually matches what the student typed.
+// The API's name filter is a TOKENIZED keyword search — "New York University"
+// returns SUNY New Paltz and Dominican University New York before NYU — so a
+// blind first-result fallback binds the wrong school. Prefer exact, then
+// prefix/containment, then a strict token-overlap score; otherwise return
+// null and let the caller report not-found rather than a wrong school.
 export function pickScorecardHit(results, collegeName) {
   const list = (Array.isArray(results) ? results : []).filter((r) => r?.website);
   if (!list.length) return null;
   const wanted = String(collegeName || "").trim().toLowerCase();
   const nameOf = (r) => String(r.name || "").toLowerCase();
-  return list.find((r) => nameOf(r) === wanted)
-    || list.find((r) => nameOf(r).startsWith(wanted))
-    || list.find((r) => nameOf(r).includes(wanted))
-    || list[0];
+  const exact = list.find((r) => nameOf(r) === wanted);
+  if (exact) return exact;
+  const prefix = list.find((r) => nameOf(r).startsWith(wanted));
+  if (prefix) return prefix;
+  const contains = list.find((r) => nameOf(r).includes(wanted) || (nameOf(r) && wanted.includes(nameOf(r))));
+  if (contains) return contains;
+
+  const wantedTokens = new Set(wanted.split(/[^a-z0-9]+/).filter(Boolean));
+  let best = null;
+  let bestScore = 0;
+  for (const r of list) {
+    const tokens = nameOf(r).split(/[^a-z0-9]+/).filter(Boolean);
+    const overlap = tokens.filter((t) => wantedTokens.has(t)).length;
+    const score = overlap / Math.max(tokens.length, wantedTokens.size, 1);
+    if (score > bestScore) { best = r; bestScore = score; }
+  }
+  return bestScore >= 0.8 ? best : null;
 }
 
 // Resolve the school's OFFICIAL site. The College Scorecard (U.S. Dept. of
@@ -232,12 +302,14 @@ async function resolveOfficialSite({ collegeName, hintUrl, scorecardKey, fetchIm
 
   if (scorecardKey) {
     try {
-      let search = await searchScorecard(scorecardKey, { name: displayName, limit: 5 });
+      // limit 20: the tokenized name search can bury the real school deep in
+      // the result list ("New York University" ranks 8th for its own name).
+      let search = await searchScorecard(scorecardKey, { name: displayName, limit: 20 });
       let hit = pickScorecardHit(search?.results, displayName);
       if (!hit) {
         // Graduate-predominant institutions fall outside the default
         // bachelor's-only search — retry without the level filter.
-        search = await searchScorecard(scorecardKey, { name: displayName, limit: 5, anyLevel: true });
+        search = await searchScorecard(scorecardKey, { name: displayName, limit: 20, anyLevel: true });
         hit = pickScorecardHit(search?.results, displayName);
       }
       if (hit) {
@@ -317,6 +389,7 @@ export async function researchCollegeValues({
   collegeName, hintUrl = null, scorecardKey = null,
   callLLM, model, stmts, now = new Date(), force = false, fetchImpl = fetch,
 }) {
+  collegeName = expandCollegeAlias(collegeName);
   const slug = slugifyCollege(collegeName);
   if (!slug) throw researchError("bad_name", "A college name is required.");
   const cacheKey = "values:" + slug;
@@ -391,6 +464,7 @@ export async function researchCollegeDeadlines({
   collegeName, hintUrl = null, scorecardKey = null,
   callLLM, model, stmts, now = new Date(), force = false, fetchImpl = fetch,
 }) {
+  collegeName = expandCollegeAlias(collegeName);
   const slug = slugifyCollege(collegeName);
   if (!slug) throw researchError("bad_name", "A college name is required.");
   const cycle = currentAdmissionsCycle(now);
@@ -447,7 +521,7 @@ export async function researchCollegeDeadlines({
 // Cache-only read for callers that must never trigger live research (e.g.
 // the periodic calendar-context refresh with many target schools).
 export function readCachedDeadlines(stmts, collegeName, now = new Date()) {
-  const slug = slugifyCollege(collegeName);
+  const slug = slugifyCollege(expandCollegeAlias(collegeName));
   if (!slug) return null;
   return cacheRead(stmts, `deadlines:${slug}:${currentAdmissionsCycle(now)}`, DEADLINES_TTL_DAYS, now);
 }
