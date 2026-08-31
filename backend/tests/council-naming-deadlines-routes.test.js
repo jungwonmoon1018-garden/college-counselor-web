@@ -373,3 +373,43 @@ test("chat does not serve the FAFSA checklist for non-aid eligibility questions"
   assert.equal(federal.status, 200, JSON.stringify(federal.data));
   assert.equal(federal.data._meta.deterministic, true);
 });
+
+test("chat injects the student profile and theme guard into model calls", async () => {
+  const token = await registerStudent("profile-context");
+  for (const consentType of ["data_processing", "ai_interaction", "cross_border_transfer"]) {
+    const consent = await request("POST", "/api/consent/grant", {
+      token,
+      body: { consentType, grantedBy: "student" },
+    });
+    assert.equal(consent.status, 200, JSON.stringify(consent.data));
+  }
+  const synced = await request("POST", "/api/students/sync", {
+    token,
+    body: {
+      profile: { gpa: { unweighted: 3.9 }, courses: [{ name: "AP Calculus BC", type: "ap", grade: "A" }], testScores: [], apScores: [] },
+      activities: [{ name: "Robotics Club", role: "Captain", category: "robotics" }],
+      majorInterest: "Computer Science",
+      goals: [],
+    },
+  });
+  assert.equal(synced.status, 200, JSON.stringify(synced.data));
+
+  const turn = await request("POST", "/api/chat", {
+    token,
+    body: {
+      messages: [{ role: "user", content: "What extracurriculars should I add next?" }],
+      request_id: "profile-context-1",
+    },
+  });
+  assert.equal(turn.status, 200, `${JSON.stringify(turn.data)}\n${serverOutput}`);
+
+  // The web deployment has no client-side tool loop, so the profile must be
+  // injected server-side or the model coaches blind and drifts off-theme.
+  const calls = loggedModelCalls();
+  const last = calls[calls.length - 1];
+  const wire = JSON.stringify(last.messages);
+  assert.match(wire, /STAY ON THEME/);
+  assert.match(wire, /STUDENT PROFILE/);
+  assert.match(wire, /AP Calculus BC/);
+  assert.match(wire, /Robotics Club/);
+});

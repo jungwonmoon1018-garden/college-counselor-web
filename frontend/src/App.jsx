@@ -1328,23 +1328,33 @@ const rateLimiter = { timestamps: [], check() {
 const CHAT_PATH = "/api/chat";
 
 function formatStructuredChatResponse(body) {
+  const answer = body.answer ? String(body.answer).trim() : "";
   const parts = [];
-  if (body.answer) parts.push(String(body.answer).trim());
-  const grouped = { verified:[], student:[], coaching:[] };
+  if (answer) parts.push(answer);
+  // The claim-lane names are the composer's full slugs ("verified_fact",
+  // "student_provided_fact", "coaching_suggestion"). The old exact-match
+  // check ("verified") never hit, so EVERY claim — loosely keyword-matched
+  // facts about unrelated colleges, plus a bullet duplicating the entire
+  // model answer — collapsed into one noisy "Coaching suggestions" block on
+  // every turn. Match by prefix, drop anything that restates the answer,
+  // and reserve the compliance decoration for regulated/high-stakes turns.
+  const regulatedTurn = ["regulated", "high_stakes"].includes(String(body.topic_type || "").toLowerCase());
+  const grouped = { verified:[], student:[] };
   for (const claim of (Array.isArray(body.claims) ? body.claims : [])) {
-    const lane = claim.lane === "verified" ? "verified" : claim.lane === "student" || claim.lane === "student_provided" ? "student" : "coaching";
+    const laneRaw = String(claim.lane || "");
+    const lane = laneRaw.startsWith("verified") ? "verified" : laneRaw.startsWith("student") ? "student" : null;
+    if (!lane) continue; // coaching-lane claims are the model text itself
     const text = String(claim.statement || claim.text || claim.claim || "").trim();
-    if (!text) continue;
-    const sources = lane === "verified" && Array.isArray(claim.sourceIds) && claim.sourceIds.length
-      ? ` _(sources: ${claim.sourceIds.join(", ")})_`
-      : "";
-    grouped[lane].push(`- ${text}${sources}`);
+    if (!text || text === answer || answer.includes(text)) continue;
+    const source = claim.source?.domain || claim.source?.url || "";
+    grouped[lane].push(`- ${text}${lane === "verified" && source ? ` _(${source})_` : ""}`);
   }
   if (grouped.verified.length) parts.push("**Verified official facts**", ...grouped.verified);
-  if (grouped.student.length) parts.push("**Student-provided facts**", ...grouped.student);
-  if (grouped.coaching.length) parts.push("**Coaching suggestions**", ...grouped.coaching);
-  if (Array.isArray(body.limitations) && body.limitations.length) parts.push("**Limitations**", ...body.limitations.map((item) => `- ${String(item)}`));
-  if (Array.isArray(body.actions) && body.actions.length) parts.push("**Next actions**", ...body.actions.map((item) => `- ${String(item.label || item.text || item)}`));
+  if (grouped.student.length && regulatedTurn) parts.push("**Student-provided facts**", ...grouped.student);
+  if (regulatedTurn) {
+    if (Array.isArray(body.limitations) && body.limitations.length) parts.push("**Limitations**", ...body.limitations.map((item) => `- ${String(item)}`));
+    if (Array.isArray(body.actions) && body.actions.length) parts.push("**Next actions**", ...body.actions.map((item) => `- ${String(item.label || item.text || item)}`));
+  }
   return parts.filter(Boolean).join("\n\n");
 }
 
