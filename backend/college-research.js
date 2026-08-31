@@ -518,6 +518,63 @@ export async function researchCollegeDeadlines({
   return { ...payload, cached: false };
 }
 
+// ─── CDS fallback for blocked sites ─────────────────────────────────────
+// Some university sites refuse automated access entirely. When live values
+// research can't read any page, the school's Common Data Set C7 grid — what
+// it DECLARES matters in admission decisions — is the closest authoritative
+// stand-in for "stated values", and it's already in the store.
+const C7_FACTOR_LABELS = {
+  rigor: "Rigor of Secondary School Record",
+  class_rank: "Class Rank",
+  gpa: "Academic GPA",
+  test_scores: "Standardized Test Scores",
+  application_essay: "Application Essay",
+  recommendations: "Recommendations",
+  interview: "Interview",
+  ec: "Extracurricular Activities",
+  talent_ability: "Talent / Ability",
+  character: "Character / Personal Qualities",
+  first_generation: "First-Generation Status",
+  alumni_relation: "Alumni Relation",
+  geographical_residence: "Geographical Residence",
+  state_residency: "State Residency",
+  religious_affiliation: "Religious Affiliation / Commitment",
+  racial_ethnic_status: "Racial / Ethnic Status",
+  volunteer_work: "Volunteer Work",
+  work_experience: "Work Experience",
+  level_of_interest: "Level of Applicant's Interest",
+};
+
+export function buildValuesFromCds(record, now = new Date()) {
+  const c7 = record?.c7 && typeof record.c7 === "object" ? record.c7 : null;
+  if (!c7) return null;
+  const tiers = [["very_important", "Very Important"], ["important", "Important"]];
+  const values = [];
+  for (const [tier, label] of tiers) {
+    for (const [factor, weight] of Object.entries(c7)) {
+      if (weight !== tier || values.length >= 6) continue;
+      values.push({
+        theme: C7_FACTOR_LABELS[factor] || factor,
+        summary: `${label} in ${record.school}'s admission decisions, per its Common Data Set (section C7${record.yearLabel ? `, ${record.yearLabel}` : ""}).`,
+        evidence: null,
+        sourceUrl: record.sourceUrl || null,
+        quoteVerified: false,
+      });
+    }
+  }
+  if (values.length < 2) return null;
+  return {
+    displayName: record.school,
+    slug: record.slug || slugifyCollege(record.school),
+    values,
+    sources: record.sourceUrl ? [record.sourceUrl] : [],
+    sourceUrl: record.sourceUrl || null,
+    extractedAt: now.toISOString(),
+    fallback: "cds_admission_factors",
+    note: "This school's website couldn't be read automatically — showing the admission priorities it declares in its Common Data Set instead of quoted mission-page values.",
+  };
+}
+
 // Cache-only read for callers that must never trigger live research (e.g.
 // the periodic calendar-context refresh with many target schools).
 export function readCachedDeadlines(stmts, collegeName, now = new Date()) {

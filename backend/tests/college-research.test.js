@@ -14,6 +14,7 @@ import {
   sanitizeDeadlineDates,
   pickScorecardHit,
   expandCollegeAlias,
+  buildValuesFromCds,
 } from "../college-research.js";
 import { classifyTopic, TOPIC_TYPES, MODEL_TIERS } from "../policy-router.js";
 
@@ -134,6 +135,41 @@ describe("expandCollegeAlias", () => {
   });
   it("passes unknown names through untouched", () => {
     assert.equal(expandCollegeAlias("Oberlin College"), "Oberlin College");
+  });
+});
+
+describe("buildValuesFromCds (blocked-site fallback)", () => {
+  it("turns C7 admission factors into labeled value themes, Very Important first", () => {
+    const result = buildValuesFromCds({
+      school: "Example University",
+      slug: "example-university",
+      yearLabel: "2025-26",
+      sourceUrl: "https://www.example.edu/cds.pdf",
+      c7: {
+        rigor: "very_important",
+        application_essay: "very_important",
+        ec: "important",
+        test_scores: "considered",
+        interview: "not_considered",
+      },
+    });
+    assert.ok(result);
+    assert.equal(result.fallback, "cds_admission_factors");
+    assert.deepEqual(result.values.map((v) => v.theme), [
+      "Rigor of Secondary School Record",
+      "Application Essay",
+      "Extracurricular Activities",
+    ]);
+    assert.match(result.values[0].summary, /Very Important/);
+    assert.match(result.values[2].summary, /Important/);
+    assert.equal(result.sourceUrl, "https://www.example.edu/cds.pdf");
+    assert.ok(result.note.includes("Common Data Set"));
+  });
+
+  it("returns null when the record has no usable C7 grid", () => {
+    assert.equal(buildValuesFromCds({ school: "X", c7: {} }), null);
+    assert.equal(buildValuesFromCds({ school: "X", c7: { rigor: "considered" } }), null);
+    assert.equal(buildValuesFromCds(null), null);
   });
 });
 

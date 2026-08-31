@@ -57,7 +57,7 @@ import { callLLM as adapterCallLLM, validateKey as adapterValidateKey, isReasona
 import { screenInput, screenOutput, restorePII, redactProviderText } from "./content-moderation.js";
 import { grantConsent, hasActiveConsent, validateRequiredConsents, getOnboardingConsentRequirements } from "./consent.js";
 import { initDomainMonitor, prepareMonitorStatements } from "./domain-monitor.js";
-import { initCollegeResearch, researchCollegeValues, researchCollegeDeadlines, readCachedDeadlines, pickScorecardHit, expandCollegeAlias } from "./college-research.js";
+import { initCollegeResearch, researchCollegeValues, researchCollegeDeadlines, readCachedDeadlines, pickScorecardHit, expandCollegeAlias, buildValuesFromCds } from "./college-research.js";
 import { computeFit } from "./college-values.js";
 import { runRetentionCleanup, getRetentionReport } from "./retention.js";
 import { registerStandardJobs, registerJob, startAllJobs, stopAllJobs, getJobStatus } from "./batch-jobs.js";
@@ -2709,6 +2709,25 @@ app.post("/api/colleges/values", studentLimiter, requireStudentAuth, async (req,
     res.json({ ...result, fit, locale: resolveLocale(req) });
   } catch (err) {
     if (err?.code && err?.status === 404) {
+      // Site blocked or unreadable → fall back to the school's Common Data
+      // Set admission priorities (C7) when we hold a CDS record for it. The
+      // fit scorer runs against those the same way it runs against quoted
+      // values, and the card labels the provenance.
+      if (["no_official_pages", "values_not_found", "school_site_not_found"].includes(err.code)) {
+        try {
+          const record = resolveStoredCdsRecord(ragStmts, {
+            schoolName: expandCollegeAlias(String(req.body?.collegeName || "")),
+          });
+          const cdsValues = record ? buildValuesFromCds(record) : null;
+          if (cdsValues) {
+            const profile = assembleProfileForGeneration(req.studentId);
+            const fit = profile ? computeFit(cdsValues.values, profile) : null;
+            return res.json({ ...cdsValues, fit, cached: false, locale: resolveLocale(req) });
+          }
+        } catch (fallbackErr) {
+          console.warn("[COLLEGE-VALUES] CDS fallback failed:", fallbackErr?.message);
+        }
+      }
       return res.status(404).json({ error: err.message, code: err.code });
     }
     if (err?.status === 402 || err?.code === "budget_exceeded") {

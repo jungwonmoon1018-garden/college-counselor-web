@@ -175,7 +175,12 @@ export default function CalibratedFitCard({ collegeValues, positioning, loading,
       )}
 
       {/* ── Core values + per-value coverage (kept from the original view) ── */}
-      <div style={{ fontSize: 10, color: "#6a6a7a", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Core values</div>
+      {collegeValues.note && (
+        <div style={{ fontSize: 9, color: "#f6ad55", background: "rgba(246,173,85,0.08)", border: "1px solid rgba(246,173,85,0.2)", borderRadius: 6, padding: "5px 8px", marginBottom: 8, lineHeight: 1.5 }}>
+          {collegeValues.note}
+        </div>
+      )}
+      <div style={{ fontSize: 10, color: "#6a6a7a", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>{collegeValues.fallback === "cds_admission_factors" ? "Admission priorities (CDS)" : "Core values"}</div>
       {(collegeValues.values || []).map((v) => {
         const coverage = collegeValues.fit?.perValueCoverage?.find((p) => p.theme === v.theme);
         return (
