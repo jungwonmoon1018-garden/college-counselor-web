@@ -22,7 +22,7 @@ function fixture() {
     );
     CREATE TABLE chat_messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT, thread_id TEXT NOT NULL, role TEXT NOT NULL,
-      content TEXT NOT NULL, attachment_name TEXT, created_at TEXT DEFAULT (datetime('now'))
+      content TEXT NOT NULL, attachment_name TEXT, model_content TEXT, created_at TEXT DEFAULT (datetime('now'))
     );
   `);
   const stmts = {
@@ -31,8 +31,8 @@ function fixture() {
     getThread: db.prepare("SELECT * FROM chat_threads WHERE id = ? AND student_id = ?"),
     updateThreadTitle: db.prepare("UPDATE chat_threads SET title = ? WHERE id = ? AND student_id = ?"),
     touchThread: db.prepare("UPDATE chat_threads SET message_count = message_count + ? WHERE id = ?"),
-    insertMessage: db.prepare("INSERT INTO chat_messages (thread_id, role, content, attachment_name) VALUES (?, ?, ?, ?)"),
-    listMessages: db.prepare("SELECT id, role, content, attachment_name, created_at FROM chat_messages WHERE thread_id = ? ORDER BY id ASC LIMIT ?"),
+    insertMessage: db.prepare("INSERT INTO chat_messages (thread_id, role, content, attachment_name, model_content) VALUES (?, ?, ?, ?, ?)"),
+    listMessages: db.prepare("SELECT id, role, content, attachment_name, model_content, created_at FROM chat_messages WHERE thread_id = ? ORDER BY id ASC LIMIT ?"),
   };
   return { db, stmts };
 }

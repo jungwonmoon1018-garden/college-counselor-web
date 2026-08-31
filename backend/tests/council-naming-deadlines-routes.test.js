@@ -472,3 +472,26 @@ test("the context appendix does not poison chat topic classification", async () 
   assert.equal(turn.data.topic_type, "coaching");
   assert.doesNotMatch(String(turn.data.answer), /eligibility item/i);
 });
+
+test("uploaded-file context survives a thread reload via model_content", async () => {
+  const token = await registerStudent("file-context");
+  const threadId = await createThread(token);
+
+  // The display copy is the bare question; the model-facing copy carries the
+  // extracted file text. Reopening the thread must return both — losing
+  // model_content is exactly the "files disappear after updates" bug.
+  const display = "Please review my attached activity resume.";
+  const modelCopy = "[Attached files — 1 text file(s)]\n═══ FILE: resume.txt (2 KB) ═══\nRobotics captain, founded coding club, VEX finalist.\n[End of attached files]\n\n" + display;
+  const appended = await request("POST", `/api/students/threads/${threadId}/messages`, {
+    token,
+    body: { role: "user", content: display, attachmentName: "resume.txt", modelContent: modelCopy },
+  });
+  assert.equal(appended.status, 200, JSON.stringify(appended.data));
+
+  const reopened = await request("GET", `/api/students/threads/${threadId}`, { token });
+  assert.equal(reopened.status, 200);
+  const message = reopened.data.messages[0];
+  assert.equal(message.content, display);
+  assert.equal(message.attachment_name, "resume.txt");
+  assert.match(String(message.model_content), /VEX finalist/);
+});

@@ -20,7 +20,7 @@ function fixture() {
     );
     CREATE TABLE chat_messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT, thread_id TEXT NOT NULL, role TEXT NOT NULL,
-      content TEXT NOT NULL, attachment_name TEXT, created_at TEXT DEFAULT (datetime('now'))
+      content TEXT NOT NULL, attachment_name TEXT, model_content TEXT, created_at TEXT DEFAULT (datetime('now'))
     );
   `);
   const stmts = {
@@ -29,8 +29,8 @@ function fixture() {
     getThread: db.prepare("SELECT * FROM chat_threads WHERE id = ? AND student_id = ?"),
     updateThreadTitle: db.prepare("UPDATE chat_threads SET title = ? WHERE id = ? AND student_id = ?"),
     touchThread: db.prepare("UPDATE chat_threads SET message_count = message_count + ? WHERE id = ?"),
-    insertMessage: db.prepare("INSERT INTO chat_messages (thread_id, role, content, attachment_name) VALUES (?, ?, ?, ?)"),
-    listMessages: db.prepare("SELECT id, role, content, attachment_name, created_at FROM chat_messages WHERE thread_id = ? ORDER BY id ASC LIMIT ?"),
+    insertMessage: db.prepare("INSERT INTO chat_messages (thread_id, role, content, attachment_name, model_content) VALUES (?, ?, ?, ?, ?)"),
+    listMessages: db.prepare("SELECT id, role, content, attachment_name, model_content, created_at FROM chat_messages WHERE thread_id = ? ORDER BY id ASC LIMIT ?"),
     searchMessages: db.prepare(`
       SELECT m.id, m.thread_id, m.role, m.content, m.created_at, t.title
       FROM chat_messages m JOIN chat_threads t ON m.thread_id = t.id
@@ -44,19 +44,22 @@ test("chat titles, messages, and attachment names are encrypted at rest", () => 
   configureChatEncryption("ab".repeat(32));
   const { db, stmts } = fixture();
   const thread = createThread(stmts, "student-1", "Essay planning");
-  appendMessage(stmts, "student-1", thread.id, "user", "My private essay idea", "draft.txt");
+  appendMessage(stmts, "student-1", thread.id, "user", "My private essay idea", "draft.txt",
+    "[Attached files]\nSECRET FILE BODY\n[End]\nMy private essay idea");
 
   const rawThread = db.prepare("SELECT title FROM chat_threads WHERE id = ?").get(thread.id);
-  const rawMessage = db.prepare("SELECT content, attachment_name FROM chat_messages WHERE thread_id = ?").get(thread.id);
+  const rawMessage = db.prepare("SELECT content, attachment_name, model_content FROM chat_messages WHERE thread_id = ?").get(thread.id);
   assert.match(rawThread.title, /^enc:v1:/);
   assert.match(rawMessage.content, /^enc:v1:/);
   assert.match(rawMessage.attachment_name, /^enc:v1:/);
-  assert.doesNotMatch(JSON.stringify({ rawThread, rawMessage }), /private essay|draft\.txt/i);
+  assert.match(rawMessage.model_content, /^enc:v1:/);
+  assert.doesNotMatch(JSON.stringify({ rawThread, rawMessage }), /private essay|draft\.txt|SECRET FILE BODY/i);
 
   assert.equal(listThreads(stmts, "student-1")[0].title, "Essay planning");
   const restored = getThreadWithMessages(stmts, "student-1", thread.id);
   assert.equal(restored.messages[0].content, "My private essay idea");
   assert.equal(restored.messages[0].attachment_name, "draft.txt");
+  assert.match(restored.messages[0].model_content, /SECRET FILE BODY/);
   assert.equal(searchMessages(stmts, "student-1", "PRIVATE essay")[0].thread_id, thread.id);
   db.close();
 });

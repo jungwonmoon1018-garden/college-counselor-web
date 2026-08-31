@@ -2556,6 +2556,15 @@ app.post("/api/students/threads/:id/messages", studentLimiter, requireStudentAut
     } else if (role === "assistant") {
       safeContent = screenOutput(safeContent).text;
     }
+    // Model-facing copy of a user turn (includes file-attachment context) —
+    // persisted so reopening the thread replays the full context instead of
+    // losing every uploaded file on reload. Screened like the display copy;
+    // a blocked or crisis-flagged model copy is simply dropped.
+    let safeModelContent = null;
+    if (role === "user" && !crisisRelated && typeof req.body?.modelContent === "string" && req.body.modelContent) {
+      const screenedModel = screenInput(req.body.modelContent);
+      if (!screenedModel.blocked) safeModelContent = req.body.modelContent;
+    }
     const r = chatHistory.appendMessage(
       ragStmts,
       req.studentId,
@@ -2563,6 +2572,7 @@ app.post("/api/students/threads/:id/messages", studentLimiter, requireStudentAut
       role,
       safeContent,
       String(attachmentName || "").slice(0, 240) || null,
+      safeModelContent,
     );
     if (!r.ok) return res.status(400).json({ error: r.error });
     if (crisisRelated) {

@@ -5,6 +5,7 @@ import { isCrisisText } from "./policy-router.js";
 const MAX_THREADS_PER_LIST = 50;
 const MAX_MESSAGES_PER_THREAD = 500;
 const MAX_MESSAGE_CHARS = 50_000;
+const MAX_MODEL_CONTENT_CHARS = 120_000; // file prefaces can dwarf the display copy
 const MAX_SEARCH_SCAN = 5_000;
 const MAX_SEARCH_RESULTS = 30;
 const DEFAULT_TITLE = "New conversation";
@@ -49,6 +50,7 @@ function publicMessage(row) {
     ...row,
     content: open(row.content, "[Unable to decrypt message]"),
     attachment_name: open(row.attachment_name, null),
+    model_content: row.model_content != null ? open(row.model_content, null) : null,
   };
 }
 
@@ -74,14 +76,20 @@ export function getThreadWithMessages(stmts, studentId, threadId) {
   return { thread: publicThread(storedThread), messages };
 }
 
-export function appendMessage(stmts, studentId, threadId, role, content, attachmentName = null) {
+export function appendMessage(stmts, studentId, threadId, role, content, attachmentName = null, modelContent = null) {
   const storedThread = stmts.getThread.get(threadId, studentId);
   if (!storedThread || storedThread.archived_at) return { ok: false, error: "thread_not_found" };
   if (!["user", "assistant", "system"].includes(role)) return { ok: false, error: "bad_role" };
   const safe = String(content || "").slice(0, MAX_MESSAGE_CHARS);
   if (!safe.trim() && !attachmentName) return { ok: false, error: "empty_message" };
+  // The model-facing copy of a user turn (file-attachment context included),
+  // stored encrypted alongside the display copy so reopening a thread can
+  // replay the full context. Only kept when it differs from the display copy.
+  const safeModel = modelContent != null && String(modelContent) !== safe
+    ? String(modelContent).slice(0, MAX_MODEL_CONTENT_CHARS)
+    : null;
 
-  stmts.insertMessage.run(threadId, role, seal(safe), seal(attachmentName));
+  stmts.insertMessage.run(threadId, role, seal(safe), seal(attachmentName), seal(safeModel));
   stmts.touchThread.run(1, threadId);
 
   const currentTitle = open(storedThread.title, DEFAULT_TITLE);

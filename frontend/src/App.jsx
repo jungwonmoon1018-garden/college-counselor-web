@@ -1536,18 +1536,33 @@ const auditLog = {
 // the message predates that wiring. We cap at HISTORY_TURNS to keep
 // per-request context bounded.
 const HISTORY_TURNS = 12; // last 6 user/assistant pairs
+const HISTORY_MAX_CHARS = 60_000; // total budget — file prefaces in modelContent can be huge
 function buildHistoryMsgs(history) {
   if (!Array.isArray(history) || history.length === 0) return [];
   const tail = history.slice(-HISTORY_TURNS);
   const out = [];
-  for (const m of tail) {
+  // Walk newest→oldest accumulating a char budget, so a thread full of large
+  // file attachments (now persisted and restored via model_content) can't
+  // blow the model's context window; the most recent turns always win.
+  let budget = HISTORY_MAX_CHARS;
+  for (let i = tail.length - 1; i >= 0; i -= 1) {
+    const m = tail[i];
     if (!m || m.transient === true || (m.role !== "user" && m.role !== "assistant")) continue;
-    const c = m.role === "user" ? (m.modelContent || m.content || "") : (m.content || "");
+    let c = m.role === "user" ? (m.modelContent || m.content || "") : (m.content || "");
     if (!c) continue;
+    c = typeof c === "string" ? c : String(c);
+    if (c.length > budget) {
+      // An older oversized turn gets its bare display text instead of the
+      // full file preface; stop once even that no longer fits.
+      const bare = m.role === "user" ? String(m.content || "") : c;
+      if (!bare || bare.length > budget) break;
+      c = bare;
+    }
+    budget -= c.length;
     // The backend accepts plain strings in history; tool_use / tool_result
     // blocks from the current turn are inserted live inside runAgent's
     // inner loop, so we never need to round-trip them here.
-    out.push({ role: m.role, content: typeof c === "string" ? c : String(c) });
+    out.unshift({ role: m.role, content: c });
   }
   return out;
 }
@@ -1899,7 +1914,12 @@ function formatThreeLaneAnswer(answer) {
   }
   if (answer.coaching_suggestions?.length) {
     parts.push("\n**Suggestions** _(non-binding coaching):_");
-    for (const s of answer.coaching_suggestions) parts.push(`- ${s.suggestion}`);
+    // Composer items carry `statement` (older payloads used `suggestion`) —
+    // reading only the legacy key rendered every bullet as "undefined".
+    for (const s of answer.coaching_suggestions) {
+      const text = s.statement || s.suggestion || "";
+      if (text) parts.push(`- ${text}`);
+    }
   }
   if (answer.sources?.length) {
     parts.push("\n---\n_Sources: " + answer.sources.map(s => s.domain || s.url).join(", ") + "_");
@@ -2822,6 +2842,9 @@ export default function App() {
       setMessages((data.messages || []).map(m => ({
         role: m.role,
         content: m.content,
+        // Restore the model-facing copy (file-attachment context) so
+        // follow-up turns in a reopened thread still see uploaded files.
+        ...(m.model_content ? { modelContent: m.model_content } : {}),
         attachment: m.attachment_name ? { name: m.attachment_name } : null,
       })));
       // Lazy auto-name: conversations that predate the auto-naming feature
@@ -2843,13 +2866,15 @@ export default function App() {
 
   // Append a turn to the active thread (no-op if no thread).
   // Called from `send()` after each user + assistant message.
-  const persistTurn = useCallback(async (threadId, role, content, attachmentName = null) => {
+  const persistTurn = useCallback(async (threadId, role, content, attachmentName = null, modelContent = null) => {
     if (!threadId) return;
     try {
       const response = await authedFetch(`/api/students/threads/${threadId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role, content, attachmentName }),
+        // modelContent = the model-facing copy (file prefaces included) so a
+        // reopened thread replays attachments instead of forgetting them.
+        body: JSON.stringify({ role, content, attachmentName, ...(modelContent && modelContent !== content ? { modelContent } : {}) }),
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       // Bump the local list so updated_at reorders the sidebar
@@ -4136,7 +4161,7 @@ export default function App() {
       setMessages(prev => [...prev, { role:"assistant", content:result.text }]);
       refreshBudget();
       if (threadIdForTurn && !result.blocked && !result.uploadRejected) {
-        await persistTurn(threadIdForTurn, "user", persistedContent, attachLabel);
+        await persistTurn(threadIdForTurn, "user", persistedContent, attachLabel, msg);
       }
       if (threadIdForTurn && result?.text) {
         await persistTurn(threadIdForTurn, "assistant", result.text);

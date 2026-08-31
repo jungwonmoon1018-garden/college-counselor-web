@@ -190,6 +190,7 @@ export function initRAGTables(db) {
       role TEXT NOT NULL CHECK (role IN ('user','assistant','system')),
       content TEXT NOT NULL,
       attachment_name TEXT,
+      model_content TEXT,
       created_at TEXT DEFAULT (datetime('now'))
     );
     CREATE INDEX IF NOT EXISTS idx_messages_thread ON chat_messages(thread_id, id);
@@ -521,6 +522,15 @@ export function hydrateBaselineWebsites(db) {
 
 // ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// PREPARED STATEMENTS
 export function prepareRAGStatements(db) {
+  // Migration: chat_messages.model_content — the model-facing copy of a user
+  // message (file-attachment context included), so reopening a thread can
+  // replay the full context instead of losing every uploaded file on reload.
+  try {
+    const chatMessageColumns = db.prepare("PRAGMA table_info(chat_messages)").all();
+    if (chatMessageColumns.length && !chatMessageColumns.some((column) => column.name === "model_content")) {
+      db.exec("ALTER TABLE chat_messages ADD COLUMN model_content TEXT");
+    }
+  } catch { /* table created fresh below with the column present */ }
   return {
     // Snapshots
     insertSnapshot: db.prepare(`INSERT INTO profile_snapshots (id, student_id, snapshot_type, gpa_unweighted, gpa_weighted, courses_json, ap_scores_json, test_scores_json, activities_json, major_interest, goals_json, trigger) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`),
@@ -563,8 +573,8 @@ export function prepareRAGStatements(db) {
     archiveThread: db.prepare(`UPDATE chat_threads SET archived_at = datetime('now') WHERE id = ? AND student_id = ?`),
     deleteThreadHard: db.prepare(`DELETE FROM chat_threads WHERE id = ? AND student_id = ?`),
     deleteThreadMessages: db.prepare(`DELETE FROM chat_messages WHERE thread_id IN (SELECT id FROM chat_threads WHERE id = ? AND student_id = ?)`),
-    insertMessage: db.prepare(`INSERT INTO chat_messages (thread_id, role, content, attachment_name) VALUES (?, ?, ?, ?)`),
-    listMessages: db.prepare(`SELECT id, role, content, attachment_name, created_at FROM chat_messages WHERE thread_id = ? ORDER BY id ASC LIMIT ?`),
+    insertMessage: db.prepare(`INSERT INTO chat_messages (thread_id, role, content, attachment_name, model_content) VALUES (?, ?, ?, ?, ?)`),
+    listMessages: db.prepare(`SELECT id, role, content, attachment_name, model_content, created_at FROM chat_messages WHERE thread_id = ? ORDER BY id ASC LIMIT ?`),
     // Message bodies are encrypted. Fetch a bounded set of candidates and
     // decrypt/filter inside chat-history.js instead of applying SQL LIKE.
     searchMessages: db.prepare(`
