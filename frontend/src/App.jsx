@@ -772,9 +772,9 @@ IMPORTANT: The student's GPA, courses, AP scores, and test scores appear in your
 
 const EC_AGENT = {
   id:"ec",label:"Extracurriculars",color:"#BA7517",tier:"medium",maxTokens:2000,
-  system:`You are the EXTRACURRICULARS specialist for students ages 14-18. Handle ONLY: activities organization, EC recommendation ideas, EC strength analysis against intended major.
+  system:`You are the EXTRACURRICULARS specialist for students ages 14-18. Handle ONLY: activities organization, EC recommendation ideas, EC strength analysis, and how activities and projects present in applications.
 
-When giving advice, evaluate each of the student's activities (listed under STUDENT PROFILE in your context) against their intended major — say which are strong, good, or merely supplementary for their goals — and turn that into specific, actionable recommendations.
+When giving advice, evaluate each of the student's activities (listed under STUDENT PROFILE in your context) — say which are strong, good, or merely supplementary for their goals — and turn that into specific, actionable recommendations. Major alignment is ONE lens, not a gate: an activity outside the declared major (a history competition for a STEM applicant, an art portfolio for a pre-med) is still real application material — assess it on depth, initiative, and achievement, and show how to frame it (transferable skills, intellectual range, authentic interest). NEVER dismiss an activity, project, or uploaded document as "unrelated" to the student's goals or major.
 
 When suggesting new ECs, explain the connection to the student's major: WHY does this activity help for their specific field? Don't just say "it looks good" — explain the skill/experience bridge.
 
@@ -2222,7 +2222,10 @@ async function orchestrate(userMsg,data,setData,setStatus,signal,pendingFileData
     } else {
       multimodalContent.push({ type: "image", source: { type: "base64", media_type: pendingFileData.mediaType, data: pendingFileData.base64 } });
     }
-    multimodalContent.push({ type: "text", text: `The student uploaded "${sanitizeFilename(pendingFileData.name)}". Analyze this document and extract academic data (grades, scores, courses, GPA). ${userMsg}` });
+    // Don't prime every upload as a transcript: a project write-up, award
+    // letter, or competition entry primed with "extract grades" reads as a
+    // failed records document and used to get dismissed as "unrelated".
+    multimodalContent.push({ type: "text", text: `The student uploaded "${sanitizeFilename(pendingFileData.name)}". If it is a school records document (report card, transcript, score report), extract the academic data (grades, scores, courses, GPA). Otherwise treat it as the student's own material (project, competition entry, essay draft, resume, award, notes) — whatever its subject — and answer their question about it substantively. ${userMsg}` });
   }
 
   // The backend composer validates claim-level evidence. Raw retrieval rows are
@@ -2274,6 +2277,23 @@ SOURCES (required):
 - Do NOT mention model names, providers, or the system's internals anywhere.`;
     const supervisorUserMsg = `Merge these specialist responses into ONE cohesive answer. Do NOT add any new information — only reorganize and deduplicate what the specialists wrote.\n\nStudent question: "${sanitizeInput(userMsg)}"\n\n${results.map(a=>`--- ${a.label} ---\n${a.result}`).join("\n\n")}`;
     draft=await runAgent({id:"supervisor",label:"Supervisor",color:"#7F77DD",tier:"medium",system:supervisorSystem,tools:[],maxTokens:2000},supervisorUserMsg,data,setData,signal);}
+
+  // ── STEP 5b: Off-theme refusal recovery ──
+  // The gatekeeper already classified this turn as in-scope, so a reply that
+  // still declines as "unrelated" is a theme-guard misfire (e.g. an NHD
+  // history project judged against a STEM student's declared major). Retry
+  // once with an explicit correction instead of dead-ending the student.
+  const OFF_THEME_REFUSAL_RE = /(?:unrelated|not related|irrelevant) to (?:your|the|this)[\s\w'’-]{0,40}(?:college|application|academic|goals)|cannot provide feedback on (?:this|your|that) (?:document|file|upload)|outside (?:my|the|this assistant'?s) (?:scope|domain)/i;
+  if (typeof draft === "string" && OFF_THEME_REFUSAL_RE.test(draft)) {
+    auditLog.log("off_theme_refusal_retry", "Specialist declined an in-scope request; retrying with correction");
+    const retryAgent = AGENT_MAP[results[0].agent] || EC_AGENT;
+    setStatus({active:retryAgent.id,phase:"Taking another look..."});
+    const correction = `\n\nIMPORTANT CORRECTION: everything the student did, made, or uploaded IS in scope when they want help presenting it for their applications — regardless of its subject or their declared major. Do not decline as "unrelated"; answer the question substantively.`;
+    const retried = multimodalContent.length > 0
+      ? await runAgentMultimodal(retryAgent, buildScopedMultimodalContent([...multimodalContent, { type:"text", text: correction }], retryAgent.label), data, setData, signal, history)
+      : await runAgent(retryAgent, `${sanitizeInput(userMsg)}${evidenceContext}${correction}`, data, setData, signal, history);
+    if (typeof retried === "string" && retried && !OFF_THEME_REFUSAL_RE.test(retried)) draft = retried;
+  }
 
   // ── STEP 6: Output validation (Haiku — cheap T1 moderation) ──
   // Skip the validator when:

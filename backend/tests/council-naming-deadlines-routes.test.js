@@ -409,6 +409,12 @@ test("chat injects the student profile and theme guard into model calls", async 
   const last = calls[calls.length - 1];
   const wire = JSON.stringify(last.messages);
   assert.match(wire, /STAY ON THEME/);
+  // The guard must keep student-provided material in scope: an NHD history
+  // project for a STEM applicant was once refused as "unrelated to your
+  // college application goals". The instruction has to say uploads count
+  // regardless of subject/major, and must not order a blanket decline.
+  assert.match(wire, /regardless of (?:its subject|whether it matches)/i);
+  assert.match(wire, /Never refuse to engage with student-provided material/);
   assert.match(wire, /STUDENT PROFILE/);
   assert.match(wire, /AP Calculus BC/);
   assert.match(wire, /Robotics Club/);
