@@ -1810,7 +1810,7 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
         if (studentProfile.goals?.length) lines.push(`Goals: ${studentProfile.goals.join(", ")}`);
         if (lines.length) {
           const masked = redactProviderText(
-            "STUDENT PROFILE (ground your answer in this; don't ask for data already listed):\n" + lines.join("\n"),
+            "STUDENT PROFILE (ground your answer in this; connect across sections — courses and scores inform EC advice and vice versa; don't ask for data already listed):\n" + lines.join("\n"),
           );
           profileContext = masked.text;
           profileTokenMap = masked.tokenMap || {};
