@@ -11,6 +11,7 @@
 
 import { createRequire } from "node:module";
 import { inflateRawSync } from "node:zlib";
+import { createHash } from "node:crypto";
 const require = createRequire(import.meta.url);
 
 export const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -269,25 +270,71 @@ async function loadCanvas() {
   return _canvasRef;
 }
 
+// ─── Shared OCR worker ──────────────────────────────────────
+// tesseract.recognize() (the one-shot API) spins up a fresh worker — WASM
+// init + traineddata load — on EVERY call, and extractPdfOCR paid that per
+// PAGE. Keep one warm worker per language set instead, and release it after
+// an idle window so a quiet server isn't holding ~100 MB of OCR state.
+const OCR_WORKER_IDLE_MS = 120_000;
+let _ocrWorkerPromise = null;
+let _ocrWorkerLangs = null;
+let _ocrIdleTimer = null;
+
+export async function releaseOcrWorker() {
+  const pending = _ocrWorkerPromise;
+  _ocrWorkerPromise = null;
+  _ocrWorkerLangs = null;
+  if (_ocrIdleTimer) { clearTimeout(_ocrIdleTimer); _ocrIdleTimer = null; }
+  if (pending) {
+    try { const worker = await pending; await worker.terminate(); } catch { /* best-effort */ }
+  }
+}
+
+function scheduleOcrWorkerRelease() {
+  if (_ocrIdleTimer) clearTimeout(_ocrIdleTimer);
+  _ocrIdleTimer = setTimeout(() => { releaseOcrWorker(); }, OCR_WORKER_IDLE_MS);
+  _ocrIdleTimer.unref?.();
+}
+
+async function getOcrWorker(languages) {
+  if (!_ocrWorkerPromise || _ocrWorkerLangs !== languages) {
+    if (_ocrWorkerPromise) await releaseOcrWorker();
+    _ocrWorkerLangs = languages;
+    _ocrWorkerPromise = (async () => {
+      const tesseract = await loadTesseract();
+      return tesseract.createWorker(languages.split("+"), 1, { logger: () => {} });
+    })();
+  }
+  scheduleOcrWorkerRelease();
+  return _ocrWorkerPromise;
+}
+
 export async function extractImage(input, { timeoutMs = 30_000, languages = "eng+kor" } = {}) {
   const buf = asBuffer(input);
-  let timer;
-  try {
-    const tesseract = await loadTesseract();
-    const recognizePromise = tesseract.recognize(buf, languages, { logger: () => {} });
-    const text = await new Promise((resolve, reject) => {
-      timer = setTimeout(() => reject(new ExtractionError("ocr_timeout", `OCR timed out after ${timeoutMs}ms`)), timeoutMs);
-      recognizePromise
-        .then((r) => resolve(String(r?.data?.text || "")))
-        .catch((e) => reject(new ExtractionError("ocr_failed", `OCR failed: ${e.message}`, e)));
-    });
-    return { text, warning: text.trim().length === 0 ? "ocr_empty" : null };
-  } catch (err) {
-    if (err instanceof ExtractionError) throw err;
-    throw new ExtractionError("ocr_failed", `OCR failed: ${err.message}`, err);
-  } finally {
-    if (timer) clearTimeout(timer);
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    let timer;
+    try {
+      const worker = await getOcrWorker(languages);
+      const text = await new Promise((resolve, reject) => {
+        timer = setTimeout(() => reject(new ExtractionError("ocr_timeout", `OCR timed out after ${timeoutMs}ms`)), timeoutMs);
+        worker.recognize(buf)
+          .then((r) => resolve(String(r?.data?.text || "")))
+          .catch((e) => reject(new ExtractionError("ocr_failed", `OCR failed: ${e.message}`, e)));
+      });
+      return { text, warning: text.trim().length === 0 ? "ocr_empty" : null };
+    } catch (err) {
+      // A timed-out or crashed worker can't be trusted (the WASM job keeps
+      // running) — drop it so the retry / next call starts clean.
+      await releaseOcrWorker();
+      const timedOut = err instanceof ExtractionError && err.code === "ocr_timeout";
+      if (!timedOut && attempt === 0) continue; // one clean-worker retry for crashes
+      if (err instanceof ExtractionError) throw err;
+      throw new ExtractionError("ocr_failed", `OCR failed: ${err.message}`, err);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
   }
+  throw new ExtractionError("ocr_failed", "OCR failed after retry");
 }
 
 export async function extractPdfOCR(input, {
@@ -297,6 +344,9 @@ export async function extractPdfOCR(input, {
   maxPages = 25,
 } = {}) {
   const buf = asBuffer(input);
+  const cacheKey = extractCacheKey("pdfocr", buf, `${languages}|${scale}|${maxPages}`);
+  const cached = extractCacheGet(cacheKey);
+  if (cached) return cached;
   let pdf = null;
   try {
     const pdfjsLib = await loadPdfJs();
@@ -328,11 +378,13 @@ export async function extractPdfOCR(input, {
 
     if (pageCount > pagesToRead) warnings.push(`truncated_pages:${pagesToRead}/${pageCount}`);
     const text = pageTexts.join("\n\n").trim();
-    return {
+    const finished = {
       text,
       pageCount,
       warning: warnings.length ? warnings.join(";") : (text ? null : "ocr_empty"),
     };
+    extractCacheSet(cacheKey, finished);
+    return { ...finished };
   } catch (err) {
     if (err instanceof ExtractionError) throw err;
     throw new ExtractionError("pdf_ocr_failed", `PDF OCR failed: ${err.message}`, err);
@@ -352,8 +404,34 @@ export async function extractPdfOCR(input, {
  * @param {string} mimeType
  * @returns {Promise<{ text: string, pageCount?: number|null, warning?: string|null, kind: string }>}
  */
+// ─── Extraction result cache ────────────────────────────────
+// Keyed by content hash, LRU-bounded. Re-uploading the same file (a student
+// retrying a transcript import, re-attaching a document after a reload) used
+// to redo the full parse/OCR; now it's a map lookup.
+const EXTRACT_CACHE_MAX = 24;
+const _extractCache = new Map();
+function extractCacheKey(prefix, buf, extra = "") {
+  return `${prefix}:${extra}:${createHash("sha256").update(buf).digest("hex")}`;
+}
+function extractCacheGet(key) {
+  const hit = _extractCache.get(key);
+  if (!hit) return null;
+  _extractCache.delete(key);
+  _extractCache.set(key, hit); // LRU bump
+  return { ...hit };
+}
+function extractCacheSet(key, value) {
+  _extractCache.set(key, value);
+  if (_extractCache.size > EXTRACT_CACHE_MAX) {
+    _extractCache.delete(_extractCache.keys().next().value);
+  }
+}
+
 export async function extractText(input, mimeType) {
   const { kind } = validateFileContent(input, mimeType);
+  const cacheKey = extractCacheKey("extract", asBuffer(input), kind);
+  const cached = extractCacheGet(cacheKey);
+  if (cached) return cached;
 
   let result;
   if (kind === "pdf") result = await extractPDF(input);
@@ -368,12 +446,14 @@ export async function extractText(input, mimeType) {
     warning = warning ? `${warning};truncated` : "truncated";
   }
 
-  return {
+  const finished = {
     text,
     pageCount: result?.pageCount ?? null,
     warning,
     kind,
   };
+  extractCacheSet(cacheKey, finished);
+  return { ...finished };
 }
 
 export function isSupportedMime(mimeType) {

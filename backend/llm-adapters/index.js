@@ -68,35 +68,50 @@ export async function callLLM(options = {}) {
     : 1024;
   const reasoningFloor = isReasoningModel(model) ? 8192 : 1;
   const maxTokens = Math.min(16384, Math.max(reasoningFloor, requested));
-  // Hard cap on the upstream call. Node's fetch has no default timeout, so a
-  // stalled provider socket used to hang the whole request (and the student's
-  // UI) indefinitely — no route in this app passes its own signal today.
-  const timeoutMs = Number(process.env.LLM_CALL_TIMEOUT_MS) > 0
+  // Hard cap on the upstream call, split across two attempts. Node's fetch
+  // has no default timeout, so a stalled provider socket used to hang the
+  // whole request (and the student's UI) indefinitely. Observed stalls
+  // resolve immediately on a fresh connection, so the first timeout triggers
+  // one in-adapter retry instead of surfacing straight to the student.
+  // Quick classifier-sized calls get two short attempts; long generations
+  // get a longer first attempt so a healthy-but-slow answer isn't cut off.
+  const totalMs = Number(process.env.LLM_CALL_TIMEOUT_MS) > 0
     ? Number(process.env.LLM_CALL_TIMEOUT_MS)
-    : 90_000;
-  const timeoutSignal = AbortSignal.timeout(timeoutMs);
-  const signal = options.signal ? AbortSignal.any([options.signal, timeoutSignal]) : timeoutSignal;
-  try {
-    return await callOpenAI({
-      apiKey: options.apiKey,
-      model,
-      messages: sanitized.sanitizedPayload.messages,
-      system: sanitized.sanitizedPayload.system,
-      maxTokens,
-      temperature: options.temperature,
-      signal,
-      fetchImpl: options.fetchImpl,
-    });
-  } catch (err) {
-    if (timeoutSignal.aborted && !options.signal?.aborted) {
-      const e = new Error(`The model provider timed out after ${Math.round(timeoutMs / 1000)}s.`);
+    : 105_000;
+  const quickCall = maxTokens <= 1024;
+  const firstMs = quickCall
+    ? Math.min(40_000, Math.ceil(totalMs / 2))
+    : Math.min(60_000, Math.ceil(totalMs * 0.6));
+  const attemptBudgets = [firstMs, Math.max(1, totalMs - firstMs)];
+  for (let attempt = 0; attempt < attemptBudgets.length; attempt += 1) {
+    const timeoutSignal = AbortSignal.timeout(attemptBudgets[attempt]);
+    const signal = options.signal ? AbortSignal.any([options.signal, timeoutSignal]) : timeoutSignal;
+    try {
+      return await callOpenAI({
+        apiKey: options.apiKey,
+        model,
+        messages: sanitized.sanitizedPayload.messages,
+        system: sanitized.sanitizedPayload.system,
+        maxTokens,
+        temperature: options.temperature,
+        signal,
+        fetchImpl: options.fetchImpl,
+      });
+    } catch (err) {
+      if (options.signal?.aborted) throw err; // caller cancelled — not a stall
+      if (!timeoutSignal.aborted) throw err;  // real provider error — no retry
+      if (attempt === 0) {
+        console.warn(`[llm] provider stalled after ${attemptBudgets[0]}ms — retrying on a fresh connection`);
+        continue;
+      }
+      const e = new Error(`The model provider timed out after ${Math.round(totalMs / 1000)}s (two attempts).`);
       e.status = 504;
       e.code = 'provider_timeout';
       e.provider = PROVIDERS.OPENROUTER;
       throw e;
     }
-    throw err;
   }
+  throw configurationError('Unreachable provider retry state.', 'provider_timeout');
 }
 
 export async function validateKey({ provider = 'openrouter', apiKey, baseUrl, fetchImpl, signal } = {}) {

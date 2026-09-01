@@ -433,15 +433,15 @@ test("college fit falls back to College Scorecard stats when CDS and baselines h
   });
   assert.equal(synced.status, 200, JSON.stringify(synced.data));
 
-  // Stony Brook is in neither the seeded CDS store nor the manual IPEDS
-  // baselines ??before the Scorecard fallback its fit calibration ran with
-  // no admit rate or test ranges at all.
-  // (Stony Brook, the original subject here, now HAS a CDS record — Oberlin
-  // has neither a stored CDS nor a manual baseline row, so the Scorecard
-  // fallback is what must supply its stats.)
+  // The fallback target must be a school with no CDS record and no baseline
+  // profile. Each subject so far has aged out as coverage grew: Stony Brook
+  // gained a CDS record, then Oberlin gained a generated IPEDS baseline (the
+  // top-100/top-50/state-top-10 set from `npm run generate:colleges`). Knox
+  // College sits outside all of those, so the Scorecard fallback is what
+  // must supply its stats.
   const fit = await request("POST", "/api/positioning/targets", {
     token,
-    body: { targets: [{ schoolName: "Oberlin College" }], searchCds: false },
+    body: { targets: [{ schoolName: "Knox College" }], searchCds: false },
   });
   assert.equal(fit.status, 200, `${JSON.stringify(fit.data)}\n${serverOutput}`);
   const target = (fit.data.targets || [])[0];
