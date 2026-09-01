@@ -95,7 +95,13 @@ test("tier resolution, abort signals, and disabled tools are enforced", async ()
     },
   });
   assert.equal(body.model, TIER_DEFAULTS.openrouter.small);
-  assert.equal(signal, controller.signal);
+  // The adapter composes the caller's signal with its own provider-timeout
+  // signal (AbortSignal.any), so identity is no longer expected — what
+  // matters is that the caller's abort still propagates to the fetch.
+  assert.ok(signal instanceof AbortSignal);
+  assert.equal(signal.aborted, false);
+  controller.abort();
+  assert.equal(signal.aborted, true);
 
   await assert.rejects(
     callLLM({
@@ -107,4 +113,26 @@ test("tier resolution, abort signals, and disabled tools are enforced", async ()
     }),
     (error) => error.code === "tools_disabled",
   );
+});
+
+// A provider socket that never answers used to hang the request (and the
+// student's UI) indefinitely — Node's fetch has no default timeout.
+test("a stalled provider call is aborted by the adapter timeout", async () => {
+  process.env.LLM_CALL_TIMEOUT_MS = "50";
+  try {
+    await assert.rejects(
+      callLLM({
+        provider: "openrouter",
+        apiKey: "sk-or-test",
+        model: TIER_DEFAULTS.openrouter.small,
+        messages: [{ role: "user", content: "hello" }],
+        fetchImpl: (_url, options) => new Promise((_resolve, reject) => {
+          options.signal.addEventListener("abort", () => reject(options.signal.reason), { once: true });
+        }),
+      }),
+      (error) => error.code === "provider_timeout" && error.status === 504,
+    );
+  } finally {
+    delete process.env.LLM_CALL_TIMEOUT_MS;
+  }
 });

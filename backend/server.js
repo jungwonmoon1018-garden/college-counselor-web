@@ -918,7 +918,8 @@ function respondLLMError(res, err, label) {
   const httpStatus = up === 499 ? 504 : (up && up >= 400 && up < 600 ? up : 502);
   console.error(`[${label}] LLM error${up ? ` (upstream ${up})` : ""}:`, err?.message);
   let friendly;
-  if (up === 429) friendly = "The AI service is rate-limiting requests (HTTP 429). Wait a moment and retry.";
+  if (err?.code === "provider_timeout") friendly = "The AI provider took too long to respond, so the request was stopped. Please try again.";
+  else if (up === 429) friendly = "The AI service is rate-limiting requests (HTTP 429). Wait a moment and retry.";
   else if (up === 401 || up === 403) friendly = "The configured OpenRouter credential was rejected. Ask the local administrator to verify it.";
   else if (up === 402) friendly = "The AI service reports insufficient provider credit or quota. Ask the local administrator to review the OpenRouter account.";
   else friendly = "The AI request failed. Please try again; if it persists, ask the local administrator to check OpenRouter.";

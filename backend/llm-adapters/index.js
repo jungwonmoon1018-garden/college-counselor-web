@@ -68,16 +68,35 @@ export async function callLLM(options = {}) {
     : 1024;
   const reasoningFloor = isReasoningModel(model) ? 8192 : 1;
   const maxTokens = Math.min(16384, Math.max(reasoningFloor, requested));
-  return callOpenAI({
-    apiKey: options.apiKey,
-    model,
-    messages: sanitized.sanitizedPayload.messages,
-    system: sanitized.sanitizedPayload.system,
-    maxTokens,
-    temperature: options.temperature,
-    signal: options.signal,
-    fetchImpl: options.fetchImpl,
-  });
+  // Hard cap on the upstream call. Node's fetch has no default timeout, so a
+  // stalled provider socket used to hang the whole request (and the student's
+  // UI) indefinitely — no route in this app passes its own signal today.
+  const timeoutMs = Number(process.env.LLM_CALL_TIMEOUT_MS) > 0
+    ? Number(process.env.LLM_CALL_TIMEOUT_MS)
+    : 90_000;
+  const timeoutSignal = AbortSignal.timeout(timeoutMs);
+  const signal = options.signal ? AbortSignal.any([options.signal, timeoutSignal]) : timeoutSignal;
+  try {
+    return await callOpenAI({
+      apiKey: options.apiKey,
+      model,
+      messages: sanitized.sanitizedPayload.messages,
+      system: sanitized.sanitizedPayload.system,
+      maxTokens,
+      temperature: options.temperature,
+      signal,
+      fetchImpl: options.fetchImpl,
+    });
+  } catch (err) {
+    if (timeoutSignal.aborted && !options.signal?.aborted) {
+      const e = new Error(`The model provider timed out after ${Math.round(timeoutMs / 1000)}s.`);
+      e.status = 504;
+      e.code = 'provider_timeout';
+      e.provider = PROVIDERS.OPENROUTER;
+      throw e;
+    }
+    throw err;
+  }
 }
 
 export async function validateKey({ provider = 'openrouter', apiKey, baseUrl, fetchImpl, signal } = {}) {
