@@ -126,7 +126,12 @@ test("a stalled provider call is aborted by the adapter timeout", async () => {
         apiKey: "sk-or-test",
         model: TIER_DEFAULTS.openrouter.small,
         messages: [{ role: "user", content: "hello" }],
+        // A stall = the promise settles only on abort. On a slow CI runner the
+        // tiny timeout can fire BEFORE this mock runs, and an already-aborted
+        // signal never emits "abort" — guard for it or the promise (and the
+        // test) hangs forever.
         fetchImpl: (_url, options) => new Promise((_resolve, reject) => {
+          if (options.signal.aborted) return reject(options.signal.reason);
           options.signal.addEventListener("abort", () => reject(options.signal.reason), { once: true });
         }),
       }),
