@@ -1398,6 +1398,26 @@ function newChatRequestId() {
   return "req-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
 }
 
+// Hard cap per model call. Without one, a stalled provider call left the UI
+// showing its status line ("Final safety check…") forever, with manual Cancel
+// as the only way out. 120s is generous for a single LLM call; the abort
+// reason carries a message formatUserFacingError knows how to present.
+const MODEL_CALL_TIMEOUT_MS = 120_000;
+function withCallTimeout(signal, ms) {
+  const ctrl = new AbortController();
+  const onOuterAbort = () => ctrl.abort(signal?.reason);
+  if (signal) {
+    if (signal.aborted) ctrl.abort(signal.reason);
+    else signal.addEventListener("abort", onOuterAbort, { once: true });
+  }
+  const timer = setTimeout(() => ctrl.abort(new Error("The model call timed out")), ms);
+  ctrl.signal.addEventListener("abort", () => {
+    clearTimeout(timer);
+    if (signal) signal.removeEventListener("abort", onOuterAbort);
+  }, { once: true });
+  return ctrl.signal;
+}
+
 async function requestChat(payload, signal, locale = "en-US") {
   const lang = locale === "ko" ? "ko" : "en-US";
   const url = `${CHAT_PATH}?locale=${encodeURIComponent(lang)}`;
@@ -1412,7 +1432,7 @@ async function requestChat(payload, signal, locale = "en-US") {
   // reservation happened.
   const requestBody = JSON.stringify({ request_id: newChatRequestId(), ...payload });
 
-  let r = await fetch(url, { method: "POST", credentials: "same-origin", headers, body: requestBody, signal });
+  let r = await fetch(url, { method: "POST", credentials: "same-origin", headers, body: requestBody, signal: withCallTimeout(signal, MODEL_CALL_TIMEOUT_MS) });
 
   // Auto re-authenticate on 401 (backend may have restarted, clearing in-memory tokens)
   if (r.status === 401) {
@@ -1420,7 +1440,7 @@ async function requestChat(payload, signal, locale = "en-US") {
     const refreshed = await _tryReAuth();
     if (refreshed) {
       headers["Authorization"] = `Bearer ${window.__CC_SESSION_TOKEN__}`;
-      r = await fetch(url, { method: "POST", credentials: "same-origin", headers, body: requestBody, signal });
+      r = await fetch(url, { method: "POST", credentials: "same-origin", headers, body: requestBody, signal: withCallTimeout(signal, MODEL_CALL_TIMEOUT_MS) });
     }
   }
 
@@ -1761,6 +1781,7 @@ function formatUserFacingError(error) {
   const msg = String(error?.message || "").toLowerCase();
   if (msg.includes("api 429") || msg.includes("rate limit")) return "The system is busy right now. Please try again in a minute.";
   if (msg.includes("api 413") || msg.includes("too large")) return "Your message was too long. Try a shorter question or smaller file.";
+  if (msg.includes("timed out") || msg.includes("took too long")) return "The counselor took too long to respond, so the request was stopped. Please try again.";
   if (msg.includes("failed to fetch") || msg.includes("network")) return "Check your internet connection and try again.";
   if (/no api key|not configured|missing .*api key/i.test(msg)) return "Chat isn't configured yet. Ask this device's administrator to configure OpenRouter.";
   return "Something went wrong while answering that. Please try again.";
