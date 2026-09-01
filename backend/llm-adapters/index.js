@@ -84,8 +84,16 @@ export async function callLLM(options = {}) {
     : Math.min(60_000, Math.ceil(totalMs * 0.6));
   const attemptBudgets = [firstMs, Math.max(1, totalMs - firstMs)];
   for (let attempt = 0; attempt < attemptBudgets.length; attempt += 1) {
-    const timeoutSignal = AbortSignal.timeout(attemptBudgets[attempt]);
-    const signal = options.signal ? AbortSignal.any([options.signal, timeoutSignal]) : timeoutSignal;
+    // A plain (ref'ed) timer rather than AbortSignal.timeout(): the latter
+    // unrefs its internal timer, so during a stall nothing keeps the event
+    // loop alive and the abort can simply never fire (observed as a CI-only
+    // hang in the stall test).
+    const attemptCtrl = new AbortController();
+    const attemptTimer = setTimeout(
+      () => attemptCtrl.abort(new Error(`provider attempt timed out after ${attemptBudgets[attempt]}ms`)),
+      attemptBudgets[attempt],
+    );
+    const signal = options.signal ? AbortSignal.any([options.signal, attemptCtrl.signal]) : attemptCtrl.signal;
     try {
       return await callOpenAI({
         apiKey: options.apiKey,
@@ -98,8 +106,8 @@ export async function callLLM(options = {}) {
         fetchImpl: options.fetchImpl,
       });
     } catch (err) {
-      if (options.signal?.aborted) throw err; // caller cancelled — not a stall
-      if (!timeoutSignal.aborted) throw err;  // real provider error — no retry
+      if (options.signal?.aborted) throw err;      // caller cancelled — not a stall
+      if (!attemptCtrl.signal.aborted) throw err;  // real provider error — no retry
       if (attempt === 0) {
         console.warn(`[llm] provider stalled after ${attemptBudgets[0]}ms — retrying on a fresh connection`);
         continue;
@@ -109,6 +117,8 @@ export async function callLLM(options = {}) {
       e.code = 'provider_timeout';
       e.provider = PROVIDERS.OPENROUTER;
       throw e;
+    } finally {
+      clearTimeout(attemptTimer);
     }
   }
   throw configurationError('Unreachable provider retry state.', 'provider_timeout');
