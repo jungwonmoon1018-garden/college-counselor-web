@@ -229,7 +229,10 @@ export default function DeadlineTracker({ locale = "en-US", compact = false, ref
                 </button>
               )}
               <div style={{ flex: 1 }} />
-              <button onClick={() => remove(d.id)} style={{ ...btn, color: "#f56565", borderColor: "rgba(245,101,101,0.2)" }}>
+              <button
+                onClick={() => { if (window.confirm(t(locale, "deadlines.remove_confirm", { title: d.title }))) remove(d.id); }}
+                style={{ ...btn, color: "#f56565", borderColor: "rgba(245,101,101,0.2)" }}
+              >
                 {t(locale, "deadlines.remove")}
               </button>
             </div>

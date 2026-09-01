@@ -1172,17 +1172,33 @@ async function execTool(name, input, stateRef, setData) {
 // ═══════════════════════════════════════════════════════════
 // Session timeout — 15 minutes of inactivity for child safety on shared devices
 const SESSION_TIMEOUT_MS = 15 * 60 * 1000;
+// Expiry wipes in-memory state (draft message, attachments) by design — but it
+// must never do so SILENTLY. onWarn(true) fires a minute early so the student
+// can touch anything (mouse/key/scroll all reset the timer) and keep working.
+const SESSION_WARN_BEFORE_MS = 60 * 1000;
 const sessionTimer = {
   _timeout: null,
+  _warnTimeout: null,
   _onExpire: null,
-  reset(onExpire) {
+  _onWarn: null,
+  reset(onExpire, onWarn) {
     this._onExpire = onExpire || this._onExpire;
+    this._onWarn = onWarn || this._onWarn;
     if (this._timeout) clearTimeout(this._timeout);
+    if (this._warnTimeout) clearTimeout(this._warnTimeout);
     if (this._onExpire) {
       this._timeout = setTimeout(() => { this._onExpire(); }, SESSION_TIMEOUT_MS);
     }
+    if (this._onWarn) {
+      this._onWarn(false); // any activity hides a visible warning
+      this._warnTimeout = setTimeout(() => { this._onWarn(true); }, SESSION_TIMEOUT_MS - SESSION_WARN_BEFORE_MS);
+    }
   },
-  clear() { if (this._timeout) clearTimeout(this._timeout); this._timeout = null; this._onExpire = null; }
+  clear() {
+    if (this._timeout) clearTimeout(this._timeout);
+    if (this._warnTimeout) clearTimeout(this._warnTimeout);
+    this._timeout = null; this._warnTimeout = null; this._onExpire = null; this._onWarn = null;
+  }
 };
 // FIX 2a: Sanitize filenames to prevent prompt injection
 function sanitizeFilename(name) {
@@ -1220,8 +1236,11 @@ function isSupportedChatDocument(file) {
     && (!file.type || CHAT_DOCUMENT_MIME_TYPES.has(String(file.type).toLowerCase()));
 }
 
-async function readChatFile(file) {
+async function readChatFile(file, relPath = "") {
   const name = file?.name || "file";
+  // Folder uploads carry webkitRelativePath ("essays/draft2.docx") — keep it
+  // so two same-named files from different subfolders stay distinguishable.
+  const path = String(relPath || "").replace(/\\/g, "/") || name;
   try {
     if (file.size > MAX_CHAT_FILE_BYTES) {
       return { kind: "error", name, error: `Too large (${Math.round(file.size/1024)} KB, max ${Math.round(MAX_CHAT_FILE_BYTES/1024)} KB)` };
@@ -1249,7 +1268,7 @@ async function readChatFile(file) {
     return {
       kind: "text",
       name,
-      path: name,
+      path,
       size: file.size,
       content: content + (body.truncated ? "\n[Document text was truncated by the local extractor.]" : ""),
       extractedFrom: chatFileExt(name),
@@ -1261,6 +1280,18 @@ async function readChatFile(file) {
 function formatAcademicYearLabel(year) {
   const labels = { freshman:"Freshman", sophomore:"Sophomore", junior:"Junior", senior:"Senior" };
   return labels[year] || year || "Unknown";
+}
+
+// SQLite's datetime('now') arrives as "YYYY-MM-DD HH:MM:SS" (UTC, no timezone
+// marker). Safari's Date parser rejects the space-separated form, which made
+// every sidebar thread row show "Invalid Date" on iOS/macOS. Normalize to ISO.
+function serverDateToISO(value) {
+  const m = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})$/.exec(String(value || ""));
+  return m ? `${m[1]}T${m[2]}Z` : String(value || "");
+}
+function formatServerDate(value) {
+  const d = new Date(serverDateToISO(value));
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString();
 }
 
 function resolveUploadMimeType(file) {
@@ -2808,7 +2839,9 @@ export default function App() {
       const r = await authedFetch("/api/students/threads");
       if (r.ok) {
         const data = await r.json();
-        setThreadList(data.threads || []);
+        // Normalize SQLite timestamps to ISO so Safari can parse them and so
+        // the updated_at sort compares consistently with client-stamped ISO.
+        setThreadList((data.threads || []).map(t => ({ ...t, updated_at: serverDateToISO(t.updated_at) })));
       }
     } catch (err) { console.warn("[CHAT] refreshThreadList failed:", err?.message); }
   }, [authedFetch]);
@@ -2886,7 +2919,15 @@ export default function App() {
         next.sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""));
         return next;
       });
-    } catch (err) { console.warn("[CHAT] persistTurn failed:", err?.message); }
+    } catch (err) {
+      console.warn("[CHAT] persistTurn failed:", err?.message);
+      // Silent failure here is invisible data loss: the turn shows on screen
+      // but vanishes on the next reload. Surface it in the session toast.
+      // (setSyncStatus/setSyncNote are stable setState fns declared below —
+      // safe to reference from this closure, deliberately not in the deps.)
+      setSyncStatus("failed");
+      setSyncNote("A message couldn't be saved to chat history — it may be missing after a reload.");
+    }
   }, [authedFetch, refreshThreadList]);
 
   // Delete a thread (soft archive by default).
@@ -3366,24 +3407,26 @@ export default function App() {
     e.target.value = ""; // reset for re-pick of same path
     if (!files.length) return;
 
-    setChatFiles(prev => {
-      const room = MAX_CHAT_FILES - prev.length;
-      if (room <= 0) {
-        alert(`Already at ${MAX_CHAT_FILES} attached files. Remove some first.`);
-        return prev;
-      }
-      return prev;
-    });
+    if (chatFiles.length >= MAX_CHAT_FILES) {
+      setMessages(prev => [...prev, { role: "assistant", content: `⚠️ Already at ${MAX_CHAT_FILES} attached files. Remove some first.` }]);
+      return;
+    }
 
     // Read sequentially so partial failures still produce useful state.
     const reads = [];
     const errors = []; // { name, error } — surfaced to UI so silent
                       // skips (Word extract failed, 401, etc.) aren't
                       // invisible to the student.
+    // Same file picked twice (double-clicked picker, re-picked folder)
+    // used to produce two identical chips and double the model context.
+    const seen = new Set(chatFiles.map(f => `${f.path || f.name}|${f.size || 0}`));
     let totalBytes = chatFiles.reduce((n, f) => n + (f.size || 0), 0);
     let skippedSize = 0;
     let skippedCap = 0;
+    let skippedDup = 0;
     for (const f of files) {
+      const dupKey = `${(f.webkitRelativePath || "").replace(/\\/g, "/") || f.name}|${f.size || 0}`;
+      if (seen.has(dupKey)) { skippedDup++; continue; }
       if (reads.length + chatFiles.length >= MAX_CHAT_FILES) { skippedCap++; continue; }
       if (totalBytes + (f.size || 0) > MAX_CHAT_TOTAL_BYTES) { skippedSize++; continue; }
       const r = await readChatFile(f, f.webkitRelativePath || "");
@@ -3391,19 +3434,21 @@ export default function App() {
         errors.push({ name: r.name || f.name, error: r.error });
         continue;
       }
+      seen.add(dupKey);
       reads.push(r);
       totalBytes += (f.size || 0);
     }
     if (reads.length) setChatFiles(prev => [...prev, ...reads]);
     // Surface failures + caps in the chat as an assistant-style note
     // so the student sees WHY a file didn't appear in the chip list.
-    if (errors.length || skippedSize || skippedCap) {
+    if (errors.length || skippedSize || skippedCap || skippedDup) {
       const lines = [];
       if (errors.length) {
         lines.push(`⚠️ ${errors.length} file(s) couldn't be read:`);
         for (const e of errors.slice(0, 6)) lines.push(`  • ${e.name}: ${e.error}`);
         if (errors.length > 6) lines.push(`  • …+${errors.length - 6} more`);
       }
+      if (skippedDup) lines.push(`ℹ️ ${skippedDup} duplicate file(s) skipped — already attached.`);
       if (skippedSize) lines.push(`⚠️ ${skippedSize} file(s) skipped — would exceed the ${Math.round(MAX_CHAT_TOTAL_BYTES/1024)} KB per-turn cap.`);
       if (skippedCap) lines.push(`⚠️ ${skippedCap} file(s) skipped — already at the ${MAX_CHAT_FILES}-file limit.`);
       const summary = lines.join("\n");
@@ -3420,6 +3465,10 @@ export default function App() {
   // Observable session health: re-auth + background-sync status for non-blocking toasts.
   const [reauthStatus, setReauthStatus] = useState("idle"); // idle | attempting | ok | failed
   const [syncStatus, setSyncStatus] = useState("idle");     // idle | ok | failed
+  const [syncNote, setSyncNote] = useState("");             // overrides the default "didn't sync" toast text
+  // True during the last minute before the inactivity sign-out — rendered as a
+  // prominent toast so the auto-lock never silently eats a drafted message.
+  const [expiryWarning, setExpiryWarning] = useState(false);
   // Offline-first: true when the vault unlocked locally but the backend was
   // unreachable at sign-in. The student keeps full access to their on-device
   // data; server features (chat, sync) resume when the backend returns. Cleared
@@ -3484,9 +3533,10 @@ export default function App() {
             })
           });
           setSyncStatus("ok");
+          setSyncNote("");
           setOfflineMode(false); // a sync landed — backend is reachable again
           setTimeout(() => setSyncStatus((s) => (s === "ok" ? "idle" : s)), 2000);
-        } catch (err) { console.warn("RAG sync failed (non-blocking):", err?.message); setSyncStatus("failed"); }
+        } catch (err) { console.warn("RAG sync failed (non-blocking):", err?.message); setSyncNote(""); setSyncStatus("failed"); }
       }
     }, 1000);
     return () => clearTimeout(t);
@@ -3571,8 +3621,9 @@ export default function App() {
 
   // ─── SESSION TIMEOUT — auto-logout after 15min inactivity ───
   useEffect(() => {
-    if (screen !== S.CHAT && screen !== S.SURVEY) { sessionTimer.clear(); return; }
+    if (screen !== S.CHAT && screen !== S.SURVEY) { sessionTimer.clear(); setExpiryWarning(false); return; }
     const expire = () => {
+      setExpiryWarning(false);
       clearSession();
       setUser(null);
       setPassphrase("");
@@ -3581,7 +3632,7 @@ export default function App() {
       setScreen(S.LOGIN);
       setLError("Session expired due to inactivity. Please sign in again.");
     };
-    sessionTimer.reset(expire);
+    sessionTimer.reset(expire, setExpiryWarning);
     const activityEvents = ["mousedown","keydown","touchstart","scroll"];
     const onActivity = () => sessionTimer.reset();
     activityEvents.forEach(ev => window.addEventListener(ev, onActivity, { passive: true }));
@@ -3590,6 +3641,25 @@ export default function App() {
       activityEvents.forEach(ev => window.removeEventListener(ev, onActivity));
     };
   }, [screen]);
+
+  // One auth action at a time. PBKDF2 + the server round-trips make sign-in /
+  // account creation take seconds (more on a cold backend), and the submit
+  // buttons gave no feedback in that window — students double-clicked, which
+  // ran two interleaved logins. The ref (not just state) blocks re-entry even
+  // before React re-renders with the disabled button.
+  const authBusyRef = useRef(false);
+  const [authBusy, setAuthBusy] = useState(false);
+  const runAuthGuarded = useCallback(async (fn, setErr) => {
+    if (authBusyRef.current) return;
+    authBusyRef.current = true;
+    setAuthBusy(true);
+    try { await fn(); }
+    catch (err) {
+      console.error("[auth] unexpected failure:", err);
+      setErr("Something unexpected went wrong. Please try again.");
+    }
+    finally { authBusyRef.current = false; setAuthBusy(false); }
+  }, []);
 
   // ─── CREATE ACCOUNT ───
   const handleCreate = useCallback(async () => {
@@ -4276,7 +4346,7 @@ export default function App() {
             <p style={{ fontSize:13,color:"#6a6a7a",marginTop:8 }}>Email required · data encrypted on your device</p>
           </div>
 
-          <form onSubmit={(event)=>{event.preventDefault();handleCreate();}} style={{ display:"flex",flexDirection:"column",gap:14 }}>
+          <form onSubmit={(event)=>{event.preventDefault();runAuthGuarded(handleCreate, setCError);}} style={{ display:"flex",flexDirection:"column",gap:14 }}>
             <div style={{ display:"flex",gap:10 }}>
               <div style={{ flex:1 }}>
                 <label htmlFor="create-first" style={labelStyle}>First name</label>
@@ -4358,7 +4428,7 @@ export default function App() {
 
             {cError && <div role="alert" style={{ fontSize:13,color:"#ffb4ba",background:"rgba(245,101,101,0.12)",padding:"10px 14px",borderRadius:8,animation:"fadeIn 0.2s ease" }}>{cError}</div>}
 
-            <button type="submit" style={{...btnPrimary,marginTop:4}}>Create account</button>
+            <button type="submit" disabled={authBusy} style={{...btnPrimary,marginTop:4,opacity:authBusy?0.65:1,cursor:authBusy?"default":"pointer"}}>{authBusy ? "Creating account…" : "Create account"}</button>
           </form>
 
           <div style={{ textAlign:"center",marginTop:20 }}>
@@ -4563,6 +4633,13 @@ export default function App() {
 
     return (
       <main style={{minHeight:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",background:BG,fontFamily:FONT,padding:16}}>
+        {/* Inactivity auto-lock warning — the survey is where a silent sign-out
+            hurts most (a half-completed transcript entry vanishes). */}
+        {expiryWarning && (
+          <div role="status" aria-live="polite" style={{position:"fixed",top:12,left:"50%",transform:"translateX(-50%)",zIndex:9999,padding:"8px 14px",borderRadius:10,fontSize:12,fontWeight:600,boxShadow:"0 4px 16px rgba(0,0,0,0.3)",background:"rgba(246,173,85,0.22)",border:"1px solid rgba(246,173,85,0.55)",color:"#fbd38d"}}>
+            Still there? You'll be signed out in about a minute of inactivity — click or type to stay signed in.
+          </div>
+        )}
         <div className="cc-survey-card" style={{width:"min(680px, 100%)",maxHeight:"calc(100dvh - 32px)",padding:"clamp(20px, 4vw, 36px)",borderRadius:8,background:"#151a23",border:"1px solid rgba(255,255,255,0.16)",overflowY:"auto"}}>
           {studentRecoveryCode && (
             <div role="status" style={{marginBottom:18,padding:14,borderRadius:8,border:"1px solid rgba(246,173,85,0.55)",background:"rgba(246,173,85,0.10)",color:"#ffe0a3",fontSize:13,lineHeight:1.5}}>
@@ -4920,7 +4997,7 @@ export default function App() {
             <p style={{ fontSize:13,color:"#6a6a7a",marginTop:8 }}>Sign in to your encrypted vault</p>
           </div>
 
-          <form onSubmit={(event)=>{event.preventDefault();handleLogin();}} style={{ display:"flex",flexDirection:"column",gap:14 }}>
+          <form onSubmit={(event)=>{event.preventDefault();runAuthGuarded(handleLogin, setLError);}} style={{ display:"flex",flexDirection:"column",gap:14 }}>
             <div>
               <label htmlFor="login-email" style={labelStyle}>Email</label>
               <input id="login-email" type="email" autoComplete="email" value={lEmail} onChange={e=>setLEmail(e.target.value)} placeholder="alex.kim@school.edu" style={inputStyle} />
@@ -4935,7 +5012,7 @@ export default function App() {
 
             {lError && <div role="alert" style={{ fontSize:13,color:"#ffb4ba",background:"rgba(245,101,101,0.12)",padding:"10px 14px",borderRadius:8,animation:"fadeIn 0.2s ease" }}>{lError}</div>}
 
-            <button type="submit" style={{...btnPrimary,marginTop:4}}>Sign in</button>
+            <button type="submit" disabled={authBusy} style={{...btnPrimary,marginTop:4,opacity:authBusy?0.65:1,cursor:authBusy?"default":"pointer"}}>{authBusy ? "Signing in…" : "Sign in"}</button>
           </form>
 
           <div style={{marginTop:14}}>
@@ -4980,18 +5057,19 @@ export default function App() {
   return (
     <div style={{ display:"flex",height:"100dvh",fontFamily:FONT,background:BG,color:"#e8e6e3" }}>
       {/* Non-blocking session-health toast (offline / re-auth / background-sync status) */}
-      {(offlineMode || reauthStatus === "attempting" || reauthStatus === "failed" || syncStatus === "failed") && (
+      {(expiryWarning || offlineMode || reauthStatus === "attempting" || reauthStatus === "failed" || syncStatus === "failed") && (
         <div role="status" aria-live="polite" style={{
           position:"fixed", top:12, left:"50%", transform:"translateX(-50%)", zIndex:9999,
           padding:"8px 14px", borderRadius:10, fontSize:12, fontWeight:600, boxShadow:"0 4px 16px rgba(0,0,0,0.3)",
-          background: reauthStatus==="failed" ? "rgba(245,101,101,0.15)" : (offlineMode || syncStatus==="failed") ? "rgba(246,173,85,0.15)" : "rgba(99,179,237,0.15)",
-          border:`1px solid ${reauthStatus==="failed" ? "rgba(245,101,101,0.4)" : (offlineMode || syncStatus==="failed") ? "rgba(246,173,85,0.4)" : "rgba(99,179,237,0.4)"}`,
-          color: reauthStatus==="failed" ? "#fc8181" : (offlineMode || syncStatus==="failed") ? "#f6ad55" : "#63b3ed",
+          background: expiryWarning ? "rgba(246,173,85,0.22)" : reauthStatus==="failed" ? "rgba(245,101,101,0.15)" : (offlineMode || syncStatus==="failed") ? "rgba(246,173,85,0.15)" : "rgba(99,179,237,0.15)",
+          border:`1px solid ${expiryWarning ? "rgba(246,173,85,0.55)" : reauthStatus==="failed" ? "rgba(245,101,101,0.4)" : (offlineMode || syncStatus==="failed") ? "rgba(246,173,85,0.4)" : "rgba(99,179,237,0.4)"}`,
+          color: expiryWarning ? "#fbd38d" : reauthStatus==="failed" ? "#fc8181" : (offlineMode || syncStatus==="failed") ? "#f6ad55" : "#63b3ed",
         }}>
-          {reauthStatus === "attempting" ? "Reconnecting to your counselor…"
+          {expiryWarning ? "Still there? You'll be signed out in about a minute of inactivity — click or type to stay signed in."
+            : reauthStatus === "attempting" ? "Reconnecting to your counselor…"
             : reauthStatus === "failed" ? "Session expired — sign out and sign in again."
             : offlineMode ? "Offline — your data is safe on this device. Counseling features resume when you reconnect."
-            : "Last change didn't sync — will retry."}
+            : (syncNote || "Last change didn't sync — will retry.")}
         </div>
       )}
       {/* Sidebar */}
@@ -5076,7 +5154,7 @@ export default function App() {
                       style={{color:activeThreadId === t.id ? "#cfe5ff" : "#bbb",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",fontWeight: activeThreadId === t.id ? 600 : 400}}
                     >{t.title || "Untitled"}</div>
                   )}
-                  <div style={{fontSize:9,color:"#555",marginTop:2}}>{t.message_count} msg {"·"} {new Date(t.updated_at).toLocaleDateString()}</div>
+                  <div style={{fontSize:9,color:"#555",marginTop:2}}>{t.message_count} msg {"·"} {formatServerDate(t.updated_at)}</div>
                 </div>
                 <button onClick={e => { e.stopPropagation(); if (confirm("Delete this chat?")) deleteThread(t.id, true); }}
                   title="Delete this chat"
@@ -5814,7 +5892,7 @@ export default function App() {
             ))}
           </div>
           <div className="cc-quick-actions" style={{display:"flex",gap:5,marginTop:8,flexWrap:"wrap",alignItems:"center"}}>
-            <span style={{fontSize:10,color:"#444",marginRight:2}}>📎 PDF, images</span>
+            <span style={{fontSize:10,color:"#444",marginRight:2}}>📎 PDF, DOCX, TXT/MD, images</span>
             <span style={{color:"rgba(255,255,255,0.06)"}}>|</span>
             {["What's my profile?","Suggest ECs for me","Search colleges for CS","Plan my junior year"].map(q=>(
               <button key={q} onClick={()=>{setInput(q);setTimeout(()=>(chatTextareaRef.current||inputRef.current)?.focus(),50)}} style={{padding:"3px 9px",borderRadius:7,border:"1px solid rgba(255,255,255,0.05)",background:"transparent",color:"#6a6a7a",fontSize:10.5,cursor:"pointer",transition:"all 0.15s"}}
