@@ -1,0 +1,158 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {
+  formatProfileForModel,
+  checkProfileFidelity,
+  buildFidelityCorrection,
+  buildFidelityFootnote,
+  detectSchoolMentions,
+  formatVerifiedDataBlock,
+} from "../chat-grounding.js";
+
+const profile = {
+  gpaUnweighted: 3.82,
+  gpaWeighted: 4.31,
+  testScores: [{ test: "sat", totalScore: 1450, date: "2026-03" }, { test: "sat_subject", subject: "Math Level 2", totalScore: 780 }],
+  courses: [
+    { name: "English 9", type: "regular", grade: "A", year: "freshman" },
+    { name: "Chemistry", type: "honors", grade: "A-", year: "10" },
+    { name: "Computer Science A", type: "ap", grade: "A", year: "sophomore" },
+    { name: "English Language and Composition", type: "ap", grade: "B+", year: "junior" },
+    { name: "Statistics", type: "ap", grade: "A", year: "junior" },
+    { name: "Physics C: Mechanics", type: "ap", grade: "B", year: "junior", semester: "fall" },
+    { name: "Calculus BC", type: "ap", grade: "IP", year: "senior" },
+    { name: "Health", type: "elective", year: "9" },
+  ],
+  apScores: [{ exam: "Computer Science A", score: 5, year: 2025 }, { exam: "Statistics", score: 4, year: 2026 }],
+  activities: [
+    { name: "Robotics Club", role: "Team Captain", category: "robotics", hoursPerWeek: 8, weeksPerYear: 30, description: "Led a 12-student FRC team.", grades: ["sophomore", "junior"], timing: "school_year" },
+    { name: "National History Day", role: "Participant", category: "academic", hoursPerWeek: 4, timing: "both" },
+  ],
+  majorInterest: "Computer Science",
+  goals: ["MIT", { name: "Carnegie Mellon University", unitId: "211440" }],
+};
+
+test("profile block renders one course per line with year, level, and grade legend", () => {
+  const text = formatProfileForModel(profile);
+  assert.match(text, /^STUDENT PROFILE \(the student's saved record/);
+  assert.match(text, /GPA: 3\.82 unweighted, 4\.31 weighted/);
+  assert.match(text, /Test scores: SAT 1450 \(taken 2026-03\); SAT Subject Test \(Math Level 2\) 780/);
+  assert.match(text, /Courses \(8 recorded; grade legend:/);
+  assert.match(text, /  - freshman: English 9 — regular — grade A/);
+  assert.match(text, /  - sophomore: Chemistry — Honors — grade A-/);
+  assert.match(text, /  - sophomore: AP Computer Science A — AP — grade A/);
+  assert.match(text, /  - junior: AP Physics C: Mechanics — AP — grade B \(fall semester\)/);
+  assert.match(text, /  - senior: AP Calculus BC — AP — in progress \(no final grade yet\)/);
+  assert.match(text, /  - freshman: Health — elective — grade not recorded/);
+  // AP exam scores read the survey's `exam` field (the old code read
+  // `.subject` and produced "undefined: 5").
+  assert.match(text, /AP exam scores: AP Computer Science A: 5 \(2025\); AP Statistics: 4 \(2026\)/);
+  assert.match(text, /  - Robotics Club — Team Captain \(robotics\); 8 hrs\/wk × 30 wks\/yr; years: sophomore, junior; "Led a 12-student FRC team\."/);
+  assert.match(text, /  - National History Day — Participant \(academic\); 4 hrs\/wk; timing: both/);
+  assert.match(text, /Goals \/ target schools: MIT, Carnegie Mellon University/);
+  assert.doesNotMatch(text, /undefined/);
+});
+
+test("profile block truncates long course lists explicitly instead of silently", () => {
+  const many = { courses: Array.from({ length: 45 }, (_, i) => ({ name: `Course ${i + 1}`, type: "regular", grade: "A", year: "junior" })) };
+  const text = formatProfileForModel(many);
+  assert.match(text, /Courses \(45 recorded/);
+  assert.match(text, /\(\+5 more courses not shown/);
+  assert.equal(formatProfileForModel(null), "");
+});
+
+test("fidelity check catches misstated grades, GPA, test and AP scores", () => {
+  const answer = [
+    "That AP Computer Science A score of 5, combined with your A in AP English Language and Composition, shows range.",
+    "Your 3.9 GPA and your SAT of 1500 put you in range.",
+    "You got a 3 on AP Statistics. Honors Chemistry (A-) also helps.",
+    "Your AP Calculus BC A shows momentum.",
+  ].join(" ");
+  const { contradictions } = checkProfileFidelity(answer, profile);
+  const keys = contradictions.map((c) => `${c.kind}:${c.item}:${c.stated}`);
+  assert.deepEqual(keys, [
+    "course_grade:AP English Language and Composition:A",
+    "course_grade:AP Calculus BC:A",
+    "gpa:GPA:3.9",
+    "sat:SAT:1500",
+    "ap_score:AP Statistics exam:3",
+  ]);
+  assert.equal(contradictions.find((c) => c.kind === "course_grade" && c.item === "AP Calculus BC").actual, "in progress — no final grade recorded");
+  assert.equal(contradictions.find((c) => c.kind === "gpa").actual, "3.82 unweighted / 4.31 weighted");
+
+  const correction = buildFidelityCorrection(contradictions);
+  assert.match(correction, /^FIDELITY CORRECTION/);
+  assert.match(correction, /- AP English Language and Composition: recorded grade B\+ \(the reply said A\)/);
+  assert.match(correction, /- AP Calculus BC: recorded in progress — no final grade recorded \(the reply said A\)/);
+  assert.match(correction, /- GPA: recorded 3\.82 unweighted \/ 4\.31 weighted \(the reply said 3\.9\)/);
+  const footnote = buildFidelityFootnote(contradictions);
+  assert.match(footnote, /^\n\n_Correction from your saved profile/);
+  assert.match(footnote, /- SAT: recorded 1450 \(the reply said 1500\)/);
+  assert.match(buildFidelityFootnote(contradictions, "ko"), /저장된 프로필 기준 정정/);
+});
+
+test("fidelity check accepts a faithful answer and ignores generic statistics", () => {
+  const answer = [
+    "Your B+ in AP English Language and Composition and your A in AP Statistics, plus a 5 on AP Computer Science A and a 4 on AP Statistics, are real evidence.",
+    "Your 3.82 GPA (4.31 weighted) and 1450 SAT are competitive; on a 4.0 scale your 3.8 is strong.",
+    "Most T20s admit GPAs 3.9+ and SATs in the 1500–1550 range, so you should aim for a 1550 on the SAT.",
+    "AP Calculus BC is in progress. A strong foundation in Chemistry helps, and a solid B in AP Physics C: Mechanics is fine.",
+    "AP Calculus BC (3 credits) counts toward your requirements. Take the ACT in 2 months if you want another data point.",
+  ].join(" ");
+  assert.deepEqual(checkProfileFidelity(answer, profile).contradictions, []);
+  assert.deepEqual(checkProfileFidelity("", profile).contradictions, []);
+  assert.deepEqual(checkProfileFidelity("Your A in AP Statistics", null).contradictions, []);
+});
+
+test("fidelity check flags scores the profile does not have", () => {
+  const bare = { courses: [{ name: "Biology", type: "honors" }], testScores: [], apScores: [] };
+  const { contradictions } = checkProfileFidelity("Your SAT of 1400 and your 34 ACT are solid, and your A in Honors Biology stands out.", bare);
+  assert.deepEqual(contradictions.map((c) => [c.kind, c.stated, c.actual]), [
+    ["course_grade", "A", "no grade recorded"],
+    ["sat", "1400", "no SAT score recorded"],
+    ["act", "34", "no ACT score recorded"],
+  ]);
+});
+
+test("school mentions resolve aliases and official names, case-sensitively for short ones", () => {
+  const known = ["Carnegie Mellon University", "Boston College", "Rice University", "Union College"];
+  assert.deepEqual(
+    detectSchoolMentions("How do I fit MIT and stanford? Also UIUC vs bc, my BU essay for Boston College, and Carnegie Mellon University. I like rice and union.", { knownNames: known }),
+    [
+      "Massachusetts Institute of Technology",
+      "Stanford University",
+      "University of Illinois Urbana-Champaign",
+      "Boston University",
+      "Boston College",
+      "Carnegie Mellon University",
+    ],
+  );
+  assert.deepEqual(detectSchoolMentions("What ECs should I add?", { knownNames: known }), []);
+  assert.deepEqual(detectSchoolMentions("MIT", { knownNames: known, max: 1 }), ["Massachusetts Institute of Technology"]);
+});
+
+test("verified data block formats baseline, CDS, and research facts and is empty without data", () => {
+  const block = formatVerifiedDataBlock({
+    schools: [
+      {
+        name: "Stanford University",
+        state: "CA",
+        baseline: { acceptance_rate: 0.039, sat_25: 1510, sat_75: 1580, act_25: 34, act_75: 35, enrollment: 7761, tuition_in: 62484, tuition_out: 62484, data_year: 2023, source: "NCES IPEDS" },
+        cds: { school: "Stanford University", yearLabel: "2024-25", overallAdmitRate: 0.0361, enrolledSAT: { p25: 1510, p75: 1580 }, testPolicy: "test_required", c7: { rigor: "very_important", ec: "very_important", interview: "important", test_scores: "considered" }, sourceUrl: "https://example.edu/cds" },
+        cdsValidated: true,
+      },
+      { name: "Nowhere U", baseline: null, cds: null },
+    ],
+    facts: [{ entity_name: "Stanford University", fact_key: "rea_deadline", fact_value: "Restrictive Early Action deadline: November 1", source_domain: "admission.stanford.edu", academic_year: "2026-27" }],
+  });
+  assert.match(block, /^VERIFIED DATA \(the ONLY statistics you may cite/);
+  // Tuition carries no "$": the provider redaction would mask it as an
+  // income token before the model ever saw the number.
+  assert.match(block, /- Stanford University \(CA\): acceptance rate 3\.9%; SAT middle 50% 1510–1580; ACT middle 50% 34–35; enrollment 7,761; tuition in-state 62,484 USD \/ out-of-state 62,484 USD \[Source: NCES IPEDS, data year 2023\]/);
+  assert.doesNotMatch(block, /\$/);
+  assert.match(block, /  admit rate 3\.6%; enrolled SAT middle 50% 1510–1580; test policy: test required; admissions factors rated very important: course rigor, extracurriculars; rated important: interview \[Source: Stanford University Common Data Set 2024-25, validated, https:\/\/example\.edu\/cds\]/);
+  assert.match(block, /- Stanford University: rea deadline — Restrictive Early Action deadline: November 1 \[Source: admission\.stanford\.edu, 2026-27\]/);
+  assert.doesNotMatch(block, /Nowhere U/);
+  assert.equal(formatVerifiedDataBlock({ schools: [{ name: "X", baseline: null, cds: null }], facts: [] }), "");
+  assert.equal(formatVerifiedDataBlock(), "");
+});

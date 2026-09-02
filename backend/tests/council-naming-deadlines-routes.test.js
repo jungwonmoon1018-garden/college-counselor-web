@@ -386,8 +386,19 @@ test("chat injects the student profile and theme guard into model calls", async 
   const synced = await request("POST", "/api/students/sync", {
     token,
     body: {
-      profile: { gpa: { unweighted: 3.9 }, courses: [{ name: "AP Calculus BC", type: "ap", grade: "A" }], testScores: [], apScores: [] },
-      activities: [{ name: "Robotics Club", role: "Captain", category: "robotics" }],
+      profile: {
+        gpa: { unweighted: 3.9 },
+        courses: [
+          { name: "AP Calculus BC", type: "ap", grade: "A", year: "junior" },
+          { name: "English Language and Composition", type: "ap", grade: "B+", year: "junior" },
+          { name: "Physics C: Mechanics", type: "ap", grade: "IP", year: "senior" },
+        ],
+        testScores: [{ test: "sat", totalScore: 1450 }],
+        // The survey writes AP scores as {exam, score, year}; the chat route
+        // used to read `.subject` and showed the model "undefined: 5".
+        apScores: [{ exam: "Calculus BC", score: 5, year: 2025 }],
+      },
+      activities: [{ name: "Robotics Club", role: "Captain", category: "robotics", hoursPerWeek: 8, weeksPerYear: 30, grades: ["junior"], description: "Built the drivetrain controller." }],
       majorInterest: "Computer Science",
       goals: [],
     },
@@ -416,8 +427,127 @@ test("chat injects the student profile and theme guard into model calls", async 
   assert.match(wire, /regardless of (?:its subject|whether it matches)/i);
   assert.match(wire, /Never refuse to engage with student-provided material/);
   assert.match(wire, /STUDENT PROFILE/);
-  assert.match(wire, /AP Calculus BC/);
-  assert.match(wire, /Robotics Club/);
+  assert.match(wire, /PROFILE FIDELITY/);
+  // One course per line with year, level, and an explicit grade legend — the
+  // old one-line dump was where grades got transposed between neighbours.
+  assert.match(wire, /junior: AP Calculus BC — AP — grade A/);
+  assert.match(wire, /junior: AP English Language and Composition — AP — grade B\+/);
+  assert.match(wire, /senior: AP Physics C: Mechanics — AP — in progress/);
+  assert.match(wire, /AP exam scores: AP Calculus BC: 5 \(2025\)/);
+  assert.match(wire, /Test scores: SAT 1450/);
+  assert.match(wire, /Robotics Club — Captain \(robotics\); 8 hrs\/wk × 30 wks\/yr; years: junior; \\"Built the drivetrain controller\.\\"/);
+  assert.doesNotMatch(wire, /undefined/);
+  // An EC question that names no school gets no college-data block.
+  assert.equal(turn.data._meta.verifiedData, false);
+});
+
+// Scripted replies for the fidelity tests ride in the student message as
+// base64 markers the fetch mock understands (see helpers/mock-openrouter-fetch).
+const b64 = (text) => Buffer.from(text, "utf8").toString("base64");
+
+async function registerWithProfile(label) {
+  const token = await registerStudent(label);
+  for (const consentType of ["data_processing", "ai_interaction", "cross_border_transfer"]) {
+    const consent = await request("POST", "/api/consent/grant", { token, body: { consentType, grantedBy: "student" } });
+    assert.equal(consent.status, 200, JSON.stringify(consent.data));
+  }
+  const synced = await request("POST", "/api/students/sync", {
+    token,
+    body: {
+      profile: {
+        gpa: { unweighted: 3.82, weighted: 4.31 },
+        courses: [
+          { name: "English Language and Composition", type: "ap", grade: "B+", year: "junior" },
+          { name: "Statistics", type: "ap", grade: "A", year: "junior" },
+        ],
+        testScores: [{ test: "sat", totalScore: 1450 }],
+        apScores: [{ exam: "Statistics", score: 4, year: 2026 }],
+      },
+      activities: [{ name: "Robotics Club", role: "Captain", category: "robotics", hoursPerWeek: 8 }],
+      majorInterest: "Computer Science",
+      goals: [],
+    },
+  });
+  assert.equal(synced.status, 200, JSON.stringify(synced.data));
+  return token;
+}
+
+test("chat retries a reply that misstates a recorded grade and returns the corrected answer", async () => {
+  const token = await registerWithProfile("fidelity-retry");
+  const wrong = "Your A in AP English Language and Composition and your 1450 SAT show strong writing. Keep building on Robotics Club.";
+  const fixed = "Your B+ in AP English Language and Composition and your 1450 SAT show strong writing. Keep building on Robotics Club.";
+  const marker = `MOCKREPLY:${b64(wrong)}: MOCKRETRY:${b64(fixed)}:`;
+  const turn = await request("POST", "/api/chat", {
+    token,
+    body: {
+      messages: [{ role: "user", content: `How should I frame my English strengths? ${marker}` }],
+      request_id: "fidelity-retry-1",
+    },
+  });
+  assert.equal(turn.status, 200, `${JSON.stringify(turn.data)}\n${serverOutput}`);
+  assert.equal(turn.data.answer, fixed);
+  assert.equal(turn.data._meta.profileFidelity?.resolved, "retry");
+  assert.equal(turn.data._meta.profileFidelity.contradictions[0].kind, "course_grade");
+
+  const calls = loggedModelCalls().filter((call) => JSON.stringify(call.messages).includes(marker.slice(0, 40)));
+  assert.equal(calls.length, 2, "one draft call plus one corrective retry");
+  const retryWire = JSON.stringify(calls[1].messages);
+  assert.match(retryWire, /FIDELITY CORRECTION/);
+  assert.match(retryWire, /AP English Language and Composition: recorded grade B\+ \(the reply said A\)/);
+  // The retry carries the masked draft back, never the restored one.
+  assert.match(retryWire, /Your A in AP English Language and Composition/);
+});
+
+test("chat appends a visible correction when the retry still misstates the record", async () => {
+  const token = await registerWithProfile("fidelity-footnote");
+  const wrong = "Your A in AP English Language and Composition is solid, and you scored a 5 on AP Statistics with a 3.9 GPA.";
+  const stillWrong = "Your A in AP English Language and Composition is solid.";
+  const turn = await request("POST", "/api/chat", {
+    token,
+    body: {
+      messages: [{ role: "user", content: `Summarize my strengths. MOCKREPLY:${b64(wrong)}: MOCKRETRY:${b64(stillWrong)}:` }],
+      request_id: "fidelity-footnote-1",
+    },
+  });
+  assert.equal(turn.status, 200, `${JSON.stringify(turn.data)}\n${serverOutput}`);
+  assert.equal(turn.data._meta.profileFidelity?.resolved, "footnote");
+  // Three contradictions in the draft, one left after the retry — the answer
+  // with fewer errors wins, and the survivor is called out.
+  assert.equal(turn.data._meta.profileFidelity.contradictions.length, 3);
+  assert.match(turn.data.answer, /^Your A in AP English Language and Composition is solid\./);
+  assert.match(turn.data.answer, /_Correction from your saved profile/);
+  assert.match(turn.data.answer, /AP English Language and Composition: recorded grade B\+ \(the reply said A\)/);
+  assert.doesNotMatch(turn.data.answer, /AP Statistics exam/);
+});
+
+test("chat grounds a college question in the VERIFIED DATA block", async () => {
+  const token = await registerWithProfile("verified-data");
+  const reply = "Stanford's acceptance rate is 3.9% [Source: NCES IPEDS, data year 2023], so treat it as a reach.";
+  const turn = await request("POST", "/api/chat", {
+    token,
+    body: {
+      system: "You are the COLLEGE FIT specialist for students ages 14-18.",
+      messages: [{ role: "user", content: `How do I fit Stanford University? MOCKREPLY:${b64(reply)}:` }],
+      request_id: "verified-data-1",
+    },
+  });
+  assert.equal(turn.status, 200, `${JSON.stringify(turn.data)}\n${serverOutput}`);
+  assert.equal(turn.data._meta.verifiedData, true);
+  assert.equal(turn.data._meta.profileFidelity, null);
+  const calls = loggedModelCalls();
+  const wire = JSON.stringify(calls[calls.length - 1].messages);
+  assert.match(wire, /VERIFIED DATA \(the ONLY statistics you may cite/);
+  // Figures come from whichever baseline row the seed left for Stanford
+  // (bundled or IPEDS-generated), so assert the shape, not the numbers.
+  assert.match(wire, /- Stanford University \(CA\): acceptance rate \d+(?:\.\d)?%; SAT middle 50% \d{3,4}–\d{3,4}/);
+  assert.match(wire, /\[Source: NCES IPEDS, data year \d{4}\]/);
+  // Dollar figures must survive the provider redaction (no "$" → no
+  // [ANNUAL_INCOME_xx] token in the model's view).
+  assert.match(wire, /tuition in-state [\d,]+ USD/);
+  assert.doesNotMatch(wire, /ANNUAL_INCOME/);
+  // The stored Common Data Set for Stanford rides along with its C7 factors.
+  assert.match(wire, /Stanford University Common Data Set[^"]*validated/);
+  assert.match(wire, /admissions factors rated very important: [^"]*course rigor/);
 });
 
 test("college fit falls back to College Scorecard stats when CDS and baselines have nothing", async () => {

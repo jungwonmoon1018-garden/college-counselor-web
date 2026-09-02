@@ -29,7 +29,15 @@ globalThis.fetch = async (input, init = {}) => {
     if (callLogPath) fs.appendFileSync(callLogPath, `${JSON.stringify(body)}\n`, "utf8");
     // Transcript-parse requests (identified by their prompt) get valid
     // transcript JSON; everything else gets the auto-name style title reply.
-    const isTranscriptParse = JSON.stringify(body.messages || []).includes("Transcript text:");
+    // A test can script the reply by embedding base64 markers in its message:
+    // MOCKREPLY:<base64>: is the first answer, MOCKRETRY:<base64>: the answer
+    // to the chat route's fidelity-correction retry (identified by the
+    // correction text in the wire).
+    const wire = JSON.stringify(body.messages || []);
+    const isTranscriptParse = wire.includes("Transcript text:");
+    const scripted = wire.includes("FIDELITY CORRECTION")
+      ? (wire.match(/MOCKRETRY:([A-Za-z0-9+/=]+):/) || wire.match(/MOCKREPLY:([A-Za-z0-9+/=]+):/))
+      : wire.match(/MOCKREPLY:([A-Za-z0-9+/=]+):/);
     const content = isTranscriptParse
       ? JSON.stringify({
         gpa: 3.8,
@@ -39,7 +47,9 @@ globalThis.fetch = async (input, init = {}) => {
           senior: [], unknown: [],
         },
       })
-      : "\"Junior Year Course Plan.\"";
+      : scripted
+        ? Buffer.from(scripted[1], "base64").toString("utf8")
+        : "\"Junior Year Course Plan.\"";
     return Response.json({
       id: "mock-completion",
       model: body.model,
