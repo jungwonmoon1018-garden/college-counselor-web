@@ -1815,7 +1815,7 @@ function deadlinesFromResearchCache(userText) {
   };
   const lines = found.map((record) => {
     const parts = Object.entries(labels)
-      .map(([key, label]) => record.deadlines?.[key] ? `${label}: ${record.deadlines[key]}` : null)
+      .map(([key, label]) => record.deadlines?.[key] ? `${record.labels?.[key] || label}: ${record.deadlines[key]}` : null)
       .filter(Boolean).join(" · ");
     return `${record.displayName} (${record.cycle} cycle): ${parts}`;
   });
@@ -1901,7 +1901,11 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
         let answerable = true;
         if (String(classification.subIntent || "").includes("deadline")) {
           const cached = deadlinesFromResearchCache(questionText);
-          if (cached) result = cached;
+          // The dates-only answer fits a pure deadline lookup. A question
+          // that also asks about testing policy, fees, or admit rates needs
+          // the model with the full VERIFIED DATA block.
+          const purelyDeadline = !/\b(?:test(?:ing)?|polic(?:y|ies)|admit|acceptance|rate|fee|essay|requirement|interview|optional)\b/i.test(questionText);
+          if (cached && purelyDeadline) result = cached;
           // No cached official dates and no date supplied to compute from:
           // the canned "No deadline date available." is a non-answer, so the
           // question goes to the model with the VERIFIED DATA block instead.

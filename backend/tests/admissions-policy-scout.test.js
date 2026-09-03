@@ -13,6 +13,8 @@ import {
   robotsAllows,
   resolveCycleDate,
   rankedPolicyLinks,
+  schoolRootHost,
+  schoolDomainToken,
   readPolicySnapshot,
   snapshotAsDeadlineRecord,
   formatPolicyLine,
@@ -125,6 +127,16 @@ test("cycle dates resolve month/day into the admissions cycle in progress", () =
   assert.equal(resolveCycleDate(13, 1, null, NOW), null);
 });
 
+test("the school's domain token comes from the registrable domain, not a deep homepage host", () => {
+  // Scorecard reports MIT's site as web.mit.edu; the token must still be "mit"
+  // so mitadmissions.org is recognized and admission.mit.edu is probed.
+  assert.equal(schoolRootHost("web.mit.edu"), "mit.edu");
+  assert.equal(schoolDomainToken("web.mit.edu"), "mit");
+  assert.equal(schoolRootHost("www.stanford.edu"), "stanford.edu");
+  assert.equal(schoolDomainToken("exampleu.edu"), "exampleu");
+  assert.equal(schoolDomainToken("home.admissions.example-college.edu"), "example-college");
+});
+
 test("links are ranked by their path and anchor, not by an admissions hostname", () => {
   const html = `
     <a href="https://admission.exampleu.edu/plan/">Plan a visit</a>
@@ -222,8 +234,13 @@ test("deadline extraction handles real page layouts: headed sections with portfo
   assert.equal(stanford.deadlines.early_action, undefined);
   assert.equal(stanford.applicationFee.amount, 100);
 
+  const stanfordRecord = snapshotAsDeadlineRecord({ school: "Stanford University", slug: "stanford-university", checkedAt: NOW.toISOString(), policy: stanford });
+  assert.equal(stanfordRecord.deadlines.ea, "2026-11-01");
+  assert.deepEqual(stanfordRecord.labels, { ea: "Restrictive Early Action" });
+
   const mit = extractPolicyFromPages([{ url: "https://mitadmissions.org/apply/firstyear/deadlines-requirements/", text: MIT_LINES }], NOW);
   assert.equal(mit.deadlines.early_action.date, "2026-11-01", JSON.stringify(mit.deadlines));
+  assert.deepEqual(snapshotAsDeadlineRecord({ school: "MIT", slug: "mit", checkedAt: NOW.toISOString(), policy: mit }).labels, { rd: "Regular Action" });
   assert.equal(mit.deadlines.regular_decision.date, "2027-01-04");
   assert.equal(mit.deadlines.early_decision, undefined);
   assert.equal(mit.applicationFee.amount, 75);

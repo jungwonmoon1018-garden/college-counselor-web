@@ -30,7 +30,7 @@ import { insertFact } from "./fact-store.js";
 export const SCOUT_USER_AGENT = "CollegeCounselorBot/1.0 (educational; admissions-policy watch)";
 // Bumped whenever discovery or extraction changes; a boot after a bump
 // re-scouts immediately instead of waiting for the daily interval.
-export const SCOUT_VERSION = 2;
+export const SCOUT_VERSION = 3;
 const FETCH_TIMEOUT_MS = 10_000;
 const MAX_PAGE_BYTES = 700_000;
 const MAX_PAGE_TEXT_CHARS = 20_000;
@@ -599,6 +599,18 @@ function scoreLink(url, anchorText) {
   return score;
 }
 
+// The school's registrable domain ("mit.edu" for web.mit.edu) and its
+// distinctive token ("mit"). Scorecard often reports a deep homepage host,
+// and "web" or "home" would match nothing.
+export function schoolRootHost(host) {
+  const labels = String(host || "").toLowerCase().replace(/^www\./, "").split(".").filter(Boolean);
+  return labels.length > 2 ? labels.slice(-2).join(".") : labels.join(".");
+}
+
+export function schoolDomainToken(host) {
+  return schoolRootHost(host).split(".")[0] || "";
+}
+
 // A host that carries the school's own domain token and says "admission"
 // or "apply" (mit.edu → mitadmissions.org) is the school's admissions site.
 function isSchoolAdmissionsHost(host, domainToken) {
@@ -643,8 +655,8 @@ async function gatherPolicyPages(homepage, fetcher) {
   let fetches = 0;
   let blocked = 0;
   const origin = new URL(homepage).origin;
-  const host = hostOf(homepage);
-  const domainToken = host.split(".")[0] || "";
+  const host = schoolRootHost(hostOf(homepage));
+  const domainToken = schoolDomainToken(host);
   const allowedHosts = [];
   const linkOptions = () => ({ allowedHosts, domainToken });
   const acceptFinalUrl = (finalUrl) => {
@@ -665,7 +677,7 @@ async function gatherPolicyPages(homepage, fetcher) {
     if (seenFinal.has(finalKey)) return null;
     seenFinal.add(finalKey);
     const finalHost = hostOf(page.url);
-    if (!sameSite(page.url, homepage) && !allowedHosts.includes(finalHost)) allowedHosts.push(finalHost);
+    if (!sameSite(page.url, `https://${host}/`) && !allowedHosts.includes(finalHost)) allowedHosts.push(finalHost);
     pages.push(page);
     return page;
   };
@@ -778,7 +790,11 @@ export async function scoutSchool(target, { stmts, factStmts, scorecardKey = nul
   const fields = policyFields(policy);
   const previous = stmts.getSnapshot.get(slug);
   const previousPolicy = previous ? safeJson(previous.policy_json) : null;
-  const changes = previous ? diffPolicies(previousPolicy, policy) : [];
+  // A change is stated-value → different stated value. Filling in a snapshot
+  // that held nothing (an earlier failed read, or a weaker scout version) is
+  // a first reading, not a policy change.
+  const hadFields = previousPolicy && Object.keys(policyFields(previousPolicy)).length > 0;
+  const changes = hadFields ? diffPolicies(previousPolicy, policy) : [];
   const checkedAt = now.toISOString();
   const contentHash = crypto.createHash("sha256").update(JSON.stringify(fields)).digest("hex");
 
@@ -901,6 +917,11 @@ export function snapshotAsDeadlineRecord(snapshot) {
       financialAid: null,
       commitBy: null,
       decisionRelease: null,
+    },
+    // Stanford-style plans: the "ea" slot holds Restrictive Early Action.
+    labels: {
+      ...(deadlines.early_action?.date ? {} : deadlines.restrictive_early_action?.date ? { ea: PLAN_LABELS.restrictive_early_action } : {}),
+      ...(deadlines.regular_decision?.evidence && /regular action/i.test(deadlines.regular_decision.evidence) ? { rd: "Regular Action" } : {}),
     },
     sourceUrl: Object.values(deadlines).map((d) => d?.sourceUrl).find(Boolean) || null,
     extractedAt: snapshot.checkedAt,
