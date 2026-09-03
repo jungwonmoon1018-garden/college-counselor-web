@@ -114,6 +114,11 @@ export function buildMethodology(status = {}) {
         refresh: domainMonitorDaily ? "Daily diff-based monitoring (domain-monitor), respects robots.txt" : "manual",
         lastRefreshed: jobs?.domain_monitor?.lastRun || null,
       },
+      admissionsPolicy: {
+        source: "Each school's own admissions pages — testing policy, first-year plan deadlines, application fee",
+        refresh: "Daily deterministic scout (admissions-policy-scout): official sites only, robots.txt honored, one request per second per host; every field change is logged with its source page. No model, nothing inferred — a field a page doesn't state stays empty.",
+        lastRefreshed: jobs?.admissions_policy_scout?.lastRun || null,
+      },
       apConcepts: {
         source: "Curated from released AP FRQ content (2023–2025)",
         refresh: "Curated catalog; updated when the College Board releases new exam content.",

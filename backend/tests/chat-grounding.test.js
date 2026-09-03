@@ -150,9 +150,26 @@ test("verified data block formats baseline, CDS, and research facts and is empty
   // income token before the model ever saw the number.
   assert.match(block, /- Stanford University \(CA\): acceptance rate 3\.9%; SAT middle 50% 1510–1580; ACT middle 50% 34–35; enrollment 7,761; tuition in-state 62,484 USD \/ out-of-state 62,484 USD \[Source: NCES IPEDS, data year 2023\]/);
   assert.doesNotMatch(block, /\$/);
-  assert.match(block, /  admit rate 3\.6%; enrolled SAT middle 50% 1510–1580; test policy: test required; admissions factors rated very important: course rigor, extracurriculars; rated important: interview \[Source: Stanford University Common Data Set 2024-25, validated, https:\/\/example\.edu\/cds\]/);
+  assert.match(block, /  admit rate 3\.6%; enrolled SAT middle 50% 1510–1580; test policy: test required; admissions factors rated very important: course rigor, extracurriculars; rated important: interview \[Source: Stanford University Common Data Set 2024-25 \(validated against ground truth\), https:\/\/example\.edu\/cds\]/);
   assert.match(block, /- Stanford University: rea deadline — Restrictive Early Action deadline: November 1 \[Source: admission\.stanford\.edu, 2026-27\]/);
   assert.doesNotMatch(block, /Nowhere U/);
   assert.equal(formatVerifiedDataBlock({ schools: [{ name: "X", baseline: null, cds: null }], facts: [] }), "");
   assert.equal(formatVerifiedDataBlock(), "");
+
+  // A repository / Drive download URL is not shown as the source link — the
+  // label names the document and the link stays off the student's screen.
+  const drive = formatVerifiedDataBlock({
+    schools: [{
+      name: "Stanford University",
+      baseline: null,
+      cds: { school: "Stanford University", yearLabel: "2025-26", overallAdmitRate: 0.036, sourceUrl: "https://drive.google.com/uc?export=download&id=abc123" },
+      cdsValidated: true,
+      policyLine: "Admissions policy (official site, checked 2026-09-03): test policy — test scores required; Regular Decision deadline 2027-01-05 [Source: https://admission.stanford.edu/apply/deadlines]",
+    }],
+  });
+  assert.match(drive, /- Stanford University: admit rate 3\.6% \[Source: Stanford University Common Data Set 2025-26 \(validated against ground truth\), official PDF on file\]/);
+  assert.doesNotMatch(drive, /drive\.google\.com/);
+  assert.match(drive, /\n  Admissions policy \(official site, checked 2026-09-03\): test policy — test scores required/);
+  // A school with only a scouted policy line still gets an entry.
+  assert.match(formatVerifiedDataBlock({ schools: [{ name: "Elm College", baseline: null, cds: null, policyLine: "Admissions policy (official site, checked 2026-09-03): application fee none [Source: https://elm.edu/apply]" }] }), /- Elm College: Admissions policy/);
 });

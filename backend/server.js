@@ -151,6 +151,16 @@ import {
   detectSchoolMentions,
   formatVerifiedDataBlock,
 } from "./chat-grounding.js";
+import {
+  initPolicyScout,
+  preparePolicyScoutStatements,
+  runPolicyScout,
+  readPolicySnapshot,
+  snapshotAsDeadlineRecord,
+  formatPolicyLine,
+  listRecentChanges,
+  lastRunSummary,
+} from "./admissions-policy-scout.js";
 import { GPA_BASELINES, SAT_BASELINES, ACT_BASELINES, EC_BENCHMARKS, COLLEGE_PROFILES, COMPETITIVE_ACTIVITY_BENCHMARKS } from "./baseline-data.js";
 import { searchScorecard, getCollegeById, compareColleges, getFinancialAidProfile, getCollegeHistory } from "./college-scorecard.js";
 import {
@@ -405,6 +415,8 @@ const factStmts = prepareFactStatements(db);
 const evidenceStmts = prepareEvidenceStatements(db);
 const monitorStmts = prepareMonitorStatements(db);
 const collegeResearchStmts = initCollegeResearch(db);
+initPolicyScout(db);
+const policyScoutStmts = preparePolicyScoutStatements(db);
 
 // Seed fact store and evidence graph from baseline data
 seedCollegeFacts(factStmts, COLLEGE_PROFILES, db);
@@ -488,6 +500,26 @@ if (process.env.CDS_DAILY_REFRESH !== "0") {
     return { changed: true, ...r };
   }, 24 * 60 * 60 * 1000, { enabled: true, runOnStartup: false });
   console.log("[BOOT] CDS daily refresh scheduled (active June 1+; CDS_DAILY_REFRESH=0 to disable).");
+}
+
+// Daily admissions-policy scout: reads each tracked school's own admissions
+// pages (test policy, plan deadlines, application fee), logs what changed
+// since yesterday, and refreshes the verified facts the chat and calendar
+// read. Deterministic — no model, no key. POLICY_SCOUT=0 disables it.
+if (process.env.POLICY_SCOUT !== "0") {
+  registerJob("admissions_policy_scout", () => runScheduledPolicyScout("scheduled"), 24 * 60 * 60 * 1000, { enabled: true, runOnStartup: false });
+  // A deploy restarts the interval clock, so the first run happens shortly
+  // after boot whenever the last completed run is older than 20 hours.
+  if (process.env.NODE_ENV !== "test") {
+    const bootDelay = Number(process.env.POLICY_SCOUT_BOOT_DELAY_MS) > 0 ? Number(process.env.POLICY_SCOUT_BOOT_DELAY_MS) : 5 * 60 * 1000;
+    setTimeout(() => {
+      const last = lastRunSummary(policyScoutStmts);
+      const ageMs = last?.finishedAt ? Date.now() - Date.parse(last.finishedAt) : Infinity;
+      if (ageMs < 20 * 60 * 60 * 1000) return;
+      runScheduledPolicyScout("boot").catch((err) => console.warn("[policy-scout] boot run failed:", err?.message));
+    }, bootDelay).unref();
+  }
+  console.log("[BOOT] Admissions-policy scout scheduled daily (POLICY_SCOUT=0 to disable).");
 }
 
 startAllJobs();
@@ -940,12 +972,18 @@ function buildVerifiedDataContext({ questionText, studentId, evidence = [], want
     if (!row && !cds) continue;
     const resolvedName = row?.name || cds?.school || name;
     if (schools.some((s) => schoolNamesCompatible(s.name, resolvedName))) continue;
+    let policyLine = null;
+    try {
+      const snapshot = readPolicySnapshot(policyScoutStmts, { unitId: row?.unit_id, name: resolvedName });
+      policyLine = snapshot ? formatPolicyLine(snapshot) : null;
+    } catch { /* policy line is best-effort */ }
     schools.push({
       name: resolvedName,
       state: row?.state || null,
       baseline: row,
       cds,
       cdsValidated: cds ? isCdsRecordValidated(ragStmts, cds.slug) : false,
+      policyLine,
     });
     if (schools.length >= 4) break;
   }
@@ -953,6 +991,56 @@ function buildVerifiedDataContext({ questionText, studentId, evidence = [], want
     .filter((f) => String(f?.confidence || "").toLowerCase() === "verified" && (f.source_url || f.source_domain))
     .slice(0, 5);
   return formatVerifiedDataBlock({ schools, facts });
+}
+
+// Which schools the policy scout watches: every student's current target
+// schools, every school with a stored Common Data Set, and every school with
+// cached official-page research — i.e. the schools students actually ask
+// about. Names are canonicalized against the IPEDS baseline so the scout can
+// use the baseline website and unit id.
+function collectPolicyScoutTargets() {
+  const targets = [];
+  const seenStudents = new Set();
+  try {
+    const rows = db.prepare("SELECT student_id, goals_json FROM profile_snapshots ORDER BY datetime(created_at) DESC, rowid DESC").all();
+    for (const row of rows) {
+      if (seenStudents.has(row.student_id)) continue;
+      seenStudents.add(row.student_id);
+      const goals = safeParseJSON(row.goals_json, []);
+      const fallbackRows = extractGoalUnitIds(goals)
+        .map((u) => db.prepare("SELECT unit_id, name FROM baseline_colleges WHERE unit_id = ?").get(u))
+        .filter(Boolean);
+      for (const t of extractTargetSchoolNames(goals, fallbackRows)) targets.push({ name: t.schoolName, unitId: t.unitId });
+    }
+  } catch (err) { console.warn("[policy-scout] student target collection failed:", err.message); }
+  try { for (const r of ragStmts.cds.listAll.all()) if (r.school_name) targets.push({ name: r.school_name }); } catch { /* no CDS store */ }
+  try {
+    for (const r of db.prepare("SELECT DISTINCT display_name FROM college_research_cache").all()) if (r.display_name) targets.push({ name: r.display_name });
+  } catch { /* no research cache */ }
+  const knownNames = baselineCollegeNames();
+  return targets.map((t) => {
+    const canonical = detectSchoolMentions(t.name, { knownNames, max: 1 })[0] || t.name;
+    const row = resolveBaselineCollegeRow(db, { unitId: t.unitId, schoolName: canonical });
+    return { name: row?.name || canonical, unitId: row?.unit_id || t.unitId || null, website: row?.website || null };
+  });
+}
+
+let policyScoutRunning = null;
+async function runScheduledPolicyScout(trigger = "scheduled", { targets = null, maxSchools = null } = {}) {
+  if (policyScoutRunning) return { skipped: "already_running" };
+  const list = targets || collectPolicyScoutTargets();
+  if (!list.length) return { skipped: "no_targets" };
+  policyScoutRunning = runPolicyScout(list, {
+    stmts: policyScoutStmts,
+    factStmts,
+    scorecardKey: SCORECARD_API_KEY || null,
+    concurrency: Number(process.env.POLICY_SCOUT_CONCURRENCY) > 0 ? Number(process.env.POLICY_SCOUT_CONCURRENCY) : 2,
+    maxSchools: maxSchools || (Number(process.env.POLICY_SCOUT_MAX_SCHOOLS) > 0 ? Number(process.env.POLICY_SCOUT_MAX_SCHOOLS) : 60),
+    trigger,
+  }).finally(() => { policyScoutRunning = null; });
+  const summary = await policyScoutRunning;
+  console.log(`[policy-scout] ${trigger}: ${summary.checked}/${summary.total} school(s) checked, ${summary.changes} change(s), ${summary.failed} failed`);
+  return { changed: summary.changes > 0, ...summary };
 }
 
 // Defensive JSON extraction from an LLM text response. Strip JSON/code
@@ -1688,7 +1776,15 @@ function deadlinesFromResearchCache(userText) {
   try { names = extractTargetSchoolNames(userText) || []; } catch { return null; }
   const found = [];
   for (const name of names.slice(0, 3)) {
-    const record = readCachedDeadlines(collegeResearchStmts, name);
+    let record = readCachedDeadlines(collegeResearchStmts, name);
+    if (!record) {
+      // The daily policy scout reads the same official pages; its snapshot
+      // stands in when no model-researched record is cached.
+      try {
+        const snapshot = readPolicySnapshot(policyScoutStmts, { name });
+        record = snapshot ? snapshotAsDeadlineRecord(snapshot) : null;
+      } catch { record = null; }
+    }
     if (record) found.push(record);
   }
   if (!found.length) return null;
@@ -2128,6 +2224,76 @@ app.get("/api/cds/school/:slug", studentLimiter, requireStudentAuth, async (req,
     res.json({ record, validation });
   } catch (e) {
     res.status(500).json({ error: "cds_lookup_failed", message: String(e.message).slice(0, 200) });
+  }
+});
+
+// ─── Admissions-policy scout ────────────────────────────────────────
+// Recent policy changes for the student's target schools (all tracked
+// schools when none are set), plus the current snapshot per target school.
+app.get("/api/admissions-policy/changes", studentLimiter, requireStudentAuth, (req, res) => {
+  try {
+    const days = Math.max(1, Math.min(365, Number(req.query.days) || 30));
+    const targets = resolveTargetSchools(req.studentId);
+    const all = listRecentChanges(policyScoutStmts, { days, limit: 200 });
+    const changes = targets.length
+      ? all.filter((c) => targets.some((t) => schoolNamesCompatible(c.school, t) || schoolNamesCompatible(c.school, expandCollegeAlias(t))))
+      : all.slice(0, 50);
+    const schools = targets.map((name) => {
+      const snapshot = readPolicySnapshot(policyScoutStmts, { name: expandCollegeAlias(name) });
+      return snapshot
+        ? { school: snapshot.school, checkedAt: snapshot.checkedAt, changedAt: snapshot.changedAt, fields: snapshot.fields, summary: formatPolicyLine(snapshot) }
+        : { school: name, checkedAt: null, fields: {}, summary: null };
+    });
+    res.json({ ok: true, days, lastRun: lastRunSummary(policyScoutStmts), changes, schools });
+  } catch (err) {
+    console.error("[policy-scout] changes lookup failed:", err.message);
+    res.status(500).json({ error: "Admissions policy lookup failed" });
+  }
+});
+
+app.get("/api/admin/policy-scout/status", studentLimiter, requireCounselorAuth, (_req, res) => {
+  try {
+    res.json({
+      running: Boolean(policyScoutRunning),
+      lastRun: lastRunSummary(policyScoutStmts),
+      runs: policyScoutStmts.listRuns.all(10).map((row) => ({
+        id: row.id, startedAt: row.started_at, finishedAt: row.finished_at, trigger: row.trigger,
+        schoolsTotal: row.schools_total, schoolsChecked: row.schools_checked, schoolsFailed: row.schools_failed, changes: row.changes,
+        summary: safeParseJSON(row.summary_json, null),
+      })),
+      recentChanges: listRecentChanges(policyScoutStmts, { days: 30, limit: 100 }),
+      snapshots: policyScoutStmts.listSnapshots.all(200).map((row) => ({
+        school: row.school_name, slug: row.slug, unitId: row.unit_id, checkedAt: row.checked_at, changedAt: row.changed_at, checks: row.check_count,
+      })),
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Policy scout status failed", message: String(err.message).slice(0, 200) });
+  }
+});
+
+// Manual trigger. A short explicit list (≤ 5 schools) runs synchronously and
+// returns the summary; otherwise the full daily set runs in the background.
+app.post("/api/admin/policy-scout/run", studentLimiter, requireCounselorAuth, async (req, res) => {
+  try {
+    const requested = Array.isArray(req.body?.schools)
+      ? req.body.schools.map((s) => String(s?.name || s || "").trim().slice(0, 120)).filter(Boolean)
+      : [];
+    if (requested.length && requested.length <= 5) {
+      const knownNames = baselineCollegeNames();
+      const targets = requested.map((name) => {
+        const canonical = detectSchoolMentions(name, { knownNames, max: 1 })[0] || name;
+        const row = resolveBaselineCollegeRow(db, { schoolName: canonical });
+        return { name: row?.name || canonical, unitId: row?.unit_id || null, website: row?.website || null };
+      });
+      const summary = await runScheduledPolicyScout("manual", { targets, maxSchools: 5 });
+      return res.json({ ok: true, ...summary });
+    }
+    if (policyScoutRunning) return res.status(409).json({ error: "A policy scout run is already in progress.", code: "already_running" });
+    runScheduledPolicyScout("manual").catch((err) => console.warn("[policy-scout] manual run failed:", err?.message));
+    res.status(202).json({ ok: true, started: true });
+  } catch (err) {
+    console.error("[policy-scout] manual run failed:", err.message);
+    res.status(500).json({ error: "Policy scout run failed" });
   }
 });
 
@@ -5991,6 +6157,12 @@ app.post("/api/calendar/context", studentLimiter, requireStudentAuth, async (req
     const schools = [];
     for (const school of targetSchools) {
       let record = readCachedDeadlines(collegeResearchStmts, school);
+      if (!record) {
+        try {
+          const snapshot = readPolicySnapshot(policyScoutStmts, { name: school });
+          record = snapshot ? snapshotAsDeadlineRecord(snapshot) : null;
+        } catch { record = null; }
+      }
       if (!record && researcher) {
         try {
           record = await researchCollegeDeadlines({

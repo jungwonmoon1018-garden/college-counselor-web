@@ -10,6 +10,7 @@ import CourseSequencer from "./components/CourseSequencer.jsx";
 import DisclosurePanel from "./components/DisclosurePanel.jsx";
 import MethodologyPanel from "./MethodologyPanel.jsx";
 import { detectLocale, t as tt } from "./i18n.js";
+import { serverDateToISO, formatServerDate } from "./dates.js";
 import {
   COUNCIL_DECISION_OPTIONS,
   councilErrorMessage,
@@ -1287,15 +1288,6 @@ function formatAcademicYearLabel(year) {
 // SQLite's datetime('now') arrives as "YYYY-MM-DD HH:MM:SS" (UTC, no timezone
 // marker). Safari's Date parser rejects the space-separated form, which made
 // every sidebar thread row show "Invalid Date" on iOS/macOS. Normalize to ISO.
-function serverDateToISO(value) {
-  const m = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})$/.exec(String(value || ""));
-  return m ? `${m[1]}T${m[2]}Z` : String(value || "");
-}
-function formatServerDate(value) {
-  const d = new Date(serverDateToISO(value));
-  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString();
-}
-
 function resolveUploadMimeType(file) {
   const direct = String(file?.type || "").toLowerCase();
   if (SUPPORTED_SCHOOL_FILE_TYPES.includes(direct)) return direct;

@@ -580,8 +580,16 @@ function cdsLine(record, validated) {
   if (important.length) parts.push(`rated important: ${important.join(", ")}`);
   if (!parts.length) return null;
   const cycle = record.yearLabel || (record.year != null ? String(record.year) : "");
-  const label = `${record.school || "the school"} Common Data Set${cycle ? ` ${cycle}` : ""}${validated ? ", validated" : ", unverified parse"}`;
-  return `${parts.join("; ")} [Source: ${label}${record.sourceUrl ? `, ${record.sourceUrl}` : ""}]`;
+  const label = `${record.school || "the school"} Common Data Set${cycle ? ` ${cycle}` : ""}${validated ? " (validated against ground truth)" : " (unverified parse)"}`;
+  // Only an official host is worth showing the student as a link; a Drive
+  // or repository download URL reads as junk in an answer's "Sources:".
+  const host = hostOf(record.sourceUrl);
+  const officialLink = host && /\.edu$/.test(host) ? record.sourceUrl : null;
+  return `${parts.join("; ")} [Source: ${label}, ${officialLink || "official PDF on file"}]`;
+}
+
+function hostOf(url) {
+  try { return new URL(String(url || "")).hostname.toLowerCase(); } catch { return ""; }
 }
 
 function factLine(fact) {
@@ -598,10 +606,13 @@ export function formatVerifiedDataBlock({ schools = [], facts = [] } = {}) {
   for (const school of schools) {
     const base = baselineLine(school.baseline);
     const cds = cdsLine(school.cds, school.cdsValidated);
-    if (!base && !cds) continue;
+    if (!base && !cds && !school.policyLine) continue;
     const name = `${school.name}${school.state ? ` (${school.state})` : ""}`;
-    if (base) lines.push(`- ${name}: ${base}`);
-    if (cds) lines.push(`${base ? "  " : "- "}${base ? "" : `${name}: `}${cds}`);
+    let opened = false;
+    if (base) { lines.push(`- ${name}: ${base}`); opened = true; }
+    if (cds) { lines.push(opened ? `  ${cds}` : `- ${name}: ${cds}`); opened = true; }
+    // Current admissions policy from the daily official-site scout.
+    if (school.policyLine) lines.push(opened ? `  ${school.policyLine}` : `- ${name}: ${school.policyLine}`);
   }
   for (const fact of facts) {
     const line = factLine(fact);
