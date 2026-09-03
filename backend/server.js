@@ -152,6 +152,7 @@ import {
   formatVerifiedDataBlock,
 } from "./chat-grounding.js";
 import {
+  SCOUT_VERSION,
   initPolicyScout,
   preparePolicyScoutStatements,
   runPolicyScout,
@@ -515,7 +516,10 @@ if (process.env.POLICY_SCOUT !== "0") {
     setTimeout(() => {
       const last = lastRunSummary(policyScoutStmts);
       const ageMs = last?.finishedAt ? Date.now() - Date.parse(last.finishedAt) : Infinity;
-      if (ageMs < 20 * 60 * 60 * 1000) return;
+      // A newer scout (better discovery/extraction) re-reads every school
+      // right away rather than serving yesterday's weaker snapshots.
+      const staleVersion = last && last.scoutVersion !== SCOUT_VERSION;
+      if (ageMs < 20 * 60 * 60 * 1000 && !staleVersion) return;
       runScheduledPolicyScout("boot").catch((err) => console.warn("[policy-scout] boot run failed:", err?.message));
     }, bootDelay).unref();
   }

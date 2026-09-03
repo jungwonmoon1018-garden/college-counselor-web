@@ -28,6 +28,9 @@ import {
 import { insertFact } from "./fact-store.js";
 
 export const SCOUT_USER_AGENT = "CollegeCounselorBot/1.0 (educational; admissions-policy watch)";
+// Bumped whenever discovery or extraction changes; a boot after a bump
+// re-scouts immediately instead of waiting for the daily interval.
+export const SCOUT_VERSION = 2;
 const FETCH_TIMEOUT_MS = 10_000;
 const MAX_PAGE_BYTES = 700_000;
 const MAX_PAGE_TEXT_CHARS = 20_000;
@@ -839,7 +842,7 @@ export async function runPolicyScout(targets, {
   const failed = results.filter((r) => r.status === "failed").length;
   const changes = results.reduce((sum, r) => sum + (r.changes?.length || 0), 0);
   const summary = {
-    runId, trigger, startedAt, finishedAt: now().toISOString(),
+    runId, trigger, startedAt, finishedAt: now().toISOString(), scoutVersion: SCOUT_VERSION,
     total: list.length, checked, failed, skipped: results.length - checked - failed, changes,
     changed: results.filter((r) => r.changes?.length).map((r) => ({ school: r.school, changes: r.changes })),
     failures: results.filter((r) => r.status !== "ok").map((r) => ({ school: r.school, reason: r.reason })).slice(0, 40),
@@ -944,11 +947,13 @@ export function listRecentChanges(stmts, { days = 30, limit = 100 } = {}) {
 export function lastRunSummary(stmts) {
   const row = stmts.lastRun.get();
   if (!row) return null;
+  const summary = safeJson(row.summary_json);
   return {
     id: row.id,
     startedAt: row.started_at,
     finishedAt: row.finished_at,
     trigger: row.trigger,
+    scoutVersion: summary?.scoutVersion ?? 1,
     schoolsTotal: row.schools_total,
     schoolsChecked: row.schools_checked,
     schoolsFailed: row.schools_failed,
