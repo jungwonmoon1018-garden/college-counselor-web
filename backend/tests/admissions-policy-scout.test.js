@@ -318,6 +318,23 @@ test("a scout run snapshots a school, writes verified facts, and logs changes on
   assert.equal(run.changes, 2);
 });
 
+test("schema init removes first-population 'changes' logged by scout versions before 3", () => {
+  const { db, stmts } = freshStores();
+  // A v2 run that filled empty snapshots and logged every field as a change…
+  stmts.insertRun.run("run-v2", "2026-09-03T03:26:55.000Z", "boot", 60, JSON.stringify({ scoutVersion: 2 }));
+  stmts.finishRun.run("2026-09-03T03:34:13.000Z", 44, 8, 92, JSON.stringify({ scoutVersion: 2 }), "run-v2");
+  stmts.insertChange.run("c1", "stanford-university", "Stanford University", "2026-09-03T03:26:55.424Z", "test_policy", null, "test scores required", "https://admission.stanford.edu/", "high");
+  // …a real change from that run, and a genuine later addition (v3, other fields already known).
+  stmts.insertChange.run("c2", "stanford-university", "Stanford University", "2026-09-03T03:30:00.000Z", "application_fee", "90 USD", "100 USD", "https://admission.stanford.edu/", "normal");
+  stmts.insertRun.run("run-v3", "2026-09-03T03:44:45.000Z", "boot", 60, JSON.stringify({ scoutVersion: 3 }));
+  stmts.insertChange.run("c3", "mit", "MIT", "2026-09-03T03:45:00.000Z", "deadline_early_decision_2", null, "2027-01-05", "https://mitadmissions.org/", "high");
+
+  initPolicyScout(db); // idempotent re-init, as on every boot
+  assert.deepEqual(listRecentChanges(stmts, { days: 3650 }).map((c) => c.id).sort(), ["c2", "c3"]);
+  initPolicyScout(db);
+  assert.equal(listRecentChanges(stmts, { days: 3650 }).length, 2);
+});
+
 test("a school whose site cannot be resolved or read is reported, not invented", async () => {
   const stores = freshStores();
   const { fetchImpl } = makeSite();

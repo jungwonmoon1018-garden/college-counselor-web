@@ -86,6 +86,19 @@ export function initPolicyScout(db) {
       summary_json TEXT
     );
   `);
+  // One-time cleanup: scout versions before 3 logged the first population of
+  // an empty snapshot as "changes" (previous value null). Drop those rows so
+  // the student-facing change list only ever shows real policy changes.
+  try {
+    db.prepare(`
+      DELETE FROM admissions_policy_changes
+      WHERE previous_value IS NULL
+        AND detected_at <= COALESCE((
+          SELECT MAX(COALESCE(finished_at, started_at)) FROM admissions_policy_runs
+          WHERE COALESCE(json_extract(summary_json, '$.scoutVersion'), 1) < 3
+        ), '')
+    `).run();
+  } catch { /* JSON1 unavailable — leave the rows */ }
 }
 
 export function preparePolicyScoutStatements(db) {
