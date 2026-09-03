@@ -12,6 +12,7 @@ import {
   parseRobots,
   robotsAllows,
   resolveCycleDate,
+  rankedPolicyLinks,
   readPolicySnapshot,
   snapshotAsDeadlineRecord,
   formatPolicyLine,
@@ -21,20 +22,24 @@ import {
 
 const NOW = new Date("2026-09-03T12:00:00Z"); // cycle 2026-27 → entering fall 2027
 
+// exampleu.edu runs its admissions office on exampleuadmissions.org (as MIT
+// does on mitadmissions.org); the deadlines page is on the main site.
 const HOMEPAGE = `<html><body>
 <h1>Example University</h1>
 <p>Welcome to Example University, a residential liberal arts college on the coast of Maine with a long tradition of undergraduate research, close faculty mentorship, and community engagement across every department.</p>
 <nav>
   <a href="/admission/first-year">First-Year Admission</a>
+  <a href="https://exampleuadmissions.org/apply/">Office of Undergraduate Admissions</a>
   <a href="/private/deadlines">Internal deadlines</a>
   <a href="https://elsewhere.com/admission">Partner admission page</a>
   <a href="/athletics">Athletics</a>
+  <a href="/news">Campus news and events for the whole community</a>
 </nav>
 </body></html>`;
 
-const POLICY_V1 = `<html><body>
+const FIRST_YEAR = `<html><body>
 <h1>First-Year Applicants</h1>
-<p>Testing policy: Example University is test-optional for first-year applicants through the fall 2027 entering class. Students may choose whether to submit SAT or ACT scores, and no student is disadvantaged for not submitting.</p>
+<p>Everything you need to apply to Example University as a first-year student, from the application itself to what we look for and how we read your file with care and context.</p>
 <h2>Deadlines</h2>
 <table>
 <tr><td>Early Decision I</td><td>November 1</td></tr>
@@ -44,16 +49,34 @@ const POLICY_V1 = `<html><body>
 <p>The application fee is $75; fee waivers are available to any student for whom the fee is a hardship.</p>
 </body></html>`;
 
-const POLICY_V2 = POLICY_V1
-  .replace(/Testing policy:[^<]+/, "Testing policy: Beginning with the fall 2027 entering class, SAT or ACT scores are required for all first-year applicants. ")
-  .replace("<td>November 1</td>", "<td>November 15</td>");
+const ADMISSIONS_LANDING = `<html><body>
+<h1>Apply to Example University</h1>
+<p>Our admissions office reads every application in context. Start with the process overview, then review what first-year applicants need to submit, including our standardized testing policy and interview options.</p>
+<a href="/apply/process/">Understanding the process</a>
+<a href="/apply/firstyear/tests-scores/">standardized tests</a>
+<a href="/blogs/">Blogs</a>
+</body></html>`;
 
-function makeSite(policyHtml) {
+const TESTS_V1 = `<html><body>
+<h1>Tests & scores</h1>
+<p>Testing policy: Example University is test-optional for first-year applicants through the fall 2027 entering class. Students may choose whether to submit SAT or ACT scores, and no student is disadvantaged for not submitting.</p>
+</body></html>`;
+
+const TESTS_V2 = TESTS_V1.replace(/Testing policy:[^<]+/, "Testing policy: Beginning with the fall 2027 entering class, SAT or ACT scores are required for all first-year applicants. ");
+const FIRST_YEAR_V2 = FIRST_YEAR.replace("<td>November 1</td>", "<td>November 15</td>");
+
+function makeSite({ firstYear = FIRST_YEAR, tests = TESTS_V1 } = {}) {
   const site = new Map([
-    ["https://example-university.edu/robots.txt", { type: "text/plain", body: "User-agent: *\nDisallow: /private\n" }],
-    ["https://example-university.edu", { type: "text/html", body: HOMEPAGE }],
-    ["https://example-university.edu/admission/first-year", { type: "text/html", body: policyHtml }],
-    ["https://example-university.edu/private/deadlines", { type: "text/html", body: "<p>SECRET: Early Decision December 25</p>".repeat(8) }],
+    ["https://exampleu.edu/robots.txt", { type: "text/plain", body: "User-agent: *\nDisallow: /private\n" }],
+    ["https://exampleu.edu", { type: "text/html", body: HOMEPAGE }],
+    // Both admissions subdomains land on one page — must be counted once.
+    ["https://admission.exampleu.edu", { type: "text/html", body: HOMEPAGE, finalUrl: "https://admission.exampleu.edu/" }],
+    ["https://admissions.exampleu.edu", { type: "text/html", body: HOMEPAGE, finalUrl: "https://admission.exampleu.edu/" }],
+    ["https://exampleu.edu/admission/first-year", { type: "text/html", body: firstYear }],
+    ["https://exampleu.edu/private/deadlines", { type: "text/html", body: "<p>SECRET: Early Decision December 25</p>".repeat(8) }],
+    ["https://exampleuadmissions.org/robots.txt", { type: "text/plain", body: "User-agent: *\nDisallow:\n" }],
+    ["https://exampleuadmissions.org/apply", { type: "text/html", body: ADMISSIONS_LANDING }],
+    ["https://exampleuadmissions.org/apply/firstyear/tests-scores", { type: "text/html", body: tests }],
   ]);
   const requested = [];
   const fetchImpl = async (url) => {
@@ -61,7 +84,7 @@ function makeSite(policyHtml) {
     requested.push(key);
     const entry = site.get(key);
     if (!entry) return { ok: false, status: 404, url, headers: new Headers(), text: async () => "" };
-    return { ok: true, status: 200, url, headers: new Headers({ "content-type": entry.type }), text: async () => entry.body };
+    return { ok: true, status: 200, url: entry.finalUrl || url, headers: new Headers({ "content-type": entry.type }), text: async () => entry.body };
   };
   return { fetchImpl, requested };
 }
@@ -82,6 +105,8 @@ const scoutOptions = (stores, fetchImpl) => ({
   now: () => NOW,
 });
 
+const TARGET = { name: "Example University", website: "https://exampleu.edu" };
+
 test("robots.txt groups and longest-match rules are honored", () => {
   const groups = parseRobots("User-agent: *\nDisallow: /private\nAllow: /private/open\n\nUser-agent: CollegeCounselorBot\nDisallow: /bot-only\n");
   assert.equal(robotsAllows(groups, "/admission"), true);
@@ -100,8 +125,30 @@ test("cycle dates resolve month/day into the admissions cycle in progress", () =
   assert.equal(resolveCycleDate(13, 1, null, NOW), null);
 });
 
+test("links are ranked by their path and anchor, not by an admissions hostname", () => {
+  const html = `
+    <a href="https://admission.exampleu.edu/plan/">Plan a visit</a>
+    <a href="https://admission.exampleu.edu/apply/first-year">Application Requirements</a>
+    <a href="https://admission.exampleu.edu/apply/first-year/testing/">Standardized testing</a>
+    <a href="https://admission.exampleu.edu/brochure.pdf">Deadlines brochure</a>
+    <a href="https://exampleuadmissions.org/apply/">Office of Undergraduate Admissions</a>
+    <a href="https://elsewhere.com/apply">Apply elsewhere</a>
+    <a href="mailto:admission@exampleu.edu">Email</a>`;
+  const ranked = rankedPolicyLinks(html, "https://admission.exampleu.edu/", { domainToken: "exampleu" });
+  assert.deepEqual(ranked.map((l) => [l.url, l.offSite]), [
+    ["https://admission.exampleu.edu/apply/first-year/testing/", false],
+    ["https://admission.exampleu.edu/apply/first-year", false],
+    ["https://exampleuadmissions.org/apply/", true],
+  ]);
+  // Without the school's domain token, no off-site host is ever followed.
+  assert.ok(!rankedPolicyLinks(html, "https://admission.exampleu.edu/").some((l) => l.offSite));
+});
+
 test("policy extraction reads test policy, plan deadlines, and the fee from official text", () => {
-  const pages = [{ url: "https://example-university.edu/admission/first-year", text: htmlText(POLICY_V1) }];
+  const pages = [
+    { url: "https://exampleu.edu/admission/first-year", text: htmlText(FIRST_YEAR) },
+    { url: "https://exampleuadmissions.org/apply/firstyear/tests-scores/", text: htmlText(TESTS_V1) },
+  ];
   const policy = extractPolicyFromPages(pages, NOW);
   assert.equal(policy.cycle, "2026-27");
   assert.equal(policy.testPolicy.value, "test_optional");
@@ -122,6 +169,68 @@ test("policy extraction reads test policy, plan deadlines, and the fee from offi
   assert.equal(extractTestPolicy([{ url: "u", text: "Our campus has a lake." }], NOW), null);
 });
 
+// Line sequences copied from the real Stanford and MIT first-year pages
+// (September 2026): plan names as headings with dates on later lines,
+// portfolio sub-blocks, prose with "due", and a component table.
+const STANFORD_LINES = `Application Deadlines
+Submit your Common Application by 11:59 p.m. (in your local timezone) on the listed date. Click below to view details.
+Restrictive Early Action
+Application with Optional Arts Portfolio - October 15
+Common Application Deadline: October 15
+Arts Portfolio Materials Deadline: October 20
+Notification of Missing Documents: by mid-November
+Decision Released: by mid-December
+Student Reply Date: May 1
+Please note: If you intend to submit an REA application with an Optional Arts Portfolio , you must submit the Common Application by October 15.
+Your transcripts), School Report, and teacher/counselor letters of recommendation, can be submitted by November 1.
+Standard Application Deadline - November 1
+Common Application Deadline: November 1
+Notification of Missing Documents: by mid-November
+Decision Released: by mid-December
+Regular Decision
+Application with Optional Arts Portfolio - December 5
+Common Application Deadline: December 5
+Arts Portfolio Materials Deadline: December 10
+Please note: If you intend to submit an RD application with an Optional Arts Portfolio , you must submit the Common Application by December 5.
+Standard Application Deadline - January 5
+Common Application Deadline: January 5
+$100 nonrefundable application fee or fee waiver request
+ACT or SAT test scores`;
+
+const MIT_LINES = `First-year applicants: Deadlines & requirements
+Standardized tests : We require the SAT or ACT. Applicants must take required tests before November 30 for EA, and before December 31 for RA.
+Application fee of $75 (or fee waiver )
+Deadlines
+Early Action (EA) applications are due November 1 and admission decisions are released in mid-December.
+Regular Action (RA) applications are due January 4 and admission decisions are released in mid-March.
+Financial aid applications are managed separately from admissions applications, and are due November 30 for EA applicants and February 15 for RA applicants.
+EA Deadline
+RA Deadline
+Application Component
+November 1
+January 4
+MIT first-year application form and fee (or waiver )
+Optional: Creative portfolios
+November 1*
+January 4*`;
+
+test("deadline extraction handles real page layouts: headed sections with portfolio sub-blocks, and 'due' prose", () => {
+  const stanford = extractPolicyFromPages([{ url: "https://admission.stanford.edu/apply/first-year/", text: STANFORD_LINES }], NOW);
+  assert.equal(stanford.deadlines.restrictive_early_action.date, "2026-11-01", JSON.stringify(stanford.deadlines));
+  assert.equal(stanford.deadlines.regular_decision.date, "2027-01-05");
+  assert.match(stanford.deadlines.restrictive_early_action.evidence, /Standard Application Deadline - November 1/);
+  assert.equal(stanford.deadlines.early_action, undefined);
+  assert.equal(stanford.applicationFee.amount, 100);
+
+  const mit = extractPolicyFromPages([{ url: "https://mitadmissions.org/apply/firstyear/deadlines-requirements/", text: MIT_LINES }], NOW);
+  assert.equal(mit.deadlines.early_action.date, "2026-11-01", JSON.stringify(mit.deadlines));
+  assert.equal(mit.deadlines.regular_decision.date, "2027-01-04");
+  assert.equal(mit.deadlines.early_decision, undefined);
+  assert.equal(mit.applicationFee.amount, 75);
+  assert.equal(mit.testPolicy.value, "test_required");
+  assert.match(mit.testPolicy.evidence, /We require the SAT or ACT/);
+});
+
 test("diffing ignores fields that merely dropped out of the fetched pages", () => {
   const before = { testPolicy: { value: "test_optional" }, deadlines: { early_decision: { date: "2026-11-01" } }, applicationFee: { amount: 75 } };
   const after = { testPolicy: { value: "test_required" }, deadlines: { early_decision: { date: "2026-11-01" } }, applicationFee: null };
@@ -133,28 +242,30 @@ test("diffing ignores fields that merely dropped out of the fetched pages", () =
 
 test("a scout run snapshots a school, writes verified facts, and logs changes on the next visit", async () => {
   const stores = freshStores();
-  const v1 = makeSite(POLICY_V1);
-  const first = await runPolicyScout(
-    [{ name: "Example University", website: "https://example-university.edu" }],
-    scoutOptions(stores, v1.fetchImpl),
-  );
+  const v1 = makeSite();
+  const first = await runPolicyScout([TARGET], scoutOptions(stores, v1.fetchImpl));
   assert.equal(first.total, 1);
   assert.equal(first.checked, 1);
   assert.equal(first.changes, 0);
-  // Same-site policy page fetched; robots-disallowed and off-site links never
-  // requested.
-  assert.ok(v1.requested.includes("https://example-university.edu/admission/first-year"));
-  assert.ok(!v1.requested.includes("https://example-university.edu/private/deadlines"));
+  // Same-site policy page and the school's off-site admissions host fetched;
+  // robots-disallowed and unrelated off-site links never requested.
+  assert.ok(v1.requested.includes("https://exampleu.edu/admission/first-year"));
+  assert.ok(v1.requested.includes("https://exampleuadmissions.org/apply/firstyear/tests-scores"));
+  assert.ok(!v1.requested.includes("https://exampleu.edu/private/deadlines"));
   assert.ok(!v1.requested.some((u) => u.includes("elsewhere.com")));
+  const pagesFetched = JSON.parse(stores.stmts.getSnapshot.get("example-university").pages_json);
+  assert.equal(new Set(pagesFetched).size, pagesFetched.length, "pages are de-duplicated by their final URL");
+  assert.equal(pagesFetched.filter((u) => u.startsWith("https://admission.exampleu.edu")).length, 1);
 
   const facts = stores.factStmts.getFactsByEntity.all("university", "example-university");
   const byKey = Object.fromEntries(facts.map((f) => [f.fact_key, f]));
   assert.equal(byKey.test_policy.fact_value, "test-optional (through 2027)");
+  assert.equal(byKey.test_policy.source_domain, "exampleuadmissions.org");
   assert.equal(byKey.deadline_early_decision.fact_value, "2026-11-01");
+  assert.equal(byKey.deadline_early_decision.source_domain, "exampleu.edu");
   assert.equal(byKey.deadline_regular_decision.fact_value, "2027-01-15");
   assert.equal(byKey.application_fee.fact_value, "75 USD");
   assert.equal(byKey.test_policy.confidence, "verified");
-  assert.equal(byKey.test_policy.source_domain, "example-university.edu");
   assert.equal(byKey.test_policy.academic_year, "2026-27");
   assert.equal(byKey.test_policy.expires_at, "2027-08-01T00:00:00.000Z");
 
@@ -162,16 +273,13 @@ test("a scout run snapshots a school, writes verified facts, and logs changes on
   assert.equal(snapshot.school, "Example University");
   assert.equal(snapshot.checkedAt, NOW.toISOString());
   assert.equal(snapshot.changedAt, NOW.toISOString());
-  assert.match(formatPolicyLine(snapshot), /^Admissions policy \(official site, checked 2026-09-03\): test policy — test-optional \(through 2027\); Early Decision deadline 2026-11-01; Early Decision II deadline 2027-01-05; Regular Decision deadline 2027-01-15; application fee 75 USD \[Source: https:\/\/example-university\.edu\/admission\/first-year\]$/);
+  assert.match(formatPolicyLine(snapshot), /^Admissions policy \(official site, checked 2026-09-03\): test policy — test-optional \(through 2027\); Early Decision deadline 2026-11-01; Early Decision II deadline 2027-01-05; Regular Decision deadline 2027-01-15; application fee 75 USD \[Source: https:\/\/exampleuadmissions\.org\/apply\/firstyear\/tests-scores\/ ; https:\/\/exampleu\.edu\/admission\/first-year\]$/);
   assert.deepEqual(snapshotAsDeadlineRecord(snapshot).deadlines, { ea: null, ed: "2026-11-01", rd: "2027-01-15", financialAid: null, commitBy: null, decisionRelease: null });
 
-  // The policy page changes: testing becomes required, ED moves to Nov 15.
+  // The pages change: testing becomes required, ED moves to Nov 15.
   const later = new Date("2026-09-04T12:00:00Z");
-  const v2 = makeSite(POLICY_V2);
-  const second = await runPolicyScout(
-    [{ name: "Example University", website: "https://example-university.edu" }],
-    { ...scoutOptions(stores, v2.fetchImpl), now: () => later, trigger: "manual" },
-  );
+  const v2 = makeSite({ firstYear: FIRST_YEAR_V2, tests: TESTS_V2 });
+  const second = await runPolicyScout([TARGET], { ...scoutOptions(stores, v2.fetchImpl), now: () => later, trigger: "manual" });
   assert.equal(second.checked, 1);
   assert.equal(second.changes, 2);
   const changes = listRecentChanges(stores.stmts, { days: 30 });
@@ -195,7 +303,7 @@ test("a scout run snapshots a school, writes verified facts, and logs changes on
 
 test("a school whose site cannot be resolved or read is reported, not invented", async () => {
   const stores = freshStores();
-  const { fetchImpl } = makeSite(POLICY_V1);
+  const { fetchImpl } = makeSite();
   const summary = await runPolicyScout(
     [{ name: "Nowhere University" }, { name: "Blocked College", website: "https://blocked.example.edu" }],
     scoutOptions(stores, fetchImpl),

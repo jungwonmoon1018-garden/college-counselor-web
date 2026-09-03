@@ -993,6 +993,20 @@ function buildVerifiedDataContext({ questionText, studentId, evidence = [], want
   return formatVerifiedDataBlock({ schools, facts });
 }
 
+// True when the question names a school we hold official data for, so an
+// exact-lookup question can be answered from the VERIFIED DATA block.
+function hasVerifiedCollegeData(questionText) {
+  try {
+    for (const name of detectSchoolMentions(questionText, { knownNames: baselineCollegeNames() })) {
+      const row = resolveBaselineCollegeRow(db, { schoolName: name });
+      if (row && (row.acceptance_rate != null || row.sat_25 != null)) return true;
+      if (resolveStoredCdsRecord(ragStmts, { schoolName: row?.name || name })) return true;
+      if (readPolicySnapshot(policyScoutStmts, { unitId: row?.unit_id, name: row?.name || name })) return true;
+    }
+  } catch { /* fall back to the gate */ }
+  return false;
+}
+
 // Which schools the policy scout watches: every student's current target
 // schools, every school with a stored Common Data Set, and every school with
 // cached official-page research — i.e. the schools students actually ask
@@ -1773,7 +1787,10 @@ function regulatedResultForChat(classification, payload) {
 // (see college-research.js). Returns null when nothing cached matches.
 function deadlinesFromResearchCache(userText) {
   let names = [];
-  try { names = extractTargetSchoolNames(userText) || []; } catch { return null; }
+  // Schools named in the question (aliases + baseline names). This used to
+  // pass the question STRING to extractTargetSchoolNames, which iterates a
+  // goals array — so it "found" single characters and never matched a school.
+  try { names = detectSchoolMentions(userText, { knownNames: baselineCollegeNames() }); } catch { return null; }
   const found = [];
   for (const name of names.slice(0, 3)) {
     let record = readCachedDeadlines(collegeResearchStmts, name);
@@ -1877,21 +1894,36 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
       // FAFSA checklist regardless of what was asked.
       if (canHandleDeterministically(classification.topicType, classification.subIntent, questionText)) {
         let result = regulatedResultForChat(classification, payload);
+        let answerable = true;
         if (String(classification.subIntent || "").includes("deadline")) {
           const cached = deadlinesFromResearchCache(questionText);
           if (cached) result = cached;
+          // No cached official dates and no date supplied to compute from:
+          // the canned "No deadline date available." is a non-answer, so the
+          // question goes to the model with the VERIFIED DATA block instead.
+          else if (!payload.deadline && !payload.deadline_date) answerable = false;
         }
-        const composed = composeDeterministicAnswer({ classification, result, evidence, locale });
-        return res.json({
-          ...composed,
-          content: [{ type: "text", text: composed.answer }],
-          _meta: { deterministic: true, topicType: classification.topicType, modelTier: "NONE" },
-        });
+        if (/^No deterministic rule is available/.test(String(result?.message || ""))) answerable = false;
+        if (answerable) {
+          const composed = composeDeterministicAnswer({ classification, result, evidence, locale });
+          return res.json({
+            ...composed,
+            content: [{ type: "text", text: composed.answer }],
+            _meta: { deterministic: true, topicType: classification.topicType, modelTier: "NONE" },
+          });
+        }
       }
       // Informational regulated/high-stakes questions flow to the model:
       // the gate blocks only hard lookups without verified data, and hands
-      // back the advisory system prefix for everything it allows.
-      const gate = regulatedChatGate(classification, studentId, questionText, locale);
+      // back the advisory system prefix for everything it allows. Exact
+      // lookups (deadlines, official stats) about a school we hold official
+      // data for — IPEDS baseline, Common Data Set, or a scouted policy
+      // snapshot — are answered from the VERIFIED DATA block, not stonewalled.
+      const hardLookup = classification.topicType === TOPIC_TYPES.HIGH_STAKES
+        && ["deadlines", "official_stats"].includes(String(classification.subIntent || "").toLowerCase());
+      const gate = hardLookup && hasVerifiedCollegeData(questionText)
+        ? { systemPrefix: buildSystemPrompt(classification) }
+        : regulatedChatGate(classification, studentId, questionText, locale);
       if (gate.block) return res.json(gate.response);
       regulatedSystemPrefix = gate.systemPrefix || null;
     }

@@ -520,6 +520,28 @@ test("chat appends a visible correction when the retry still misstates the recor
   assert.doesNotMatch(turn.data.answer, /AP Statistics exam/);
 });
 
+test("a deadline question about a school with official data goes to the model, not the canned non-answer", async () => {
+  const token = await registerWithProfile("deadline-lookup");
+  const reply = "Stanford's Restrictive Early Action deadline is November 1 [Source: Stanford University Common Data Set].";
+  const turn = await request("POST", "/api/chat", {
+    token,
+    body: {
+      system: "You are the COLLEGE FIT specialist for students ages 14-18.",
+      messages: [{ role: "user", content: `When is Stanford University's early application deadline? MOCKREPLY:${b64(reply)}:` }],
+      request_id: "deadline-lookup-1",
+    },
+  });
+  assert.equal(turn.status, 200, `${JSON.stringify(turn.data)}\n${serverOutput}`);
+  // This used to short-circuit into the rules engine and answer
+  // "No deadline date available." — the school-name extractor was handed the
+  // question string and found nothing. With no cached dates the question now
+  // reaches the model with the VERIFIED DATA block.
+  assert.equal(turn.data._meta.deterministic, false);
+  assert.equal(turn.data._meta.verifiedData, true);
+  assert.equal(turn.data.answer, reply);
+  assert.doesNotMatch(turn.data.answer, /No deadline date available/);
+});
+
 test("chat grounds a college question in the VERIFIED DATA block", async () => {
   const token = await registerWithProfile("verified-data");
   const reply = "Stanford's acceptance rate is 3.9% [Source: NCES IPEDS, data year 2023], so treat it as a reach.";

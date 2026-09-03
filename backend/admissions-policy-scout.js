@@ -22,7 +22,7 @@ import crypto from "node:crypto";
 import { assertSafeFetchTarget } from "./cds-ingest-pipeline.js";
 import { searchScorecard } from "./college-scorecard.js";
 import {
-  htmlToText, harvestLinks, sameSite, pickScorecardHit, expandCollegeAlias,
+  htmlToText, sameSite, pickScorecardHit, expandCollegeAlias,
   slugifyCollege, currentAdmissionsCycle,
 } from "./college-research.js";
 import { insertFact } from "./fact-store.js";
@@ -31,17 +31,15 @@ export const SCOUT_USER_AGENT = "CollegeCounselorBot/1.0 (educational; admission
 const FETCH_TIMEOUT_MS = 10_000;
 const MAX_PAGE_BYTES = 700_000;
 const MAX_PAGE_TEXT_CHARS = 20_000;
-const MAX_FETCHES_PER_SCHOOL = 9;
-const MAX_PAGES_PER_SCHOOL = 6;
+const MAX_FETCHES_PER_SCHOOL = 12;
+const MAX_PAGES_PER_SCHOOL = 7;
 const PER_HOST_DELAY_MS = 1_000;
 
-const POLICY_LINK_RE = /admission|apply|first-year|freshman|deadline|dates|testing|test-optional|standardized|requirement/i;
-const DEEP_LINK_RE = /deadline|dates|testing|test-optional|test-policy|standardized|requirement|first-year|freshman|apply/i;
 const PROBE_PATHS = [
   "/admission", "/admissions", "/apply",
-  "/admission/first-year", "/admissions/first-year",
-  "/admission/deadlines", "/admissions/deadlines",
-  "/admission/testing", "/admissions/testing",
+  "/admission/first-year", "/admissions/first-year", "/apply/first-year", "/apply/firstyear",
+  "/admission/deadlines", "/admissions/deadlines", "/apply/deadlines",
+  "/admission/testing", "/admissions/testing", "/apply/first-year/testing",
   "/admission/standardized-testing", "/admissions/standardized-testing",
 ];
 
@@ -156,7 +154,8 @@ const PLAN_RULES = [
   ["early_decision_2", [/\bearly decision (?:II|2)\b/i, /\bED ?(?:II|2)\b/]],
   ["early_decision", [/\bearly decision(?: I| 1)?\b(?! ?(?:II|2))/i, /\bED ?(?:I|1)?\b(?! ?(?:II|2))/]],
   ["early_action", [/\bearly action\b(?! ?(?:II|2))/i, /\bEA\b/]],
-  ["regular_decision", [/\bregular decision\b/i, /\bRD\b/]],
+  // MIT calls its regular round "Regular Action (RA)".
+  ["regular_decision", [/\bregular (?:decision|action)\b/i, /\bRD\b/, /\bRA\s+(?:deadline|application|applicants|cycle|round)/i]],
 ];
 
 function splitSentences(text) {
@@ -243,27 +242,91 @@ export function extractTestPolicy(pages, now = new Date()) {
   return policy;
 }
 
+// A line that states the plan's deadline outright ("Restrictive Early
+// Action: November 1", "Early Decision deadline: Nov 1") outranks a hedged
+// note that happens to name the plan and a date ("if you intend to submit
+// an REA application with an arts portfolio, submit by October 15").
+const DEADLINE_HINT_RE = /\bdeadlines?\b|\bdue\b|must be (?:submitted|received)|submit(?:ted)? by|application date|apply by/i;
+const DEADLINE_HEDGE_RE = /portfolio|arts? supplement|audition|financial aid|css profile|fafsa|scholarship|priority|housing|deposit|interview|recommendation|transcript|mid-?year|if you (?:intend|plan|choose|wish)|optional/i;
+const DEADLINE_STANDARD_RE = /\bstandard\b|\bwithout\b|\bregular applicants\b/i;
+
+function scoreDeadlineLine(sentence) {
+  let score = 0;
+  if (DEADLINE_HINT_RE.test(sentence)) score += 3;
+  if (DEADLINE_HEDGE_RE.test(sentence)) score -= 4;
+  if (sentence.length < 120) score += 1; // table rows read as short lines
+  return score;
+}
+
+const SECTION_LINES = 14; // how far below a plan header its dates may sit
+const HEADER_MAX_CHARS = 60;
+
+function planOnLine(sentence) {
+  for (const [plan, rules] of PLAN_RULES) {
+    const m = rules.map((re) => re.exec(sentence)).find(Boolean);
+    if (m) return { plan, index: m.index };
+  }
+  return null;
+}
+
+// Two layouts occur on real pages:
+//   • same line — "Early Decision: November 1" / "November 1 — Early Decision";
+//   • section — the plan name is a heading and the dates follow on later
+//     lines, often under sub-headings ("With Arts Portfolio" / "Standard").
+// Every candidate is scored so a plain deadline statement beats a hedged
+// note, and a "standard" line beats a portfolio/supplement variant.
 export function extractDeadlines(pages, now = new Date()) {
-  const found = {};
+  const best = {};
+  const consider = (plan, score, date, sentence, page) => {
+    if (!best[plan] || score > best[plan].score) {
+      best[plan] = { score, date, evidence: trimEvidence(sentence), sourceUrl: page.url };
+    }
+  };
   for (const page of pages) {
-    for (const line of String(page.text || "").split(/\n+/)) {
-      const sentence = line.trim();
+    const lines = String(page.text || "").split(/\n+/).map((l) => l.trim());
+    let section = null; // { plan, line, hedged }
+    for (let i = 0; i < lines.length; i += 1) {
+      const sentence = lines[i];
       if (!sentence || sentence.length > 400) continue;
       const dates = datesIn(sentence, now);
-      if (!dates.length) continue;
-      for (const [plan, rules] of PLAN_RULES) {
-        if (found[plan]) continue;
-        const m = rules.map((re) => re.exec(sentence)).find(Boolean);
-        if (!m) continue;
+      const planHere = planOnLine(sentence);
+
+      if (!dates.length) {
+        const isHeader = sentence.length <= HEADER_MAX_CHARS;
+        if (planHere && isHeader) section = { plan: planHere.plan, line: i, hedged: false };
+        else if (section && isHeader && DEADLINE_HEDGE_RE.test(sentence)) section.hedged = true;
+        else if (section && isHeader && DEADLINE_STANDARD_RE.test(sentence)) section.hedged = false;
+        continue;
+      }
+
+      if (planHere) {
         // Prefer the first date after the plan name; fall back to the
         // nearest date before it ("November 1 — Early Decision").
-        const after = dates.find((d) => d.index > m.index && d.index - m.index <= 120);
-        const before = [...dates].reverse().find((d) => d.index < m.index && m.index - d.index <= 60);
+        const after = dates.find((d) => d.index > planHere.index && d.index - planHere.index <= 120);
+        const before = [...dates].reverse().find((d) => d.index < planHere.index && planHere.index - d.index <= 60);
         const pick = after || before;
-        if (!pick) continue;
-        found[plan] = { date: pick.iso, evidence: trimEvidence(sentence), sourceUrl: page.url };
+        if (pick) consider(planHere.plan, scoreDeadlineLine(sentence) + 2, pick.iso, sentence, page);
+        continue;
+      }
+
+      if (section && i - section.line <= SECTION_LINES) {
+        // A dated sub-block header ("Application with Optional Arts
+        // Portfolio - October 15") hedges the lines that follow it until a
+        // "Standard …" line opens the plain block.
+        if (DEADLINE_HEDGE_RE.test(sentence)) section.hedged = true;
+        else if (DEADLINE_STANDARD_RE.test(sentence)) section.hedged = false;
+        let score = scoreDeadlineLine(sentence);
+        if (section.hedged) score -= 4;
+        if (/\bstandard\b/i.test(sentence)) score += 2;
+        if (/common app(?:lication)?|coalition|application deadline|application due/i.test(sentence)) score += 1;
+        consider(section.plan, score, dates[0].iso, `${PLAN_LABELS[section.plan]} — ${sentence}`, page);
       }
     }
+  }
+  const found = {};
+  for (const [plan, entry] of Object.entries(best)) {
+    const { score: _score, ...rest } = entry;
+    found[plan] = rest;
   }
   return found;
 }
@@ -403,17 +466,27 @@ function makeFetcher({ fetchImpl = fetch, assertTarget = assertSafeFetchTarget, 
     lastHit.set(host, now());
   }
 
-  async function rawGet(url, accept) {
+  // The timeout covers the whole exchange, body included — clearing it once
+  // the headers arrive would let a slow body hang a run indefinitely.
+  const debug = process.env.POLICY_SCOUT_DEBUG === "1";
+  async function rawGet(url, accept, readBody) {
+    const started = Date.now();
     await assertTarget(url);
     await throttle(url);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     try {
-      return await fetchImpl(url, {
+      const response = await fetchImpl(url, {
         signal: controller.signal,
         headers: { "User-Agent": SCOUT_USER_AGENT, "Accept": accept },
         redirect: "follow",
       });
+      const result = await readBody(response);
+      if (debug) console.log(`[policy-scout] GET ${url} → ${response.status} ${response.url && response.url !== url ? `(→ ${response.url}) ` : ""}${Date.now() - started}ms${result ? "" : " (discarded)"}`);
+      return result;
+    } catch (err) {
+      if (debug) console.log(`[policy-scout] GET ${url} failed after ${Date.now() - started}ms: ${err?.name || err?.message}`);
+      throw err;
     } finally {
       clearTimeout(timer);
     }
@@ -425,27 +498,33 @@ function makeFetcher({ fetchImpl = fetch, assertTarget = assertSafeFetchTarget, 
     if (!robotsCache.has(origin)) {
       let groups = [];
       try {
-        const response = await rawGet(`${origin}/robots.txt`, "text/plain");
-        if (response.ok) groups = parseRobots((await response.text()).slice(0, 200_000));
+        groups = await rawGet(`${origin}/robots.txt`, "text/plain", async (response) => (
+          response.ok ? parseRobots((await response.text()).slice(0, 200_000)) : []
+        ));
       } catch { groups = []; }
       robotsCache.set(origin, groups);
     }
     return robotsAllows(robotsCache.get(origin), new URL(url).pathname);
   }
 
-  async function page(url) {
+  async function page(url, { acceptFinalUrl = null } = {}) {
     try {
       if (!(await allowed(url))) return { url, blocked: "robots" };
-      const response = await rawGet(url, "text/html,application/xhtml+xml,text/plain;q=0.8");
-      if (!response.ok) return null;
-      const finalUrl = response.url || url;
-      if (!sameSite(finalUrl, url) && !hostOf(finalUrl).endsWith(".edu")) return null;
-      const contentType = String(response.headers?.get?.("content-type") || "");
-      if (contentType && !/text\/html|application\/xhtml|text\/plain/i.test(contentType)) return null;
-      const html = (await response.text()).slice(0, MAX_PAGE_BYTES);
-      const text = htmlToText(html).slice(0, MAX_PAGE_TEXT_CHARS);
-      if (!text || text.length < 120) return null;
-      return { url: finalUrl, html, text };
+      return await rawGet(url, "text/html,application/xhtml+xml,text/plain;q=0.8", async (response) => {
+        if (!response.ok) return null;
+        const finalUrl = response.url || url;
+        // Redirects must land on the school's site — or on a host the
+        // caller vouches for (its off-site admissions domain).
+        if (!sameSite(finalUrl, url) && !hostOf(finalUrl).endsWith(".edu") && !(acceptFinalUrl && acceptFinalUrl(finalUrl))) return null;
+        // Soft 404s: a 200 that redirected to the site's error page.
+        if (/404|not-?found|\/errors?\//i.test(pathAndQuery(finalUrl))) return null;
+        const contentType = String(response.headers?.get?.("content-type") || "");
+        if (contentType && !/text\/html|application\/xhtml|text\/plain/i.test(contentType)) return null;
+        const html = (await response.text()).slice(0, MAX_PAGE_BYTES);
+        const text = htmlToText(html).slice(0, MAX_PAGE_TEXT_CHARS);
+        if (!text || text.length < 120) return null;
+        return { url: finalUrl, html, text };
+      });
     } catch {
       return null;
     }
@@ -485,24 +564,109 @@ export async function resolveSchoolSite({ name, unitId = null, website = null, s
 }
 
 // ─── Page discovery ────────────────────────────────────────────────────
+// Links are ranked by how specifically their PATH or anchor text points at
+// policy content. Matching the whole URL would score every link on
+// admission.<school>.edu equally (the hostname itself matches "admission"),
+// which let a landing page's nav crowd out the deadlines and testing pages.
+// Word-bounded on purpose: "Updates" must not count as "dates", and
+// "Admission Volunteers" is not a policy page.
+const LINK_SCORES = [
+  [/\bdeadlines?\b|\bdates\b|dates-and-deadlines/i, 5],
+  [/\btesting\b|\btests?\b|test-optional|test-policy|standardized|test-scores|tests-scores/i, 5],
+  [/first-year|firstyear|\bfreshman\b|first-time/i, 4],
+  [/\brequirements?\b|how-to-apply|\bapply\b|\bapplication\b/i, 3],
+  [/\badmissions?\b/i, 1],
+];
+// Application portals, logins, and news feeds never carry policy text.
+const LINK_EXCLUDE_RE = /\/portal\/|\blogin\b|\bsign-?in\b|\bstatus\b|\bnews\b|\bblog|\bevents?\b|\bvisit\b|\btour\b|announcement/i;
+const MIN_LANDING_LINK_SCORE = 3;
+const MIN_DEEP_LINK_SCORE = 4;
+
+function pathAndQuery(url) {
+  try { const u = new URL(url); return u.pathname + u.search; } catch { return ""; }
+}
+
+function scoreLink(url, anchorText) {
+  const path = pathAndQuery(url);
+  if (/\.(pdf|jpe?g|png|gif|zip|docx?)$/i.test(path)) return 0;
+  if (LINK_EXCLUDE_RE.test(`${hostOf(url)}${path}`)) return 0;
+  const text = `${path} ${anchorText}`;
+  let score = 0;
+  for (const [re, points] of LINK_SCORES) if (re.test(text)) score += points;
+  return score;
+}
+
+// A host that carries the school's own domain token and says "admission"
+// or "apply" (mit.edu → mitadmissions.org) is the school's admissions site.
+function isSchoolAdmissionsHost(host, domainToken) {
+  return domainToken.length >= 3 && host.includes(domainToken) && /admission|apply/i.test(host);
+}
+
+// Same-site links, plus — bounded — an off-site admissions host that carries
+// the school's own domain token (mit.edu → mitadmissions.org): several
+// schools run admissions on a separate domain, and refusing it means never
+// seeing their policy pages at all.
+export function rankedPolicyLinks(html, baseUrl, { allowedHosts = [], domainToken = "" } = {}) {
+  const out = new Map();
+  const re = /<a\b[^>]*href\s*=\s*["']([^"'#\s]+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  let match;
+  while ((match = re.exec(String(html || "")))) {
+    const [, href, inner] = match;
+    if (/^(mailto:|tel:|javascript:)/i.test(href)) continue;
+    let resolved;
+    try { resolved = new URL(href, baseUrl).toString(); } catch { continue; }
+    if (!/^https?:/i.test(resolved)) continue;
+    const anchor = htmlToText(inner).slice(0, 120);
+    const onSite = sameSite(resolved, baseUrl) || allowedHosts.some((h) => sameSite(resolved, `https://${h}/`));
+    let score = scoreLink(resolved, anchor);
+    if (!onSite) {
+      const host = hostOf(resolved);
+      const admissionsHost = isSchoolAdmissionsHost(host, domainToken)
+        || (domainToken.length >= 3 && host.includes(domainToken) && /admission|apply/i.test(anchor));
+      if (!admissionsHost) continue;
+      score += 2;
+    }
+    if (score <= 0) continue;
+    const key = resolved.replace(/\/+$/, "");
+    if (!out.has(key) || out.get(key).score < score) out.set(key, { url: resolved, score, offSite: !onSite });
+  }
+  return [...out.values()].sort((a, b) => b.score - a.score);
+}
+
 async function gatherPolicyPages(homepage, fetcher) {
   const pages = [];
   const tried = new Set();
+  const seenFinal = new Set();
   let fetches = 0;
   let blocked = 0;
+  const origin = new URL(homepage).origin;
+  const host = hostOf(homepage);
+  const domainToken = host.split(".")[0] || "";
+  const allowedHosts = [];
+  const linkOptions = () => ({ allowedHosts, domainToken });
+  const acceptFinalUrl = (finalUrl) => {
+    const finalHost = hostOf(finalUrl);
+    return allowedHosts.some((h) => sameSite(finalUrl, `https://${h}/`)) || isSchoolAdmissionsHost(finalHost, domainToken);
+  };
+
   const visit = async (url) => {
     const key = String(url || "").replace(/\/+$/, "");
     if (!key || tried.has(key) || pages.length >= MAX_PAGES_PER_SCHOOL || fetches >= MAX_FETCHES_PER_SCHOOL) return null;
     tried.add(key);
     fetches += 1;
-    const page = await fetcher.page(url);
+    const page = await fetcher.page(url, { acceptFinalUrl });
     if (page?.blocked) { blocked += 1; return null; }
-    if (page) pages.push(page);
+    if (!page) return null;
+    // admission.<host> and admissions.<host> usually redirect to one place.
+    const finalKey = String(page.url).replace(/\/+$/, "");
+    if (seenFinal.has(finalKey)) return null;
+    seenFinal.add(finalKey);
+    const finalHost = hostOf(page.url);
+    if (!sameSite(page.url, homepage) && !allowedHosts.includes(finalHost)) allowedHosts.push(finalHost);
+    pages.push(page);
     return page;
   };
 
-  const origin = new URL(homepage).origin;
-  const host = hostOf(homepage);
   // The admissions office usually lives on its own subdomain; those landing
   // pages are the richest single source, so try them first.
   const landing = [];
@@ -513,29 +677,40 @@ async function gatherPolicyPages(homepage, fetcher) {
   const home = await visit(homepage);
   if (home) landing.push(home);
 
-  const links = [];
-  for (const page of landing) {
-    for (const link of harvestLinks(page.html, page.url, POLICY_LINK_RE, 8)) links.push(link);
-  }
-  for (const link of links) {
-    if (pages.length >= MAX_PAGES_PER_SCHOOL) break;
-    await visit(link);
+  const ranked = [];
+  for (const page of landing) ranked.push(...rankedPolicyLinks(page.html, page.url, linkOptions()));
+  ranked.sort((a, b) => b.score - a.score);
+  for (const link of ranked) {
+    if (link.score < MIN_LANDING_LINK_SCORE) break;
+    if (pages.length >= MAX_PAGES_PER_SCHOOL - 2 || fetches >= MAX_FETCHES_PER_SCHOOL - 3) break;
+    if (link.offSite && !allowedHosts.includes(hostOf(link.url))) allowedHosts.push(hostOf(link.url));
+    await visit(link.url);
   }
   if (pages.length < 3) {
-    for (const path of PROBE_PATHS) {
-      if (pages.length >= 3 || fetches >= MAX_FETCHES_PER_SCHOOL) break;
-      await visit(origin + path);
+    const origins = [origin, ...allowedHosts.map((h) => `https://${h}`)];
+    for (const base of origins) {
+      for (const path of PROBE_PATHS) {
+        if (pages.length >= 3 || fetches >= MAX_FETCHES_PER_SCHOOL - 2) break;
+        await visit(base + path);
+      }
     }
   }
-  // One level deeper from admissions pages: the testing/deadline pages are
-  // usually one click below the landing page.
-  const deeper = [];
-  for (const page of pages.slice()) {
-    for (const link of harvestLinks(page.html, page.url, DEEP_LINK_RE, 6)) deeper.push(link);
-  }
-  for (const link of deeper) {
-    if (pages.length >= MAX_PAGES_PER_SCHOOL || fetches >= MAX_FETCHES_PER_SCHOOL) break;
-    await visit(link);
+  // Deeper from the admissions pages: the testing and deadline pages are
+  // usually one or two clicks below the landing page (home → admissions site
+  // → first-year → tests & deadlines), so expand twice within the budget.
+  const expanded = new Set();
+  for (let round = 0; round < 2; round += 1) {
+    const deeper = [];
+    for (const page of pages.slice()) {
+      if (expanded.has(page.url)) continue;
+      expanded.add(page.url);
+      deeper.push(...rankedPolicyLinks(page.html, page.url, linkOptions()).filter((l) => l.score >= MIN_DEEP_LINK_SCORE));
+    }
+    deeper.sort((a, b) => b.score - a.score);
+    for (const link of deeper) {
+      if (pages.length >= MAX_PAGES_PER_SCHOOL || fetches >= MAX_FETCHES_PER_SCHOOL) break;
+      await visit(link.url);
+    }
   }
   return { pages, fetches, blocked };
 }
