@@ -110,7 +110,7 @@ export function preparePolicyScoutStatements(db) {
       INSERT INTO admissions_policy_changes (id, slug, school_name, detected_at, field, previous_value, new_value, source_url, severity)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`),
     listChangesSince: db.prepare("SELECT * FROM admissions_policy_changes WHERE detected_at >= ? ORDER BY detected_at DESC LIMIT ?"),
-    insertRun: db.prepare("INSERT INTO admissions_policy_runs (id, started_at, trigger, schools_total) VALUES (?, ?, ?, ?)"),
+    insertRun: db.prepare("INSERT INTO admissions_policy_runs (id, started_at, trigger, schools_total, summary_json) VALUES (?, ?, ?, ?, ?)"),
     finishRun: db.prepare("UPDATE admissions_policy_runs SET finished_at = ?, schools_checked = ?, schools_failed = ?, changes = ?, summary_json = ? WHERE id = ?"),
     lastRun: db.prepare("SELECT * FROM admissions_policy_runs ORDER BY started_at DESC LIMIT 1"),
     listRuns: db.prepare("SELECT * FROM admissions_policy_runs ORDER BY started_at DESC LIMIT ?"),
@@ -838,7 +838,9 @@ export async function runPolicyScout(targets, {
   const list = dedupeTargets(targets).slice(0, maxSchools);
   const runId = crypto.randomUUID();
   const startedAt = now().toISOString();
-  stmts.insertRun.run(runId, startedAt, trigger, list.length);
+  // The version is recorded up front so an in-progress run reports the
+  // scout that is actually running, not the previous run's.
+  stmts.insertRun.run(runId, startedAt, trigger, list.length, JSON.stringify({ scoutVersion: SCOUT_VERSION, inProgress: true }));
   const fetcher = makeFetcher({ fetchImpl, assertTarget, sleep });
   const results = [];
   let cursor = 0;
