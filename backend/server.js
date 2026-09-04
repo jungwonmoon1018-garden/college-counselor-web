@@ -57,7 +57,8 @@ import { callLLM as adapterCallLLM, validateKey as adapterValidateKey, isReasona
 import { screenInput, screenOutput, restorePII, redactProviderText } from "./content-moderation.js";
 import { grantConsent, hasActiveConsent, validateRequiredConsents, getOnboardingConsentRequirements } from "./consent.js";
 import { initDomainMonitor, prepareMonitorStatements } from "./domain-monitor.js";
-import { initCollegeResearch, researchCollegeValues, researchCollegeDeadlines, readCachedDeadlines, pickScorecardHit, expandCollegeAlias, buildValuesFromCds } from "./college-research.js";
+import { initCollegeResearch, researchCollegeValues, researchCollegeDeadlines, readCachedDeadlines, readResearchCache, pickScorecardHit, expandCollegeAlias, buildValuesFromCds, slugifyCollege } from "./college-research.js";
+import { verifyCollegeFit, FIT_VERIFY_TTL_DAYS } from "./fit-verifier.js";
 import { computeFit } from "./college-values.js";
 import { runRetentionCleanup, getRetentionReport } from "./retention.js";
 import { registerStandardJobs, registerJob, startAllJobs, stopAllJobs, getJobStatus } from "./batch-jobs.js";
@@ -157,6 +158,7 @@ import {
   preparePolicyScoutStatements,
   runPolicyScout,
   readPolicySnapshot,
+  readSchoolPolicyLive,
   snapshotAsDeadlineRecord,
   formatPolicyLine,
   listRecentChanges,
@@ -416,6 +418,62 @@ const factStmts = prepareFactStatements(db);
 const evidenceStmts = prepareEvidenceStatements(db);
 const monitorStmts = prepareMonitorStatements(db);
 const collegeResearchStmts = initCollegeResearch(db);
+// The latest College Fit read per (student, school). Written by the fit
+// routes, read by the chat so the counselor quotes the same label the card
+// shows — and by the double-check, which attaches its verdict.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS student_fit_reads (
+    student_id TEXT NOT NULL,
+    slug TEXT NOT NULL,
+    school TEXT NOT NULL,
+    label TEXT,
+    score REAL,
+    admissibility REAL,
+    competitiveness REAL,
+    fit REAL,
+    confidence TEXT,
+    provenance_json TEXT,
+    verification_json TEXT,
+    computed_at TEXT NOT NULL,
+    PRIMARY KEY (student_id, slug)
+  );
+`);
+const fitReadStmts = {
+  upsert: db.prepare(`
+    INSERT INTO student_fit_reads (student_id, slug, school, label, score, admissibility, competitiveness, fit, confidence, provenance_json, verification_json, computed_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(student_id, slug) DO UPDATE SET
+      school = excluded.school, label = excluded.label, score = excluded.score,
+      admissibility = excluded.admissibility, competitiveness = excluded.competitiveness, fit = excluded.fit,
+      confidence = excluded.confidence, provenance_json = excluded.provenance_json,
+      verification_json = COALESCE(excluded.verification_json, student_fit_reads.verification_json),
+      computed_at = excluded.computed_at`),
+  byStudent: db.prepare("SELECT * FROM student_fit_reads WHERE student_id = ?"),
+};
+function rememberFitRead(studentId, target, { verification = null } = {}) {
+  try {
+    const slug = slugifyCollege(target?.schoolName || "");
+    if (!slug) return;
+    fitReadStmts.upsert.run(
+      studentId, slug, target.schoolName, target.overallPositioningLabel || null, target.finalPositioningScore ?? null,
+      target.admissibility?.academicReadinessScore ?? null, target.competitiveness?.majorCompetitivenessScore ?? null,
+      target.fit?.institutionalPriorityFitScore ?? null, target.confidence?.evidenceConfidence || null,
+      JSON.stringify(target.dataProvenance || null), verification ? JSON.stringify(verification) : null,
+      new Date().toISOString(),
+    );
+  } catch (err) { console.warn("[fit-read] not saved:", err?.message); }
+}
+function fitReadsForStudent(studentId) {
+  try {
+    return fitReadStmts.byStudent.all(studentId).map((row) => ({
+      school: row.school, slug: row.slug, label: row.label, score: row.score,
+      admissibility: row.admissibility, competitiveness: row.competitiveness, fit: row.fit,
+      confidence: row.confidence, provenance: safeParseJSON(row.provenance_json, null),
+      verification: safeParseJSON(row.verification_json, null), computedAt: row.computed_at,
+    }));
+  } catch { return []; }
+}
+
 initPolicyScout(db);
 const policyScoutStmts = preparePolicyScoutStatements(db);
 
@@ -961,7 +1019,7 @@ function baselineCollegeNames() {
 // expected). Schools named in the question come first; the student's target
 // schools are added for college-fit / strategy / supervisor calls.
 function buildVerifiedDataContext({ questionText, studentId, evidence = [], wantsCollegeData = false }) {
-  const knownNames = baselineCollegeNames();
+  const knownNames = [...baselineCollegeNames(), ...fitReadsForStudent(studentId).map((r) => r.school)];
   const names = detectSchoolMentions(questionText, { knownNames });
   if (wantsCollegeData) {
     for (const target of resolveTargetSchools(studentId)) {
@@ -970,11 +1028,13 @@ function buildVerifiedDataContext({ questionText, studentId, evidence = [], want
     }
   }
   const schools = [];
+  const fitReads = fitReadsForStudent(studentId);
   for (const name of names.slice(0, 8)) {
     const row = resolveBaselineCollegeRow(db, { schoolName: name });
     const cds = resolveStoredCdsRecord(ragStmts, { schoolName: row?.name || name });
-    if (!row && !cds) continue;
-    const resolvedName = row?.name || cds?.school || name;
+    const fitRead = fitReads.find((r) => schoolNamesCompatible(r.school, row?.name || name)) || null;
+    if (!row && !cds && !fitRead) continue;
+    const resolvedName = row?.name || cds?.school || fitRead?.school || name;
     if (schools.some((s) => schoolNamesCompatible(s.name, resolvedName))) continue;
     let policyLine = null;
     try {
@@ -988,6 +1048,9 @@ function buildVerifiedDataContext({ questionText, studentId, evidence = [], want
       cds,
       cdsValidated: cds ? isCdsRecordValidated(ragStmts, cds.slug) : false,
       policyLine,
+      // The student's own College Fit read (and its web double-check), so
+      // the counselor quotes the same label the card shows.
+      fitRead,
     });
     if (schools.length >= 4) break;
   }
@@ -3265,10 +3328,12 @@ function currentCdsVersion() {
   }
 }
 
-app.post("/api/positioning/targets", studentLimiter, requireStudentAuth, async (req, res) => {
-  try {
-    const snap = ragStmts.getLatestSnapshot.get(req.studentId);
-    if (!snap) return res.status(404).json({ error: "No profile data" });
+// The College Fit computation, shared by the targets route and the
+// double-check. Returns the response payload plus, unless served from the
+// positioning cache, the per-target inputs the scores were computed from.
+async function runPositioning({ studentId, body = {}, bypassCache = false } = {}) {
+    const snap = ragStmts.getLatestSnapshot.get(studentId);
+    if (!snap) throw httpError(404, "No profile data");
 
     const goals = safeParseJSON(snap.goals_json, []);
     const goalUnitIds = extractGoalUnitIds(goals);
@@ -3276,14 +3341,12 @@ app.post("/api/positioning/targets", studentLimiter, requireStudentAuth, async (
       .map((unitId) => db.prepare("SELECT unit_id, name, state, sat_25, sat_75, act_25, act_75, acceptance_rate, avg_gpa_admitted, top_majors_json, source FROM baseline_colleges WHERE unit_id = ?").get(unitId))
       .filter(Boolean);
 
-    const requestedTargets = Array.isArray(req.body?.targets) ? req.body.targets : null;
+    const requestedTargets = Array.isArray(body?.targets) ? body.targets : null;
     const rawTargets = requestedTargets || extractTargetSchoolNames(goals, fallbackRows);
-    if (!rawTargets.length) {
-      return res.status(400).json({ error: "No target universities found" });
-    }
+    if (!rawTargets.length) throw httpError(400, "No target universities found");
 
-    const requestedMajor = req.body?.major || snap.major_interest || null;
-    const refreshCds = Boolean(req.body?.refreshCds);
+    const requestedMajor = body?.major || snap.major_interest || null;
+    const refreshCds = Boolean(body?.refreshCds);
     const cacheKey = computeCdsQueryCacheKey(rawTargets);
     // Fold a CDS data version into every cache key so a CDS refresh (which
     // bumps cds_records.updated_at) invalidates stale cached fit results — the
@@ -3293,13 +3356,9 @@ app.post("/api/positioning/targets", studentLimiter, requireStudentAuth, async (
     if (!refreshCds) {
       const cachedCds = getScorecardQueryCache("cds_targets", { cacheKey, cdsVersion, targets: rawTargets });
       cdsResults = cachedCds?.data?.results || null;
-      const cachedPositioning = getScorecardQueryCache("positioning_targets", { cacheKey, cdsVersion, targets: rawTargets, major: requestedMajor });
+      const cachedPositioning = bypassCache ? null : getScorecardQueryCache("positioning_targets", { cacheKey, cdsVersion, targets: rawTargets, major: requestedMajor });
       if (cachedPositioning?.data) {
-        return res.json(withScorecardMeta(cachedPositioning.data, {
-          cached: true,
-          cacheKind: "positioning_targets",
-          dataFreshness: "current",
-        }));
+        return { payload: cachedPositioning.data, cached: true, internals: null };
       }
     }
 
@@ -3312,8 +3371,8 @@ app.post("/api/positioning/targets", studentLimiter, requireStudentAuth, async (
       });
     }
 
-    const strengthRows = ragStmts.strength.getByStudent.all(req.studentId);
-    const narrative = getActiveNarrative(ragStmts.narrative, req.studentId);
+    const strengthRows = ragStmts.strength.getByStudent.all(studentId);
+    const narrative = getActiveNarrative(ragStmts.narrative, studentId);
     const studentModel = buildStudentModel({
       gpa_unweighted: snap.gpa_unweighted,
       gpa_weighted: snap.gpa_weighted,
@@ -3323,20 +3382,21 @@ app.post("/api/positioning/targets", studentLimiter, requireStudentAuth, async (
       major_interest: requestedMajor,
     }, strengthRows, narrative);
 
-    const majorPolicies = req.body?.majorPolicies || {};
-    const ipedsGrowthByBucket = req.body?.ipedsGrowthByBucket || {};
+    const majorPolicies = body?.majorPolicies || {};
+    const ipedsGrowthByBucket = body?.ipedsGrowthByBucket || {};
     // Live CDS search: when a searched school isn't already in the store,
     // fetch + parse + persist its CDS (Drive-hosted PDFs are supported; the
     // ~10% Google-Sheets/Docs sources are skipped and fall back to IPEDS
     // baseline). On by default; live-parsed records are tagged unvalidated
     // (lower confidence) so a mis-parse can't masquerade as ground truth.
-    const searchCds = req.body?.searchCds !== false;
+    const searchCds = body?.searchCds !== false;
 
     // Web fallback: when neither the store nor the live PDF pipeline yields a
     // CDS, use the student's highest web-capable model to search + read the
     // school's CDS. On by default; budget-gated, BYOK-required, capped per
     // request, and cooldown-deduped so it can't run away on cost. Results are
     // tagged unvalidated (web-read) with lower confidence.
+    const internals = [];
     const scoredTargets = await Promise.all(cdsResults.map(async (cdsResult) => {
       const requested = rawTargets.find((target) =>
         (cdsResult.unitId && normalizeUnitId(target.unitId) === normalizeUnitId(cdsResult.unitId)) ||
@@ -3446,7 +3506,7 @@ app.post("/api/positioning/targets", studentLimiter, requireStudentAuth, async (
         major: requestedMajor,
         limit: 5,
       });
-      const positioning = buildPositioningForTarget(studentModel, collegeContext, effectiveCds, {
+      const positioningOptions = {
         major: requestedMajor,
         majorPolicy,
         ipedsGrowthByBucket: {
@@ -3454,6 +3514,16 @@ app.post("/api/positioning/targets", studentLimiter, requireStudentAuth, async (
           [studentModel.majorBucket]: ipedsGrowthSignal?.growthRate ?? ipedsGrowthByBucket?.[studentModel.majorBucket] ?? null,
         },
         strategicSignals,
+      };
+      const positioning = buildPositioningForTarget(studentModel, collegeContext, effectiveCds, positioningOptions);
+      internals.push({
+        schoolName: positioning.schoolName,
+        collegeContext: { ...collegeContext },
+        effectiveCds,
+        options: positioningOptions,
+        website: collegeRow?.website || null,
+        cdsYear: storedCds?.year ?? null,
+        cdsValidated,
       });
       // Surface where the numbers came from so the card can link to the CDS
       // source and show the reporting year.
@@ -3484,14 +3554,114 @@ app.post("/api/positioning/targets", studentLimiter, requireStudentAuth, async (
     };
 
     putScorecardQueryCache("positioning_targets", { cacheKey, cdsVersion, targets: rawTargets, major: requestedMajor }, payload);
+    for (const target of scoredTargets) rememberFitRead(studentId, target);
+    return { payload, cached: false, internals };
+}
+
+function httpError(status, message) {
+  const err = new Error(message);
+  err.status = status;
+  return err;
+}
+
+app.post("/api/positioning/targets", studentLimiter, requireStudentAuth, async (req, res) => {
+  try {
+    const { payload, cached } = await runPositioning({ studentId: req.studentId, body: req.body || {} });
     res.json(withScorecardMeta(payload, {
-      cached: false,
+      cached,
       cacheKind: "positioning_targets",
       dataFreshness: "current",
     }));
   } catch (err) {
+    if (Number.isInteger(err?.status) && err.status < 500) return res.status(err.status).json({ error: err.message });
     console.error("[POSITIONING] Error:", err.message);
     res.status(500).json({ error: "Target positioning failed" });
+  }
+});
+
+// The College Fit double-check: re-verify the inputs behind a school's fit
+// read against the live web — College Scorecard (live IPEDS), the school's
+// own admissions pages read by the policy scout, and the same pages read by
+// the medium-tier model as a second, quote-verified reader — then re-score
+// with the live inputs when they differ. Cached per student and school for
+// a day; force: true re-runs it.
+app.post("/api/positioning/verify", studentLimiter, requireStudentAuth, async (req, res) => {
+  try {
+    const schoolName = String(req.body?.schoolName || "").trim().slice(0, 120);
+    if (!schoolName) return res.status(400).json({ error: "schoolName is required" });
+    const consents = validateRequiredConsents(piiStmts, req.studentId, "ai_interaction");
+    if (!consents.allowed) {
+      return res.status(403).json({ error: "AI consent is required before web verification.", code: "consent_required", missing: consents.missing });
+    }
+    const slug = slugifyCollege(expandCollegeAlias(schoolName));
+    const cacheKey = "fitverify:" + req.studentId + ":" + slug;
+    if (req.body?.force !== true) {
+      const cached = readResearchCache(collegeResearchStmts, cacheKey, FIT_VERIFY_TTL_DAYS);
+      if (cached) return res.json({ ...cached, cached: true });
+    }
+
+    const run = await runPositioning({
+      studentId: req.studentId,
+      body: { targets: [{ schoolName }], ...(req.body?.major ? { major: req.body.major } : {}) },
+      bypassCache: true,
+    });
+    const target = run.payload?.targets?.[0];
+    const internals = run.internals?.[0];
+    if (!target || !internals) return res.status(404).json({ error: "No fit read is available for this school yet." });
+    const { collegeContext, effectiveCds, options, website } = internals;
+    const strengthRows = ragStmts.strength.getByStudent.all(req.studentId);
+    const snap = ragStmts.getLatestSnapshot.get(req.studentId);
+    const studentModel = buildStudentModel({
+      gpa_unweighted: snap.gpa_unweighted, gpa_weighted: snap.gpa_weighted, courses_json: snap.courses_json,
+      test_scores_json: snap.test_scores_json, activities_json: snap.activities_json, major_interest: run.payload.major || snap.major_interest,
+    }, strengthRows, getActiveNarrative(ragStmts.narrative, req.studentId));
+
+    const used = {
+      acceptanceRate: collegeContext.acceptanceRate ?? null,
+      sat25: collegeContext.sat25 ?? null, sat75: collegeContext.sat75 ?? null,
+      act25: collegeContext.act25 ?? null, act75: collegeContext.act75 ?? null,
+      testPolicy: effectiveCds?.parsed?.testPolicy || null,
+      testPolicySource: effectiveCds?.sourceLabel || effectiveCds?.source || null,
+      source: collegeContext.source || null,
+      cdsYear: internals.cdsYear,
+    };
+    const { modelConfig, callLLM } = buildStudentCallLLM(req.studentId, { requestIdPrefix: "fit-verify:" + req.studentId });
+    const verification = await verifyCollegeFit({
+      school: { name: collegeContext.name, unitId: collegeContext.unitId || null, homepage: website },
+      used,
+      lookupScorecard: async ({ name, unitId }) => {
+        if (!SCORECARD_API_KEY) return null;
+        if (unitId) return getCollegeById(SCORECARD_API_KEY, unitId);
+        const wanted = expandCollegeAlias(name);
+        return pickScorecardHit((await searchScorecard(SCORECARD_API_KEY, { name: wanted, limit: 20 }))?.results, wanted);
+      },
+      readPolicy: (t) => readSchoolPolicyLive(t, { scorecardKey: SCORECARD_API_KEY || null }),
+      callLLM: modelConfig && callLLM
+        ? (args) => callLLM({ ...args, requestId: "fit-verify:" + req.studentId + ":" + crypto.randomUUID() })
+        : null,
+      model: modelConfig?.models?.medium,
+      rescore: (live) => buildPositioningForTarget(
+        studentModel,
+        { ...collegeContext, acceptanceRate: live.acceptanceRate ?? collegeContext.acceptanceRate, sat25: live.sat25 ?? collegeContext.sat25, sat75: live.sat75 ?? collegeContext.sat75, act25: live.act25 ?? collegeContext.act25, act75: live.act75 ?? collegeContext.act75 },
+        { ...(effectiveCds || {}), parsed: { ...(effectiveCds?.parsed || {}), testPolicy: live.testPolicy || effectiveCds?.parsed?.testPolicy || null } },
+        options,
+      ),
+      original: target,
+    });
+    const payload = {
+      ...verification,
+      positioning: { overallPositioningLabel: target.overallPositioningLabel, finalPositioningScore: target.finalPositioningScore, dataProvenance: target.dataProvenance || null },
+    };
+    collegeResearchStmts.put.run(cacheKey, "fitverify", slug, collegeContext.name, JSON.stringify(payload), new Date().toISOString());
+    rememberFitRead(req.studentId, target, { verification: payload });
+    res.json({ ...payload, cached: false });
+  } catch (err) {
+    if (err?.status === 402 || err?.code === "budget_exceeded") {
+      return res.status(402).json({ error: "The monthly AI budget doesn't allow this check right now.", code: err.code || "budget_exceeded" });
+    }
+    if (Number.isInteger(err?.status) && err.status < 500) return res.status(err.status).json({ error: err.message });
+    console.error("[POSITIONING/VERIFY] Error:", err?.code || "", err?.message);
+    res.status(500).json({ error: "College Fit double-check failed" });
   }
 });
 

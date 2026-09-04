@@ -542,6 +542,57 @@ test("a deadline question about a school with official data goes to the model, n
   assert.doesNotMatch(turn.data.answer, /No deadline date available/);
 });
 
+test("the College Fit double-check compares the stored read with live sources and reaches the chat", async () => {
+  const token = await registerWithProfile("fit-verify");
+  // A fit read for Stanford comes from the stored Common Data Set.
+  const fit = await request("POST", "/api/positioning/targets", {
+    token,
+    body: { targets: [{ schoolName: "Stanford University" }], major: "Computer Science" },
+  });
+  assert.equal(fit.status, 200, `${JSON.stringify(fit.data)}\n${serverOutput}`);
+  const read = fit.data.targets[0];
+  assert.ok(read.overallPositioningLabel);
+
+  // The mock Scorecard answers 49% / 1330–1490 for every school, so the live
+  // IPEDS numbers differ from the stored CDS; the official site is unreachable
+  // in tests, so the policy check is unavailable rather than invented.
+  const verify = await request("POST", "/api/positioning/verify", {
+    token,
+    body: { schoolName: "Stanford University", major: "Computer Science" },
+  });
+  assert.equal(verify.status, 200, `${JSON.stringify(verify.data)}\n${serverOutput}`);
+  assert.equal(verify.data.verdict, "discrepancies_found");
+  assert.equal(verify.data.cached, false);
+  const byField = Object.fromEntries(verify.data.checks.map((c) => [c.field, c]));
+  assert.equal(byField.acceptance_rate.status, "differs");
+  assert.equal(byField.acceptance_rate.live, "49%");
+  assert.match(byField.acceptance_rate.used, /^\d+(\.\d)?%$/);
+  assert.equal(byField.test_policy.status, "unavailable");
+  assert.ok(verify.data.sources.some((s) => s.kind === "college_scorecard"));
+  assert.equal(verify.data.positioning.overallPositioningLabel, read.overallPositioningLabel);
+  // A validated CDS as new as Scorecard's data keeps its numbers: no re-score.
+  assert.equal(verify.data.recomputed, null);
+
+  const again = await request("POST", "/api/positioning/verify", { token, body: { schoolName: "Stanford University" } });
+  assert.equal(again.status, 200);
+  assert.equal(again.data.cached, true);
+
+  // The chat now sees the same read and the verdict.
+  const turn = await request("POST", "/api/chat", {
+    token,
+    body: {
+      system: "You are the COLLEGE FIT specialist for students ages 14-18.",
+      messages: [{ role: "user", content: `How do I stand at Stanford University? MOCKREPLY:${b64("You are a reach there.")}:` }],
+      request_id: "fit-verify-chat-1",
+    },
+  });
+  assert.equal(turn.status, 200, `${JSON.stringify(turn.data)}\n${serverOutput}`);
+  const calls = loggedModelCalls();
+  const wire = JSON.stringify(calls[calls.length - 1].messages);
+  assert.match(wire, new RegExp(`College Fit read for THIS student \\(computed \\d{4}-\\d{2}-\\d{2} from validated Common Data Set\\): ${read.overallPositioningLabel}`));
+  assert.match(wire, /College Fit double-check \(\d{4}-\d{2}-\d{2}\): live sources differ from the stored data — Admit rate: fit used \d+(?:\.\d)?%, live 49%/);
+});
+
 test("chat grounds a college question in the VERIFIED DATA block", async () => {
   const token = await registerWithProfile("verified-data");
   const reply = "Stanford's acceptance rate is 3.9% [Source: NCES IPEDS, data year 2023], so treat it as a reach.";

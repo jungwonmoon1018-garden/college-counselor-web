@@ -471,7 +471,7 @@ function hostOf(url) {
   try { return new URL(url).hostname.toLowerCase().replace(/^www\./, ""); } catch { return ""; }
 }
 
-function makeFetcher({ fetchImpl = fetch, assertTarget = assertSafeFetchTarget, now = () => Date.now(), sleep = (ms) => new Promise((r) => setTimeout(r, ms)) } = {}) {
+export function makeFetcher({ fetchImpl = fetch, assertTarget = assertSafeFetchTarget, now = () => Date.now(), sleep = (ms) => new Promise((r) => setTimeout(r, ms)) } = {}) {
   const lastHit = new Map();
   const robotsCache = new Map();
 
@@ -788,18 +788,28 @@ export function writePolicyFacts(factStmts, { slug, schoolName, unitId, policy, 
 }
 
 // ─── Per-school scout ──────────────────────────────────────────────────
-export async function scoutSchool(target, { stmts, factStmts, scorecardKey = null, fetcher, now = new Date() }) {
+// Live single-school read: resolve the site, gather its official admissions
+// pages, extract the policy. Nothing is persisted — the daily scout and the
+// College Fit double-check both build on this.
+export async function readSchoolPolicyLive(target, {
+  scorecardKey = null, fetcher = null, fetchImpl = fetch, assertTarget = assertSafeFetchTarget, sleep, now = new Date(),
+} = {}) {
   const site = await resolveSchoolSite({ ...target, scorecardKey });
   const slug = slugifyCollege(site.displayName);
-  if (!slug) return { school: target.name, status: "skipped", reason: "bad_name" };
-  if (!site.homepage) return { school: site.displayName, slug, status: "skipped", reason: "site_unresolved" };
+  if (!slug) return { site, slug: null, pages: [], policy: null, fetches: 0, failure: "bad_name" };
+  if (!site.homepage) return { site, slug, pages: [], policy: null, fetches: 0, failure: "site_unresolved" };
+  const { pages, fetches, blocked } = await gatherPolicyPages(site.homepage, fetcher || makeFetcher({ fetchImpl, assertTarget, sleep }));
+  if (!pages.length) return { site, slug, pages: [], policy: null, fetches, failure: blocked ? "robots_disallowed" : "no_pages" };
+  return { site, slug, pages, policy: extractPolicyFromPages(pages, now), fetches, failure: null };
+}
 
-  const { pages, fetches, blocked } = await gatherPolicyPages(site.homepage, fetcher);
-  if (!pages.length) {
-    return { school: site.displayName, slug, status: "failed", reason: blocked ? "robots_disallowed" : "no_pages", fetches };
-  }
+export async function scoutSchool(target, { stmts, factStmts, scorecardKey = null, fetcher, now = new Date() }) {
+  const live = await readSchoolPolicyLive(target, { scorecardKey, fetcher, now });
+  const { site, slug, pages, policy, fetches } = live;
+  if (live.failure === "bad_name") return { school: target.name, status: "skipped", reason: "bad_name" };
+  if (live.failure === "site_unresolved") return { school: site.displayName, slug, status: "skipped", reason: "site_unresolved" };
+  if (live.failure) return { school: site.displayName, slug, status: "failed", reason: live.failure, fetches };
 
-  const policy = extractPolicyFromPages(pages, now);
   const fields = policyFields(policy);
   const previous = stmts.getSnapshot.get(slug);
   const previousPolicy = previous ? safeJson(previous.policy_json) : null;

@@ -66,7 +66,77 @@ function SubBar({ label, score, color, range }) {
   );
 }
 
-export default function CalibratedFitCard({ collegeValues, positioning, loading, isTarget, onAddTarget }) {
+const CHECK_ICON = { consistent: "✓", differs: "≠", inconclusive: "?", unavailable: "–", info: "ℹ" };
+const CHECK_COLOR = { consistent: "#68d391", differs: "#f56565", inconclusive: "#f6ad55", unavailable: "#6a6a7a", info: "#8ec5ff" };
+const VERDICT_COLOR = { consistent: "#68d391", discrepancies_found: "#f56565", inconclusive: "#f6ad55", unverifiable: "#8a8a9a" };
+
+function isUrl(value) {
+  return /^https?:/.test(String(value || ""));
+}
+
+// The web double-check: what the fit used vs what the live sources say.
+function VerificationPanel({ v, locale }) {
+  const color = VERDICT_COLOR[v.verdict] || "#8a8a9a";
+  const checks = Array.isArray(v.checks) ? v.checks : [];
+  const scored = checks.filter((c) => c.status !== "info");
+  const info = checks.filter((c) => c.status === "info");
+  return (
+    <div style={{ marginTop: 6, padding: 8, borderRadius: 6, background: "rgba(255,255,255,0.02)", border: `1px solid ${color}33` }}>
+      <div style={{ fontSize: 10, fontWeight: 700, color, marginBottom: 4 }}>
+        {t(locale, `fit.verdict_${v.verdict}`)}
+        <span style={{ fontWeight: 400, color: "#6a6a7a", marginLeft: 6 }}>
+          {String(v.checkedAt || "").slice(0, 10)}{v.cached ? " · cached" : ""}
+        </span>
+      </div>
+      {scored.map((c) => (
+        <div key={c.field} style={{ fontSize: 10, color: "#bbb", lineHeight: 1.5, display: "flex", gap: 6 }}>
+          <span style={{ color: CHECK_COLOR[c.status] || "#8a8a9a", width: 10, flexShrink: 0 }}>{CHECK_ICON[c.status] || "•"}</span>
+          <span>
+            <span style={{ color: "#ddd" }}>{c.label}:</span>{" "}
+            {c.used != null && <span>{t(locale, "fit.fit_used")} {c.used}</span>}
+            {c.used != null && c.live != null && <span> · </span>}
+            {c.live != null && (
+              isUrl(c.liveSource)
+                ? <a href={c.liveSource} target="_blank" rel="noopener noreferrer" style={{ color: "#8ec5ff", textDecoration: "none" }}>{t(locale, "fit.live")} {c.live} ↗</a>
+                : <span>{t(locale, "fit.live")} {c.live}{c.liveSource ? ` (${c.liveSource})` : ""}</span>
+            )}
+            {c.used == null && c.live == null && <span style={{ color: "#6a6a7a" }}>not available</span>}
+            {c.evidence && <div style={{ fontSize: 9, color: "#777", fontStyle: "italic" }}>{"“"}{c.evidence}{"”"}</div>}
+          </span>
+        </div>
+      ))}
+      {info.length > 0 && (
+        <div style={{ fontSize: 9, color: "#8a8a9a", marginTop: 4, lineHeight: 1.5 }}>
+          {info.map((c) => (
+            <span key={c.field} style={{ marginRight: 8 }}>
+              ℹ {c.label}: {isUrl(c.liveSource)
+                ? <a href={c.liveSource} target="_blank" rel="noopener noreferrer" style={{ color: "#8ec5ff", textDecoration: "none" }}>{c.live}</a>
+                : c.live}
+            </span>
+          ))}
+        </div>
+      )}
+      {v.recomputed && (
+        <div style={{ fontSize: 10, marginTop: 6, color: v.recomputed.labelChanged ? "#f6ad55" : "#9ae6b4" }}>
+          {t(locale, "fit.recomputed")}: <strong>{v.recomputed.overallPositioningLabel}</strong>
+          {v.recomputed.labelChanged ? ` (was ${v.original?.overallPositioningLabel})` : " (label unchanged)"}
+        </div>
+      )}
+      {v.modelReview && (v.modelReview.summary || (v.modelReview.notes || []).length > 0) && (
+        <div style={{ marginTop: 6, fontSize: 10, color: "#aaa", lineHeight: 1.5 }}>
+          <div style={{ fontSize: 9, color: "#6a6a7a", textTransform: "uppercase", letterSpacing: "0.05em" }}>{t(locale, "fit.model_review")}</div>
+          {v.modelReview.summary && <div>{v.modelReview.summary}</div>}
+          {(v.modelReview.notes || []).map((n, idx) => <div key={idx}>• {n}</div>)}
+        </div>
+      )}
+      {v.officialSite?.status && v.officialSite.status !== "read" && (
+        <div style={{ fontSize: 9, color: "#6a6a7a", marginTop: 4 }}>Official site: {String(v.officialSite.status).replace(/_/g, " ")}</div>
+      )}
+    </div>
+  );
+}
+
+export default function CalibratedFitCard({ collegeValues, positioning, loading, isTarget, onAddTarget, verification, verifying, onVerify }) {
   const locale = collegeValues?.locale || "en-US";
   const hasPositioning = positioning && positioning.overallPositioningLabel;
 
@@ -155,6 +225,20 @@ export default function CalibratedFitCard({ collegeValues, positioning, loading,
             <div style={{ marginTop: 8, fontSize: 10, color: "#9ae6b4", lineHeight: 1.5 }}>
               <span style={{ color: "#6a6a7a" }}>{t(locale, "fit.strategy")}: </span>
               {positioning.recommendedPositioningStrategy}
+            </div>
+          )}
+
+          {/* ── Web double-check: live Scorecard + the school's own pages ── */}
+          {onVerify && (
+            <div style={{ marginTop: 8 }}>
+              <button
+                onClick={() => onVerify()}
+                disabled={verifying}
+                title="Re-check the numbers and policy behind this read against College Scorecard and the school's own admissions pages"
+                style={{ fontSize: 10, color: verifying ? "#666" : "#8ec5ff", background: "rgba(142,197,255,0.08)", border: "1px solid rgba(142,197,255,0.25)", borderRadius: 6, padding: "3px 8px", cursor: verifying ? "default" : "pointer" }}
+              >{verifying ? t(locale, "fit.verifying") : t(locale, "fit.verify")}</button>
+              {verification?.error && <div style={{ fontSize: 10, color: "#fc8181", marginTop: 4 }}>{verification.error}</div>}
+              {verification && !verification.error && <VerificationPanel v={verification} locale={locale} />}
             </div>
           )}
         </div>

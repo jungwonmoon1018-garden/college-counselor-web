@@ -2748,6 +2748,9 @@ export default function App() {
   // Calibrated positioning for the looked-up college (reach/target/safety).
   const [collegePositioning, setCollegePositioning] = useState(null);
   const [collegePositioningLoading, setCollegePositioningLoading] = useState(false);
+  // Web double-check of the fit read (live Scorecard + official pages).
+  const [collegeVerification, setCollegeVerification] = useState(null);
+  const [collegeVerifying, setCollegeVerifying] = useState(false);
   // Shared "I'm targeting…" list of specific universities. Read by Rank EC
   // ideas, Edit your story, and Course plan so their output is tailored to
   // these schools. Persisted to localStorage (the survey only captures
@@ -3015,6 +3018,7 @@ export default function App() {
     if (!token || !collegeName) return;
     setCollegeValuesLoading(true);
     setCollegePositioning(null);
+    setCollegeVerification(null);
     try {
       const r = await fetch("/api/colleges/values", {
         method: "POST",
@@ -3051,6 +3055,29 @@ export default function App() {
       setCollegePositioning(null);
     } finally {
       setCollegePositioningLoading(false);
+    }
+  }, [data]);
+
+  // Double-check the fit read against the live web: College Scorecard, the
+  // school's own admissions pages (deterministic parse), and a second,
+  // quote-verified read of those pages by the medium-tier model.
+  const verifyCollegeFit = useCallback(async (schoolName, force = false) => {
+    const token = window.__CC_SESSION_TOKEN__;
+    if (!token || !schoolName) return;
+    setCollegeVerifying(true);
+    try {
+      const major = (data?.majorInterest || data?.profile?.majorInterest || null);
+      const r = await fetch("/api/positioning/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ schoolName, force, ...(major ? { major } : {}) }),
+      });
+      const body = await r.json().catch(() => ({}));
+      setCollegeVerification(r.ok ? body : { error: body.error || `HTTP ${r.status}` });
+    } catch (err) {
+      setCollegeVerification({ error: err?.message || "verification failed" });
+    } finally {
+      setCollegeVerifying(false);
     }
   }, [data]);
 
@@ -5288,6 +5315,9 @@ export default function App() {
               loading={collegePositioningLoading}
               isTarget={targetSchools.some(s => s.toLowerCase() === String(collegeValues.displayName||"").toLowerCase())}
               onAddTarget={() => addTargetSchool(collegeValues.displayName)}
+              verification={collegeVerification}
+              verifying={collegeVerifying}
+              onVerify={() => verifyCollegeFit(collegeValues.displayName, Boolean(collegeVerification))}
             />
           )}
           {collegeValues?.error && (

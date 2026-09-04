@@ -61,6 +61,11 @@ function cacheRead(stmts, cacheKey, ttlDays, now) {
   try { return JSON.parse(row.payload_json); } catch { return null; }
 }
 
+// Read a cached research payload by key (null when missing or older than the TTL).
+export function readResearchCache(stmts, cacheKey, ttlDays, now = new Date()) {
+  return cacheRead(stmts, cacheKey, ttlDays, now);
+}
+
 // ─── Small pure helpers ─────────────────────────────────────────────────
 export function slugifyCollege(name) {
   return String(name || "").toLowerCase().normalize("NFKC")

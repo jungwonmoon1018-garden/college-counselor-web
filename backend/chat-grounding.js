@@ -16,6 +16,8 @@
 //   formatVerifiedDataBlock — the VERIFIED DATA block (IPEDS baseline, CDS,
 //                             research-cache facts) the model may cite from
 
+import { formatVerificationLine } from "./fit-verifier.js";
+
 export const CHAT_PROFILE_LIMITS = Object.freeze({ maxCourses: 40, maxActivities: 20 });
 
 const YEAR_LABELS = {
@@ -601,18 +603,40 @@ function factLine(fact) {
   return `- ${entity ? `${entity}: ` : ""}${key ? `${key} — ` : ""}${value}${source ? ` [Source: ${source}]` : ""}`;
 }
 
+// The student's own College Fit read for a school, so the counselor quotes
+// the same label the card shows — plus the web double-check's verdict.
+function fitReadLine(read) {
+  if (!read || !read.label) return null;
+  const date = String(read.computedAt || "").slice(0, 10);
+  const provenance = read.provenance?.kind
+    ? ({ cds_store: "validated Common Data Set", cds_live: "live Common Data Set (unverified)", cds_web: "AI web-read CDS (unverified)", college_scorecard: "College Scorecard", baseline_only: "IPEDS baseline" }[read.provenance.kind] || read.provenance.kind)
+    : "stored data";
+  const dims = [];
+  if (read.admissibility != null) dims.push(`admissibility ${Math.round(read.admissibility)}/100`);
+  if (read.competitiveness != null) dims.push(`competitiveness ${Math.round(read.competitiveness)}/100`);
+  if (read.fit != null) dims.push(`fit ${Math.round(read.fit)}/100`);
+  let line = `College Fit read for THIS student (computed ${date} from ${provenance}): ${read.label}`;
+  if (dims.length) line += ` — ${dims.join(", ")}`;
+  if (read.confidence) line += `; evidence confidence ${read.confidence}`;
+  line += ". Use this exact label when the student asks how they stand here.";
+  if (read.verification) line += ` ${formatVerificationLine(read.verification)}.`;
+  return line;
+}
+
 export function formatVerifiedDataBlock({ schools = [], facts = [] } = {}) {
   const lines = [];
   for (const school of schools) {
     const base = baselineLine(school.baseline);
     const cds = cdsLine(school.cds, school.cdsValidated);
-    if (!base && !cds && !school.policyLine) continue;
+    const fit = fitReadLine(school.fitRead);
+    if (!base && !cds && !school.policyLine && !fit) continue;
     const name = `${school.name}${school.state ? ` (${school.state})` : ""}`;
     let opened = false;
     if (base) { lines.push(`- ${name}: ${base}`); opened = true; }
     if (cds) { lines.push(opened ? `  ${cds}` : `- ${name}: ${cds}`); opened = true; }
     // Current admissions policy from the daily official-site scout.
-    if (school.policyLine) lines.push(opened ? `  ${school.policyLine}` : `- ${name}: ${school.policyLine}`);
+    if (school.policyLine) { lines.push(opened ? `  ${school.policyLine}` : `- ${name}: ${school.policyLine}`); opened = true; }
+    if (fit) lines.push(opened ? `  ${fit}` : `- ${name}: ${fit}`);
   }
   for (const fact of facts) {
     const line = factLine(fact);
