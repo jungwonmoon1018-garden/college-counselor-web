@@ -122,7 +122,10 @@ function VerificationPanel({ v, locale }) {
           {v.recomputed.labelChanged ? ` (was ${v.original?.overallPositioningLabel})` : " (label unchanged)"}
         </div>
       )}
-      {v.modelReview && (v.modelReview.summary || (v.modelReview.notes || []).length > 0) && (
+      {v.modelReview && v.modelReview.status && v.modelReview.status !== "ok" && (
+        <div style={{ fontSize: 9, color: "#6a6a7a", marginTop: 4 }}>{t(locale, "fit.model_review")}: unavailable this time</div>
+      )}
+      {v.modelReview && v.modelReview.status === "ok" && (v.modelReview.summary || (v.modelReview.notes || []).length > 0) && (
         <div style={{ marginTop: 6, fontSize: 10, color: "#aaa", lineHeight: 1.5 }}>
           <div style={{ fontSize: 9, color: "#6a6a7a", textTransform: "uppercase", letterSpacing: "0.05em" }}>{t(locale, "fit.model_review")}</div>
           {v.modelReview.summary && <div>{v.modelReview.summary}</div>}

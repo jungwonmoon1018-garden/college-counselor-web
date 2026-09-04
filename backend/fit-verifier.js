@@ -241,13 +241,34 @@ function parseJsonLoose(text) {
   try { return JSON.parse(cleaned.slice(start, end + 1)); } catch { return null; }
 }
 
+// A reply that isn't strict JSON (a quote with an unescaped double quote
+// inside the evidence string is the usual culprit) is read field by field
+// instead of being thrown away; a reply with nothing recoverable is reported
+// as unparseable so the gap is visible rather than silent.
+function extractReviewFields(text) {
+  const src = String(text || "");
+  const str = (key) => {
+    const m = src.match(new RegExp(`"${key}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`));
+    return m ? m[1].replace(/\\"/g, "\"").replace(/\\n/g, " ").trim() : "";
+  };
+  const value = (src.match(/"value"\s*:\s*"(test_optional|test_required|test_blind|unknown)"/i) || [])[1] || "";
+  const notesBlock = (src.match(/"notes"\s*:\s*\[([\s\S]*?)\]/) || [])[1] || "";
+  const notes = [...notesBlock.matchAll(/"((?:\\.|[^"\\])*)"/g)].map((m) => m[1].trim());
+  if (!value && !notes.length && !str("summary")) return null;
+  return { testPolicy: { value, evidence: str("evidence"), sourceUrl: str("sourceUrl") }, notes, summary: str("summary") };
+}
+
 export function parseReviewReply(text, pages = []) {
-  const parsed = parseJsonLoose(text);
-  if (!parsed || typeof parsed !== "object") return null;
+  const body = String(text || "").replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+  const parsed = parseJsonLoose(body) || extractReviewFields(body);
+  if (!parsed || typeof parsed !== "object") {
+    return { status: "unparseable", excerpt: body.slice(0, 160) };
+  }
   const value = String(parsed.testPolicy?.value || "unknown").toLowerCase();
   const evidence = String(parsed.testPolicy?.evidence || "").trim();
   const verifiedUrl = evidence ? verifyQuote(evidence, pages) : null;
   return {
+    status: "ok",
     testPolicy: {
       value: ["test_optional", "test_required", "test_blind"].includes(value) ? value : "unknown",
       evidence: verifiedUrl ? evidence.slice(0, 300) : null,
@@ -299,8 +320,8 @@ export async function verifyCollegeFit({
         : String(result?.text || "");
       modelReview = parseReviewReply(text, live.pages);
     } catch (err) {
-      modelReview = null;
-      sources.push({ kind: "model_review", label: "Model review unavailable", error: String(err?.message || "").slice(0, 120) });
+      modelReview = { status: "failed", error: String(err?.message || "").slice(0, 120) };
+      sources.push({ kind: "model_review", label: "Model review unavailable", error: modelReview.error });
     }
   }
 
@@ -308,7 +329,7 @@ export async function verifyCollegeFit({
     used,
     scorecard,
     policy: live.policy,
-    modelPolicy: modelReview?.testPolicy || null,
+    modelPolicy: modelReview?.status === "ok" ? modelReview.testPolicy : null,
     policyFailure: live.failure,
   });
   const verdict = verdictFromChecks(checks);
@@ -334,7 +355,11 @@ export async function verifyCollegeFit({
     checks,
     sources,
     officialSite: live.failure ? { status: live.failure } : { status: "read", pages: live.pages.length },
-    modelReview: modelReview ? { summary: modelReview.summary, notes: modelReview.notes, testPolicy: modelReview.testPolicy } : null,
+    modelReview: !modelReview
+      ? null
+      : modelReview.status === "ok"
+        ? { status: "ok", summary: modelReview.summary, notes: modelReview.notes, testPolicy: modelReview.testPolicy }
+        : modelReview,
     recomputed,
     original: original
       ? { finalPositioningScore: original.finalPositioningScore ?? null, overallPositioningLabel: original.overallPositioningLabel ?? null }

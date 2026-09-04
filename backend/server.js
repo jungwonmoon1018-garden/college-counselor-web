@@ -3648,6 +3648,9 @@ app.post("/api/positioning/verify", studentLimiter, requireStudentAuth, async (r
       ),
       original: target,
     });
+    if (verification.modelReview && verification.modelReview.status !== "ok") {
+      console.warn(`[POSITIONING/VERIFY] model review ${verification.modelReview.status} for ${collegeContext.name}:`, verification.modelReview.excerpt || verification.modelReview.error || "");
+    }
     const payload = {
       ...verification,
       positioning: { overallPositioningLabel: target.overallPositioningLabel, finalPositioningScore: target.finalPositioningScore, dataProvenance: target.dataProvenance || null },

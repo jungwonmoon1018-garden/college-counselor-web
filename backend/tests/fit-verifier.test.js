@@ -84,7 +84,14 @@ test("the model's second read only counts when its quote appears verbatim on a f
   const fabricated = parseReviewReply('{"testPolicy":{"value":"test_optional","evidence":"Scores are optional for everyone","sourceUrl":"https://admission.example.edu/x"},"notes":[],"summary":""}', pages);
   assert.equal(fabricated.testPolicy.quoteVerified, false);
   assert.equal(fabricated.testPolicy.evidence, null);
-  assert.equal(parseReviewReply("I cannot do that.", pages), null);
+  assert.deepEqual(parseReviewReply("I cannot do that.", pages), { status: "unparseable", excerpt: "I cannot do that." });
+  // Reasoning preamble and an unescaped quote inside the evidence (invalid
+  // JSON) are both recovered field by field.
+  const messy = parseReviewReply('<think>reading pages</think>\n{"testPolicy":{"value":"test_required","evidence":"ACT or SAT scores are required","sourceUrl":"' + pages[0].url + '"},"notes":["Applicants may "superscore" the SAT."],"summary":"Tests are required."}', pages);
+  assert.equal(messy.status, "ok");
+  assert.equal(messy.testPolicy.value, "test_required");
+  assert.equal(messy.testPolicy.quoteVerified, true);
+  assert.equal(messy.summary, "Tests are required.");
   const { system, user } = buildReviewMessages({ school: "Example University", used, pages });
   assert.match(system, /ONLY valid JSON/);
   assert.match(user, /admit rate 3\.6%; SAT middle 50% 1510–1580/);
@@ -117,6 +124,7 @@ test("verifyCollegeFit orchestrates the three checks, re-scores on a policy chan
   assert.deepEqual(verification.recomputed, { changedInputs: ["test_policy"], finalPositioningScore: 41, overallPositioningLabel: "High Reach", labelChanged: true });
   assert.deepEqual(verification.sources.map((s) => s.kind), ["college_scorecard", "official_site"]);
   assert.equal(verification.officialSite.status, "read");
+  assert.equal(verification.modelReview.status, "ok");
   assert.equal(verification.modelReview.notes[0], "Scores are required again from fall 2027.");
   assert.equal(verification.checkedAt, NOW.toISOString());
   assert.equal(
