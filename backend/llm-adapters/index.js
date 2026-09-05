@@ -24,8 +24,20 @@ export function isReasonableModelId(value) {
     && !/[\s\x00-\x1f\x7f]/.test(value);
 }
 
+// Models the daily catalog scout listed as additional tier options. The
+// server registers them at boot and after each scout run; they extend the
+// packaged allowlist without changing the reviewed tier defaults.
+const DYNAMIC_OPENROUTER_MODELS = new Set();
+export function registerDynamicOpenRouterModels(ids) {
+  DYNAMIC_OPENROUTER_MODELS.clear();
+  for (const id of Array.isArray(ids) ? ids : []) {
+    if (isReasonableModelId(id)) DYNAMIC_OPENROUTER_MODELS.add(id);
+  }
+  return DYNAMIC_OPENROUTER_MODELS.size;
+}
+
 export function isAllowedOpenRouterModel(value) {
-  return isReasonableModelId(value) && OPENROUTER_ALLOWED_MODELS.has(value);
+  return isReasonableModelId(value) && (OPENROUTER_ALLOWED_MODELS.has(value) || DYNAMIC_OPENROUTER_MODELS.has(value));
 }
 
 export function detectProvider({ apiKey = '', provider = '', baseUrl = '' } = {}) {
@@ -142,7 +154,7 @@ export async function validateKey({ provider = 'openrouter', apiKey, baseUrl, fe
 }
 
 export function listKnownModels(provider) {
-  return provider === 'openrouter' ? [...OPENROUTER_ALLOWED_MODELS] : [];
+  return provider === 'openrouter' ? [...new Set([...OPENROUTER_ALLOWED_MODELS, ...DYNAMIC_OPENROUTER_MODELS])] : [];
 }
 
 export function listProviders() {

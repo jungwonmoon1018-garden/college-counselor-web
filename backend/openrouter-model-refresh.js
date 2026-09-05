@@ -93,6 +93,7 @@ export async function fetchOpenRouterModels(fetchImpl = fetch) {
       if (!id) return null;
       const promptPerTok = Number(m?.pricing?.prompt);
       const completionPerTok = Number(m?.pricing?.completion);
+      const created = Number(m?.created);
       return {
         id,
         name: String(m?.name || id),
@@ -102,6 +103,13 @@ export async function fetchOpenRouterModels(fetchImpl = fetch) {
           outputPerMTok: Number.isFinite(completionPerTok) ? completionPerTok * 1_000_000 : null,
         },
         free: /:free$/.test(id) || promptPerTok === 0,
+        // Kept for the daily model-catalog scout: when the model appeared and
+        // whether it is a text-in / text-out chat model.
+        createdAt: Number.isFinite(created) && created > 0 ? new Date(created * 1000).toISOString() : null,
+        modalities: {
+          input: Array.isArray(m?.architecture?.input_modalities) ? m.architecture.input_modalities : [],
+          output: Array.isArray(m?.architecture?.output_modalities) ? m.architecture.output_modalities : [],
+        },
       };
     })
     .filter(Boolean);

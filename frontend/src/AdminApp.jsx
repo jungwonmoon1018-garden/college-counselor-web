@@ -442,7 +442,7 @@ export default function AdminApp() {
                     <select id={`model-${tier}`} value={models[tier] || ""} onChange={(event) => setModels((current) => ({ ...current, [tier]: event.target.value }))} required>
                       {modelOptions.map((option) => (
                         <option key={option.id} value={option.id} disabled={option.available === false && option.id !== models[tier]}>
-                          {option.label}{option.available === false ? ` · ${c.unavailable}` : ""}
+                          {option.label}{option.discovered ? ` · new (${option.tier || "?"} tier${option.firstSeen ? `, found ${String(option.firstSeen).slice(0, 10)}` : ""})` : ""}{option.available === false ? ` · ${c.unavailable}` : ""}
                         </option>
                       ))}
                     </select>

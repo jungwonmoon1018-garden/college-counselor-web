@@ -53,7 +53,7 @@ import { OPENROUTER_TARGETS, OPENROUTER_STATUS, OPENROUTER_CATALOG, refreshOpenR
 import { randomExemplarGroup, exemplarsPromptBlock } from "./crimson-ec-exemplars.js";
 import { buildMethodology } from "./methodology.js";
 import * as chatHistory from "./chat-history.js";
-import { callLLM as adapterCallLLM, validateKey as adapterValidateKey, isReasonableModelId as adapterIsReasonableModelId } from "./llm-adapters/index.js";
+import { callLLM as adapterCallLLM, validateKey as adapterValidateKey, isReasonableModelId as adapterIsReasonableModelId, registerDynamicOpenRouterModels as adapterRegisterDynamicModels } from "./llm-adapters/index.js";
 import { screenInput, screenOutput, restorePII, redactProviderText } from "./content-moderation.js";
 import { grantConsent, hasActiveConsent, validateRequiredConsents, getOnboardingConsentRequirements } from "./consent.js";
 import { initDomainMonitor, prepareMonitorStatements } from "./domain-monitor.js";
@@ -212,6 +212,15 @@ import {
   shouldUseSecureAdminCookie,
 } from "./security-hardening.js";
 import { OPENROUTER_MODEL_OPTIONS } from "./llm-adapters/tier-defaults.js";
+import {
+  initModelCatalogScout,
+  prepareModelCatalogStatements,
+  runModelCatalogScout,
+  listDynamicModelOptions,
+  dynamicAllowedModelIds,
+  setModelCandidateStatus,
+  lastModelCatalogRun,
+} from "./model-catalog-scout.js";
 import {
   mergeWebModels,
   mergeWebSecret,
@@ -378,7 +387,9 @@ const REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000;
 //     dropdown (GET /api/llm/openrouter/models) and budget pricing
 //     (usage-budget.js). If OpenRouter is unreachable we keep the last-known
 //     catalog and the static fallback list and retry next cycle.
-refreshOpenRouterCatalog().catch(err => console.warn("[OR-CATALOG] Boot refresh threw:", err.message));
+refreshOpenRouterCatalog()
+  .then(() => { try { runScheduledModelCatalogScout("boot"); } catch (err) { console.warn("[MODEL-SCOUT] boot run failed:", err?.message); } })
+  .catch(err => console.warn("[OR-CATALOG] Boot refresh threw:", err.message));
 setInterval(() => {
   refreshOpenRouterCatalog().catch(err => console.warn("[OR-CATALOG] Daily refresh threw:", err.message));
 }, REFRESH_INTERVAL_MS).unref();
@@ -397,6 +408,23 @@ const vectorStmts = prepareVectorStatements(vectorStore);
 
 // ── Operational DB modules ──
 initRAGTables(db);
+// Daily model-catalog scout: newly listed OpenRouter chat models become
+// extra per-tier options (and pass the adapter allowlist); the reviewed tier
+// defaults never change on their own.
+initModelCatalogScout(db);
+const modelCatalogStmts = prepareModelCatalogStatements(db);
+adapterRegisterDynamicModels(dynamicAllowedModelIds(modelCatalogStmts));
+function runScheduledModelCatalogScout(trigger = "scheduled") {
+  const summary = runModelCatalogScout({
+    catalog: OPENROUTER_CATALOG,
+    stmts: modelCatalogStmts,
+    knownIds: new Set(OPENROUTER_MODEL_OPTIONS.map((o) => o.id)),
+    trigger,
+  });
+  adapterRegisterDynamicModels(dynamicAllowedModelIds(modelCatalogStmts));
+  console.log(`[MODEL-SCOUT] ${trigger}: ${summary.catalogCount} in catalog, ${summary.eligible} eligible, ${summary.added.length} new${summary.added.length ? ` (${summary.added.map((a) => `${a.id}→${a.tier}`).join(", ")})` : ""}`);
+  return summary;
+}
 initAdmissionsIntelligenceTables(db);
 initFactStore(db);
 initEvidenceGraph(db);
@@ -567,6 +595,12 @@ if (process.env.CDS_DAILY_REFRESH !== "0") {
 // read. Deterministic — no model, no key. POLICY_SCOUT=0 disables it.
 if (process.env.POLICY_SCOUT !== "0") {
   registerJob("admissions_policy_scout", () => runScheduledPolicyScout("scheduled"), 24 * 60 * 60 * 1000, { enabled: true, runOnStartup: false });
+  // Daily: refresh the OpenRouter catalog, then list any new eligible models
+  // as per-tier options for the counselor to pick from.
+  registerJob("model_catalog_scout", async () => {
+    await refreshOpenRouterCatalog();
+    return runScheduledModelCatalogScout("scheduled");
+  }, 24 * 60 * 60 * 1000, { enabled: true, runOnStartup: false });
   // A deploy restarts the interval clock, so the first run happens shortly
   // after boot whenever the last completed run is older than 20 hours.
   if (process.env.NODE_ENV !== "test") {
@@ -2666,24 +2700,42 @@ app.delete("/api/admin/secrets/:kind", studentLimiter, requireCounselorAuth, req
 });
 
 app.get("/api/admin/models", studentLimiter, requireCounselorAuth, (_req, res) => {
+  const packaged = OPENROUTER_MODEL_OPTIONS.map((option) => {
+    const live = OPENROUTER_CATALOG.byId.get(option.id);
+    return {
+      ...option,
+      available: live ? true : (OPENROUTER_CATALOG.reachable === true ? false : null),
+      contextLength: live?.contextLength || null,
+      pricing: live?.pricing || null,
+    };
+  });
+  const discovered = listDynamicModelOptions(modelCatalogStmts, { catalog: OPENROUTER_CATALOG });
   res.json({
     models: { ...OPENROUTER_TARGETS },
-    options: OPENROUTER_MODEL_OPTIONS.map((option) => {
-      const live = OPENROUTER_CATALOG.byId.get(option.id);
-      return {
-        ...option,
-        available: live ? true : (OPENROUTER_CATALOG.reachable === true ? false : null),
-        contextLength: live?.contextLength || null,
-        pricing: live?.pricing || null,
-      };
-    }),
+    options: [...packaged, ...discovered],
+    candidates: listDynamicModelOptions(modelCatalogStmts, { catalog: OPENROUTER_CATALOG, includeDismissed: true }),
+    catalogScout: lastModelCatalogRun(modelCatalogStmts),
     catalogCheckedAt: OPENROUTER_CATALOG.lastFetched,
   });
 });
 
+// Counselor review of a discovered model: dismiss it (hidden from the
+// pickers and the allowlist) or list it again.
+app.post("/api/admin/models/candidates", studentLimiter, requireCounselorAuth, (req, res) => {
+  const modelId = String(req.body?.modelId || "").trim();
+  const status = String(req.body?.status || "").trim();
+  if (!modelId || !["listed", "dismissed"].includes(status)) {
+    return res.status(400).json({ error: "modelId and a status of listed or dismissed are required." });
+  }
+  const row = setModelCandidateStatus(modelCatalogStmts, modelId, status);
+  if (!row) return res.status(404).json({ error: "That model is not a discovered candidate." });
+  adapterRegisterDynamicModels(dynamicAllowedModelIds(modelCatalogStmts));
+  res.json({ modelId, status: row.status });
+});
+
 app.put("/api/admin/models", studentLimiter, requireCounselorAuth, requireWebConfiguration, (req, res) => {
   const models = req.body?.models || {};
-  const allowed = new Set(OPENROUTER_MODEL_OPTIONS.map(({ id }) => id));
+  const allowed = new Set([...OPENROUTER_MODEL_OPTIONS.map(({ id }) => id), ...dynamicAllowedModelIds(modelCatalogStmts)]);
   for (const tier of ["small", "medium", "large"]) {
     if (!allowed.has(String(models[tier] || ""))) {
       return res.status(400).json({ error: `Choose a reviewed OpenRouter model for the ${tier} tier.` });
