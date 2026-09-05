@@ -2169,11 +2169,15 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
       const pureLookup = hardLookup && isLookupQuestion(questionText, lookupIntent);
       let namedSchools = [];
       try { namedSchools = hardLookup ? detectSchoolMentions(questionText, { knownNames: baselineCollegeNames(), max: 2 }) : []; } catch { namedSchools = []; }
+      // "Holding data" is judged per lookup: dates need a scouted snapshot or
+      // a cached official-page record (an IPEDS row with an admit rate says
+      // nothing about deadlines); statistics need a baseline row, a CDS, or
+      // a snapshot.
       let onDemand = null;
-      if (pureLookup && namedSchools.length && !hasVerifiedCollegeData(questionText)) {
-        if (lookupIntent === "deadlines") {
+      if (pureLookup && namedSchools.length) {
+        if (lookupIntent === "deadlines" && !deadlinesFromResearchCache(questionText)) {
           onDemand = await scoutSchoolOnDemand(namedSchools[0]);
-        } else {
+        } else if (lookupIntent === "official_stats" && !hasVerifiedCollegeData(questionText)) {
           const stats = await scorecardStatsOnDemand(namedSchools[0]);
           onDemand = stats ? "ok" : "failed";
           if (stats) {
@@ -2197,10 +2201,12 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
         if (String(classification.subIntent || "").includes("deadline")) {
           const cached = deadlinesFromResearchCache(questionText);
           // The dates-only answer fits a pure deadline lookup. A question
-          // that also asks about testing policy, fees, or admit rates needs
-          // the model with the full VERIFIED DATA block.
+          // that also asks about testing policy, fees, or admit rates — or a
+          // strategy question ("should I apply ED to Brown?") — needs the
+          // model with the full VERIFIED DATA block, which carries the same
+          // scouted dates.
           const purelyDeadline = !/\b(?:test(?:ing)?|polic(?:y|ies)|admit|acceptance|rate|fee|essay|requirement|interview|optional)\b/i.test(questionText);
-          if (cached && purelyDeadline) result = cached;
+          if (cached && purelyDeadline && pureLookup) result = cached;
           // No cached official dates and no date supplied to compute from:
           // the canned "No deadline date available." is a non-answer, so the
           // question goes to the model with the VERIFIED DATA block instead.
