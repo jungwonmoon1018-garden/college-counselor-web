@@ -20,21 +20,29 @@ export const TRUSTED_PROVIDERS = Object.freeze([
   "x-ai", "z-ai", "moonshotai", "amazon", "cohere", "nvidia", "microsoft",
 ]);
 
-// Variants and non-chat models: routing suffixes, unstable channels, audio /
-// image / embedding / safety models, base checkpoints.
-const EXCLUDE_ID_RE = /:free$|:extended$|:online$|:nitro$|:thinking$|(?:^|[/:-])(?:alpha|beta|preview|exp|experimental|nightly|dev|rc\d*)(?:$|[/:-])|-base$|embed|tts|whisper|rerank|moderation|guard|realtime|audio|transcribe|image|dall-?e|imagen|veo|sora|codex|search-preview|distill|vision-only/i;
+// Variants and non-chat models: any ":suffix" routing variant (:free, :batch,
+// :extended, :thinking, …), unstable channels, audio / image / embedding /
+// safety models, base checkpoints.
+const EXCLUDE_ID_RE = /:[a-z0-9-]+$|(?:^|[/:-])(?:alpha|beta|preview|exp|experimental|nightly|dev|rc\d*)(?:$|[/:-])|-base$|embed|tts|whisper|rerank|moderation|guard|safety|realtime|audio|transcribe|image|dall-?e|imagen|veo|sora|codex|search-preview|distill|vision-only/i;
 
 // Combined USD per 1M tokens (input + output). Above the medium band → large.
 export const TIER_PRICE_BANDS = Object.freeze({ small: 1.0, medium: 6.0 });
 export const MIN_CONTEXT_LENGTH = 32_000;
+// A "new model to add" is one that appeared within the last year; the long
+// tail of older catalog rows would only bury the picker.
+export const MAX_MODEL_AGE_DAYS = 365;
+export const DEFAULT_PER_TIER_LIMIT = 15;
 
-export function classifyModelCandidate(model) {
+export function classifyModelCandidate(model, now = new Date()) {
   const id = String(model?.id || "").trim();
   const provider = id.split("/")[0] || "";
   const reasons = [];
   if (!id) reasons.push("no_id");
   if (!TRUSTED_PROVIDERS.includes(provider)) reasons.push("provider_not_trusted");
   if (EXCLUDE_ID_RE.test(id)) reasons.push("variant_or_non_chat");
+  const createdMs = Date.parse(model?.createdAt || "");
+  if (!Number.isFinite(createdMs)) reasons.push("no_creation_date");
+  else if (now.getTime() - createdMs > MAX_MODEL_AGE_DAYS * 24 * 60 * 60 * 1000) reasons.push("older_than_a_year");
   const input = Array.isArray(model?.modalities?.input) ? model.modalities.input : [];
   const output = Array.isArray(model?.modalities?.output) ? model.modalities.output : [];
   if (input.length && !input.includes("text")) reasons.push("no_text_input");
@@ -110,7 +118,7 @@ export function runModelCatalogScout({ catalog, stmts, knownIds = new Set(), tri
   const rejected = {};
   let eligible = 0;
   for (const model of models) {
-    const verdict = classifyModelCandidate(model);
+    const verdict = classifyModelCandidate(model, now);
     if (!verdict.eligible) {
       for (const reason of verdict.reasons) rejected[reason] = (rejected[reason] || 0) + 1;
       continue;
@@ -153,14 +161,27 @@ function rowToOption(row, catalog) {
   };
 }
 
-// Candidates the counselor can pick (listed) — or every candidate when
-// `includeDismissed` is set, for the admin review list.
-export function listDynamicModelOptions(stmts, { catalog = null, includeDismissed = false } = {}) {
-  return stmts.listAll.all()
-    .filter((row) => includeDismissed || row.status === "listed")
-    .map((row) => rowToOption(row, catalog));
+// Candidates the counselor can pick: the newest `perTierLimit` listed models
+// per tier — or every candidate when `includeDismissed` is set, for the
+// admin review list.
+export function listDynamicModelOptions(stmts, { catalog = null, includeDismissed = false, perTierLimit = DEFAULT_PER_TIER_LIMIT } = {}) {
+  const rows = stmts.listAll.all().filter((row) => includeDismissed || row.status === "listed");
+  if (includeDismissed || !perTierLimit) return rows.map((row) => rowToOption(row, catalog));
+  const byTier = new Map();
+  for (const row of rows) {
+    if (!byTier.has(row.tier)) byTier.set(row.tier, []);
+    byTier.get(row.tier).push(row);
+  }
+  const out = [];
+  for (const tier of ["small", "medium", "large"]) {
+    const list = (byTier.get(tier) || []).sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
+    out.push(...list.slice(0, perTierLimit).map((row) => rowToOption(row, catalog)));
+  }
+  return out;
 }
 
+// Every listed candidate is allowed for use (a counselor may have picked one
+// that later fell out of the newest-N picker window).
 export function dynamicAllowedModelIds(stmts) {
   return stmts.listAll.all().filter((row) => row.status === "listed").map((row) => row.model_id);
 }

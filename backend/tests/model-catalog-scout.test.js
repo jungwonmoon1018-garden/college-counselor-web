@@ -17,21 +17,42 @@ const model = (id, { input = 0.2, output = 0.6, context = 128_000, free = false,
   id, name: id.split("/")[1] || id, contextLength: context, pricing: { inputPerMTok: input, outputPerMTok: output }, free, modalities, createdAt,
 });
 
-test("candidates are trusted, text-in/text-out, priced chat models sorted into price bands", () => {
-  assert.deepEqual(classifyModelCandidate(model("google/gemma-5-27b-it", { input: 0.1, output: 0.3 })).tier, "small");
-  assert.equal(classifyModelCandidate(model("deepseek/deepseek-v5-flash", { input: 0.5, output: 2 })).tier, "medium");
-  assert.equal(classifyModelCandidate(model("openai/gpt-6", { input: 5, output: 15 })).tier, "large");
-  const untrusted = classifyModelCandidate(model("unknownlab/chat-9b"));
+const NOW = new Date("2026-09-04T00:00:00Z");
+
+test("candidates are trusted, recent, text-in/text-out, priced chat models sorted into price bands", () => {
+  assert.deepEqual(classifyModelCandidate(model("google/gemma-5-27b-it", { input: 0.1, output: 0.3 }), NOW).tier, "small");
+  assert.equal(classifyModelCandidate(model("deepseek/deepseek-v5-flash", { input: 0.5, output: 2 }), NOW).tier, "medium");
+  assert.equal(classifyModelCandidate(model("openai/gpt-6", { input: 5, output: 15 }), NOW).tier, "large");
+  const untrusted = classifyModelCandidate(model("unknownlab/chat-9b"), NOW);
   assert.equal(untrusted.eligible, false);
   assert.ok(untrusted.reasons.includes("provider_not_trusted"));
-  for (const id of ["openai/gpt-6:free", "google/gemini-4-preview", "openai/gpt-6-realtime", "openai/text-embedding-4", "meta-llama/llama-5-70b-base", "anthropic/claude-6:thinking"]) {
-    assert.equal(classifyModelCandidate(model(id)).eligible, false, id);
+  // Routing variants (:free, :batch, :thinking…), unstable channels, and
+  // non-chat models never qualify.
+  for (const id of ["openai/gpt-6:free", "openai/gpt-6:batch", "google/gemini-4-preview", "openai/gpt-6-realtime", "openai/text-embedding-4", "meta-llama/llama-5-70b-base", "anthropic/claude-6:thinking", "nvidia/nemotron-3.5-content-safety"]) {
+    assert.equal(classifyModelCandidate(model(id), NOW).eligible, false, id);
   }
-  assert.ok(classifyModelCandidate(model("openai/gpt-6", { context: 8_000 })).reasons.includes("context_too_small"));
-  assert.ok(classifyModelCandidate(model("openai/gpt-6", { modalities: { input: ["image"], output: ["image"] } })).reasons.includes("no_text_output"));
-  assert.ok(classifyModelCandidate(model("openai/gpt-6", { input: null, output: null })).reasons.includes("no_pricing"));
+  assert.ok(classifyModelCandidate(model("openai/gpt-6", { context: 8_000 }), NOW).reasons.includes("context_too_small"));
+  assert.ok(classifyModelCandidate(model("openai/gpt-6", { modalities: { input: ["image"], output: ["image"] } }), NOW).reasons.includes("no_text_output"));
+  assert.ok(classifyModelCandidate(model("openai/gpt-6", { input: null, output: null }), NOW).reasons.includes("no_pricing"));
+  // Only models that appeared within the last year count as additions.
+  assert.ok(classifyModelCandidate(model("openai/gpt-6", { createdAt: "2024-01-01T00:00:00.000Z" }), NOW).reasons.includes("older_than_a_year"));
+  assert.ok(classifyModelCandidate(model("openai/gpt-6", { createdAt: null }), NOW).reasons.includes("no_creation_date"));
   // Unknown modalities (older catalog rows) are not held against a model.
-  assert.equal(classifyModelCandidate(model("openai/gpt-6", { modalities: { input: [], output: [] } })).eligible, true);
+  assert.equal(classifyModelCandidate(model("openai/gpt-6", { modalities: { input: [], output: [] } }), NOW).eligible, true);
+});
+
+test("the picker shows the newest candidates per tier, while every listed one stays allowed", () => {
+  const db = new Database(":memory:");
+  initModelCatalogScout(db);
+  const stmts = prepareModelCatalogStatements(db);
+  const models = Array.from({ length: 20 }, (_, i) => model(`openai/gpt-6-mini-${i}`, { input: 0.1, output: 0.3, createdAt: `2026-0${1 + (i % 8)}-0${1 + (i % 9)}T00:00:00.000Z` }));
+  const catalog = { models, byId: new Map(models.map((m) => [m.id, m])), reachable: true };
+  runModelCatalogScout({ catalog, stmts, trigger: "boot", now: NOW });
+  const shown = listDynamicModelOptions(stmts, { catalog, perTierLimit: 5 });
+  assert.equal(shown.length, 5);
+  assert.ok(shown.every((o) => o.tier === "small"));
+  assert.equal(shown[0].createdAt >= shown[4].createdAt, true, "newest first");
+  assert.equal(dynamicAllowedModelIds(stmts).length, 20);
 });
 
 test("a run lists new eligible models, keeps dismissals, skips packaged ids, and feeds the allowlist", () => {
