@@ -105,3 +105,38 @@ test("a run lists new eligible models, keeps dismissals, skips packaged ids, and
   registerDynamicOpenRouterModels([]);
   assert.equal(isAllowedOpenRouterModel("deepseek/deepseek-v5-flash"), false);
 });
+
+test("rows a run no longer confirms leave the picker; dismissals survive; an empty catalog prunes nothing", () => {
+  const db = new Database(":memory:");
+  initModelCatalogScout(db);
+  const stmts = prepareModelCatalogStatements(db);
+  const gone = model("openai/gpt-6-nano", { input: 0.1, output: 0.3 });
+  const kept = model("google/gemini-4-flash", { input: 0.3, output: 1.2 });
+  const dismissedLater = model("qwen/qwen4-flash", { input: 0.1, output: 0.3 });
+  const first = runModelCatalogScout({ catalog: { models: [gone, kept, dismissedLater], byId: new Map(), reachable: true }, stmts, trigger: "boot", now: NOW });
+  assert.equal(first.added.length, 3);
+  assert.equal(first.pruned, 0);
+  setModelCandidateStatus(stmts, "qwen/qwen4-flash", "dismissed");
+
+  // Next check: "gone" fell out of the catalog, a newcomer appears.
+  const newcomer = model("deepseek/deepseek-v5-flash", { input: 0.2, output: 0.8 });
+  const second = runModelCatalogScout({ catalog: { models: [kept, dismissedLater, newcomer], byId: new Map(), reachable: true }, stmts, trigger: "scheduled", now: new Date(NOW.getTime() + 14 * 24 * 60 * 60 * 1000) });
+  assert.equal(second.pruned, 1);
+  assert.deepEqual(second.added.map((a) => a.id), ["deepseek/deepseek-v5-flash"]);
+  const ids = listDynamicModelOptions(stmts, { includeDismissed: true }).map((o) => [o.id, o.status]).sort();
+  assert.deepEqual(ids, [["deepseek/deepseek-v5-flash", "listed"], ["google/gemini-4-flash", "listed"], ["qwen/qwen4-flash", "dismissed"]]);
+
+  // A row an earlier, looser rule set let in (a ":batch" variant) drops out
+  // the same way: the rules no longer confirm it, so it is not upserted.
+  stmts.upsert.run("openai/gpt-6:batch", "openai", "gpt-6 batch", "large", 1, 3, 200000, "2026-08-01T00:00:00.000Z", "2026-08-15T00:00:00.000Z", "2026-08-15T00:00:00.000Z");
+  assert.ok(dynamicAllowedModelIds(stmts).includes("openai/gpt-6:batch"));
+  const third = runModelCatalogScout({ catalog: { models: [kept, dismissedLater, newcomer, model("openai/gpt-6:batch")], byId: new Map(), reachable: true }, stmts, trigger: "scheduled", now: new Date(NOW.getTime() + 28 * 24 * 60 * 60 * 1000) });
+  assert.equal(third.pruned, 1);
+  assert.ok(!dynamicAllowedModelIds(stmts).includes("openai/gpt-6:batch"));
+
+  // OpenRouter unreachable → empty catalog → nothing is removed.
+  const offline = runModelCatalogScout({ catalog: { models: [], byId: new Map(), reachable: false }, stmts, trigger: "scheduled", now: new Date(NOW.getTime() + 42 * 24 * 60 * 60 * 1000) });
+  assert.equal(offline.pruned, 0);
+  assert.equal(dynamicAllowedModelIds(stmts).length, 2);
+  db.close();
+});

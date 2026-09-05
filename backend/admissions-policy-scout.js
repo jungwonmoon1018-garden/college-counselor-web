@@ -1,7 +1,8 @@
 // ═══════════════════════════════════════════════════════════════════════
-// ADMISSIONS POLICY SCOUT — daily official-site watch for policy changes
+// ADMISSIONS POLICY SCOUT — scheduled official-site watch for policy changes
 // ═══════════════════════════════════════════════════════════════════════
-// Once a day (batch job) the scout visits each tracked school's OWN
+// Every two weeks (scout-cadence.js; an hourly due check) the scout visits
+// each tracked school's OWN
 // admissions pages and extracts, deterministically (no model, no key):
 //   • standardized-testing policy (test-optional / required / blind / flexible)
 //   • first-year plan deadlines (ED, ED II, EA, REA, RD)
@@ -29,7 +30,7 @@ import { insertFact } from "./fact-store.js";
 
 export const SCOUT_USER_AGENT = "CollegeCounselorBot/1.0 (educational; admissions-policy watch)";
 // Bumped whenever discovery or extraction changes; a boot after a bump
-// re-scouts immediately instead of waiting for the daily interval.
+// re-scouts immediately instead of waiting for the next cadence.
 export const SCOUT_VERSION = 3;
 const FETCH_TIMEOUT_MS = 10_000;
 const MAX_PAGE_BYTES = 700_000;
@@ -853,7 +854,7 @@ function safeJson(text) {
   try { return text ? JSON.parse(text) : null; } catch { return null; }
 }
 
-// ─── The daily run ─────────────────────────────────────────────────────
+// ─── The scout run ─────────────────────────────────────────────────────
 export async function runPolicyScout(targets, {
   stmts, factStmts, scorecardKey = null, fetchImpl = fetch, assertTarget = assertSafeFetchTarget,
   concurrency = 2, maxSchools = 60, trigger = "scheduled", now = () => new Date(), sleep,
@@ -992,7 +993,18 @@ export function listRecentChanges(stmts, { days = 30, limit = 100 } = {}) {
 
 export function lastRunSummary(stmts) {
   const row = stmts.lastRun.get();
-  if (!row) return null;
+  return row ? summarizeRun(row) : null;
+}
+
+// The newest run that counts toward the automatic cadence: a boot or
+// scheduled sweep. A counselor's manual spot-check of a few schools must not
+// push the next full sweep out by another cadence.
+export function lastAutomaticRun(stmts) {
+  const row = stmts.listRuns.all(25).find((r) => r.trigger !== "manual");
+  return row ? summarizeRun(row) : null;
+}
+
+function summarizeRun(row) {
   const summary = safeJson(row.summary_json);
   return {
     id: row.id,

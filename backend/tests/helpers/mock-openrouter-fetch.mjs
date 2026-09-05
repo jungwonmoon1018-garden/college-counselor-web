@@ -2,12 +2,21 @@ import fs from "node:fs";
 
 const realFetch = globalThis.fetch;
 const callLogPath = process.env.TEST_OPENROUTER_CALL_LOG;
+// The catalog carries a creation date (a month ago) and text modalities so
+// the model-catalog scout can classify rows. Gemma 4 31B and the last four
+// ids are NOT in the packaged tier list: the scout discovers them (small,
+// small, medium, large) and must skip the ":batch" routing variant.
+const CATALOG_CREATED = Math.floor(Date.now() / 1000) - 30 * 24 * 60 * 60;
 const models = [
-  "deepseek/deepseek-v4-flash-0731",
-  "deepseek/deepseek-v4-pro",
-  "anthropic/claude-sonnet-5",
-  "google/gemma-4-26b-a4b-it",
-  "google/gemma-4-31b-it",
+  { id: "deepseek/deepseek-v4-flash-0731" },
+  { id: "deepseek/deepseek-v4-pro" },
+  { id: "anthropic/claude-sonnet-5" },
+  { id: "google/gemma-4-26b-a4b-it" },
+  { id: "google/gemma-4-31b-it" },
+  { id: "qwen/qwen3.8-flash", prompt: "0.0000001", completion: "0.0000004" },
+  { id: "google/gemini-3.8-flash", prompt: "0.0000005", completion: "0.000003" },
+  { id: "openai/gpt-6-astra", prompt: "0.000005", completion: "0.000015" },
+  { id: "openai/gpt-6-astra:batch", prompt: "0.0000025", completion: "0.0000075" },
 ];
 
 globalThis.fetch = async (input, init = {}) => {
@@ -15,11 +24,13 @@ globalThis.fetch = async (input, init = {}) => {
 
   if (url === "https://openrouter.ai/api/v1/models") {
     return Response.json({
-      data: models.map((id) => ({
-        id,
-        name: id,
+      data: models.map((m) => ({
+        id: m.id,
+        name: m.id,
         context_length: 32_768,
-        pricing: { prompt: "0.0000001", completion: "0.0000002" },
+        created: CATALOG_CREATED,
+        architecture: { input_modalities: ["text"], output_modalities: ["text"] },
+        pricing: { prompt: m.prompt || "0.0000001", completion: m.completion || "0.0000002" },
       })),
     });
   }

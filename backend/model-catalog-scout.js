@@ -1,17 +1,20 @@
 // ═══════════════════════════════════════════════════════════════════════
-// MODEL CATALOG SCOUT — daily search of OpenRouter's catalog for models
+// MODEL CATALOG SCOUT — periodic search of OpenRouter's catalog for models
 // worth adding to the small / medium / large tier lists.
 // ═══════════════════════════════════════════════════════════════════════
 // The packaged tier list (llm-adapters/tier-defaults.js) is reviewed and
 // shipped with the app; it cannot keep up with a catalog that changes
-// weekly. Once a day this scout reads the live catalog (already refreshed
+// weekly. On its cadence (every two weeks — scout-cadence.js) this scout
+// reads the live catalog (already refreshed
 // by openrouter-model-refresh.js), keeps the models that are plausible
 // counseling workhorses — trusted provider, text in / text out, ≥32k
 // context, priced, not a :free / preview / audio / image variant — sorts
 // them into a price band, and lists them as additional per-tier options.
 // Listed models become selectable by the counselor and accepted by the
 // adapter allowlist; the three tier DEFAULTS never change on their own.
-// A counselor can dismiss a candidate; dismissed ids stay dismissed.
+// A counselor can dismiss a candidate; dismissed ids stay dismissed. Rows a
+// run does not confirm (gone from the catalog, or no longer eligible after
+// a rule change) are removed so the picker only ever shows current models.
 
 import crypto from "node:crypto";
 
@@ -99,13 +102,14 @@ export function prepareModelCatalogStatements(db) {
         context_length = excluded.context_length, created_at = COALESCE(excluded.created_at, model_catalog_candidates.created_at),
         last_seen = excluded.last_seen`),
     setStatus: db.prepare("UPDATE model_catalog_candidates SET status = ? WHERE model_id = ?"),
+    pruneUnseen: db.prepare("DELETE FROM model_catalog_candidates WHERE last_seen < ? AND status != 'dismissed'"),
     insertRun: db.prepare("INSERT INTO model_catalog_runs (id, started_at, trigger, summary_json) VALUES (?, ?, ?, ?)"),
     finishRun: db.prepare("UPDATE model_catalog_runs SET finished_at = ?, catalog_count = ?, eligible = ?, added = ?, summary_json = ? WHERE id = ?"),
     lastRun: db.prepare("SELECT * FROM model_catalog_runs ORDER BY started_at DESC LIMIT 1"),
   };
 }
 
-// ─── The daily run ─────────────────────────────────────────────────────
+// ─── The scout run ─────────────────────────────────────────────────────
 // `catalog` is OPENROUTER_CATALOG ({ models, byId, reachable }); `knownIds`
 // are the packaged option ids, which never become candidates.
 export function runModelCatalogScout({ catalog, stmts, knownIds = new Set(), trigger = "scheduled", now = new Date() } = {}) {
@@ -134,10 +138,15 @@ export function runModelCatalogScout({ catalog, stmts, knownIds = new Set(), tri
     if (existing) kept.push(verdict.id);
     else added.push({ id: verdict.id, tier: verdict.tier, combinedPerMTok: verdict.combinedPerMTok });
   }
+  // Rows this run did not confirm leave the picker — a model that fell out
+  // of the catalog, or one that an earlier, looser rule set let in (":batch"
+  // variants, safety models). Dismissals are kept so a returning model stays
+  // dismissed. An empty catalog (OpenRouter unreachable) prunes nothing.
+  const pruned = models.length ? stmts.pruneUnseen.run(startedAt).changes : 0;
   const summary = {
     runId, trigger, startedAt, finishedAt: new Date().toISOString(),
     catalogCount: models.length, reachable: catalog?.reachable ?? null,
-    eligible, added, kept: kept.length, rejected,
+    eligible, added, kept: kept.length, pruned, rejected,
   };
   stmts.finishRun.run(summary.finishedAt, models.length, eligible, added.length, JSON.stringify(summary), runId);
   return summary;

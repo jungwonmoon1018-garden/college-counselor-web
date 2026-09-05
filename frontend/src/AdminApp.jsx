@@ -59,6 +59,30 @@ const COPY = {
     saveModels: "Save models and restart",
     modelsSaved: "Model choices saved. The website service restarted.",
     unavailable: "currently unavailable",
+    optgroupReviewed: "Reviewed models",
+    optgroupScout: "Found by the scout",
+    band_small: "Low band · up to $1 per 1M tokens",
+    band_medium: "Mid band · $1 to $6 per 1M tokens",
+    band_large: "High band · above $6 per 1M tokens",
+    scoutTitle: "New models found by the catalog scout",
+    scoutLede: "Every two weeks the scout reads OpenRouter's live catalog and lists new chat models from trusted providers — text in and out, at least 32k context, priced, released within the last year — by price band. Listed models appear in the pickers above under \"Found by the scout\"; the three tier defaults never change on their own.",
+    scoutLastRunLine: "Last check: {when} ({trigger}) · {catalog} models in the catalog · {eligible} eligible · {added} new",
+    scoutNoRunLine: "The scout has not checked the catalog yet.",
+    scoutNextRunLine: "Next automatic check: {when} (every {days} days)",
+    scoutNextRunSoon: "Next automatic check: within the hour",
+    scoutDisabledLine: "Automatic checks are switched off on this server (MODEL_SCOUT=0).",
+    scoutRunNow: "Check the catalog now",
+    scoutRunning: "Checking the catalog...",
+    scoutRan: "Catalog checked: {catalog} models, {eligible} eligible, {added} new.",
+    scoutNone: "The scout has not found any new models yet.",
+    scoutMore: "{n} more older listed models stay allowed but are not shown.",
+    scoutPerMillion: "per 1M tokens",
+    scoutContext: "context",
+    scoutReleased: "released",
+    scoutFound: "found",
+    scoutDismiss: "Dismiss",
+    scoutRelist: "List again",
+    scoutDismissed: "Dismissed",
     setupIncomplete: "Student access stays closed until all three secrets are configured.",
   },
   ko: {
@@ -105,6 +129,35 @@ const COPY = {
     cleared: "비밀 키를 삭제했습니다.",
     saved: "비밀 키를 저장하고 로컬 서비스를 재시작했습니다.",
     clearConfirm: "이 비밀 키를 삭제할까요? 관련 기능이 중지됩니다.",
+    modelsTitle: "OpenRouter 모델",
+    modelsLede: "각 작업 등급에 사용할, 검토되었고 현재 카탈로그에 있는 OpenRouter 모델을 선택하세요.",
+    saveModels: "모델 저장 후 재시작",
+    modelsSaved: "모델 선택을 저장했습니다. 웹사이트 서비스가 재시작되었습니다.",
+    unavailable: "현재 사용 불가",
+    optgroupReviewed: "검토된 모델",
+    optgroupScout: "스카우트가 찾은 모델",
+    band_small: "저가 밴드 · 100만 토큰당 $1 이하",
+    band_medium: "중간 밴드 · 100만 토큰당 $1~$6",
+    band_large: "고가 밴드 · 100만 토큰당 $6 초과",
+    scoutTitle: "카탈로그 스카우트가 찾은 새 모델",
+    scoutLede: "2주마다 스카우트가 OpenRouter 실시간 카탈로그를 읽어 신뢰할 수 있는 제공자의 새 채팅 모델(텍스트 입출력, 32k 이상 컨텍스트, 가격 공개, 최근 1년 내 출시)을 가격 밴드별로 등록합니다. 등록된 모델은 위 선택 목록의 \"스카우트가 찾은 모델\" 그룹에 나타나며, 세 가지 기본 모델은 자동으로 바뀌지 않습니다.",
+    scoutLastRunLine: "마지막 확인: {when} ({trigger}) · 카탈로그 모델 {catalog}개 · 후보 {eligible}개 · 새 모델 {added}개",
+    scoutNoRunLine: "스카우트가 아직 카탈로그를 확인하지 않았습니다.",
+    scoutNextRunLine: "다음 자동 확인: {when} ({days}일마다)",
+    scoutNextRunSoon: "다음 자동 확인: 1시간 이내",
+    scoutDisabledLine: "이 서버에서는 자동 확인이 꺼져 있습니다 (MODEL_SCOUT=0).",
+    scoutRunNow: "지금 카탈로그 확인",
+    scoutRunning: "카탈로그 확인 중...",
+    scoutRan: "카탈로그 확인 완료: 모델 {catalog}개, 후보 {eligible}개, 새 모델 {added}개.",
+    scoutNone: "스카우트가 아직 새 모델을 찾지 못했습니다.",
+    scoutMore: "그 외 {n}개의 오래된 등록 모델은 계속 허용되지만 표시되지 않습니다.",
+    scoutPerMillion: "(100만 토큰당)",
+    scoutContext: "컨텍스트",
+    scoutReleased: "출시",
+    scoutFound: "발견",
+    scoutDismiss: "숨기기",
+    scoutRelist: "다시 등록",
+    scoutDismissed: "숨긴 모델",
   },
 };
 
@@ -117,6 +170,45 @@ async function jsonRequest(path, options = {}) {
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.message || body.error || "Request failed");
   return body;
+}
+
+const TIERS = ["small", "medium", "large"];
+const PICKER_ROWS_PER_BAND = 15;
+
+function fill(template, vars) {
+  return String(template).replace(/\{(\w+)\}/g, (_, key) => (vars[key] === undefined || vars[key] === null ? "" : String(vars[key])));
+}
+
+function formatWhen(iso) {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? String(iso) : date.toLocaleString();
+}
+
+function formatPrice(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  return "$" + (n < 0.01 ? n.toFixed(3) : n.toFixed(2));
+}
+
+function describeCandidate(row, c) {
+  const parts = [];
+  if (row.pricing && row.pricing.inputPerMTok != null) parts.push(`${formatPrice(row.pricing.inputPerMTok)} in / ${formatPrice(row.pricing.outputPerMTok)} out ${c.scoutPerMillion}`);
+  if (row.contextLength) parts.push(`${Math.round(row.contextLength / 1000)}k ${c.scoutContext}`);
+  if (row.createdAt) parts.push(`${c.scoutReleased} ${String(row.createdAt).slice(0, 10)}`);
+  if (row.firstSeen) parts.push(`${c.scoutFound} ${String(row.firstSeen).slice(0, 10)}`);
+  if (row.available === false) parts.push(c.unavailable);
+  return parts.join(" · ");
+}
+
+function groupByBand(rows) {
+  const out = { small: { listed: [], dismissed: [] }, medium: { listed: [], dismissed: [] }, large: { listed: [], dismissed: [] } };
+  for (const row of rows) {
+    const band = out[row.tier] || out.large;
+    (row.status === "dismissed" ? band.dismissed : band.listed).push(row);
+  }
+  const newest = (x, y) => String(y.createdAt || "").localeCompare(String(x.createdAt || ""));
+  for (const band of TIERS) { out[band].listed.sort(newest); out[band].dismissed.sort(newest); }
+  return out;
 }
 
 export default function AdminApp() {
@@ -135,11 +227,21 @@ export default function AdminApp() {
   const [setupToken, setSetupToken] = useState("");
   const [models, setModels] = useState(null);
   const [modelOptions, setModelOptions] = useState([]);
+  const [candidates, setCandidates] = useState([]);
+  const [catalogScout, setCatalogScout] = useState(null);
+  const [scouting, setScouting] = useState(false);
   const [editing, setEditing] = useState(null);
   const [secretValue, setSecretValue] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
   const c = useMemo(() => ({ ...COPY.en, ...COPY[locale] }), [locale]);
+  const packagedOptions = useMemo(() => modelOptions.filter((option) => !option.discovered), [modelOptions]);
+  const discoveredByBand = useMemo(() => {
+    const out = { small: [], medium: [], large: [] };
+    for (const option of modelOptions) if (option.discovered) (out[option.tier] || out.large).push(option);
+    return out;
+  }, [modelOptions]);
+  const candidatesByBand = useMemo(() => groupByBand(candidates), [candidates]);
 
   useEffect(() => {
     document.documentElement.lang = locale === "ko" ? "ko" : "en";
@@ -165,12 +267,73 @@ export default function AdminApp() {
     return status;
   }
 
+  function applyModelStatus(status) {
+    setModels(status.models || null);
+    setModelOptions(status.options || []);
+    setCandidates(status.candidates || []);
+    setCatalogScout(status.catalogScout || null);
+  }
+
   async function refreshModels() {
     if (!webDeployment) return null;
     const status = await jsonRequest("/api/admin/models");
-    setModels(status.models || null);
-    setModelOptions(status.options || []);
+    applyModelStatus(status);
     return status;
+  }
+
+  // Counselor asks the scout to read the catalog right now.
+  async function runCatalogScout() {
+    setBusy(true);
+    setScouting(true);
+    setMessage(null);
+    try {
+      const body = await jsonRequest("/api/admin/models/scout/run", { method: "POST", headers: { "X-CSRF-Token": csrfToken } });
+      applyModelStatus(body);
+      const summary = body.summary || {};
+      setMessage({ type: "success", text: fill(c.scoutRan, { catalog: summary.catalogCount ?? 0, eligible: summary.eligible ?? 0, added: (summary.added || []).length }) });
+    } catch (error) {
+      setMessage({ type: "error", text: error.message || c.genericError });
+    } finally {
+      setScouting(false);
+      setBusy(false);
+    }
+  }
+
+  async function setCandidateStatus(modelId, status) {
+    setBusy(true);
+    setMessage(null);
+    try {
+      await jsonRequest("/api/admin/models/candidates", {
+        method: "POST",
+        headers: { "X-CSRF-Token": csrfToken },
+        body: JSON.stringify({ modelId, status }),
+      });
+      await refreshModels();
+    } catch (error) {
+      setMessage({ type: "error", text: error.message || c.genericError });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function renderOption(option, tier) {
+    return (
+      <option key={option.id} value={option.id} disabled={option.available === false && option.id !== models[tier]}>
+        {option.label}{option.discovered && option.firstSeen ? ` · ${c.scoutFound} ${String(option.firstSeen).slice(0, 10)}` : ""}{option.available === false ? ` · ${c.unavailable}` : ""}
+      </option>
+    );
+  }
+
+  function scoutStatusLines() {
+    if (!catalogScout) return [];
+    const last = catalogScout.lastRun;
+    const lines = [last && last.finishedAt
+      ? fill(c.scoutLastRunLine, { when: formatWhen(last.finishedAt), trigger: last.trigger, catalog: last.catalogCount ?? 0, eligible: last.eligible ?? 0, added: last.added ?? 0 })
+      : c.scoutNoRunLine];
+    if (catalogScout.enabled === false) lines.push(c.scoutDisabledLine);
+    else if (catalogScout.nextRunAt && !catalogScout.due) lines.push(fill(c.scoutNextRunLine, { when: formatWhen(catalogScout.nextRunAt), days: catalogScout.cadenceDays }));
+    else lines.push(c.scoutNextRunSoon);
+    return lines;
   }
 
   async function refreshAfterRestart() {
@@ -427,29 +590,83 @@ export default function AdminApp() {
             <p className="admin-footnote">{webDeployment ? c.webSafeNote : c.safeNote}</p>
 
             {webDeployment && models && (
-              <form className="admin-models" onSubmit={saveModels}>
-                <div>
-                  <h2>{c.modelsTitle}</h2>
-                  <p>{c.modelsLede}</p>
-                </div>
-                {[
-                  ["small", c.smallTier],
-                  ["medium", c.mediumTier],
-                  ["large", c.largeTier],
-                ].map(([tier, label]) => (
-                  <div className="admin-field" key={tier}>
-                    <label htmlFor={`model-${tier}`}>{label}</label>
-                    <select id={`model-${tier}`} value={models[tier] || ""} onChange={(event) => setModels((current) => ({ ...current, [tier]: event.target.value }))} required>
-                      {modelOptions.map((option) => (
-                        <option key={option.id} value={option.id} disabled={option.available === false && option.id !== models[tier]}>
-                          {option.label}{option.discovered ? ` · new (${option.tier || "?"} tier${option.firstSeen ? `, found ${String(option.firstSeen).slice(0, 10)}` : ""})` : ""}{option.available === false ? ` · ${c.unavailable}` : ""}
-                        </option>
-                      ))}
-                    </select>
+              <>
+                <form className="admin-models" onSubmit={saveModels}>
+                  <div>
+                    <h2>{c.modelsTitle}</h2>
+                    <p>{c.modelsLede}</p>
                   </div>
-                ))}
-                <button className="admin-primary" type="submit" disabled={busy}>{c.saveModels}</button>
-              </form>
+                  {[
+                    ["small", c.smallTier],
+                    ["medium", c.mediumTier],
+                    ["large", c.largeTier],
+                  ].map(([tier, label]) => (
+                    <div className="admin-field" key={tier}>
+                      <label htmlFor={`model-${tier}`}>{label}</label>
+                      <select id={`model-${tier}`} value={models[tier] || ""} onChange={(event) => setModels((current) => ({ ...current, [tier]: event.target.value }))} required>
+                        {models[tier] && !modelOptions.some((option) => option.id === models[tier]) && <option value={models[tier]}>{models[tier]}</option>}
+                        <optgroup label={c.optgroupReviewed}>
+                          {packagedOptions.map((option) => renderOption(option, tier))}
+                        </optgroup>
+                        {TIERS.filter((band) => discoveredByBand[band].length > 0).map((band) => (
+                          <optgroup key={band} label={`${c.optgroupScout} · ${c[`band_${band}`]}`}>
+                            {discoveredByBand[band].map((option) => renderOption(option, tier))}
+                          </optgroup>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                  <button className="admin-primary" type="submit" disabled={busy}>{c.saveModels}</button>
+                </form>
+
+                <section className="admin-scout" aria-labelledby="admin-scout-title">
+                  <div>
+                    <h2 id="admin-scout-title">{c.scoutTitle}</h2>
+                    <p>{c.scoutLede}</p>
+                  </div>
+                  <div className="admin-scout-status" role="status">
+                    {scoutStatusLines().map((line) => <p key={line}>{line}</p>)}
+                  </div>
+                  <div className="admin-scout-actions">
+                    <button className="admin-secondary" type="button" disabled={busy} onClick={runCatalogScout}>{scouting ? c.scoutRunning : c.scoutRunNow}</button>
+                  </div>
+                  {candidates.length === 0 && <p className="admin-footnote">{c.scoutNone}</p>}
+                  {TIERS.map((band) => {
+                    const rows = candidatesByBand[band];
+                    if (!rows.listed.length && !rows.dismissed.length) return null;
+                    return (
+                      <div className="admin-scout-band" key={band}>
+                        <h3>{c[`band_${band}`]} · {rows.listed.length}</h3>
+                        <ul className="admin-scout-list">
+                          {rows.listed.slice(0, PICKER_ROWS_PER_BAND).map((row) => (
+                            <li key={row.id}>
+                              <div>
+                                <strong>{row.label}</strong> <code>{row.id}</code>
+                                <small>{describeCandidate(row, c)}</small>
+                              </div>
+                              <button className="admin-danger" type="button" disabled={busy} onClick={() => setCandidateStatus(row.id, "dismissed")} aria-label={`${c.scoutDismiss} ${row.id}`}>{c.scoutDismiss}</button>
+                            </li>
+                          ))}
+                        </ul>
+                        {rows.listed.length > PICKER_ROWS_PER_BAND && <p className="admin-footnote">{fill(c.scoutMore, { n: rows.listed.length - PICKER_ROWS_PER_BAND })}</p>}
+                        {rows.dismissed.length > 0 && (
+                          <details className="admin-scout-dismissed">
+                            <summary>{c.scoutDismissed} · {rows.dismissed.length}</summary>
+                            <ul className="admin-scout-list">
+                              {rows.dismissed.map((row) => (
+                                <li key={row.id}>
+                                  <div><strong>{row.label}</strong> <code>{row.id}</code></div>
+                                  <button className="admin-secondary" type="button" disabled={busy} onClick={() => setCandidateStatus(row.id, "listed")} aria-label={`${c.scoutRelist} ${row.id}`}>{c.scoutRelist}</button>
+                                </li>
+                              ))}
+                            </ul>
+                          </details>
+                        )}
+                      </div>
+                    );
+                  })}
+                </section>
+              </>
             )}
           </section>
         )}

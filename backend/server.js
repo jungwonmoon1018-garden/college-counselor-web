@@ -163,6 +163,7 @@ import {
   formatPolicyLine,
   listRecentChanges,
   lastRunSummary,
+  lastAutomaticRun,
 } from "./admissions-policy-scout.js";
 import { GPA_BASELINES, SAT_BASELINES, ACT_BASELINES, EC_BENCHMARKS, COLLEGE_PROFILES, COMPETITIVE_ACTIVITY_BENCHMARKS } from "./baseline-data.js";
 import { searchScorecard, getCollegeById, compareColleges, getFinancialAidProfile, getCollegeHistory } from "./college-scorecard.js";
@@ -221,6 +222,7 @@ import {
   setModelCandidateStatus,
   lastModelCatalogRun,
 } from "./model-catalog-scout.js";
+import { scoutCadenceMs, scoutRunDue, cadenceDays, SCOUT_DUE_CHECK_MS } from "./scout-cadence.js";
 import {
   mergeWebModels,
   mergeWebSecret,
@@ -388,7 +390,7 @@ const REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000;
 //     (usage-budget.js). If OpenRouter is unreachable we keep the last-known
 //     catalog and the static fallback list and retry next cycle.
 refreshOpenRouterCatalog()
-  .then(() => { try { runScheduledModelCatalogScout("boot"); } catch (err) { console.warn("[MODEL-SCOUT] boot run failed:", err?.message); } })
+  .then(() => maybeRunModelCatalogScout("boot", { refreshCatalog: false }).catch((err) => console.warn("[MODEL-SCOUT] boot run failed:", err?.message)))
   .catch(err => console.warn("[OR-CATALOG] Boot refresh threw:", err.message));
 setInterval(() => {
   refreshOpenRouterCatalog().catch(err => console.warn("[OR-CATALOG] Daily refresh threw:", err.message));
@@ -408,9 +410,9 @@ const vectorStmts = prepareVectorStatements(vectorStore);
 
 // ── Operational DB modules ──
 initRAGTables(db);
-// Daily model-catalog scout: newly listed OpenRouter chat models become
-// extra per-tier options (and pass the adapter allowlist); the reviewed tier
-// defaults never change on their own.
+// Model-catalog scout (every two weeks — see scout-cadence.js): newly listed
+// OpenRouter chat models become extra per-tier options (and pass the adapter
+// allowlist); the reviewed tier defaults never change on their own.
 initModelCatalogScout(db);
 const modelCatalogStmts = prepareModelCatalogStatements(db);
 adapterRegisterDynamicModels(dynamicAllowedModelIds(modelCatalogStmts));
@@ -422,8 +424,25 @@ function runScheduledModelCatalogScout(trigger = "scheduled") {
     trigger,
   });
   adapterRegisterDynamicModels(dynamicAllowedModelIds(modelCatalogStmts));
-  console.log(`[MODEL-SCOUT] ${trigger}: ${summary.catalogCount} in catalog, ${summary.eligible} eligible, ${summary.added.length} new${summary.added.length ? ` (${summary.added.map((a) => `${a.id}→${a.tier}`).join(", ")})` : ""}`);
+  console.log(`[MODEL-SCOUT] ${trigger}: ${summary.catalogCount} in catalog, ${summary.eligible} eligible, ${summary.added.length} new${summary.added.length ? ` (${summary.added.map((a) => `${a.id}→${a.tier}`).join(", ")})` : ""}${summary.pruned ? `, ${summary.pruned} removed` : ""}`);
   return summary;
+}
+// Every automatic scout shares one cadence — two weeks unless
+// SCOUT_CADENCE_DAYS says otherwise. The hourly job and the boot hook run a
+// scout only when its last completed run is that old; a counselor's manual
+// run always goes ahead.
+const SCOUT_CADENCE_MS = scoutCadenceMs();
+const SCOUT_CADENCE_DAYS = cadenceDays(SCOUT_CADENCE_MS);
+const MODEL_SCOUT_ENABLED = process.env.MODEL_SCOUT !== "0";
+function modelCatalogScoutSchedule(force = null) {
+  return scoutRunDue({ lastRun: lastModelCatalogRun(modelCatalogStmts), cadenceMs: SCOUT_CADENCE_MS, force });
+}
+async function maybeRunModelCatalogScout(trigger = "scheduled", { refreshCatalog = true, force = null } = {}) {
+  if (!MODEL_SCOUT_ENABLED) return { skipped: "disabled" };
+  const schedule = modelCatalogScoutSchedule(force);
+  if (!schedule.due) return { skipped: schedule.reason, nextRunAt: schedule.nextRunAt };
+  if (refreshCatalog) await refreshOpenRouterCatalog();
+  return runScheduledModelCatalogScout(trigger);
 }
 initAdmissionsIntelligenceTables(db);
 initFactStore(db);
@@ -589,33 +608,31 @@ if (process.env.CDS_DAILY_REFRESH !== "0") {
   console.log("[BOOT] CDS daily refresh scheduled (active June 1+; CDS_DAILY_REFRESH=0 to disable).");
 }
 
-// Daily admissions-policy scout: reads each tracked school's own admissions
-// pages (test policy, plan deadlines, application fee), logs what changed
-// since yesterday, and refreshes the verified facts the chat and calendar
-// read. Deterministic — no model, no key. POLICY_SCOUT=0 disables it.
+// Automatic scouts run every two weeks (SCOUT_CADENCE_DAYS overrides). A
+// deploy restarts every timer, so instead of a two-week setInterval each
+// scout is checked hourly against its last completed run in the database
+// and runs once the cadence has elapsed — the same check runs shortly after
+// boot. Manual runs from the admin page never wait.
+//   • admissions_policy_scout — reads each tracked school's own admissions
+//     pages (test policy, plan deadlines, application fee), logs what
+//     changed, and refreshes the verified facts the chat and calendar read.
+//     Deterministic — no model, no key. POLICY_SCOUT=0 disables it.
+//   • model_catalog_scout — refreshes the OpenRouter catalog, then lists any
+//     new eligible models as per-tier options for the counselor to pick
+//     from. MODEL_SCOUT=0 disables it.
 if (process.env.POLICY_SCOUT !== "0") {
-  registerJob("admissions_policy_scout", () => runScheduledPolicyScout("scheduled"), 24 * 60 * 60 * 1000, { enabled: true, runOnStartup: false });
-  // Daily: refresh the OpenRouter catalog, then list any new eligible models
-  // as per-tier options for the counselor to pick from.
-  registerJob("model_catalog_scout", async () => {
-    await refreshOpenRouterCatalog();
-    return runScheduledModelCatalogScout("scheduled");
-  }, 24 * 60 * 60 * 1000, { enabled: true, runOnStartup: false });
-  // A deploy restarts the interval clock, so the first run happens shortly
-  // after boot whenever the last completed run is older than 20 hours.
+  registerJob("admissions_policy_scout", () => maybeRunPolicyScout("scheduled"), SCOUT_DUE_CHECK_MS, { enabled: true, runOnStartup: false });
   if (process.env.NODE_ENV !== "test") {
     const bootDelay = Number(process.env.POLICY_SCOUT_BOOT_DELAY_MS) > 0 ? Number(process.env.POLICY_SCOUT_BOOT_DELAY_MS) : 5 * 60 * 1000;
     setTimeout(() => {
-      const last = lastRunSummary(policyScoutStmts);
-      const ageMs = last?.finishedAt ? Date.now() - Date.parse(last.finishedAt) : Infinity;
-      // A newer scout (better discovery/extraction) re-reads every school
-      // right away rather than serving yesterday's weaker snapshots.
-      const staleVersion = last && last.scoutVersion !== SCOUT_VERSION;
-      if (ageMs < 20 * 60 * 60 * 1000 && !staleVersion) return;
-      runScheduledPolicyScout("boot").catch((err) => console.warn("[policy-scout] boot run failed:", err?.message));
+      maybeRunPolicyScout("boot").catch((err) => console.warn("[policy-scout] boot run failed:", err?.message));
     }, bootDelay).unref();
   }
-  console.log("[BOOT] Admissions-policy scout scheduled daily (POLICY_SCOUT=0 to disable).");
+  console.log(`[BOOT] Admissions-policy scout scheduled every ${SCOUT_CADENCE_DAYS} day(s), checked hourly (POLICY_SCOUT=0 to disable).`);
+}
+if (MODEL_SCOUT_ENABLED) {
+  registerJob("model_catalog_scout", () => maybeRunModelCatalogScout("scheduled"), SCOUT_DUE_CHECK_MS, { enabled: true, runOnStartup: false });
+  console.log(`[BOOT] Model-catalog scout scheduled every ${SCOUT_CADENCE_DAYS} day(s), checked hourly (MODEL_SCOUT=0 to disable).`);
 }
 
 startAllJobs();
@@ -1156,6 +1173,21 @@ async function runScheduledPolicyScout(trigger = "scheduled", { targets = null, 
   const summary = await policyScoutRunning;
   console.log(`[policy-scout] ${trigger}: ${summary.checked}/${summary.total} school(s) checked, ${summary.changes} change(s), ${summary.failed} failed`);
   return { changed: summary.changes > 0, ...summary };
+}
+
+// Due when the last automatic sweep is a cadence old — or when a newer
+// scout version (better discovery/extraction) should re-read every school
+// right away rather than serve the older, weaker snapshots.
+function policyScoutSchedule(force = null) {
+  const last = lastAutomaticRun(policyScoutStmts);
+  const staleVersion = last && last.scoutVersion !== SCOUT_VERSION ? "scout_version_changed" : null;
+  return scoutRunDue({ lastRun: last, cadenceMs: SCOUT_CADENCE_MS, force: force || staleVersion });
+}
+async function maybeRunPolicyScout(trigger = "scheduled") {
+  if (policyScoutRunning) return { skipped: "already_running" };
+  const schedule = policyScoutSchedule();
+  if (!schedule.due) return { skipped: schedule.reason, nextRunAt: schedule.nextRunAt };
+  return runScheduledPolicyScout(trigger);
 }
 
 // Defensive JSON extraction from an LLM text response. Strip JSON/code
@@ -2460,6 +2492,8 @@ app.get("/api/admin/policy-scout/status", studentLimiter, requireCounselorAuth, 
   try {
     res.json({
       running: Boolean(policyScoutRunning),
+      cadenceDays: SCOUT_CADENCE_DAYS,
+      nextRunAt: policyScoutSchedule().nextRunAt,
       lastRun: lastRunSummary(policyScoutStmts),
       runs: policyScoutStmts.listRuns.all(10).map((row) => ({
         id: row.id, startedAt: row.started_at, finishedAt: row.finished_at, trigger: row.trigger,
@@ -2699,7 +2733,10 @@ app.delete("/api/admin/secrets/:kind", studentLimiter, requireCounselorAuth, req
   }
 });
 
-app.get("/api/admin/models", studentLimiter, requireCounselorAuth, (_req, res) => {
+// The counselor's model page: packaged options, the models the catalog
+// scout found (per price band, newest first), every candidate for review,
+// and the scout's schedule.
+function adminModelsPayload() {
   const packaged = OPENROUTER_MODEL_OPTIONS.map((option) => {
     const live = OPENROUTER_CATALOG.byId.get(option.id);
     return {
@@ -2710,13 +2747,36 @@ app.get("/api/admin/models", studentLimiter, requireCounselorAuth, (_req, res) =
     };
   });
   const discovered = listDynamicModelOptions(modelCatalogStmts, { catalog: OPENROUTER_CATALOG });
-  res.json({
+  const schedule = modelCatalogScoutSchedule();
+  return {
     models: { ...OPENROUTER_TARGETS },
     options: [...packaged, ...discovered],
     candidates: listDynamicModelOptions(modelCatalogStmts, { catalog: OPENROUTER_CATALOG, includeDismissed: true }),
-    catalogScout: lastModelCatalogRun(modelCatalogStmts),
+    catalogScout: {
+      enabled: MODEL_SCOUT_ENABLED,
+      cadenceDays: SCOUT_CADENCE_DAYS,
+      lastRun: lastModelCatalogRun(modelCatalogStmts),
+      nextRunAt: schedule.nextRunAt,
+      due: schedule.due,
+    },
     catalogCheckedAt: OPENROUTER_CATALOG.lastFetched,
-  });
+  };
+}
+
+app.get("/api/admin/models", studentLimiter, requireCounselorAuth, (_req, res) => {
+  res.json(adminModelsPayload());
+});
+
+// Manual scout run from the admin page: refresh the catalog, list what is
+// new, and return the refreshed page payload.
+app.post("/api/admin/models/scout/run", studentLimiter, requireCounselorAuth, async (_req, res) => {
+  try {
+    const summary = await maybeRunModelCatalogScout("manual", { force: "manual" });
+    res.json({ ok: true, summary, ...adminModelsPayload() });
+  } catch (err) {
+    console.error("[MODEL-SCOUT] manual run failed:", err.message);
+    res.status(500).json({ error: "The catalog check failed.", message: String(err.message).slice(0, 200) });
+  }
 });
 
 // Counselor review of a discovered model: dismiss it (hidden from the
