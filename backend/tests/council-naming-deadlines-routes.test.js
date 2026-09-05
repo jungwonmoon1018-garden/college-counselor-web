@@ -627,6 +627,42 @@ test("a document block reaches the model as its full extracted text, and the pro
   assert.doesNotMatch(wire, /non-text block omitted/);
 });
 
+test("attached-file text does not steer the topic classifier, and utility calls bypass the regulated gate", async () => {
+  const token = await registerWithProfile("preface-classify");
+  // The transcript's own lines mention financial aid; the question is not
+  // about aid. Classification must run on the question only.
+  const preface = "[Attached files — read carefully and reference in your answer; 1 text file(s)]\n\n═══ FILE: transcript.txt (1 KB) ═══\n```\nOfficial Transcript\nFinancial aid office: see FAFSA eligibility notes\nAP Statistics  A\n```\n[End of attached files]\n\n";
+  const reply = "Your AP Statistics grade on this transcript is an A.";
+  const turn = await request("POST", "/api/chat", {
+    token,
+    body: {
+      messages: [{ role: "user", content: `${preface}Summarize the courses on this transcript. MOCKREPLY:${b64(reply)}:` }],
+      request_id: "preface-classify-1",
+    },
+  });
+  assert.equal(turn.status, 200, `${JSON.stringify(turn.data)}\n${serverOutput}`);
+  assert.equal(turn.data._meta.deterministic, false);
+  assert.notEqual(turn.data._meta.topicType, "regulated");
+  assert.equal(turn.data._meta.attachmentTurn, true);
+  assert.equal(turn.data.answer, reply);
+
+  // The client's output validator reviews drafts that may mention aid or
+  // deadlines. It used to get the canned "no verified source" gate reply
+  // instead of a model verdict, which the client could not parse as JSON.
+  const validator = await request("POST", "/api/chat", {
+    token,
+    body: {
+      system: "You validate responses for a college counseling app. Respond JSON only.",
+      messages: [{ role: "user", content: `Review:\n---\nFile your FAFSA by the financial aid deadline; verify the official deadline on StudentAid.gov.\n---\nMOCKREPLY:${b64('{"passed":true,"issues":[]}')}:` }],
+      request_id: "preface-classify-2",
+    },
+  });
+  assert.equal(validator.status, 200, JSON.stringify(validator.data));
+  assert.equal(validator.data._meta.deterministic, false);
+  assert.equal(validator.data.answer, '{"passed":true,"issues":[]}');
+  assert.doesNotMatch(validator.data.answer, /verified official source/);
+});
+
 test("transcript import accepts already-extracted text from the chat card", async () => {
   const token = await registerWithProfile("transcript-text");
   const r = await request("POST", "/api/students/transcript-import", {

@@ -1959,7 +1959,19 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
     // client appends reference data (calendar, cached counseling context) in
     // a sentinel-wrapped appendix — "FAFSA opens Oct 1" inside the calendar
     // block was getting EC questions classified as regulated aid lookups.
-    const questionText = userText.replace(/\[context appendix[\s\S]*?(\[end context appendix\]|$)/gi, "").trim() || userText;
+    // Attached-file prefaces are stripped too: a transcript's "Credits
+    // earned" / "Financial" lines were steering the topic classifier into
+    // regulated-aid territory for a plain "summarize my transcript" question.
+    const questionText = userText
+      .replace(/\[context appendix[\s\S]*?(\[end context appendix\]|$)/gi, "")
+      .replace(/\[Attached files —[\s\S]*?(\[End of attached files\]|$)/gi, "")
+      .trim() || userText;
+    // JSON-only utility calls (the client's gatekeeper classifier, output
+    // validator, and upload screener) don't counsel the student: they get no
+    // profile, no theme guard, and — decided here — no regulated-topic
+    // gate, which used to answer the validator's "Review: …" with a canned
+    // "no verified source" message that the client then failed to parse.
+    const jsonUtilityCall = /respond\s+only\s+with\s+(valid\s+)?json|respond\s+json\s+only/i.test(String(payload.system || ""));
     const inputScreen = screenInput(questionText);
     if (inputScreen.blocked) {
       stmts.insertAudit.run(
@@ -1993,8 +2005,10 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
     try { evidence = searchFacts(factStmts, questionText, 12) || []; } catch { /* fail closed below */ }
     let regulatedSystemPrefix = null;
     if (
-      classification.topicType === TOPIC_TYPES.REGULATED ||
-      classification.topicType === TOPIC_TYPES.HIGH_STAKES
+      !jsonUtilityCall && (
+        classification.topicType === TOPIC_TYPES.REGULATED ||
+        classification.topicType === TOPIC_TYPES.HIGH_STAKES
+      )
     ) {
       // Canned deterministic answers are reserved for queries the rules
       // engine genuinely answers (federal-aid eligibility checks, deadline
@@ -2089,10 +2103,6 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
     // knowledge of the student and drifts into generic, off-theme replies.
     // Masked through the provider boundary; restorable tokens (name/school)
     // are un-masked in the reply below.
-    // JSON-only utility calls (the client's gatekeeper classifier, output
-    // validator, and upload screener) don't counsel the student — injecting
-    // the profile or the theme guard would only bias their classifications.
-    const jsonUtilityCall = /respond\s+only\s+with\s+(valid\s+)?json|respond\s+json\s+only/i.test(String(payload.system || ""));
     let profileContext = "";
     let profileTokenMap = {};
     let studentProfile = null;

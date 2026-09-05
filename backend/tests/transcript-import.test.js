@@ -41,7 +41,7 @@ describe("sanitizeParsedTranscript", () => {
     assert.deepEqual(result.years.junior[0], { name: "AP Calculus BC", type: "ap", grade: "A", semester: "full_year" });
     // Invalid type/grade/semester fall back to safe defaults, never invented grades.
     assert.deepEqual(result.years.junior[1], { name: "Ceramics", type: "regular", grade: null, semester: "full_year" });
-    assert.ok(result.warnings.some((w) => w.includes("no readable grade")));
+    assert.ok(result.warnings.some((w) => w.includes("no final grade on this document")));
   });
 
   it("drops nameless courses, dedupes, and caps the total", () => {

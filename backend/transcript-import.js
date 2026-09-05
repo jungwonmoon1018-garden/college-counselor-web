@@ -103,7 +103,7 @@ export function sanitizeParsedTranscript(raw) {
   const ungraded = TRANSCRIPT_YEARS.reduce(
     (count, year) => count + years[year].filter((course) => course.grade === null).length, 0,
   );
-  if (ungraded > 0) warnings.push(`${ungraded} course(s) had no readable grade — set those before saving.`);
+  if (ungraded > 0) warnings.push(`${ungraded} course(s) have no final grade on this document — they are saved as in progress; add a grade later if one is missing by mistake.`);
 
   return { gpa, years, courseCount: total, warnings };
 }
