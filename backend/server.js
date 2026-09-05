@@ -1167,14 +1167,16 @@ function buildVerifiedDataContext({ questionText, studentId, evidence = [], want
     const row = resolveBaselineCollegeRow(db, { schoolName: name });
     const cds = resolveStoredCdsRecord(ragStmts, { schoolName: row?.name || name });
     const fitRead = fitReads.find((r) => schoolNamesCompatible(r.school, row?.name || name)) || null;
-    if (!row && !cds && !fitRead) continue;
-    const resolvedName = row?.name || cds?.school || fitRead?.school || name;
+    // A school known only through the policy scout — typically an on-demand
+    // read of its admissions pages for a deadline question — still has
+    // verified data worth citing (its plan deadlines and test policy).
+    let snapshot = null;
+    try { snapshot = readPolicySnapshot(policyScoutStmts, { unitId: row?.unit_id, name: row?.name || cds?.school || name }); } catch { snapshot = null; }
+    if (!row && !cds && !fitRead && !snapshot) continue;
+    const resolvedName = row?.name || cds?.school || fitRead?.school || snapshot?.school || name;
     if (schools.some((s) => schoolNamesCompatible(s.name, resolvedName))) continue;
     let policyLine = null;
-    try {
-      const snapshot = readPolicySnapshot(policyScoutStmts, { unitId: row?.unit_id, name: resolvedName });
-      policyLine = snapshot ? formatPolicyLine(snapshot) : null;
-    } catch { /* policy line is best-effort */ }
+    try { policyLine = snapshot ? formatPolicyLine(snapshot) : null; } catch { policyLine = null; }
     schools.push({
       name: resolvedName,
       state: row?.state || null,
@@ -2074,8 +2076,18 @@ function deadlinesFromResearchCache(userText) {
     return `${record.displayName} (${record.cycle} cycle): ${parts}`;
   });
   const first = found[0];
+  // The student may ask for one plan the pages do not state (NJIT's site
+  // gives an Early Action date and admits on a rolling basis after it). Say
+  // so instead of answering a different question with the dates on file.
+  const asked = /\bregular\s+(?:decision|action)\b|\bRD\b/i.test(userText) ? "rd"
+    : /\bearly\s+decision\b|\bED\b/i.test(userText) ? "ed"
+      : /\b(?:restrictive\s+)?early\s+action\b|\bR?EA\b/i.test(userText) ? "ea" : null;
+  const missingPlan = asked && !first.deadlines?.[asked] ? asked : null;
+  const note = missingPlan
+    ? ` The pages read do not state a ${labels[missingPlan]} deadline for ${first.displayName}${missingPlan === "rd" ? " (some schools admit on a rolling basis after Early Action)" : ""} — check the linked admissions page.`
+    : "";
   return {
-    message: lines.join("\n"),
+    message: lines.join("\n") + note,
     source_url: first.sourceUrl,
     source_title: `${first.displayName} official admissions pages`,
     confidence: "verified",
@@ -2218,7 +2230,7 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
           return res.json({
             ...composed,
             content: [{ type: "text", text: composed.answer }],
-            _meta: { deterministic: true, topicType: classification.topicType, modelTier: "NONE" },
+            _meta: { deterministic: true, topicType: classification.topicType, modelTier: "NONE", onDemandRead: onDemand },
           });
         }
       }

@@ -863,3 +863,36 @@ test("a statistics lookup about a school with no stored data is answered from th
   assert.match(turn.data.answer, /49%/);
   assert.match(turn.data.answer, /1330/);
 });
+
+test("a dates answer says when the plan the student asked for is not on the pages read", async () => {
+  // A scouted snapshot with an Early Action date only, as NJIT's site gives.
+  const db = new Database(path.join(testDataDir, "operational.db"));
+  try {
+    db.prepare(`INSERT OR REPLACE INTO admissions_policy_snapshots (slug, school_name, unit_id, homepage, checked_at, changed_at, content_hash, pages_json, policy_json, check_count)
+      VALUES (?, ?, NULL, ?, ?, NULL, ?, ?, ?, 1)`).run(
+      "worcester-polytechnic-institute", "Worcester Polytechnic Institute", "https://www.wpi.edu/", "2026-09-05T00:00:00.000Z", "test-hash", "[]",
+      JSON.stringify({ cycle: "2026-27", testPolicy: null, applicationFee: null, deadlines: { early_action: { date: "2026-11-01", sourceUrl: "https://www.wpi.edu/admissions/undergraduate/apply", evidence: "Early Action: November 1" } } }),
+    );
+  } finally {
+    db.close();
+  }
+  const token = await registerWithProfile("gate-plan");
+  const turn = await request("POST", "/api/chat", {
+    token,
+    body: { messages: [{ role: "user", content: "When is WPI's regular decision deadline?" }], request_id: "gate-plan-1" },
+  });
+  assert.equal(turn.status, 200, JSON.stringify(turn.data));
+  assert.equal(turn.data._meta?.deterministic, true, JSON.stringify(turn.data._meta));
+  assert.match(turn.data.answer, /Worcester Polytechnic Institute \(2026-27 cycle\): Early Action: 2026-11-01/);
+  assert.match(turn.data.answer, /do not state a Regular Decision deadline for Worcester Polytechnic Institute \(some schools admit on a rolling basis after Early Action\)/);
+  // A strategy question about the same school goes to the model, dates in context.
+  const strategy = await request("POST", "/api/chat", {
+    token,
+    body: { messages: [{ role: "user", content: `Should I apply early action to WPI? MOCKREPLY:${b64("Early action there is non-binding, so yes if your application is ready.")}:` }], request_id: "gate-plan-2" },
+  });
+  assert.equal(strategy.status, 200, JSON.stringify(strategy.data));
+  assert.notEqual(strategy.data._meta?.deterministic, true);
+  assert.match(strategy.data.answer, /non-binding/);
+  const calls = loggedModelCalls();
+  assert.match(JSON.stringify(calls[calls.length - 1].messages), /Early Action deadline 2026-11-01/);
+});
