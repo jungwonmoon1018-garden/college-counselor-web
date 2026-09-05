@@ -30,6 +30,12 @@ const EXCLUDE_ID_RE = /:[a-z0-9-]+$|(?:^|[/:-])(?:alpha|beta|preview|exp|experim
 
 // Combined USD per 1M tokens (input + output). Above the medium band → large.
 export const TIER_PRICE_BANDS = Object.freeze({ small: 1.0, medium: 6.0 });
+// Bumped whenever the eligibility rules change. A boot after a bump runs the
+// scout at once — regardless of the cadence — so rows an older rule set let
+// in are pruned rather than sitting in the picker for another two weeks.
+//   1: first rules   2: no ":suffix" variants / safety models, one-year age
+//   cap, unseen rows pruned
+export const MODEL_SCOUT_VERSION = 2;
 export const MIN_CONTEXT_LENGTH = 32_000;
 // A "new model to add" is one that appeared within the last year; the long
 // tail of older catalog rows would only bury the picker.
@@ -115,7 +121,7 @@ export function prepareModelCatalogStatements(db) {
 export function runModelCatalogScout({ catalog, stmts, knownIds = new Set(), trigger = "scheduled", now = new Date() } = {}) {
   const runId = crypto.randomUUID();
   const startedAt = now.toISOString();
-  stmts.insertRun.run(runId, startedAt, trigger, JSON.stringify({ inProgress: true }));
+  stmts.insertRun.run(runId, startedAt, trigger, JSON.stringify({ inProgress: true, scoutVersion: MODEL_SCOUT_VERSION }));
   const models = Array.isArray(catalog?.models) ? catalog.models : [];
   const added = [];
   const kept = [];
@@ -144,7 +150,7 @@ export function runModelCatalogScout({ catalog, stmts, knownIds = new Set(), tri
   // dismissed. An empty catalog (OpenRouter unreachable) prunes nothing.
   const pruned = models.length ? stmts.pruneUnseen.run(startedAt).changes : 0;
   const summary = {
-    runId, trigger, startedAt, finishedAt: new Date().toISOString(),
+    runId, trigger, startedAt, finishedAt: new Date().toISOString(), scoutVersion: MODEL_SCOUT_VERSION,
     catalogCount: models.length, reachable: catalog?.reachable ?? null,
     eligible, added, kept: kept.length, pruned, rejected,
   };
@@ -210,7 +216,8 @@ export function lastModelCatalogRun(stmts) {
   try { summary = row.summary_json ? JSON.parse(row.summary_json) : null; } catch { summary = null; }
   return {
     id: row.id, startedAt: row.started_at, finishedAt: row.finished_at, trigger: row.trigger,
-    catalogCount: row.catalog_count, eligible: row.eligible, added: row.added,
+    scoutVersion: summary?.scoutVersion ?? 1,
+    catalogCount: row.catalog_count, eligible: row.eligible, added: row.added, pruned: summary?.pruned ?? 0,
     addedIds: Array.isArray(summary?.added) ? summary.added.map((a) => a.id) : [],
   };
 }

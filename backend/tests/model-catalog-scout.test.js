@@ -10,6 +10,7 @@ import {
   dynamicAllowedModelIds,
   setModelCandidateStatus,
   lastModelCatalogRun,
+  MODEL_SCOUT_VERSION,
 } from "../model-catalog-scout.js";
 import { registerDynamicOpenRouterModels, isAllowedOpenRouterModel, listKnownModels } from "../llm-adapters/index.js";
 
@@ -138,5 +139,19 @@ test("rows a run no longer confirms leave the picker; dismissals survive; an emp
   const offline = runModelCatalogScout({ catalog: { models: [], byId: new Map(), reachable: false }, stmts, trigger: "scheduled", now: new Date(NOW.getTime() + 42 * 24 * 60 * 60 * 1000) });
   assert.equal(offline.pruned, 0);
   assert.equal(dynamicAllowedModelIds(stmts).length, 2);
+  db.close();
+});
+
+test("runs record the rule version; rows from before versioning read back as version 1", () => {
+  const db = new Database(":memory:");
+  initModelCatalogScout(db);
+  const stmts = prepareModelCatalogStatements(db);
+  stmts.insertRun.run("old-run", "2026-09-01T00:00:00.000Z", "boot", JSON.stringify({ added: [] }));
+  stmts.finishRun.run("2026-09-01T00:00:05.000Z", 250, 254, 254, JSON.stringify({ added: [] }), "old-run");
+  assert.equal(lastModelCatalogRun(stmts).scoutVersion, 1);
+  runModelCatalogScout({ catalog: { models: [model("openai/gpt-6-nano")], byId: new Map(), reachable: true }, stmts, trigger: "boot", now: new Date("2026-09-05T00:00:00Z") });
+  const latest = lastModelCatalogRun(stmts);
+  assert.equal(latest.scoutVersion, MODEL_SCOUT_VERSION);
+  assert.equal(latest.pruned, 0);
   db.close();
 });

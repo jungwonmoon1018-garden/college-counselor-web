@@ -221,6 +221,7 @@ import {
   dynamicAllowedModelIds,
   setModelCandidateStatus,
   lastModelCatalogRun,
+  MODEL_SCOUT_VERSION,
 } from "./model-catalog-scout.js";
 import { scoutCadenceMs, scoutRunDue, cadenceDays, SCOUT_DUE_CHECK_MS } from "./scout-cadence.js";
 import {
@@ -434,8 +435,12 @@ function runScheduledModelCatalogScout(trigger = "scheduled") {
 const SCOUT_CADENCE_MS = scoutCadenceMs();
 const SCOUT_CADENCE_DAYS = cadenceDays(SCOUT_CADENCE_MS);
 const MODEL_SCOUT_ENABLED = process.env.MODEL_SCOUT !== "0";
+// A newer rule set (MODEL_SCOUT_VERSION) re-reads the catalog at once so
+// the picker never keeps rows the current rules would reject.
 function modelCatalogScoutSchedule(force = null) {
-  return scoutRunDue({ lastRun: lastModelCatalogRun(modelCatalogStmts), cadenceMs: SCOUT_CADENCE_MS, force });
+  const last = lastModelCatalogRun(modelCatalogStmts);
+  const staleVersion = last && last.scoutVersion !== MODEL_SCOUT_VERSION ? "scout_version_changed" : null;
+  return scoutRunDue({ lastRun: last, cadenceMs: SCOUT_CADENCE_MS, force: force || staleVersion });
 }
 async function maybeRunModelCatalogScout(trigger = "scheduled", { refreshCatalog = true, force = null } = {}) {
   if (!MODEL_SCOUT_ENABLED) return { skipped: "disabled" };
