@@ -36,7 +36,7 @@ import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 
 // ── New architecture modules ──
-import { routeRequest, classifyTopic, enforceGates, canHandleDeterministically, isCrisisText, TOPIC_TYPES, MODEL_TIERS } from "./policy-router.js";
+import { routeRequest, classifyTopic, enforceGates, canHandleDeterministically, isLookupQuestion, isCrisisText, TOPIC_TYPES, MODEL_TIERS } from "./policy-router.js";
 import { runFAFSAEligibilityCheck, calculateDeadlineStatus, runDocumentCompletenessCheck, computePercentile, computeAPRigorIndex, estimateNetPrice, evaluateComplianceGate, buildCrisisResponse } from "./rules-engine.js";
 import { initFactStore, prepareFactStatements, seedCollegeFacts, lookupFact, searchFacts, expireOldFacts, getFactStoreStats } from "./fact-store.js";
 import { initEvidenceGraph, prepareEvidenceStatements, getEvidenceProfile, buildStudentDimensionProfile, seedECBenchmarkEvidence, seedCollegeEvidence, seedCompetitiveActivityEvidence } from "./evidence-graph.js";
@@ -159,6 +159,7 @@ import {
   runPolicyScout,
   readPolicySnapshot,
   readSchoolPolicyLive,
+  scoutSchool,
   snapshotAsDeadlineRecord,
   formatPolicyLine,
   listRecentChanges,
@@ -1011,7 +1012,29 @@ function buildStudentCallLLM(studentId, { requestIdPrefix = null } = {}) {
   return { modelConfig: operator, callLLM };
 }
 
-function regulatedChatGate(classification, studentId, userText, locale) {
+// The only question the gate still refuses is a pure lookup — an exact
+// date or admissions figure — about a named school we hold nothing for,
+// after an on-demand read of the official source has been tried. The reply
+// says what is missing, gives the typical window as general guidance, and
+// points at the official page; it never quotes an unsourced figure.
+function noSourceLookupMessage({ subIntent, school, locale, onDemand }) {
+  const dates = String(subIntent || "").includes("deadline");
+  const tried = onDemand === "failed" || onDemand === "timeout" || onDemand === "error";
+  if (locale === "ko") {
+    const s = school || "그 학교";
+    const head = dates
+      ? `${s}의 확인된 지원 마감일 자료가 아직 없어서 날짜를 추측해 드리지 않겠습니다. 미국 대학의 조기 전형(ED/EA) 마감은 대체로 11월 1일~15일, 정시(RD)는 1월 1일~15일 사이입니다. 정확한 날짜는 ${s}의 공식 입학처 페이지에서 확인하세요.`
+      : `${s}의 확인된 입학 통계 자료가 아직 없어서 합격률이나 점수 범위를 추측해 드리지 않겠습니다. 공식 수치는 College Scorecard(collegescorecard.ed.gov)와 ${s}의 Common Data Set에서 확인할 수 있습니다.`;
+    return head + (tried ? " 방금 공식 페이지를 직접 읽어 보려 했지만 가져오지 못했습니다. 잠시 후 다시 물어보거나 사이트에서 직접 확인해 주세요." : "");
+  }
+  const s = school || "that school";
+  const head = dates
+    ? `I don't have verified application dates for ${s} yet, so I won't guess a deadline. Most Early Decision and Early Action deadlines fall between November 1 and November 15, and Regular Decision between January 1 and January 15; confirm ${s}'s exact dates on its official admissions page.`
+    : `I don't have verified admissions statistics for ${s} yet, so I won't quote an acceptance rate or score range I can't source. The College Scorecard (collegescorecard.ed.gov) and ${s}'s Common Data Set publish the official figures.`;
+  return head + (tried ? ` I just tried to read ${s}'s official pages and couldn't reach them — ask again in a moment, or check the site directly.` : "");
+}
+
+function regulatedChatGate(classification, studentId, userText, locale, { schoolNamed, schoolName = null, onDemand = null } = {}) {
   const tt = classification?.topicType;
   if (tt !== TOPIC_TYPES.REGULATED && tt !== TOPIC_TYPES.HIGH_STAKES) return {};
   let evidence = [];
@@ -1019,21 +1042,76 @@ function regulatedChatGate(classification, studentId, userText, locale) {
     const facts = searchFacts(factStmts, userText || "", 10) || [];
     const ev = studentId ? getEvidenceProfile(evidenceStmts, "student", studentId) : null;
     evidence = [...facts, ...((ev && ev.items) || [])];
-  } catch { /* no evidence → the gate denies for regulated topics */ }
-  const gate = enforceGates(tt, classification.subIntent, evidence);
+  } catch { /* no evidence → the gate decides on the question alone */ }
+  const gate = enforceGates(tt, classification.subIntent, evidence, { query: userText, schoolNamed });
   if (!gate.allowed) {
-    const msg = locale === "ko"
-      ? "확인된 공식 출처가 없어 이 규제 관련 질문에 정확히 답변할 수 없습니다. 공식 자료(예: FAFSA는 StudentAid.gov)를 확인하거나 학교 상담 선생님께 문의하세요."
-      : "I don't have a verified official source to answer this regulated question, so I can't give a specific answer. Please check the official source (e.g. StudentAid.gov for FAFSA, your school for FERPA) or your counselor.";
+    const msg = noSourceLookupMessage({ subIntent: classification.subIntent, school: schoolName, locale, onDemand });
+    const source = gate.fallback?.suggestedSource || null;
     return {
       block: true,
       response: {
+        answer: msg,
+        claims: [],
+        limitations: [locale === "ko" ? "확인된 공식 출처가 없는 수치는 제시하지 않습니다." : "No figure is quoted without a verified official source."],
+        actions: source?.url ? [{ label: source.label, url: source.url }] : [],
+        usage: { input_tokens: 0, output_tokens: 0, estimated_cost_usd: 0 },
         content: [{ type: "text", text: msg }],
-        _meta: { deterministic: true, topicType: tt, gates: gate.gates, modelTier: "NONE", noVerifiedSource: true },
+        _meta: { deterministic: true, topicType: tt, gates: gate.gates, modelTier: "NONE", noVerifiedSource: true, onDemandRead: onDemand },
       },
     };
   }
   return { systemPrefix: buildSystemPrompt(classification) };
+}
+
+// On-demand official reads for a pure lookup about a school we hold nothing
+// for: the school's own admissions pages (the policy scout's reader, which
+// also stores the snapshot for later turns) or the College Scorecard for
+// admissions statistics. Bounded so a slow site cannot stall the chat; a
+// read that outlives the wait finishes in the background.
+const onDemandScouts = new Map();
+async function scoutSchoolOnDemand(schoolName, { timeoutMs = 15_000 } = {}) {
+  const row = resolveBaselineCollegeRow(db, { schoolName });
+  const target = { name: row?.name || schoolName, unitId: row?.unit_id || null, website: row?.website || null };
+  const key = slugifyCollege(target.name) || String(target.name).toLowerCase();
+  if (!onDemandScouts.has(key)) {
+    const run = scoutSchool(target, { stmts: policyScoutStmts, factStmts, scorecardKey: SCORECARD_API_KEY || null })
+      .catch((err) => { console.warn("[policy-scout] on-demand read failed:", err?.message); return { status: "error" }; })
+      .finally(() => onDemandScouts.delete(key));
+    onDemandScouts.set(key, run);
+  }
+  const result = await Promise.race([
+    onDemandScouts.get(key),
+    new Promise((resolve) => setTimeout(() => resolve(null), timeoutMs).unref()),
+  ]);
+  if (!result) return "timeout";
+  if (["skipped", "failed", "error"].includes(result.status)) return result.status;
+  return "ok";
+}
+
+async function scorecardStatsOnDemand(schoolName) {
+  if (!SCORECARD_API_KEY) return null;
+  try {
+    const wanted = expandCollegeAlias(schoolName);
+    const hit = pickScorecardHit((await searchScorecard(SCORECARD_API_KEY, { name: wanted, limit: 20 }))?.results, wanted);
+    if (!hit) return null;
+    const parts = [];
+    const rate = Number(hit.acceptanceRate);
+    if (Number.isFinite(rate) && rate > 0) parts.push(`admission rate ${Math.round(rate <= 1 ? rate * 100 : rate)}%`);
+    if (hit.sat25 && hit.sat75) parts.push(`SAT middle 50% ${hit.sat25}–${hit.sat75}`);
+    if (hit.act25 && hit.act75) parts.push(`ACT middle 50% ${hit.act25}–${hit.act75}`);
+    if (!parts.length) return null;
+    return {
+      message: `${hit.name || wanted} — College Scorecard (U.S. Department of Education, latest reported year): ${parts.join("; ")}.`,
+      source_url: "https://collegescorecard.ed.gov/",
+      source_title: "College Scorecard (U.S. Department of Education)",
+      confidence: "verified",
+      trust_level: "official",
+      advisory: "These are the latest figures the Department of Education reports; the school's own Common Data Set may be a year newer.",
+    };
+  } catch (err) {
+    console.warn("[chat] Scorecard lookup failed:", err?.message);
+    return null;
+  }
 }
 
 // Parse the latest profile snapshot into a clean object for LLM prompts.
@@ -2081,6 +2159,33 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
         classification.topicType === TOPIC_TYPES.HIGH_STAKES
       )
     ) {
+      // A pure lookup ("when is X's deadline", "what is Y's acceptance
+      // rate") about a school we hold nothing for: read the official source
+      // now — the school's own admissions pages for dates, the College
+      // Scorecard for statistics — rather than refuse. Everything below (the
+      // dates answer, the VERIFIED DATA block, the gate) then sees the result.
+      const lookupIntent = String(classification.subIntent || "").toLowerCase();
+      const hardLookup = classification.topicType === TOPIC_TYPES.HIGH_STAKES && ["deadlines", "official_stats"].includes(lookupIntent);
+      const pureLookup = hardLookup && isLookupQuestion(questionText, lookupIntent);
+      let namedSchools = [];
+      try { namedSchools = hardLookup ? detectSchoolMentions(questionText, { knownNames: baselineCollegeNames(), max: 2 }) : []; } catch { namedSchools = []; }
+      let onDemand = null;
+      if (pureLookup && namedSchools.length && !hasVerifiedCollegeData(questionText)) {
+        if (lookupIntent === "deadlines") {
+          onDemand = await scoutSchoolOnDemand(namedSchools[0]);
+        } else {
+          const stats = await scorecardStatsOnDemand(namedSchools[0]);
+          onDemand = stats ? "ok" : "failed";
+          if (stats) {
+            const composed = composeDeterministicAnswer({ classification, result: stats, evidence, locale });
+            return res.json({
+              ...composed,
+              content: [{ type: "text", text: composed.answer }],
+              _meta: { deterministic: true, topicType: classification.topicType, modelTier: "NONE", onDemandRead: "ok" },
+            });
+          }
+        }
+      }
       // Canned deterministic answers are reserved for queries the rules
       // engine genuinely answers (federal-aid eligibility checks, deadline
       // lookups). This branch used to swallow EVERY regulated/high-stakes-
@@ -2112,16 +2217,15 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
         }
       }
       // Informational regulated/high-stakes questions flow to the model:
-      // the gate blocks only hard lookups without verified data, and hands
-      // back the advisory system prefix for everything it allows. Exact
-      // lookups (deadlines, official stats) about a school we hold official
-      // data for — IPEDS baseline, Common Data Set, or a scouted policy
-      // snapshot — are answered from the VERIFIED DATA block, not stonewalled.
-      const hardLookup = classification.topicType === TOPIC_TYPES.HIGH_STAKES
-        && ["deadlines", "official_stats"].includes(String(classification.subIntent || "").toLowerCase());
+      // the gate refuses only a pure lookup about a named school with no
+      // verified data (after the on-demand read above), and hands back the
+      // advisory system prefix for everything it allows. Exact lookups about
+      // a school we hold official data for — IPEDS baseline, Common Data
+      // Set, or a scouted policy snapshot — are answered from the VERIFIED
+      // DATA block, not stonewalled.
       const gate = hardLookup && hasVerifiedCollegeData(questionText)
         ? { systemPrefix: buildSystemPrompt(classification) }
-        : regulatedChatGate(classification, studentId, questionText, locale);
+        : regulatedChatGate(classification, studentId, questionText, locale, { schoolNamed: namedSchools.length > 0, schoolName: namedSchools[0] || null, onDemand });
       if (gate.block) return res.json(gate.response);
       regulatedSystemPrefix = gate.systemPrefix || null;
     }

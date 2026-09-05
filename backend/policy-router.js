@@ -86,14 +86,22 @@ const PATTERNS = {
   ],
   regulated: {
     fafsa: /\bfafsa\b|\bstudent\s*aid\s*index\b|\bsai\b|\befc\b|\bexpected\s*family\s*contribution\b|\bfederal\s*student\s*aid\b|\bstudentaid\.gov\b|\bfsa\s*id\b|\bcontributor\b.*\bfafsa\b/i,
-    ferpa: /\bferpa\b|\bfamily\s*educational\s*rights\b|\beducation\s*records?\b|\bstudent\s*privacy\b|\bschool\s*records?\b/i,
+    // "school records" alone is how students describe their transcript; the
+    // regulated sense needs a rights / access / disclosure word nearby.
+    ferpa: /\bferpa\b|\bfamily\s*educational\s*rights\b|\bstudent\s*privacy\b|\b(?:education|school)\s+records?\b[^.?!]{0,60}\b(?:rights?|access|privacy|amend\w*|disclos\w*|release\w*|consent|request\w*|see|view)\b|\b(?:rights?|access|privacy|amend\w*|disclos\w*|release\w*|consent|request\w*)\b[^.?!]{0,60}\b(?:education|school)\s+records?\b/i,
     financial_aid_policy: /\bneed[- ]blind\b|\bneed[- ]aware\b|\bcss\s*profile\b|\binstitutional\s*aid\b|\binstitutional\s*methodology\b|\bfinancial\s*aid\s*policy\b/i,
-    eligibility: /\b(am\s*i|do\s*i)\s*(eligible|qualify)\b|\beligibility\b|\bqualification\b|\bcitizenship\s*requirement\b|\bselective\s*service\b/i,
-    legal_compliance: /\blegal\b|\bcompliance\b|\bregulation\b|\bpolicy\b.*\brequir/i,
+    // Federal-aid eligibility only. "Am I eligible for Princeton" and
+    // scholarship qualification questions are coaching.
+    eligibility: /\b(?:am\s+i|are\s+we|is\s+my\s+\w+|do\s+i|would\s+i|will\s+i|can\s+i)\s+(?:be\s+|still\s+)?(?:eligible|qualify|qualified)\b[^.?!]{0,60}\b(?:fafsa|federal|financial\s+aid|student\s+aid|pell|loans?|grants?|work[- ]study|aid)\b|\b(?:fafsa|federal\s+(?:student\s+)?aid|pell|financial\s+aid|student\s+aid)\b[^.?!]{0,40}\b(?:eligib\w*|qualif\w*)\b|\bcitizenship\s+requirement\b|\bselective\s+service\b/i,
+    // Bare "legal" ("legal studies", "paralegal") is not a compliance question.
+    legal_compliance: /\blegal\s+(?:rights?|requirements?|obligations?|status|issues?|questions?)\b|\bcompliance\b|\bregulations?\b|\b(?:federal|state)\s+law\b|\btitle\s+ix\b|\bada\s+accommodations?\b/i,
   },
   high_stakes: {
-    deadlines: /\bdeadline\b|\bdue\s*date\b|\bwhen\s*(is|are|do)\b.*\b(due|deadline|close|open)\b|\bearly\s*(decision|action)\b|\bpriority\s*deadline\b|\brolling\s*admission\b/i,
-    financial_amounts: /\b(how\s*much|cost|tuition|price|net\s*price|afford)\b|\bgrant\b|\bloan\b|\bpell\b|\bscholarship\b|\bstipend\b|\bmerit\s*aid\b/i,
+    // "Early decision" on its own is a strategy topic ("should I apply
+    // ED?"); it counts here only next to a date word.
+    deadlines: /\bdeadlines?\b|\bdue\s+dates?\b|\bwhen\s+(?:is|are|do|does|did|will)\b[^.?!]{0,60}\b(?:due|deadline|close|open|apply\s+by)\b|\bpriority\s+deadline\b|\bapplications?\s+(?:closes?|opens?)\b|\brolling\s+admissions?\b/i,
+    // Money questions, not every "how much" or "scholarship" mention.
+    financial_amounts: /\bhow\s+much\b[^.?!]{0,50}\b(?:costs?|tuition|pay|aid|money|loans?|scholarships?|price|afford\w*|owe|borrow|expensive)\b|\b(?:tuition|net\s+price|sticker\s+price|cost\s+of\s+attendance|room\s+and\s+board|afford\w*)\b|\b(?:pell|merit\s+aid|financial\s+aid|need[- ]based\s+aid|student\s+loans?|federal\s+loans?|work[- ]study|stipends?)\b|\b(?:scholarships?|grants?|loans?)\b[^.?!]{0,40}(?:\b(?:amount|worth|how\s+much|dollars?|cover|pays?|full[- ]ride|full\s+tuition|money)\b|\$)|\$\s?\d/i,
     school_policies: /\btest[- ]optional\b|\btest[- ]required\b|\bsuperscore\b|\bscore\s*choice\b|\bapplication\s*requirement\b|\brequired\s*document\b/i,
     official_stats: /\bacceptance\s*rate\b|\badmission\s*rate\b|\bclass\s*profile\b|\bmiddle\s*50\b|\b(25th|75th)\s*percentile\b/i,
   },
@@ -302,8 +310,32 @@ export function classifyTopic(query, conversationContext = {}) {
   };
 }
 
+// ─── Lookup vs. guidance ───
+// The no-source gate refuses only a PURE LOOKUP — "when is X's deadline",
+// "what is Y's acceptance rate" — because a wrong date or admit rate is
+// worse than no answer. Strategy, comparison and explanation questions on
+// the same topics ("should I apply early decision", "how much does the
+// acceptance rate matter") are general guidance: the model answers with the
+// verified data it holds and says plainly what it cannot confirm.
+const LOOKUP_ASK_RE = /\b(?:when|what|what's|whats|which|how\s+many|give\s+me|tell\s+me|list|show\s+me|find|look\s+up|do\s+you\s+(?:know|have)|is\s+(?:it|the|there))\b/i;
+const GUIDANCE_RE = /\b(?:should|shouldn't|would\s+it|worth|better|best|vs\.?|versus|differ\w*|compar\w*|means?|meaning|explain|understand|why|how\s+(?:do|does|did|can|could|should|important|much\s+do(?:es)?)|strateg\w*|chances?|odds|decide|deciding|decided|choos\w*|pros|cons|matters?|good\s+idea|bad\s+idea|advice|advise|recommend\w*|plan|planning|prepar\w*|manag\w*|organiz\w*|keep\s+track|tips?|help\s+me|thoughts?|opinion|ok(?:ay)?\s+to|worr\w*|stress\w*|realistic|competitive|likely|typical\w*|usually|generally|in\s+general|on\s+average|improve|increase|boost|affect|impact|prioriti\w*|handle|balance|too\s+late|missed|miss|extension|extend|late)\b/i;
+
+export function isLookupQuestion(query, subIntent) {
+  const text = String(query || "").trim();
+  if (!text) return false;
+  const intent = String(subIntent || "").toLowerCase();
+  if (intent !== "deadlines" && intent !== "official_stats") return false;
+  if (GUIDANCE_RE.test(text)) return false;
+  const words = text.split(/\s+/).filter(Boolean).length;
+  return LOOKUP_ASK_RE.test(text) || words <= 8;
+}
+
 // ─── Compliance gate enforcement ───
-export function enforceGates(topicType, subIntent, availableEvidence = []) {
+// context.query is the student's question and context.schoolNamed says
+// whether it names a specific school; with both, only a pure lookup about a
+// named school is refused. Callers that pass no context keep the strict
+// no-source-no-answer behaviour for deadline and statistics topics.
+export function enforceGates(topicType, subIntent, availableEvidence = [], context = {}) {
   const results = [];
   const normalizedType = normalizedTopicType(topicType);
 
@@ -332,7 +364,9 @@ export function enforceGates(topicType, subIntent, availableEvidence = []) {
       // gate, because a wrong date or admit rate is worse than no answer.
       const hardLookup = normalizedType === TOPIC_TYPES.HIGH_STAKES &&
         ["deadlines", "official_stats"].includes(String(subIntent || "").toLowerCase());
-      if (!hardLookup) {
+      const pureLookup = context.query === undefined ? true : isLookupQuestion(context.query, subIntent);
+      const schoolNamed = context.schoolNamed === undefined ? true : Boolean(context.schoolNamed);
+      if (!hardLookup || !pureLookup || !schoolNamed) {
         results.push({
           gate: "no_source_no_answer",
           passed: true,
@@ -520,7 +554,7 @@ export function checkOpusBudget(studentId, opusUsageToday, config = {}) {
 // ─── Build full routing decision ───
 export function routeRequest(query, conversationContext = {}, availableEvidence = [], config = {}) {
   const classification = classifyTopic(query, conversationContext);
-  const gateResult = enforceGates(classification.topicType, classification.subIntent, availableEvidence);
+  const gateResult = enforceGates(classification.topicType, classification.subIntent, availableEvidence, { query });
 
   if (!gateResult.allowed) {
     return {

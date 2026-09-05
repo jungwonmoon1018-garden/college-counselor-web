@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import {
   classifyTopic,
   enforceGates,
+  isLookupQuestion,
   selectModelTier,
   canHandleDeterministically,
   routeRequest,
@@ -211,16 +212,60 @@ describe("routeRequest", () => {
     assert.equal(result.action, "rules_engine");
   });
 
-  it("does NOT serve the federal checklist for non-aid eligibility questions", () => {
-    // "eligible/eligibility" phrasing without federal-aid context spans
-    // admissions and scholarship questions — these must reach synthesis,
-    // not the FAFSA eligibility checker.
+  it("does NOT treat a non-aid eligibility question as regulated at all", () => {
+    // "eligible" without federal-aid context is an admissions or
+    // scholarship question — coaching, never the FAFSA checker or the
+    // regulated lane.
     const result = routeRequest("Am I eligible for Princeton with a 3.8 GPA?");
-    assert.equal(result.classification.topicType, TOPIC_TYPES.REGULATED);
-    assert.equal(result.classification.subIntent, "eligibility");
-    assert.equal(result.isDeterministic, false);
-    assert.equal(result.action, "model_synthesis");
-    assert.ok(result.generalGuidance);
+    assert.equal(result.classification.topicType, TOPIC_TYPES.COACHING);
+    assert.notEqual(result.classification.subIntent, "eligibility");
+    assert.ok(routeRequest("Am I eligible for a Pell Grant as a permanent resident?").classification.subIntent === "eligibility");
+  });
+
+  it("does not treat ordinary counseling words as regulated or high-stakes", () => {
+    for (const [question, notType] of [
+      ["I'm interested in legal studies — which APs help?", TOPIC_TYPES.REGULATED],
+      ["My school records show a B in chemistry; how bad is that?", TOPIC_TYPES.REGULATED],
+      ["Should I apply early decision or early action?", TOPIC_TYPES.HIGH_STAKES],
+      ["How much time should I spend on essays each week?", TOPIC_TYPES.HIGH_STAKES],
+      ["Should I mention my scholarship in the activities list?", TOPIC_TYPES.HIGH_STAKES],
+    ]) {
+      assert.notEqual(classifyTopic(question).topicType, notType, question);
+    }
+  });
+
+  it("still recognizes the genuinely regulated and high-stakes forms", () => {
+    assert.equal(classifyTopic("What are my rights to see my education records?").subIntent, "ferpa");
+    assert.equal(classifyTopic("Is my school in compliance with Title IX?").topicType, TOPIC_TYPES.REGULATED);
+    assert.equal(classifyTopic("When does the application close for Michigan?").subIntent, "deadlines");
+    assert.equal(classifyTopic("When is the MIT early action deadline?").subIntent, "deadlines");
+    assert.equal(classifyTopic("How much does tuition cost at UVA?").subIntent, "financial_amounts");
+    assert.equal(classifyTopic("Is the Coca-Cola scholarship worth $20,000?").subIntent, "financial_amounts");
+    assert.equal(classifyTopic("What is Stanford's acceptance rate?").subIntent, "official_stats");
+  });
+
+  it("refuses only a pure lookup about a named school; strategy questions get general guidance", () => {
+    const lookup = enforceGates(TOPIC_TYPES.HIGH_STAKES, "deadlines", [], { query: "When is Brown's early decision deadline?", schoolNamed: true });
+    assert.equal(lookup.allowed, false);
+    const strategy = enforceGates(TOPIC_TYPES.HIGH_STAKES, "deadlines", [], { query: "Should I apply early decision to Brown given the deadline?", schoolNamed: true });
+    assert.equal(strategy.allowed, true);
+    assert.ok(strategy.generalGuidance);
+    const noSchool = enforceGates(TOPIC_TYPES.HIGH_STAKES, "deadlines", [], { query: "What are the deadlines this month?", schoolNamed: false });
+    assert.equal(noSchool.allowed, true);
+    const stats = enforceGates(TOPIC_TYPES.HIGH_STAKES, "official_stats", [], { query: "How much does the acceptance rate matter when I build my list?", schoolNamed: true });
+    assert.equal(stats.allowed, true);
+    const statLookup = enforceGates(TOPIC_TYPES.HIGH_STAKES, "official_stats", [], { query: "What is Yale's acceptance rate?", schoolNamed: true });
+    assert.equal(statLookup.allowed, false);
+  });
+
+  it("tells a lookup from a guidance question", () => {
+    for (const q of ["When is MIT's early action deadline?", "What is Stanford's acceptance rate?", "Brown ED deadline?", "Yale acceptance rate 2026"]) {
+      assert.equal(isLookupQuestion(q, "deadlines"), true, q);
+    }
+    for (const q of ["Should I apply early decision to Brown?", "How do acceptance rates work?", "What does early action mean for my chances?", "Is a 4% acceptance rate realistic for me?", "I missed the deadline, what do I do?", "What's the typical ED deadline?"]) {
+      assert.equal(isLookupQuestion(q, "deadlines"), false, q);
+    }
+    assert.equal(isLookupQuestion("When is MIT's deadline?", "financial_amounts"), false);
   });
 
   it("allows general cost/aid-amount questions as labeled guidance while deadlines stay gated", () => {

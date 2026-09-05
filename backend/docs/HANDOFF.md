@@ -11,6 +11,8 @@ on a persistent disk.
 - All paid calls use the reservation ledger in `usage-budget.js`.
 - The only model transport is the fixed OpenRouter adapter.
 - Student content belongs in the encrypted vault; operational logs use opaque IDs and event codes.
+- Chat grounding lives in `chat-grounding.js` (profile block, fidelity check, VERIFIED DATA block) and the gate in `policy-router.js`; the repository's `CLAUDE.md` describes the invariants to keep when touching them.
+- Automatic scouts (`admissions-policy-scout.js`, `model-catalog-scout.js`) share the cadence in `scout-cadence.js`; bump a scout's version constant when its rules change so the next boot re-reads at once.
 
 ## Verification
 

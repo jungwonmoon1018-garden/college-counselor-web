@@ -7,6 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import Database from "better-sqlite3";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, "..");
@@ -786,4 +787,79 @@ test("uploaded-file context survives a thread reload via model_content", async (
   assert.equal(message.content, display);
   assert.equal(message.attachment_name, "resume.txt");
   assert.match(String(message.model_content), /VEX finalist/);
+});
+
+test("strategy questions about deadlines and admit rates reach the model instead of the no-source gate", async () => {
+  const token = await registerWithProfile("gate-strategy");
+  for (const [question, id] of [
+    ["Should I apply early decision or early action to Stanford University, and how does the deadline change my odds?", "gate-strategy-1"],
+    ["How much does the acceptance rate matter when I build my college list?", "gate-strategy-2"],
+  ]) {
+    const turn = await request("POST", "/api/chat", {
+      token,
+      body: { messages: [{ role: "user", content: `${question} MOCKREPLY:${b64("Here is how to think about it.")}:` }], request_id: id },
+    });
+    assert.equal(turn.status, 200, JSON.stringify(turn.data));
+    assert.match(turn.data.answer, /Here is how to think about it/, question);
+    assert.notEqual(turn.data._meta?.noVerifiedSource, true, question);
+  }
+});
+
+// A school the chat can recognize (an alias, or a baseline name) for which
+// the server holds no admissions statistics. The baseline is seeded from the
+// bundled profile list in CI and from a full IPEDS import on a developer
+// machine, so the choice is made against the test database itself.
+function schoolWithoutStats() {
+  const db = new Database(path.join(testDataDir, "operational.db"), { readonly: true });
+  try {
+    const stats = db.prepare("SELECT acceptance_rate, sat_25 FROM baseline_colleges WHERE name = ?");
+    for (const [alias, canonical] of [
+      ["NJIT", "New Jersey Institute of Technology"],
+      ["WPI", "Worcester Polytechnic Institute"],
+      ["RPI", "Rensselaer Polytechnic Institute"],
+      ["UCF", "University of Central Florida"],
+      ["FSU", "Florida State University"],
+      ["ASU", "Arizona State University"],
+    ]) {
+      const row = stats.get(canonical);
+      if (!row || (row.acceptance_rate == null && row.sat_25 == null)) return { mention: alias, canonical };
+    }
+    const row = db.prepare("SELECT name FROM baseline_colleges WHERE acceptance_rate IS NULL AND sat_25 IS NULL AND name LIKE '% %' AND name NOT LIKE '%-%' AND length(name) >= 10 ORDER BY name LIMIT 1").get();
+    return row ? { mention: row.name, canonical: row.name } : null;
+  } finally {
+    db.close();
+  }
+}
+
+test("a pure deadline lookup about a school with no data gets an honest, useful answer, not the old refusal", async (t) => {
+  const school = schoolWithoutStats();
+  if (!school) return t.skip("every recognizable school in this database has statistics");
+  const token = await registerWithProfile("gate-lookup");
+  const turn = await request("POST", "/api/chat", {
+    token,
+    body: { messages: [{ role: "user", content: `When is ${school.mention}'s regular decision deadline?` }], request_id: "gate-lookup-1" },
+  });
+  assert.equal(turn.status, 200, JSON.stringify(turn.data));
+  assert.equal(turn.data._meta?.noVerifiedSource, true, JSON.stringify(turn.data._meta));
+  assert.ok(turn.data.answer.includes(school.canonical), turn.data.answer);
+  assert.match(turn.data.answer, /November 1/);
+  assert.doesNotMatch(turn.data.answer, /verified official source to answer this regulated question/);
+  // The official pages were tried first (the test network has no such site).
+  assert.ok(["failed", "skipped", "timeout", "error"].includes(turn.data._meta.onDemandRead), JSON.stringify(turn.data._meta));
+});
+
+test("a statistics lookup about a school with no stored data is answered from the College Scorecard", async (t) => {
+  const school = schoolWithoutStats();
+  if (!school) return t.skip("every recognizable school in this database has statistics");
+  const token = await registerWithProfile("gate-stats");
+  const turn = await request("POST", "/api/chat", {
+    token,
+    body: { messages: [{ role: "user", content: `What is the acceptance rate at ${school.mention}?` }], request_id: "gate-stats-1" },
+  });
+  assert.equal(turn.status, 200, JSON.stringify(turn.data));
+  assert.equal(turn.data._meta?.deterministic, true, JSON.stringify(turn.data._meta));
+  assert.equal(turn.data._meta?.onDemandRead, "ok");
+  assert.match(turn.data.answer, /College Scorecard/);
+  assert.match(turn.data.answer, /49%/);
+  assert.match(turn.data.answer, /1330/);
 });

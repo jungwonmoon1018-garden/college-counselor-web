@@ -308,7 +308,7 @@ export function buildSystemPrompt(classification) {
   }
 
   if (classification.topicType === "high_stakes") {
-    return `${base}\n\nThis is a high-stakes topic. Official source data is required. Only synthesize from provided evidence. If evidence is insufficient, direct the student to the official source.`;
+    return `${base}\n\nThis is a high-stakes topic (deadlines, costs and aid amounts, admissions statistics, school policies). Take every specific date, figure, or policy from the VERIFIED DATA block or the provided evidence and cite it. When you do not hold a verified figure, say so in one sentence, give general guidance clearly labeled as general (typical deadline windows, how such policies usually work, what drives cost), and point the student to the official page — do not refuse the question, and never present a remembered figure as verified.`;
   }
 
   return `${base}\n\nProvide helpful, evidence-grounded coaching. Label your suggestions clearly as recommendations, not guarantees. Distinguish between official data and your analysis.`;
