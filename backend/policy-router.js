@@ -64,15 +64,25 @@ const OPUS_ESCALATION_THRESHOLD = 0.45;
 
 // ─── Keyword patterns for topic classification ───
 const PATTERNS = {
+  // Deterministic crisis triggers are STATEMENTS ABOUT THE STUDENT'S OWN
+  // SAFETY, not topic words. The earlier lexicon fired on bare "abuse",
+  // "emergency", "danger", "threatened" and on "end my …" — so "how do I end
+  // my essay?" and "I volunteer in the emergency room" got the crisis
+  // hotlines instead of an answer. Ordinary stress ("I'm hopeless at
+  // chemistry", "overwhelmed") is not a crisis: the client adds a supportive
+  // footer for that without blocking the answer.
   crisis: [
-    /\b(suicid|kill\s*my\s*self|self[- ]?harm|want\s*to\s*die|end\s*(my|it\s*all)|hurt\s*myself)\b/i,
-    /\b(abuse|abused|molest|assault|domestic\s*violence)\b/i,
-    /\b(emergency|danger|unsafe|threatened)\b/i,
+    // Self-harm / suicidal ideation, first person.
+    /\b(?:suicid\w*|kill(?:ing)?\s+myself|self[- ]?harm(?:ing)?|(?:want|wanted|wanting|going|ready)\s+to\s+die|wanna\s+die|end(?:ing)?\s+my\s+(?:own\s+)?life|end\s+it\s+all|take\s+my\s+(?:own\s+)?life|hurt(?:ing)?\s+myself|cut(?:ting)?\s+myself|don'?t\s+want\s+to\s+(?:live|be\s+alive|wake\s+up|exist|be\s+here)|no\s+reason\s+to\s+(?:live|go\s+on)|better\s+off\s+dead|not\s+worth\s+living|wish\s+i\s+(?:was|were)\s+dead|overdos(?:e|ing))\b/i,
+    // Abuse, assault, grooming — the student says it is happening to them.
+    /\b(?:(?:my|our)\s+(?:dad|father|mom|mother|parents?|step(?:dad|mom|father|mother)|coach|teacher|tutor|boyfriend|girlfriend|partner|uncle|aunt|brother|sister|cousin|guardian|relative)\s+(?:hits?|beats?|abuses?|touch(?:es|ed)|molest(?:s|ed)?|assault(?:s|ed)?|hurts?|chokes?|threatens?)\s+me|i(?:'m| am| was| have been| get| got)\s+(?:being\s+)?(?:physically|sexually|emotionally|verbally)?\s*(?:abused|molested|assaulted|raped|groomed|beaten)|(?:he|she|they|someone|an?\s+adult)\s+(?:is\s+|are\s+)?(?:hits?|beats?|abuses?|touch(?:es|ed)|molest(?:s|ed)|grooming|groomed|raped?|assaulted)\s+me|domestic\s+violence\s+(?:at|in)\s+(?:my\s+)?home)\b/i,
+    // Immediate danger — the student says they are not safe right now.
+    /\b(?:i(?:'m| am)\s+(?:in\s+danger|not\s+safe|unsafe|scared\s+(?:for\s+my\s+life|to\s+go\s+home))|(?:someone|he|she|they)\s+(?:is\s+|are\s+)?threaten(?:s|ing|ed)\s+(?:to\s+(?:hurt|kill)\s+)?me|(?:it'?s|this\s+is)\s+an\s+emergency|i\s+don'?t\s+feel\s+safe\s+(?:at\s+home|at\s+school|anywhere|here))\b/i,
     // Korean (a first-class locale here, with Korean crisis hotlines). No \b —
     // word boundaries behave poorly for CJK; match the lexemes directly.
-    /(자살|자해|죽고\s*싶|죽고싶|목숨을\s*끊|극단적\s*선택)/,
-    /(학대|성추행|성폭행|폭행|가정폭력)/,
-    /(응급|위급|살려\s*주세요|도와\s*주세요)/,
+    /(자살|자해|죽고\s*싶|죽고싶|목숨을\s*끊|극단적\s*선택|살기\s*싫|죽어\s*버리고\s*싶)/,
+    /(학대|성추행|성폭행|폭행|가정폭력)(?:을|를)?\s*(?:당하|당했|당하고|받고|받았|겪|겪고)/,
+    /(위험에\s*처|안전하지\s*않|저는\s*위험해)/,
   ],
   regulated: {
     fafsa: /\bfafsa\b|\bstudent\s*aid\s*index\b|\bsai\b|\befc\b|\bexpected\s*family\s*contribution\b|\bfederal\s*student\s*aid\b|\bstudentaid\.gov\b|\bfsa\s*id\b|\bcontributor\b.*\bfafsa\b/i,

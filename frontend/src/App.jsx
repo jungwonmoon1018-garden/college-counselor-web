@@ -718,14 +718,14 @@ Categories:
 - "safe_multi" — touches multiple domains
 - "off_topic" — clearly unrelated to school/college (e.g. dating, gaming for fun, unrelated tech support)
 - "essay_writing" — asking AI to WRITE essay content (not brainstorm/review)
-- "crisis" — self-harm, abuse, suicidal ideation, violence, bullying, eating disorders, substance abuse, exploitation, grooming
+- "crisis" — the student says they may hurt themselves, want to die, are being abused, exploited, groomed, or are in danger right now. Ordinary stress ("I'm overwhelmed", "I'm hopeless at calculus", "my application feels hopeless") is NOT crisis — route it normally; the app adds support resources on its own.
 
 IMPORTANT — attached-file context:
 The student may have attached files (code, documents, reports). If the message mentions analyzing/evaluating an "activity", "project", "EC", "hackathon", "app I built", "research", "club", "competition", or similar — classify as "safe_ec" (or "safe_multi" if it also touches academics/college). Personal projects ARE extracurriculars.
 
 Be generous toward in-scope. Reserve "off_topic" for messages that are clearly NOT about the student's academic / EC / college life — not for messages that are merely technical in nature.
 
-When in doubt between "crisis" and another category, ALWAYS choose "crisis". Safety over convenience.
+Choose "crisis" only when the message itself expresses a risk to the student's safety. When in doubt between stress and crisis, route normally — a wrong crisis call blocks a student who just needs help with school.
 JSON: {"category":"...","reason":"one sentence max — classification rationale only, no advice","route_to":["academics","ec","college","strategy"]}
 For safe_multi, list ALL relevant agents. For blocks (off_topic, essay_writing, crisis), route_to MUST be [].`,
   tools:[]
@@ -1884,6 +1884,22 @@ function maybeHandleQuickQuery(userMsg, data, user) {
   return null;
 }
 
+// ─── Crisis handling ───
+// Three layers, in order of certainty:
+//   • CRISIS_STRICT_RE — explicit self-harm / abuse / danger statements about
+//     the student. Always the crisis response, no model involved.
+//   • IDEATION_RE — hopelessness about life itself ("no point in going on",
+//     "everyone would be better off without me"). Corroborates a model
+//     "crisis" call. Never fires on academic despair.
+//   • DISTRESS_RE — ordinary stress words ("hopeless at chemistry",
+//     "overwhelmed"). Never blocks: the answer just gains a supportive footer.
+// The old single list contained bare "hopeless", so "I'm hopeless at
+// calculus" returned the hotlines instead of help.
+const CRISIS_STRICT_RE = /\b(?:suicid\w*|kill(?:ing)?\s+myself|hurt(?:ing)?\s+myself|cut(?:ting)?\s+myself|self[\s-]?harm(?:ing)?|don'?t\s+want\s+to\s+(?:live|be\s+alive|exist|wake\s+up)|end\s+(?:it\s+all|my\s+(?:own\s+)?life)|take\s+my\s+(?:own\s+)?life|wanna\s+die|want\s+to\s+die|better\s+off\s+dead|wish\s+i\s+(?:was|were)\s+dead|overdos(?:e|ing)|(?:my|our)\s+(?:dad|father|mom|mother|parents?|step\w+|coach|teacher|boyfriend|girlfriend|uncle|aunt|brother|sister|guardian)\s+(?:hits?|beats?|abuses?|touch(?:es|ed)|molest(?:s|ed)?|assault(?:s|ed)?)\s+me|i(?:'m| am| was| have been)\s+(?:being\s+)?(?:abused|molested|assaulted|raped|groomed)|threaten(?:s|ing|ed)\s+(?:to\s+(?:hurt|kill)\s+)?me|i(?:'m| am)\s+(?:in\s+danger|not\s+safe|unsafe))\b/i;
+const IDEATION_RE = /\b(?:no\s+point\s+(?:in|to)\s+(?:living|anything|going\s+on)|better\s+(?:off\s+)?without\s+me|nobody\s+would\s+(?:care|notice|miss\s+me)|disappear\s+(?:forever|for\s+good)|give\s+up\s+on\s+(?:life|everything)|can'?t\s+go\s+on(?:\s+like\s+this)?|hate\s+my\s+life|life\s+is(?:n'?t|\s+not)\s+worth|don'?t\s+see\s+the\s+point\s+(?:of|in)\s+(?:anything|living|life))\b/i;
+const DISTRESS_RE = /\b(?:hopeless|worthless|overwhelmed|burn(?:ed|t)\s*out|breaking\s+down|panic(?:king|\s+attacks?)?|can'?t\s+(?:cope|handle|take)\s+(?:this|it|any\s*more)|falling\s+apart|depress(?:ed|ing|ion)|anxiety|so\s+stressed|crying)\b/i;
+const SUPPORT_FOOTER = "\n\n_If the stress is getting heavy, talking with a school counselor or another trusted adult really helps — and if you ever feel unsafe, you can call or text 988 any time._";
+
 // FIX UX-1: Cache gatekeeper classifications for follow-up questions in the same topic
 const gatekeeperCache = { lastCategory: null, lastRoutes: null, lastTopic: null };
 
@@ -2072,8 +2088,8 @@ async function orchestrate(userMsg,data,setData,setStatus,signal,pendingFileData
   // This is the only category the gatekeeper MUST catch even if the
   // model itself is misbehaving (e.g. small OpenRouter model not
   // returning valid JSON, or refusing safety queries).
-  const CRISIS_KEYWORDS = /\b(suicid|kill\s*myself|hurt\s*myself|self[\s-]?harm|hopeless|don'?t\s*want\s*to\s*live|end\s*it\s*all|wanna\s*die|want\s*to\s*die|cutting\s*myself)\b/i;
-  if (CRISIS_KEYWORDS.test(gatekeeperInput)) {
+  const CRISIS_KEYWORDS = CRISIS_STRICT_RE;
+  if (CRISIS_KEYWORDS.test(gatekeeperInput) || IDEATION_RE.test(gatekeeperInput)) {
     auditLog.log("crisis_detected", "Crisis keyword matched locally");
     return { text: CRISIS_RESPONSE, blocked: true, crisisSafe: true };
   }
@@ -2198,7 +2214,7 @@ async function orchestrate(userMsg,data,setData,setStatus,signal,pendingFileData
       console.warn("Gatekeeper classification failed:", msg);
       auditLog.log("gatekeeper_outage", `Gatekeeper classification failed: ${msg || "unknown error"}`);
       const userText = (userMsg || "").toLowerCase();
-      const looksLikeCrisis = /\b(suicid|kill\s*myself|hurt\s*myself|self[\s-]?harm|hopeless|don'?t\s*want\s*to\s*live|end\s*it\s*all)\b/i.test(userText);
+      const looksLikeCrisis = CRISIS_STRICT_RE.test(userText) || IDEATION_RE.test(userText);
       const m = msg.match(/"message"\s*:\s*"([^"]+)"/);
       const concise = m ? m[1] : msg.replace(/^Error:\s*/, "").slice(0, 240);
       const base = `I couldn't reach the model just now. The provider returned:\n\n> ${concise}\n\nTry again. If this continues, ask this device's administrator to check the local service configuration.`;
@@ -2209,9 +2225,19 @@ async function orchestrate(userMsg,data,setData,setStatus,signal,pendingFileData
       };
     }
   } } // close try/catch + outer `else {`
+  let supportNeeded = DISTRESS_RE.test(gatekeeperInput);
   if(gate.category==="crisis"){
-    auditLog.log("crisis_detected", gate.reason || "Crisis category triggered", data?.parentGuardian?.studentName);
-    return{text:CRISIS_RESPONSE,blocked:true,crisisSafe:true};
+    // The small classifier over-calls crisis on ordinary stress ("I'm so
+    // overwhelmed with APs"). It only ends the turn when the message itself
+    // carries a safety statement or ideation; otherwise the question is
+    // answered and the supportive footer is added.
+    if (CRISIS_STRICT_RE.test(gatekeeperInput) || IDEATION_RE.test(gatekeeperInput)) {
+      auditLog.log("crisis_detected", gate.reason || "Crisis category triggered", data?.parentGuardian?.studentName);
+      return{text:CRISIS_RESPONSE,blocked:true,crisisSafe:true};
+    }
+    auditLog.log("crisis_uncorroborated", "Classifier said crisis; no safety statement in the message — answering with support footer");
+    supportNeeded = true;
+    gate = { category: "safe_multi", reason: "crisis call not corroborated by the message", route_to: ["academics","ec","college","strategy"] };
   }
   if(gate.category==="essay_writing"){
     auditLog.log("essay_blocked", gate.reason || "Essay writing request blocked");
@@ -2341,7 +2367,7 @@ SOURCES (required):
   const validatorSafeSkip = !isSimple && draftLen > 0 && draftLen < 600 && !RISKY_OUTPUT_TOKENS.test(draft) && (gate.category === "safe_academic" || gate.category === "safe_ec");
   if (isSimple || validatorSafeSkip) {
     if (validatorSafeSkip) console.log("[validator] skip — short safe response, no risky tokens");
-    return{text:draft,blocked:false,routeKey:routes[0]||null};
+    return{text:withSupport(draft, supportNeeded),blocked:false,routeKey:routes[0]||null};
   }
   setStatus({active:"validator",phase:"Final safety check..."});
   let final=draft;
@@ -2356,7 +2382,13 @@ SOURCES (required):
   if(!validationPassed){
     final = draft + "\n\n_Note: This response could not be fully verified. Statistics may need independent confirmation._";
   }
-  return{text:final,blocked:false,routeKey:routes[0]||null};
+  return{text:withSupport(final, supportNeeded),blocked:false,routeKey:routes[0]||null};
+}
+
+// Append the supportive footer once, never on top of the hotline text.
+function withSupport(text, needed) {
+  if (!needed || typeof text !== "string" || !text.trim() || text.includes("988")) return text;
+  return text + SUPPORT_FOOTER;
 }
 
 // Multimodal agent runner — sends file content directly to Claude for OCR

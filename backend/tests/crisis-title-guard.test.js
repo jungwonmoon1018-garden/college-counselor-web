@@ -71,6 +71,29 @@ test("isCrisisText: crisis vs ordinary", () => {
   assert.equal(isCrisisText("Help me pick between Princeton and MIT"), false);
   assert.equal(isCrisisText(""), false);
   assert.equal(isCrisisText(null), false);
+  // Statements about the student's own safety trigger …
+  for (const text of [
+    "I want to end my life",
+    "my dad hits me when I fail a test",
+    "someone is threatening to hurt me at school",
+    "I don't want to be alive anymore",
+    "I am being abused at home",
+    "죽고 싶어요",
+    "학대를 당하고 있어요",
+  ]) assert.equal(isCrisisText(text), true, text);
+  // … topic words and academic stress do not. Each of these used to trip the
+  // hotline response instead of an answer.
+  for (const text of [
+    "How should I end my personal statement?",
+    "I volunteer in the hospital emergency department every Saturday",
+    "My research project is about child abuse prevention policy",
+    "the danger of procrastination during senior year",
+    "I'm hopeless at chemistry and feel threatened by the curve",
+    "I want to kill this essay draft and start over",
+    "Is it unsafe to apply ED without financial aid info?",
+    "에세이 도와주세요",
+    "응급의학과에 관심이 있어요",
+  ]) assert.equal(isCrisisText(text), false, text);
 });
 
 // Regression for the /api/calendar/context 500: extractTargetSchoolNames returns
