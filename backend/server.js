@@ -1826,6 +1826,48 @@ function messageText(message) {
     .join("\n");
 }
 
+// Replace base64 document/image blocks with their extracted text so a
+// text-only provider sees the whole file. Scanned PDFs fall back to bounded
+// OCR. Errors become a visible note rather than a silent omission.
+async function attachmentBlockToText(block) {
+  const kind = block.type === "image" ? "image" : "document";
+  const mime = String(block.source?.media_type || "").toLowerCase();
+  try {
+    if (String(block.source?.data || "").length * 0.75 > CHAT_EXTRACT_MAX_BYTES) {
+      return `[Attached ${kind} was too large to read (over ${Math.round(CHAT_EXTRACT_MAX_BYTES / 1024)} KB).]`;
+    }
+    const buf = Buffer.from(block.source.data, "base64");
+    let extraction = await extractText(buf, mime);
+    if (extraction?.kind === "pdf" && String(extraction.text || "").trim().length < 40) {
+      try { extraction = { ...await extractPdfOCR(buf, { maxPages: 6, scale: 1.5, timeoutMs: 20_000 }), kind: "pdf" }; } catch { /* keep the sparse text */ }
+    }
+    const text = String(extraction?.text || "").trim();
+    if (!text) return `[Attached ${kind}: no readable text was found — if it is a scan or photo, a clearer copy may work.]`;
+    const cut = /truncated/.test(String(extraction?.warning || ""));
+    return `[Attached ${kind} — full extracted text, ${text.length} characters${cut ? "; the source was longer than the extraction limit, so the end is not included" : ""}]\n${text}\n[End of attached ${kind}]`;
+  } catch (err) {
+    return `[Attached ${kind} could not be read: ${String(err?.code || err?.message || "extraction failed").slice(0, 80)}]`;
+  }
+}
+
+async function inlineAttachmentBlocks(messages) {
+  let inlined = 0;
+  for (const message of Array.isArray(messages) ? messages : []) {
+    if (!Array.isArray(message?.content)) continue;
+    const next = [];
+    for (const block of message.content) {
+      if ((block?.type === "document" || block?.type === "image") && block.source?.type === "base64" && typeof block.source.data === "string") {
+        next.push({ type: "text", text: await attachmentBlockToText(block) });
+        inlined += 1;
+      } else {
+        next.push(block);
+      }
+    }
+    message.content = next;
+  }
+  return inlined;
+}
+
 function llmResponseText(response) {
   return Array.isArray(response?.content)
     ? response.content.filter((block) => block?.type === "text").map((block) => block.text || "").join("\n").trim()
@@ -2024,6 +2066,17 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
       catch { /* concept extraction must not block chat */ }
     }
 
+    // Whether this turn carries an attachment (a text preface built by the
+    // client, or a document/image block). Decided BEFORE the blocks are
+    // inlined below.
+    const attachmentTurn = /\[Attached files —|The student uploaded "/i.test(userText)
+      || payload.messages.some((m) => Array.isArray(m?.content) && m.content.some((b) => b?.type === "document" || b?.type === "image"));
+    // The provider adapter is text-only, so a PDF or image block used to reach
+    // the model as "[non-text block omitted]" — the student's transcript was
+    // simply absent, and the model narrated a truncated file. Extract the text
+    // here (OCR for scans) and hand the model the full document.
+    const attachmentsInlined = await inlineAttachmentBlocks(payload.messages);
+
     const redacted = redactPayloadForModel({
       system: payload.system || "",
       messages: payload.messages,
@@ -2110,7 +2163,10 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
     // got re-fed as history on every later turn. One corrective retry; if the
     // model still gets it wrong, the answer carries a visible correction.
     let profileFidelity = null;
-    if (studentProfile && answerText.trim()) {
+    // On an attachment turn the answer is grounded in the document (a
+    // transcript may legitimately differ from the saved profile), so the
+    // profile check would "correct" real data — skip it.
+    if (studentProfile && answerText.trim() && !attachmentTurn) {
       const check = checkProfileFidelity(answerText, studentProfile);
       if (check.contradictions.length) {
         profileFidelity = { contradictions: check.contradictions, resolved: "footnote" };
@@ -2180,6 +2236,8 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
         inputScreened: inputScreen.redacted,
         profileFidelity,
         verifiedData: Boolean(verifiedDataContext),
+        attachmentTurn,
+        attachmentsInlined,
       },
     });
   } catch (error) {
@@ -4028,7 +4086,19 @@ app.post("/api/files/extract-text", studentLimiter, requireStudentAuth, async (r
       return res.status(413).json({ error: `Decoded file exceeds ${CHAT_EXTRACT_MAX_BYTES} bytes` });
     }
     try {
-      const result = await extractText(buf, mime);
+      let result = await extractText(buf, mime);
+      let ocr = false;
+      // Scanned PDFs have no text layer — pdf-parse returns almost nothing.
+      // Fall back to per-page OCR (bounded, like the transcript importer)
+      // so a photographed transcript is readable instead of "truncated".
+      if (result?.kind === "pdf" && String(result.text || "").trim().length < 40) {
+        try {
+          result = { ...await extractPdfOCR(buf, { maxPages: 6, scale: 1.5, timeoutMs: 20_000 }), kind: "pdf" };
+          ocr = true;
+        } catch (ocrErr) {
+          console.warn("[FILE-EXTRACT] OCR fallback failed:", ocrErr?.code || "", ocrErr?.message);
+        }
+      }
       const text = String(result?.text || "");
       // Truncate so a single Word doc can't blow past the LLM
       // context budget. 60k chars ≈ 15k tokens — plenty for an
@@ -4038,6 +4108,7 @@ app.post("/api/files/extract-text", studentLimiter, requireStudentAuth, async (r
       return res.json({
         text: truncated ? text.slice(0, MAX_CHARS) : text,
         truncated,
+        ocr,
         warning: result?.warning || null,
         bytes: buf.length,
         mime,
@@ -4189,34 +4260,41 @@ app.post("/api/ec/upload", studentLimiter, requireStudentAuth, (req, res) => {
 app.post("/api/students/transcript-import", studentLimiter, requireStudentAuth, async (req, res) => {
   try {
     const { base64, mimeType, filename } = req.body || {};
-    if (typeof base64 !== "string" || !base64) {
-      return res.status(400).json({ error: "base64 required" });
+    // The chat's transcript card already holds the extracted text; a file
+    // upload from the profile editor arrives as base64.
+    const pastedText = typeof req.body?.text === "string" ? req.body.text.trim().slice(0, 60_000) : "";
+    if (!pastedText && (typeof base64 !== "string" || !base64)) {
+      return res.status(400).json({ error: "base64 or text required" });
     }
-    if (base64.length * 0.75 > CHAT_EXTRACT_MAX_BYTES) {
-      return res.status(413).json({ error: `File exceeds ${CHAT_EXTRACT_MAX_BYTES} bytes` });
-    }
-    let mime = String(mimeType || "").toLowerCase();
-    if (!mime || !isSupportedMime(mime)) {
-      const ext = String(filename || "").split(".").pop()?.toLowerCase() || "";
-      if (ext === "docx") mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-      else if (ext === "pdf") mime = "application/pdf";
-      else if (ext === "txt" || ext === "md") mime = "text/plain";
-    }
-    if (!isSupportedMime(mime)) {
-      return res.status(415).json({
-        error: `Unsupported mime type: ${mime || "(unknown)"}`,
-        supported: Object.keys(SUPPORTED_MIME_TYPES),
-      });
-    }
-    let buf;
-    try { buf = Buffer.from(base64, "base64"); }
-    catch { return res.status(400).json({ error: "Invalid base64" }); }
-    if (buf.length > CHAT_EXTRACT_MAX_BYTES) {
-      return res.status(413).json({ error: `Decoded file exceeds ${CHAT_EXTRACT_MAX_BYTES} bytes` });
+    let mime = null;
+    let buf = null;
+    if (!pastedText) {
+      if (base64.length * 0.75 > CHAT_EXTRACT_MAX_BYTES) {
+        return res.status(413).json({ error: `File exceeds ${CHAT_EXTRACT_MAX_BYTES} bytes` });
+      }
+      mime = String(mimeType || "").toLowerCase();
+      if (!mime || !isSupportedMime(mime)) {
+        const ext = String(filename || "").split(".").pop()?.toLowerCase() || "";
+        if (ext === "docx") mime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+        else if (ext === "pdf") mime = "application/pdf";
+        else if (ext === "txt" || ext === "md") mime = "text/plain";
+      }
+      if (!isSupportedMime(mime)) {
+        return res.status(415).json({
+          error: `Unsupported mime type: ${mime || "(unknown)"}`,
+          supported: Object.keys(SUPPORTED_MIME_TYPES),
+        });
+      }
+      try { buf = Buffer.from(base64, "base64"); }
+      catch { return res.status(400).json({ error: "Invalid base64" }); }
+      if (buf.length > CHAT_EXTRACT_MAX_BYTES) {
+        return res.status(413).json({ error: `Decoded file exceeds ${CHAT_EXTRACT_MAX_BYTES} bytes` });
+      }
     }
 
     let extraction;
-    try {
+    if (pastedText) extraction = { text: pastedText, kind: "text" };
+    else try {
       extraction = await extractText(buf, mime);
       // Scanned transcripts have no text layer — pdf-parse returns almost
       // nothing. Fall back to per-page OCR before giving up. Kept small on

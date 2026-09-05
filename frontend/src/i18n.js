@@ -131,6 +131,7 @@ export const STRINGS = {
 
     // ─── Course-sequence recommender ──
     "courses.title": "Course plan",
+    "transcript.title": "Transcript import",
     "courses.subtitle": "A major-aligned course sequence — what you have, and what would strengthen it.",
     "courses.have": "On your transcript",
     "courses.next": "You might consider next",
@@ -270,6 +271,7 @@ export const STRINGS = {
     "evidence.source": "\ucd9c\ucc98",
     "evidence.not_scored": "\ub3c5\ub9bd\uc801\uc73c\ub85c \ud3c9\uac00\ub418\uc9c0 \uc54a\uc74c",
     "courses.title": "\uc218\uac15 \uacc4\ud68d",
+    "transcript.title": "성적표 가져오기",
     "courses.subtitle": "\uc804\uacf5\uc5d0 \ub9de\ucd98 \uc218\uac15 \uc21c\uc11c \u2014 \uc774\ubbf8 \ub4e4\uc740 \uacfc\ubaa9\uacfc \ubcf4\uac15\ud558\uba74 \uc88b\uc744 \uacfc\ubaa9\uc785\ub2c8\ub2e4.",
     "courses.have": "\uc218\uac15\ud55c \uacfc\ubaa9",
     "courses.next": "\ub2e4\uc74c\uc73c\ub85c \uace0\ub824\ud574\ubcfc \uacfc\ubaa9",

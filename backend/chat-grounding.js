@@ -210,15 +210,57 @@ const GRADE_BEFORE_RE = /(?:^|[\s(,;:—–-])(?:(?:an?|your|the|that|his|her|th
 // where you earned an A" — the grade follows the course name.
 const GRADE_AFTER_RE = /^\s*(?:\(|\[|—|–|-|:|,)?\s*(?:(?:with|where you (?:earned|got|received|have|hold)|in which you (?:earned|got|received))\s+(?:an?\s+)?|(?:final\s+)?grade\s*(?:of|:)?\s*)?([ABCDF][+\-−–]?)(?=[\s).,;:!?\]]|$)/;
 
-function statedCourseGrades(text, aliases) {
+// Read a course name that starts right after a level word ("AP ", "Honors "):
+// Title-Case tokens (plus connectors like "and"/"of" when the next token is
+// capitalized), stopping at the first ordinary word, so "AP English Language
+// and Composition both matter" yields "English Language and Composition".
+function readCoursePhrase(text, start) {
+  const rest = text.slice(start, start + 120);
+  const parts = rest.split(/(\s+)/);
+  let phrase = "";
+  let consumed = 0;
+  let words = 0;
+  for (let i = 0; i < parts.length; i += 1) {
+    const part = parts[i];
+    if (/^\s+$/.test(part)) {
+      if (!phrase) break;
+      phrase += part;
+      consumed += part.length;
+      continue;
+    }
+    const clean = part.replace(/[,.;!?)]+$/, "");
+    const next = parts[i + 2] || "";
+    const connector = /^(?:and|of|the|&)$/i.test(clean) && /^[A-Z0-9]/.test(next);
+    const titled = /^[A-Z0-9][\w&:'’.-]*$/.test(clean);
+    if ((!titled && !connector) || words >= 7) break;
+    phrase += clean;
+    consumed += clean.length;
+    words += 1;
+    if (part.length !== clean.length) break; // punctuation ended the name
+  }
+  return { phrase: phrase.trim().replace(/[:\-–]$/, "").trim(), end: start + consumed };
+}
+
+function courseLevel(course) {
+  const type = String(course?.type || "").toLowerCase();
+  return type === "ap" || type === "ib" || type === "honors" ? type : null;
+}
+
+function statedCourseGrades(text, aliases, course = null) {
   const found = [];
   const re = aliasRegExp(aliases);
+  const level = courseLevel(course);
   let match;
   while ((match = re.exec(text))) {
     const start = match.index;
     const end = start + match[0].length;
     const before = text.slice(Math.max(0, start - 70), start);
     const after = text.slice(end, end + 70);
+    // "AP Chemistry" is not the record's Honors Chemistry: a level word right
+    // before a bare alias that doesn't match the course's level means a
+    // different course (handled by the not-on-record check).
+    const prefix = (before.match(/\b(AP|IB|Honors)\s+$/i) || [])[1];
+    if (prefix && prefix.toLowerCase() !== level) continue;
     const b = before.match(GRADE_BEFORE_RE);
     // The grade letter itself must be upper-case ("a B+ in" is fine, "a in"
     // is not a grade) — the flag above is only for the surrounding words.
@@ -315,7 +357,7 @@ export function checkProfileFidelity(answerText, profile) {
     if (!aliases.length) continue;
     const display = courseDisplayName(course);
     const actual = isLetterGrade(course.grade) ? normalizeGrade(course.grade) : null;
-    for (const stated of statedCourseGrades(text, aliases)) {
+    for (const stated of statedCourseGrades(text, aliases, course)) {
       if (actual && stated === actual) continue;
       add({
         kind: "course_grade",
@@ -324,6 +366,42 @@ export function checkProfileFidelity(answerText, profile) {
         actual: actual || (isInProgress(course.grade) ? "in progress — no final grade recorded" : "no grade recorded"),
       });
     }
+  }
+
+  // A grade attributed to a course the record doesn't have at all ("your A
+  // in AP Chemistry" when no such course was entered). Only AP/IB/Honors-
+  // prefixed names are checked — those are unambiguous course references.
+  const known = (Array.isArray(profile.courses) ? profile.courses : [])
+    .flatMap((c) => courseAliases(c).map((alias) => alias.toLowerCase()));
+  const normalizeName = (name) => String(name || "").replace(/[’']/g, "'").replace(/\s+/g, " ").trim().toLowerCase();
+  // The aliases already carry the level ("AP Statistics" for an AP course
+  // stored as "Statistics"), so the phrase must match level and all — the
+  // record's Honors Chemistry does not make "AP Chemistry" a real course.
+  const onRecord = (name) => {
+    const n = normalizeName(name);
+    return known.some((k) => k === n);
+  };
+  const flagInvented = (course, stated) => {
+    if (!course || !/^[ABCDF][+-]?$/.test(stated) || onRecord(course)) return;
+    add({ kind: "course_not_on_record", item: course, stated, actual: "no such course on the student's record" });
+  };
+  // "…your A in AP Chemistry and…" — the grade precedes the course.
+  // Lead words may open a sentence ("Your A in …"); the grade letter itself
+  // stays upper-case only, so an article "a" is never read as a grade.
+  const beforeRe = /\b(?:[Aa]n?|[Yy]our|[Tt]he|[Hh]is|[Hh]er|[Tt]heir)\s+([ABCDF][+\-−–]?)\s+(?:in|for|on)\s+(AP|IB|Honors)\s+(?=[A-Z0-9])/g;
+  let bm;
+  while ((bm = beforeRe.exec(text))) {
+    const { phrase } = readCoursePhrase(text, bm.index + bm[0].length);
+    if (phrase) flagInvented(`${bm[2]} ${phrase}`, normalizeGrade(bm[1]));
+  }
+  // "AP Biology (A-)" — the grade follows the course in parentheses.
+  const levelRe = /\b(AP|IB|Honors)\s+(?=[A-Z0-9])/g;
+  let lm;
+  while ((lm = levelRe.exec(text))) {
+    const { phrase, end } = readCoursePhrase(text, lm.index + lm[0].length);
+    if (!phrase) continue;
+    const paren = text.slice(end, end + 30).match(/^\s*\(\s*(?:grade\s*(?:of|:)?\s*)?([ABCDF][+\-−–]?)\s*\)/);
+    if (paren) flagInvented(`${lm[1]} ${phrase}`, normalizeGrade(paren[1]));
   }
 
   const gpas = statedGpas(text);
@@ -371,6 +449,7 @@ export function checkProfileFidelity(answerText, profile) {
 export function describeContradiction(entry) {
   switch (entry.kind) {
     case "course_grade": return `${entry.item}: recorded ${/^[ABCDF]/.test(entry.actual) ? `grade ${entry.actual}` : entry.actual} (the reply said ${entry.stated})`;
+    case "course_not_on_record": return `${entry.item}: not on the student's record at all (the reply gave it a grade of ${entry.stated})`;
     case "gpa": return `GPA: recorded ${entry.actual} (the reply said ${entry.stated})`;
     case "sat": return `SAT: recorded ${entry.actual} (the reply said ${entry.stated})`;
     case "act": return `ACT: recorded ${entry.actual} (the reply said ${entry.stated})`;

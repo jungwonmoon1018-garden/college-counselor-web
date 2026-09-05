@@ -7,6 +7,8 @@ import PrestigeCard from "./components/PrestigeCard.jsx";
 import SpikeFinder from "./components/SpikeFinder.jsx";
 import CalibratedFitCard from "./components/CalibratedFitCard.jsx";
 import CourseSequencer from "./components/CourseSequencer.jsx";
+import TranscriptImportCard from "./components/TranscriptImportCard.jsx";
+import { looksLikeTranscript, mergeImportedCourses, currentYearKey } from "./transcript-utils.js";
 import DisclosurePanel from "./components/DisclosurePanel.jsx";
 import MethodologyPanel from "./MethodologyPanel.jsx";
 import { detectLocale, t as tt } from "./i18n.js";
@@ -1314,7 +1316,11 @@ function getDocumentTypeFromMimeType(mimeType) {
 }
 
 // FIX 7d: Sanitize free-text inputs to prevent persistent prompt injection
-function sanitizeInput(text) {
+// `maxChars` defaults to a budget far above any attachment preface: the old
+// hard cap of 500 characters silently truncated every uploaded transcript or
+// essay, and the model — seeing a file cut off mid-line — reported it as
+// truncated and filled in the rest. Only the classifier inputs pass a small cap.
+function sanitizeInput(text, maxChars = 200_000) {
   if (!text) return "";
   // Normalize unicode homoglyphs (smart quotes, zero-width chars, lookalikes)
   let s = text.replace(/[\u200B-\u200F\u2028-\u202F\uFEFF]/g, ""); // zero-width / invisible chars
@@ -1323,7 +1329,7 @@ function sanitizeInput(text) {
   s = s.replace(/(ignore|disregard|forget|override|bypass|skip|drop)\s*(all\s*)?(previous|prior|above|earlier|system|original|initial)?\s*(instructions?|prompts?|rules?|directives?|guidelines?|constraints?)/gi, "[removed]");
   // Catch "you are now" / "act as" / "new instructions" prompt takeover attempts
   s = s.replace(/(you\s+are\s+now|act\s+as|new\s+(instructions?|role|persona)|pretend\s+(to\s+be|you\s+are)|system\s*:)/gi, "[removed]");
-  return s.slice(0, 500);
+  return s.slice(0, maxChars);
 }
 
 // Client-side rate limit — burst guard ONLY.
@@ -1852,7 +1858,7 @@ function maybeHandleQuickQuery(userMsg, data, user) {
       gpaLine || "GPA: not yet available.",
       courses.length ? `Courses: ${courses.length}` : "Courses: none added yet.",
       tests.length ? `Test scores: ${tests.map(t => `${t.test.toUpperCase()}: ${t.totalScore}`).join(", ")}` : (profile.testingStatus === "planned" ? "Test scores: not taken yet." : "Test scores: none added yet."),
-      apScores.length ? `AP exams: ${apScores.length}` : null,
+      apScores.length ? `AP exams: ${apScores.map(x => `${x.exam || x.subject || x.name} ${x.score}${x.year ? ` (${x.year})` : ""}`).join(", ")}` : null,
       activities.length ? `Activities: ${activities.length}` : "Activities: none added yet.",
       profile.majorInterest ? `Intended major: ${profile.majorInterest}` : null,
       goals.length ? `Goals: ${goals.join(", ")}` : null
@@ -1862,6 +1868,10 @@ function maybeHandleQuickQuery(userMsg, data, user) {
   if (new RegExp(`^(what (are )?my test scores|my test scores|what scores do i have|which tests have i taken|show (me )?my test scores)${trailer}`).test(q)) {
     if (!tests.length) return profile.testingStatus === "planned" ? "You haven't added any test scores yet. Your profile says tests are still pending." : "I don't have any test scores saved yet.";
     return tests.map(t => `${t.test.toUpperCase()}${t.subject ? ` (${t.subject})` : ""}: ${t.totalScore}${t.date ? ` · ${t.date}` : ""}`).join("\n");
+  }
+  if (new RegExp(`^(what (are )?my ap (exam )?scores|my ap (exam )?scores|show (me )?my ap (exam )?scores|ap scores|my ap exams)${trailer}`).test(q)) {
+    if (!apScores.length) return "I don't have any AP exam scores saved yet.";
+    return apScores.map(x => `AP ${x.exam || x.subject || x.name}: ${x.score}${x.year ? ` (${x.year})` : ""}`).join("\n");
   }
   if (new RegExp(`^(what courses (am i taking|do i have)?|my courses|what classes (am i taking|do i have)?|classes am i taking|show (me )?my courses)${trailer}`).test(q)) {
     if (!courses.length) return "I don't have any courses saved yet.";
@@ -2022,7 +2032,7 @@ async function orchestrate(userMsg,data,setData,setStatus,signal,pendingFileData
       const orchRes = await fetch(`${base}/agents/orchestrate`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ query: sanitizeInput(coreMsg), studentData: data.profile || {} }),
+        body: JSON.stringify({ query: sanitizeInput(coreMsg, 4000), studentData: data.profile || {} }),
         signal
       });
       if (orchRes.ok) {
@@ -3080,6 +3090,40 @@ export default function App() {
       setCollegeVerifying(false);
     }
   }, [data]);
+
+  // ─── Transcript → profile, from the chat ───
+  // Parse the attached transcript's text with the same deterministic route
+  // the profile editor uses (grades copied as written, never guessed) and
+  // merge the courses into the profile; the auto-save effect syncs it.
+  const parseTranscriptText = useCallback(async (file) => {
+    const post = () => authedFetch("/api/students/transcript-import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: file.text, filename: file.name || "transcript" }),
+    });
+    let r = await post();
+    let body = await r.json().catch(() => ({}));
+    if (r.status === 403 && body.code === "consent_required") {
+      const missing = (Array.isArray(body.missing) ? body.missing : []).filter((type) => ONBOARDING_CONSENT_TYPES.includes(type));
+      await grantOnboardingConsents(missing.length ? missing : undefined);
+      r = await post();
+      body = await r.json().catch(() => ({}));
+    }
+    if (!r.ok) throw new Error(body.error || `Import failed (HTTP ${r.status})`);
+    return body;
+  }, [authedFetch, grantOnboardingConsents]);
+  const importParsedTranscript = useCallback((parsed) => {
+    let outcome = { added: 0, skipped: 0, unplaced: 0 };
+    setData(prev => {
+      const profile = { ...(prev.profile || {}) };
+      const merged = mergeImportedCourses(profile.courses || [], parsed?.courses || {}, { fallbackYear: currentYearKey(user?.grade) });
+      outcome = { added: merged.added, skipped: merged.skipped, unplaced: merged.unplaced };
+      profile.courses = merged.courses;
+      if (parsed?.gpa != null && !profile.gpa) { profile.gpa = { unweighted: parsed.gpa }; profile.gpaStatus = undefined; }
+      return { ...prev, profile };
+    });
+    return outcome;
+  }, [user?.grade]);
 
   // ─── Inline chat tools ───
   // The four student tools (narrative, candidate ranker, spike finder,
@@ -4300,6 +4344,16 @@ export default function App() {
         threadIdForTurn = await newThread(undefined, true);
       }
       setMessages(prev => [...prev, { role:"assistant", content:result.text }]);
+      // An attached transcript can go straight into the profile — offer the
+      // deterministic import so grades come from the document, not the model.
+      if (!result.blocked && !result.uploadRejected) {
+        for (const f of textChatFiles) {
+          if (!looksLikeTranscript(f.content)) continue;
+          toolSeq.current += 1;
+          const id = `tool-transcript-${toolSeq.current}`;
+          setMessages(prev => [...prev, { role: "tool", tool: "transcript_import", id, file: { name: f.name, text: f.content } }]);
+        }
+      }
       refreshBudget();
       if (threadIdForTurn && !result.blocked && !result.uploadRejected) {
         await persistTurn(threadIdForTurn, "user", persistedContent, attachLabel, msg);
@@ -5433,6 +5487,16 @@ export default function App() {
             )}
           </>}
 
+          {profile.apScores?.length > 0 && <>
+            <div style={{ fontSize:11,fontWeight:600,color:"#6a6a7a",textTransform:"uppercase",letterSpacing:"0.06em",margin:"14px 0 6px" }}>AP exam scores ({profile.apScores.length})</div>
+            {profile.apScores.map((x,i)=>(
+              <div key={i} style={{ fontSize:12,padding:"4px 0",borderBottom:"1px solid rgba(255,255,255,0.03)",display:"flex",justifyContent:"space-between" }}>
+                <span><span style={{color:"#f6ad55"}}>AP </span>{x.exam || x.subject || x.name}{x.year ? <span style={{color:"#666"}}> · {x.year}</span> : null}</span>
+                <span style={{color:"#f6ad55",fontWeight:600}}>{x.score}</span>
+              </div>
+            ))}
+          </>}
+
           <div style={{ fontSize:11,fontWeight:600,color:"#6a6a7a",textTransform:"uppercase",letterSpacing:"0.06em",margin:"16px 0 6px" }}>ECs ({activities.length})</div>
           {activities.length > 0 ? (showAllECs ? activities : activities.slice(0,4)).map((a,i)=>(
             <div key={i} style={{ fontSize:12,padding:"5px 0",borderBottom:"1px solid rgba(255,255,255,0.03)" }}>
@@ -5592,6 +5656,7 @@ export default function App() {
                 candidates: "candidates.title",
                 spike: "spike.title",
                 courses: "courses.title",
+                transcript_import: "transcript.title",
               }[m.tool] || "chat.modal.close";
               return (
                 <div key={m.id||i} style={{marginBottom:14}}>
@@ -5619,6 +5684,9 @@ export default function App() {
                     )}
                     {m.tool==="courses" && (
                       <CourseSequencer locale={locale} targetSchools={targetSchools} />
+                    )}
+                    {m.tool==="transcript_import" && (
+                      <TranscriptImportCard file={m.file} onParse={parseTranscriptText} onImport={importParsedTranscript} />
                     )}
                   </div>
                 </div>

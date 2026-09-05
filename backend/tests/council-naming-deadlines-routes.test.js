@@ -593,6 +593,53 @@ test("the College Fit double-check compares the stored read with live sources an
   assert.match(wire, /College Fit double-check \(\d{4}-\d{2}-\d{2}\): live sources differ from the stored data — Admit rate: fit used \d+(?:\.\d)?%, live 49%/);
 });
 
+test("a document block reaches the model as its full extracted text, and the profile check yields to the document", async () => {
+  const token = await registerWithProfile("attachment-inline");
+  const transcript = "Official Transcript\nGrade Level: 11\nAP English Language and Composition  A\nAP Statistics  A\nCredits earned: 2.0\n";
+  // The document says A for AP English; the saved profile says B+. On an
+  // attachment turn the document is the ground truth, so no correction.
+  const reply = "Your A in AP English Language and Composition on this transcript is strong.";
+  const turn = await request("POST", "/api/chat", {
+    token,
+    body: {
+      messages: [{
+        role: "user",
+        content: [
+          { type: "document", source: { type: "base64", media_type: "text/plain", data: Buffer.from(transcript, "utf8").toString("base64") } },
+          { type: "text", text: `The student uploaded "transcript.txt". Summarize the grades. MOCKREPLY:${b64(reply)}:` },
+        ],
+      }],
+      request_id: "attachment-inline-1",
+    },
+  });
+  assert.equal(turn.status, 200, `${JSON.stringify(turn.data)}\n${serverOutput}`);
+  assert.equal(turn.data._meta.attachmentTurn, true);
+  assert.equal(turn.data._meta.attachmentsInlined, 1);
+  assert.equal(turn.data._meta.profileFidelity, null);
+  assert.equal(turn.data.answer, reply);
+  const calls = loggedModelCalls();
+  const wire = JSON.stringify(calls[calls.length - 1].messages);
+  // The text-only adapter used to send "[non-text block omitted]" — the
+  // student's file was simply absent and the model narrated a truncated one.
+  assert.match(wire, /\[Attached document — full extracted text, \d+ characters\]/);
+  assert.match(wire, /AP Statistics {2}A/);
+  assert.match(wire, /Credits earned: 2\.0/);
+  assert.doesNotMatch(wire, /non-text block omitted/);
+});
+
+test("transcript import accepts already-extracted text from the chat card", async () => {
+  const token = await registerWithProfile("transcript-text");
+  const r = await request("POST", "/api/students/transcript-import", {
+    token,
+    body: { text: "Official Transcript\nAP Calculus BC   A\n", filename: "transcript.txt" },
+  });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.equal(r.data.courseCount, 1);
+  assert.equal(r.data.courses.junior[0].name, "AP Calculus BC");
+  const missing = await request("POST", "/api/students/transcript-import", { token, body: { filename: "x.txt" } });
+  assert.equal(missing.status, 400);
+});
+
 test("chat grounds a college question in the VERIFIED DATA block", async () => {
   const token = await registerWithProfile("verified-data");
   const reply = "Stanford's acceptance rate is 3.9% [Source: NCES IPEDS, data year 2023], so treat it as a reach.";

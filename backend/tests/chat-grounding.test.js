@@ -104,6 +104,20 @@ test("fidelity check accepts a faithful answer and ignores generic statistics", 
   assert.deepEqual(checkProfileFidelity("Your A in AP Statistics", null).contradictions, []);
 });
 
+test("fidelity check flags a grade for a course that is not on the record", () => {
+  const { contradictions } = checkProfileFidelity(
+    "Your A in AP Chemistry and your B+ in AP English Language and Composition both matter; AP Biology (A-) shows range, and your A in AP Statistics is solid.",
+    profile,
+  );
+  assert.deepEqual(contradictions.map((c) => [c.kind, c.item, c.stated]), [
+    ["course_not_on_record", "AP Chemistry", "A"],
+    ["course_not_on_record", "AP Biology", "A-"],
+  ]);
+  assert.match(buildFidelityCorrection(contradictions), /AP Chemistry: not on the student's record at all \(the reply gave it a grade of A\)/);
+  // Courses on the record (with or without the AP prefix) never trip it.
+  assert.deepEqual(checkProfileFidelity("Your A in AP Statistics and your A- in Honors Chemistry are strong.", profile).contradictions, []);
+});
+
 test("fidelity check flags scores the profile does not have", () => {
   const bare = { courses: [{ name: "Biology", type: "honors" }], testScores: [], apScores: [] };
   const { contradictions } = checkProfileFidelity("Your SAT of 1400 and your 34 ACT are solid, and your A in Honors Biology stands out.", bare);
