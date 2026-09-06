@@ -8,11 +8,11 @@ changed recently and why, what was verified live, and what is open.
 
 ## Where things stand (2026-09-06)
 
-- **Deployed:** `main` at `6e4a4ec`, live at
+- **Deployed:** `main` at `0cf696c`, live at
   https://college-counselor-web.onrender.com. Render deploys after GitHub
   Actions CI passes; the deploy was confirmed (CI green, new student bundle
-  `main-BMa9ZAx7.js` served, behavior probed with a throwaway account).
-- **Tests:** backend `npm test` 641 tests, 636 pass, 5 skipped, 0 fail;
+  `main-C77xLMj6.js` served, behavior probed with a throwaway account).
+- **Tests:** backend `npm test` 642 tests, 637 pass, 5 skipped, 0 fail;
   frontend `npx vitest run` 25 pass; `npm run lint` 0 errors, 70 warnings
   (the CI cap is 500).
 - **Working tree:** clean apart from the repository's dozens of phantom
@@ -31,6 +31,31 @@ changed recently and why, what was verified live, and what is open.
 Each item names the commit that carries it. Earlier sessions' work
 (profile grounding, the policy scout, the fit double-check) is summarized
 at the end.
+
+**Seven review fixes (2026-09-06)** — `0cf696c`, one commit. (1) Deadlines:
+`POST /api/calendar/context` reads a school's own pages on demand
+(`scoutSchoolOnDemand`) before the optional model research; the client's
+`createDeadlinesForSchool` titles any typical-cycle fallback
+"(approximate — verify)" and its note says it is a planning window, while
+page-read dates cite the page. (2) Signup privacy footer rewritten to
+describe browser-side vault encryption, server storage, redaction and
+OpenRouter processing. (3) A `blocked: true` 400 from `/api/chat` (essay
+ghostwriting) is shown as the counselor's reply, not "Something went
+wrong". (4) Add-activity default category is `academic` (was the legacy
+`club`, which saved as "Other Club/Activity"). (5) i18n strings no longer
+name API endpoints (test forbids `POST /api`); `DriftBanner` takes
+`refreshKey` (bumped on narrative save) and a "Write your story" button.
+(6) `composeAnswer` takes `questionText` and attaches the official-source
+follow-up action only when the question concerns that sub-intent's domain
+(`questionConcernsSubIntent`); the upload priming sentence is stripped
+before classification. (7) The EC re-rank is bounded at 30 s
+(`EC_RERANK_TIMEOUT_MS`, `rerankNote` on the response); `ccFetch` has a
+45 s default timeout (`timeoutMs` per call; 60 s rank, 120 s model tools);
+the ranker shows elapsed seconds and a Retry button. Four files
+(`backend/i18n.js`, `candidates-and-deadlines.test.js`,
+`CandidateRanker.jsx`, `DriftBanner.jsx`) were among the phantom-CRLF files
+and got normalized to LF in this commit; the diff is large but content-wise
+small.
 
 **Chat latency and context rot (2026-09-06)** — `d292cb4`, `5fb313e`,
 `15a2643`, `6e4a4ec`. Four commits, in order:
@@ -142,8 +167,21 @@ deadline answers from scouted snapshots.
 
 ## Verified live today, and not
 
-Verified on production 2026-09-06 with a throwaway account (deleted): an
-assistant append returned `threadGraph: { factId, entities: 7 }`; a new
+Verified on production 2026-09-06 (second probe, throwaway account
+deleted): a "write my whole college essay" turn returned 400 with
+`blocked: true` and the coaching redirect as its message; `POST
+/api/calendar/context` for Johns Hopkins University with `research: false`
+came back in 12 s with `deadlinesSource: official_pages`, ED 2026-11-01 and
+RD 2027-01-02 from https://apply.jhu.edu/ (financial aid and commit-by
+not found on the pages read, so those two entries would be created as
+"(approximate — verify)"); an EC ranking with a saved narrative returned in
+6.2 s with `engine: llm`; the drift message after saving no longer names
+an endpoint. Not verified in a browser: the ghostwriting reply rendering,
+the approximate titles in the Deadlines tab, the ranker's elapsed counter
+and Retry button, the drift banner refresh, and the category default.
+
+Verified on production 2026-09-06 (first probe) with a throwaway account
+(deleted): an assistant append returned `threadGraph: { factId, entities: 7 }`; a new
 thread asking about Brown University's binding plan got
 `_meta.threadMemory: 1` and the model recapped the earlier advice; the
 same turn sent inside the verbatim history got `threadMemory: 0`; an EC
@@ -173,6 +211,18 @@ the counselor.
 
 ## Open items and things to watch
 
+- Johns Hopkins' pages also state January 15 (its Early Decision II date);
+  the scout's deadline extraction knows ED / EA / RD / REA only, so ED II
+  is neither scouted nor detected as an asked plan. Adding it touches
+  `admissions-policy-scout.js`, `snapshotAsDeadlineRecord`, and the
+  client's four-round deadline creation.
+- The on-demand page read in `POST /api/calendar/context` adds up to 15 s
+  per school (observed 12 s for JHU) the first time a target is added; the
+  snapshot is reused afterwards.
+- The StudentAid.gov follow-up fix is a relevance rule in the composer; the
+  reviewer's exact biomedical / transcript questions could not be
+  reproduced through the classifier, so if the footer reappears, capture
+  the question text and add it to `answer-composer.test.js`.
 - The model call is now ~99% of server turn time (6–15 s). The next real
   latency win is streaming the final answer, which conflicts with the
   post-hoc fidelity check, PII restore and validator; the workable design
