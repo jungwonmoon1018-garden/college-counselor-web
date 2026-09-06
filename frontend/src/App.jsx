@@ -1964,38 +1964,6 @@ function isSimpleProfileQuery(msg) {
   return simple.test(msg.trim());
 }
 
-// Format three-lane answer for display (verified facts, model inferences, coaching suggestions)
-function formatThreeLaneAnswer(answer) {
-  const parts = [];
-  if (answer.verified_facts?.length) {
-    parts.push("**Verified information:**");
-    for (const f of answer.verified_facts) {
-      const src = f.source?.domain ? ` _(Source: ${f.source.domain})_` : "";
-      parts.push(`- ${f.statement}${src}`);
-    }
-  }
-  if (answer.model_inferences?.length) {
-    parts.push("\n**Analysis** _(AI-generated — verify independently):_");
-    for (const inf of answer.model_inferences) parts.push(`- ${inf.statement}`);
-  }
-  if (answer.coaching_suggestions?.length) {
-    parts.push("\n**Suggestions** _(non-binding coaching):_");
-    // Composer items carry `statement` (older payloads used `suggestion`) —
-    // reading only the legacy key rendered every bullet as "undefined".
-    for (const s of answer.coaching_suggestions) {
-      const text = s.statement || s.suggestion || "";
-      if (text) parts.push(`- ${text}`);
-    }
-  }
-  if (answer.sources?.length) {
-    parts.push("\n---\n_Sources: " + answer.sources.map(s => s.domain || s.url).join(", ") + "_");
-  }
-  if (answer.ai_disclosure) {
-    parts.push(`\n_${answer.ai_disclosure.advisory_disclosure || "AI-generated advisory content."}_`);
-  }
-  return parts.join("\n");
-}
-
 
 // Per-turn stage timings for the client pipeline. Every model call in a turn
 // runs in series (gatekeeper, specialists, supervisor, validator), and until
@@ -2053,39 +2021,14 @@ async function orchestrateStages(userMsg,data,setData,setStatus,signal,pendingFi
     return { text: quickReply, blocked: false };
   }
 
-  // ── STEP 0: Try backend rules-first pipeline (deterministic FAFSA/deadline/compliance) ──
-  // Same gating as the frontend quick-query: skip when files are
-  // attached. The backend's deterministic intents (FAFSA, deadlines)
-  // would still trigger fine, but the route also returns 400 for
-  // queries > 4000 chars (a folder upload easily exceeds this) — so
-  // skipping saves a round-trip and lets the LLM read the attachment.
-  const proxyUrl = window.__CC_PROXY_URL__;
-  const token = window.__CC_SESSION_TOKEN__;
-  let backendOrch = null;
-  if (proxyUrl && token && !pendingFileData && !msgHasFilePreface) {
-    try {
-      setStatus({active:"policy_router",phase:"Checking rules engine..."});
-      const base = proxyUrl.replace(/\/chat\/?$/,"");
-      const orchRes = await fetch(`${base}/agents/orchestrate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ query: sanitizeInput(coreMsg, 4000), studentData: data.profile || {} }),
-        signal
-      });
-      if (orchRes.ok) {
-        backendOrch = await orchRes.json();
-        // If the backend handled it deterministically (rules engine, $0 cost), return directly
-        if (backendOrch._meta?.deterministic && backendOrch.verified_facts) {
-          const formattedAnswer = formatThreeLaneAnswer(backendOrch);
-          return { text: formattedAnswer || backendOrch.text || "No verified answer available for this topic.", blocked: false, threeLane: true };
-        }
-      }
-    } catch (err) {
-      console.warn("[orchestrate] Backend rules-first pipeline unavailable:", err?.message);
-      // Fall through to frontend agent pipeline
-    }
-  }
-  clock.mark("rules_engine");
+  // There is no separate rules-engine pre-flight any more. It used to POST
+  // every turn to /api/agents/orchestrate before the first model call, but
+  // /api/chat runs the same policy router and answers the same deterministic
+  // intents (federal-aid eligibility, deadline lookups, on-demand official
+  // reads) itself before spending a model call — so the extra round trip
+  // only ever added latency. The one thing it could answer that /api/chat
+  // does not is a document-completeness check, which the chat never had the
+  // inputs for anyway.
 
   // ── STEP 1: Gatekeeper classification (Haiku — cheap T1 routing) ──
   // The gatekeeper only needs the student's INTENT — not the full
@@ -2160,8 +2103,15 @@ async function orchestrateStages(userMsg,data,setData,setStatus,signal,pendingFi
     // each specialist talks past the others. Reserve multi-route
     // for genuinely cross-cutting questions where the student
     // explicitly asks for both.
-    const wantsBoth = /\b(and|plus|also|both|along with)\b/i.test(gatekeeperInput) ||
-                      /\b(plan|strategy|timeline|combine|connect)\b/i.test(gatekeeperInput);
+    // Multi-route needs BOTH an explicit conjunction AND two distinct
+    // keyword families. The old test fired on any "and" or "plan" in the
+    // message ("what's my GPA and how do I raise it" ran two specialists
+    // plus the supervisor merge, three serial calls for a one-topic
+    // question). "plan / strategy / timeline" already route to the
+    // strategy specialist on their own, so they no longer count as a
+    // request for two answers.
+    const wantsBoth = routes.length >= 2 &&
+                      /\b(and|plus|also|both|along with|as well as)\b/i.test(gatekeeperInput);
     const primary =
       isNamedSchoolQuery && !EC_KW.test(gatekeeperInput) && !ACADEMIC_KW.test(gatekeeperInput) ? "college"
       : isNamedSchoolQuery && EC_KW.test(gatekeeperInput) ? "college"        // school + EC evidence → school fit wins
@@ -2383,17 +2333,39 @@ SOURCES (required):
   }
 
   // ── STEP 6: Output validation (Haiku — cheap T1 moderation) ──
-  // Skip the validator when:
-  //   - The query was a trivial profile lookup (existing `isSimple`)
-  //   - The response is short (< 600 chars) AND contains no risky
-  //     tokens (predictions, medical / financial advice, guarantees).
-  //     Most academic/EC turns fall in this bucket. Saves a 3-5s
-  //     LLM call per turn for the common case.
-  const RISKY_OUTPUT_TOKENS = /\b(guarantee|guarantees|guaranteed|definitely will|definitely won'?t|will get in|won'?t get in|you'?ll get in|diagnos|prescri|medication|dosage|invest in|stock|crypt|loan|insurance|legal advice|lawyer|sue|lawsuit)\b/i;
-  const draftLen = (draft || "").length;
-  const validatorSafeSkip = !isSimple && draftLen > 0 && draftLen < 600 && !RISKY_OUTPUT_TOKENS.test(draft) && (gate.category === "safe_academic" || gate.category === "safe_ec");
-  if (isSimple || validatorSafeSkip) {
-    if (validatorSafeSkip) console.log("[validator] skip — short safe response, no risky tokens");
+  // The LLM validator is the last serial model call of a turn, and the
+  // server has already screened the answer deterministically (output
+  // screen, PII restore, profile-fidelity check, verified-data rules), so
+  // it runs only when a deterministic read of the draft finds something
+  // it is uniquely placed to judge:
+  //   - guarantees, predictions, medical / financial / legal advice;
+  //   - overclaiming ("the best school", rankings without a source);
+  //   - policy violations (lying, fabricating, hiding) or grooming signals
+  //     (secrecy, private contact with an adult);
+  //   - a statistic with no source anywhere in the answer;
+  //   - essay work, where drafted paragraphs are the risk;
+  //   - a gatekeeper category outside the safe_* set, or an attachment turn.
+  // Everything else returns as drafted. The old rule also skipped only
+  // answers under 600 characters in the academic / EC lanes, which sent
+  // most college-fit and strategy turns through an extra 3-5 s call.
+  const RISKY_OUTPUT_TOKENS = /\b(guarantee|guarantees|guaranteed|definitely will|definitely won'?t|will get in|won'?t get in|you'?ll get in|shoo-in|lock for|\d{1,3}\s?% chance|chances? (?:are|is) (?:high|good|excellent|low|slim)|diagnos|prescri|medication|dosage|invest in|stock|crypt|loan|insurance|legal advice|lawyer|sue|lawsuit)\b/i;
+  const OVERCLAIM_OUTPUT_TOKENS = /\b(the best (?:school|college|university|program)|#\s?1 (?:school|college|university|program)|top[- ]ranked|ranked (?:first|#\s?\d)|number one (?:school|college|university)|prestigious)\b/i;
+  const CONDUCT_OUTPUT_TOKENS = /\b(lie|lying|fabricat\w*|make up (?:an?|the|your)|exaggerat\w*|pretend|misrepresent\w*|keep (?:this|it) (?:a )?secret|don'?t tell (?:your )?(?:parents|mom|dad|counselor|anyone)|between (?:us|you and me)|meet (?:me|up) (?:privately|alone|in person)|my (?:number|phone|address)|text me|private(?:ly)? message)\b/i;
+  const ESSAY_TURN_RE = /\b(essay|personal statement|supplemental|common app prompt|why (?:us|this school|major))\b/i;
+  const UNSOURCED_STAT_RE = /\d+(?:\.\d+)?\s?%|\b\d{3,4}\s?[-–]\s?\d{3,4}\b/;
+  const SOURCE_MARK_RE = /\b(source|ipeds|common data set|scorecard|verified|according to)\b/i;
+  const draftText = String(draft || "");
+  const validatorNeeded = (
+    !/^safe_/.test(String(gate.category || "")) ||
+    multimodalContent.length > 0 ||
+    RISKY_OUTPUT_TOKENS.test(draftText) ||
+    OVERCLAIM_OUTPUT_TOKENS.test(draftText) ||
+    CONDUCT_OUTPUT_TOKENS.test(draftText) ||
+    ESSAY_TURN_RE.test(coreMsg) ||
+    (UNSOURCED_STAT_RE.test(draftText) && !SOURCE_MARK_RE.test(draftText))
+  );
+  if (isSimple || (draftText.length > 0 && !validatorNeeded)) {
+    if (!isSimple) console.log("[validator] skip — deterministic screen found nothing for the model to judge");
     return{text:withSupport(draft, supportNeeded),blocked:false,routeKey:routes[0]||null};
   }
   setStatus({active:"validator",phase:"Final safety check..."});
