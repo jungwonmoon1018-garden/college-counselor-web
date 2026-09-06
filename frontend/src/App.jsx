@@ -1449,7 +1449,14 @@ async function requestChat(payload, signal, locale = "en-US") {
     const e = await r.json().catch(() => ({}));
     // Backend may return { error: "string" } or { error: { message: "string" } }
     const errMsg = typeof e.error === "string" ? e.error : (e.error?.message || `API ${r.status}`);
-    throw new Error(errMsg);
+    const err = new Error(errMsg);
+    // A policy block ({ blocked: true }) carries the counselor's own reply —
+    // for an essay-ghostwriting request, the coaching redirect (brainstorm,
+    // outline, feedback). It is an answer to show, not a failure to hide
+    // behind "Something went wrong".
+    if (e.blocked === true) err.blocked = true;
+    err.status = r.status;
+    throw err;
   }
 
   const body = await r.json();
@@ -2736,9 +2743,13 @@ export default function App() {
   const [sAPInput, setSAPInput] = useState({ subject:"", score:"5", year:"2025" });
   // ECs
   const [sECs, setSECs] = useState([]);
+  // The default category must be a value the dropdown actually offers. It
+  // used to be the legacy "club", which the select could not display (so it
+  // showed the first option, "Academic") but which saved through the
+  // migration shim as "Other Club/Activity".
   const [sECInput, setSECInput] = useState({
     name: "",
-    category: "club",
+    category: "academic",
     role: "",
     hoursPerWeek: "",
     weeksPerYear: "",
@@ -3228,6 +3239,9 @@ export default function App() {
   // active row server-side.
   const [sNarrative, setSNarrative] = useState("");
   const [sNarrativeSaved, setSNarrativeSaved] = useState(false);
+  // Bumped on every narrative save so the chat-top drift banner re-reads
+  // its status instead of keeping a stale "no saved story" warning.
+  const [narrativeVersion, setNarrativeVersion] = useState(0);
   // Which EC row is showing its PrestigeCard expansion. Stored as the EC's
   // index in the sidebar list, or null. Click toggles; only one open at once
   // (the prestige rationale can be long, multiple open turns the sidebar
@@ -3320,7 +3334,7 @@ export default function App() {
       grades: Array.isArray(a.grades) ? a.grades : [],
       timing: a.timing || "school_year",
     })));
-    setSECInput({ name:"", category:"club", role:"", hoursPerWeek:"", weeksPerYear:"", description:"", grades:[], timing:"school_year" });
+    setSECInput({ name:"", category:"academic", role:"", hoursPerWeek:"", weeksPerYear:"", description:"", grades:[], timing:"school_year" });
     setSGoals([...(d.goals || [])]);
     setsMajorInterest(d.majorInterest || d.profile?.majorInterest || "");
     setSurveyError("");
@@ -3475,16 +3489,22 @@ export default function App() {
       }
       return null;
     };
+    // Two kinds of entry, never confused: a date read from the school's own
+    // pages is the school's deadline and says where it came from; a date
+    // from the typical-cycle table is an approximate planning window and is
+    // labeled as such in the title itself, so a reminder can never present
+    // "January 1" as a school's deadline (Johns Hopkins lists January 2 and
+    // January 15; the generic fallbacks said January 1 and February 1).
     const webNote = srcUrl
-      ? `Researched via web (${srcUrl}). Verify before relying on it.`
-      : `Researched via web for the current cycle. Verify on ${name}'s official site.`;
-    const typicalNote = `Typical US date — confirm the exact date on ${name}'s official admissions/financial-aid site.`;
+      ? `${name}'s published date, read from ${srcUrl}. Re-check the page before you rely on it.`
+      : `${name}'s published date for the current cycle. Re-check ${name}'s official site before you rely on it.`;
+    const typicalNote = `Approximate planning window from typical US cycle dates — NOT ${name}'s verified deadline. Look up the exact date on ${name}'s official admissions or financial-aid page and edit this entry.`;
     const mk = (round, webVal, typicalVal, category) => {
       const fromWeb = Boolean(webVal && Number.isFinite(Date.parse(webVal)));
       const date = toISO(webVal, typicalVal);
       if (!date) return null;
       return {
-        title: `${name} — ${round}`,
+        title: fromWeb ? `${name} — ${round}` : `${name} — ${round} (approximate — verify)`,
         dueAt: date,
         category,
         notes: fromWeb ? webNote : typicalNote,
@@ -4457,7 +4477,9 @@ export default function App() {
       // FIX P2: On cancel/error, no file metadata is saved
       const text = err.name === "AbortError"
         ? "Cancelled. You can send a new question whenever you're ready."
-        : formatUserFacingError(err);
+        : err.blocked && err.message
+          ? err.message
+          : formatUserFacingError(err);
       if (councilTypeForTurn) {
         setInput(baseMsg);
         setMessages((prev) => reconcileCouncilFailureMessages(prev, councilClientTurnId, text));
@@ -4600,7 +4622,10 @@ export default function App() {
           <div style={{textAlign:"center",marginTop:10}}><a href="/admin.html" style={{color:"#9ed1ff",fontSize:13}}>Device administrator</a></div>
 
           <p style={{ fontSize:10,color:"#333",textAlign:"center",marginTop:16,lineHeight:1.6 }}>
-            Your data is AES-256-GCM encrypted with your passphrase and never leaves your device unencrypted. We cannot recover your passphrase.
+            Your personal vault is encrypted in your browser with your passphrase (AES-256-GCM) before it is stored, and we cannot recover a lost passphrase.
+            Your profile, chat history and deadlines are also stored on this service's server so the counselor can use them and they survive across devices; chat messages and personal identifiers are encrypted there.
+            Questions you ask are sent over HTTPS to the AI provider (OpenRouter) after names and other personal details are redacted; nothing is sold.
+            You can export or delete everything from Settings.
           </p>
         </div>
         <style>{GLOBAL_CSS}</style>
@@ -4764,7 +4789,7 @@ export default function App() {
         // Mirror the Common App's Activities section: 150-char hard cap.
         description: (sECInput.description || "").trim().slice(0, 150),
       }]);
-      setSECInput({ name:"", category:"club", role:"", hoursPerWeek:"", weeksPerYear:"", description:"", grades:[], timing:"school_year" });
+      setSECInput({ name:"", category:"academic", role:"", hoursPerWeek:"", weeksPerYear:"", description:"", grades:[], timing:"school_year" });
     };
 
     const chip = (s,fn,l) => (<button key={typeof l === "string" ? l : undefined} onClick={fn} style={{padding:"8px 14px",borderRadius:20,border:`1px solid ${s?"rgba(55,138,221,0.5)":"rgba(255,255,255,0.08)"}`,background:s?"rgba(55,138,221,0.12)":"rgba(255,255,255,0.02)",color:s?"#63b3ed":"#8a8a9a",fontSize:12,fontWeight:s?600:400,cursor:"pointer",transition:"all 0.15s"}}>{l}</button>);
@@ -5677,7 +5702,7 @@ export default function App() {
         {/* a chip only when overdue or due-in-7. Both are zero-noise when there */}
         {/* is nothing to surface, so the chat top stays clean for new students. */}
         <div style={{ padding:"8px 18px",display:"flex",gap:10,flexWrap:"wrap",flexShrink:0,alignItems:"center" }}>
-          <DriftBanner locale={locale} onReview={() => openTool("candidates")} />
+          <DriftBanner locale={locale} refreshKey={narrativeVersion} onReview={() => openTool("candidates")} onWriteStory={() => openTool("narrative")} />
           <DeadlineTracker locale={locale} compact refreshKey={deadlineRefreshKey} />
         </div>
 
@@ -5709,7 +5734,7 @@ export default function App() {
                       }}>✕</button>
                     </div>
                     {m.tool==="narrative" && (
-                      <NarrativeEditor locale={locale} targetSchools={targetSchools} onSaved={()=>setSNarrativeSaved(true)} />
+                      <NarrativeEditor locale={locale} targetSchools={targetSchools} onSaved={()=>{ setSNarrativeSaved(true); setNarrativeVersion((v) => v + 1); }} />
                     )}
                     {m.tool==="candidates" && (
                       <CandidateRanker locale={locale} targetSchools={targetSchools} onWriteNarrative={()=>openTool("narrative")} />

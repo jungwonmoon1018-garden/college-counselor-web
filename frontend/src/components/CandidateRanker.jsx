@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ec as ecApi, NoNarrativeError } from "../api.js";
 import { t } from "../i18n.js";
 
@@ -36,9 +36,20 @@ export default function CandidateRanker({ locale = "en-US", onWriteNarrative, ta
 
   const lines = raw.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
 
+  // Seconds since the ranking started, shown while busy so a long wait reads
+  // as progress rather than a hang; a timeout or failure ends with a Retry.
+  const [elapsed, setElapsed] = useState(0);
+  const [canRetry, setCanRetry] = useState(false);
+  useEffect(() => {
+    if (!busy) return undefined;
+    setElapsed(0);
+    const timer = setInterval(() => setElapsed((s) => s + 1), 1000);
+    return () => clearInterval(timer);
+  }, [busy]);
+
   async function rank() {
     if (lines.length === 0) { setErr(t(locale, "candidates.empty")); return; }
-    setBusy(true); setErr(""); setNoNarrative(""); setResults(null);
+    setBusy(true); setErr(""); setNoNarrative(""); setResults(null); setCanRetry(false);
     try {
       const candidates = lines.slice(0, 25).map((name) => ({ name }));
       const r = await ecApi.rankCandidates(candidates, targetSchools);
@@ -47,7 +58,8 @@ export default function CandidateRanker({ locale = "en-US", onWriteNarrative, ta
       if (e instanceof NoNarrativeError) {
         setNoNarrative(e.friendlyMessage);
       } else {
-        setErr(e.body?.friendlyMessage || e.message || "Failed to rank candidates.");
+        setErr(e.timedOut ? t(locale, "candidates.timeout") : (e.body?.friendlyMessage || e.message || "Failed to rank candidates."));
+        setCanRetry(true);
       }
     } finally {
       setBusy(false);
@@ -135,7 +147,16 @@ export default function CandidateRanker({ locale = "en-US", onWriteNarrative, ta
           )}
         </div>
       )}
-      {err && <div style={{ fontSize: 13, color: "#f56565" }}>{err}</div>}
+      {err && (
+        <div style={{ fontSize: 13, color: "#f56565", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <span>{err}</span>
+          {canRetry && !busy && (
+            <button onClick={rank} style={{ fontSize: 12, padding: "5px 12px", borderRadius: 8, border: "1px solid rgba(245,101,101,0.35)", background: "rgba(245,101,101,0.08)", color: "#fed7d7", cursor: "pointer" }}>
+              {t(locale, "candidates.retry")}
+            </button>
+          )}
+        </div>
+      )}
       <button
         onClick={rank}
         disabled={busy || lines.length === 0}
@@ -147,7 +168,7 @@ export default function CandidateRanker({ locale = "en-US", onWriteNarrative, ta
           alignSelf: "flex-start",
         }}
       >
-        {t(locale, "candidates.rank")}
+        {busy ? t(locale, "candidates.ranking_elapsed", { seconds: elapsed }) : t(locale, "candidates.rank")}
       </button>
       {(() => {
         // The /api/ec/candidates/rank endpoint returns { candidates: [...] }.
@@ -163,6 +184,9 @@ export default function CandidateRanker({ locale = "en-US", onWriteNarrative, ta
               {t(locale, "candidates.llm_ranked")}
               {results.targetSchools?.length > 0 && ` · ${t(locale, "tools.tuned_for", { schools: results.targetSchools.join(", ") })}`}
             </div>
+          )}
+          {results?.rerankNote && (
+            <div style={{ fontSize: 11, color: "#f6ad55" }}>{results.rerankNote}</div>
           )}
           {ranked.map((r, i) => (
             <div key={i} style={{

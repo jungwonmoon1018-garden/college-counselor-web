@@ -138,4 +138,23 @@ describe("composeAnswer", () => {
     assert.equal(result.verified_facts.length, 0);
     assert.equal(result.no_verified_answer, true);
   });
+
+  it("adds the official-source follow-up only when the question is about that source's domain", () => {
+    const base = {
+      classification: { topicType: "regulated", subIntent: "financial_aid_policy" },
+      evidence: [],
+      modelOutput: { text: "Biomedical engineering programs value physics and calculus; here is a plan.", model: "test-model" },
+    };
+    // A coaching question the classifier filed under aid: no StudentAid.gov footer.
+    const offTopic = composeAnswer({ ...base, questionText: "I want to study biomedical engineering. What should I do this year?" });
+    assert.deepEqual(offTopic.actions, []);
+    // The same classification on a question that is about aid keeps it.
+    const onTopic = composeAnswer({ ...base, questionText: "Is Hopkins need-blind, and what financial aid policy applies to me?" });
+    assert.equal(onTopic.actions.length, 1);
+    assert.equal(onTopic.actions[0].label, "StudentAid.gov");
+    // Older callers that do not pass the question, and deterministic answers, are unchanged.
+    assert.equal(composeAnswer(base).actions.length, 1);
+    const deterministic = composeAnswer({ ...base, modelOutput: null, questionText: "biomedical engineering plan" });
+    assert.equal(deterministic.actions.length, 1);
+  });
 });

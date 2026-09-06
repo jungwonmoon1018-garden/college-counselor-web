@@ -9,12 +9,18 @@ import { t } from "../i18n.js";
 // already comes back locale-translated, so we render it verbatim.
 // ═══════════════════════════════════════════════════════════════════════
 
-export default function DriftBanner({ locale = "en-US", onReview }) {
+// `refreshKey` changes whenever the narrative or the activities are saved,
+// so the banner re-reads drift instead of showing a stale "no saved story"
+// warning after the student has just saved one. `onWriteStory` opens the
+// story editor — the visible action for the no-narrative state (the server
+// text used to name an API endpoint instead).
+export default function DriftBanner({ locale = "en-US", onReview, onWriteStory, refreshKey = 0 }) {
   const [drift, setDrift] = useState(null);
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
     let alive = true;
+    setDismissed(false);
     (async () => {
       try {
         const r = await narrativeApi.drift();
@@ -22,7 +28,7 @@ export default function DriftBanner({ locale = "en-US", onReview }) {
       } catch { /* drift is best-effort; never block chat */ }
     })();
     return () => { alive = false; };
-  }, []);
+  }, [refreshKey]);
 
   if (!drift || dismissed) return null;
   if (drift.status === "all_fresh") return null;
@@ -53,7 +59,15 @@ export default function DriftBanner({ locale = "en-US", onReview }) {
         )}
       </div>
       <div style={{ display: "flex", gap: 8 }}>
-        {onReview && (
+        {drift.status === "no_active_narrative" && onWriteStory ? (
+          <button onClick={onWriteStory} style={{
+            fontSize: 12, padding: "6px 12px", borderRadius: 8,
+            border: "none", background: "linear-gradient(135deg,#378ADD,#667eea)",
+            color: "#fff", fontWeight: 600, cursor: "pointer",
+          }}>
+            {t(locale, "drift.write_story")}
+          </button>
+        ) : onReview && (
           <button onClick={onReview} style={{
             fontSize: 12, padding: "6px 12px", borderRadius: 8,
             border: "1px solid rgba(255,255,255,0.1)", background: "transparent",

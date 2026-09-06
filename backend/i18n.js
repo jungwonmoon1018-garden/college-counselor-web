@@ -235,13 +235,14 @@ export const STRINGS = {
     "friendly.directionality_label.declining.summary": "Recent semesters are weaker. This is fixable \u2014 many students write a short note explaining what changed.",
 
     // ─── Drift (F10) ───
-    "drift.no_active_narrative": "No active narrative yet \u2014 save one with POST /api/ec/narrative to unlock drift detection.",
+    "drift.no_active_narrative": "No saved story yet \u2014 open Edit your story and save one to unlock drift detection.",
     "drift.all_fresh": "Every activity's narrative_fit was scored against your current narrative. You're up to date.",
     "drift.one_stale": "1 activity still reflects an older version of your story. One-click recompute from the Activities page.",
     "drift.many_stale": "{count} activities still reflect an older version of your story. Recompute them so your fit scores line up with what you just wrote.",
 
     // ─── Candidates (F6) ───
-    "candidates.no_active_narrative": "Save your narrative first (POST /api/ec/narrative). Candidate ranking needs your story as the baseline.",
+    "candidates.no_active_narrative": "Save your story first (Edit your story). Ranking needs it as the baseline.",
+    "candidates.rerank_timeout": "The AI re-rank took too long, so this is the quick keyword ranking. Try again in a moment for the fuller read.",
     "candidates.name_required": "name required",
     "candidates.summary_strong": "Strong fit: touches your {bucket} track and aligns with {themes}. Predicted narrative fit \u2248 {fit}.",
     "candidates.summary_partial": "Partial fit: brushes {themes} but doesn't land in your declared major direction.",
@@ -249,7 +250,7 @@ export const STRINGS = {
     "candidates.summary_major_hit": "Major-bucket match for {bucket}, no theme overlap yet. Could become strong if you frame it toward your story.",
 
     // ─── Deadlines (F7) ───
-    "deadlines.no_upcoming": "No upcoming deadlines on your list. Add one with POST /api/students/deadlines.",
+    "deadlines.no_upcoming": "No upcoming deadlines on your list. Add one in the Deadlines tab, or add a target school and its key dates are created for you.",
     "deadlines.overdue_one": "{count} deadline already passed \u2014 snooze or mark done.",
     "deadlines.overdue_many": "{count} deadlines already passed \u2014 snooze or mark done.",
     "deadlines.upcoming_next_one": "{count} upcoming \u2014 next is {title} in 1 day.",
@@ -301,7 +302,7 @@ export const STRINGS = {
     "register.err.unknown_flag": "error: unknown flag: {flag}. Run with --help to see all options.",
     "register.err.unexpected": "error: unexpected failure: {message}",
     "register.nextstep.ready": "Export COLLEGEAPP_SESSION_TOKEN with the token above, then run scripts/fetch-context.js to pull your reasoning bundle.",
-    "register.nextstep.no_narrative": "Save your narrative to ./narrative.txt, then POST /api/ec/narrative with your session token.",
+    "register.nextstep.no_narrative": "Write and save your story in Edit your story so the counselor can use it as your baseline.",
 
     // ─── Consent-type friendly labels (for register error paths) ───
     // Used by register.err.consent_failed_item when a grant call fails — we
@@ -512,13 +513,14 @@ export const STRINGS = {
     "friendly.directionality_label.declining.summary": "\ucd5c\uadfc \ud559\uae30\uac00 \uc57d\ud574\uc84c\uc2b5\ub2c8\ub2e4. \ucda9\ubd84\ud788 \ud68c\ubcf5\ud560 \uc218 \uc788\uc5b4\uc694 \u2014 \ub9ce\uc740 \ud559\uc0dd\ub4e4\uc774 \ubcc0\ud654\uc758 \uc774\uc720\ub97c \uc124\uba85\ud558\ub294 \uc9e7\uc740 \uc5d0\uc138\uc774\ub97c \uc4f5\ub2c8\ub2e4.",
 
     // ─── Drift (F10) ───
-    "drift.no_active_narrative": "\uc544\uc9c1 \ud65c\uc131 \uc790\uae30\uc11c\uc0ac\uac00 \uc5c6\uc2b5\ub2c8\ub2e4 \u2014 POST /api/ec/narrative\ub85c \uc800\uc7a5\ud558\uba74 \ub4dc\ub9ac\ud504\ud2b8 \ud0d0\uc9c0\uac00 \ud65c\uc131\ud654\ub429\ub2c8\ub2e4.",
+    "drift.no_active_narrative": "\uc544\uc9c1 \uc800\uc7a5\ub41c \uc790\uae30\uc11c\uc0ac\uac00 \uc5c6\uc2b5\ub2c8\ub2e4 \u2014 \u2018\ub0b4 \uc774\uc57c\uae30 \ud3b8\uc9d1\u2019\uc5d0\uc11c \uc791\uc131\ud574 \uc800\uc7a5\ud558\uba74 \ub4dc\ub9ac\ud504\ud2b8 \ud0d0\uc9c0\uac00 \ud65c\uc131\ud654\ub429\ub2c8\ub2e4.",
     "drift.all_fresh": "\ubaa8\ub4e0 \ud65c\ub3d9\uc758 \uc790\uae30\uc11c\uc0ac \ubd80\ud569\uac00 \ud604\uc7ac \uc790\uae30\uc11c\uc0ac\uc5d0 \ub9de\ucdb0 \uc0b0\ucd9c\ub418\uc5c8\uc5b4\uc694. \ucd5c\uc2e0 \uc0c1\ud0dc\uc785\ub2c8\ub2e4.",
     "drift.one_stale": "1\uac1c\uc758 \ud65c\ub3d9\uc774 \uc774\uc804 \ubc84\uc804\uc758 \uc790\uae30\uc11c\uc0ac\ub97c \ubc18\uc601\ud558\uace0 \uc788\uc2b5\ub2c8\ub2e4. \ud65c\ub3d9 \ud398\uc774\uc9c0\uc5d0\uc11c \uc6d0\ud074\ub9ad\uc73c\ub85c \uc7ac\uacc4\uc0b0\ud558\uc138\uc694.",
     "drift.many_stale": "{count}\uac1c\uc758 \ud65c\ub3d9\uc774 \uc774\uc804 \ubc84\uc804\uc758 \uc790\uae30\uc11c\uc0ac\ub97c \ubc18\uc601\ud558\uace0 \uc788\uc2b5\ub2c8\ub2e4. \uc7ac\uacc4\uc0b0\ud558\uc5ec \ubd80\ud569 \uc810\uc218\ub97c \ub9c9 \uc4f0\uc2e0 \uc790\uae30\uc11c\uc0ac\uc640 \ub9de\ucd94\uc138\uc694.",
 
     // ─── Candidates (F6) ───
-    "candidates.no_active_narrative": "\uba3c\uc800 \uc790\uae30\uc11c\uc0ac\ub97c \uc800\uc7a5\ud574\uc8fc\uc138\uc694 (POST /api/ec/narrative). \ud6c4\ubcf4 \ud65c\ub3d9 \uc21c\uc704 \uc0b0\uc815\uc5d0\ub294 \ud559\uc0dd\ub2d8\uc758 \uc774\uc57c\uae30\uac00 \uae30\uc900\uc73c\ub85c \ud544\uc694\ud569\ub2c8\ub2e4.",
+    "candidates.no_active_narrative": "\uba3c\uc800 \u2018\ub0b4 \uc774\uc57c\uae30 \ud3b8\uc9d1\u2019\uc5d0\uc11c \uc790\uae30\uc11c\uc0ac\ub97c \uc800\uc7a5\ud574\uc8fc\uc138\uc694. \ud6c4\ubcf4 \ud65c\ub3d9 \uc21c\uc704 \uc0b0\uc815\uc5d0\ub294 \ud559\uc0dd\ub2d8\uc758 \uc774\uc57c\uae30\uac00 \uae30\uc900\uc73c\ub85c \ud544\uc694\ud569\ub2c8\ub2e4.",
+    "candidates.rerank_timeout": "AI \uc7ac\uc815\ub82c\uc774 \ub108\ubb34 \uc624\ub798 \uac78\ub824 \ube60\ub978 \ud0a4\uc6cc\ub4dc \uc21c\uc704\ub97c \ud45c\uc2dc\ud588\uc2b5\ub2c8\ub2e4. \uc7a0\uc2dc \ud6c4 \ub2e4\uc2dc \uc2dc\ub3c4\ud558\uba74 \ub354 \uc815\ud655\ud55c \uacb0\uacfc\ub97c \ubcfc \uc218 \uc788\uc2b5\ub2c8\ub2e4.",
     "candidates.name_required": "\uc774\ub984\uc774 \ud544\uc694\ud569\ub2c8\ub2e4",
     "candidates.summary_strong": "\uac15\ud55c \ubd80\ud569\ub3c4: {bucket} \ubd84\uc57c\uc5d0 \ub4e4\uc5b4\ub9de\uace0 {themes} \uc8fc\uc81c\uc640 \uc77c\uce58\ud569\ub2c8\ub2e4. \uc608\uc0c1 \ub0b4\ub7ec\ud2f0\ube0c \ubd80\ud569\ub3c4 \u2248 {fit}.",
     "candidates.summary_partial": "\ubd80\ubd84 \ubd80\ud569: {themes} \uc8fc\uc81c\ub97c \uc2a4\uce58\uc9c0\ub9cc \uc9c0\uc6d0 \uc804\uacf5 \ubc29\ud5a5\uc5d0\ub294 \ub4e4\uc5b4\uac00\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4.",
@@ -526,7 +528,7 @@ export const STRINGS = {
     "candidates.summary_major_hit": "{bucket} \ubd84\uc57c\uc5d0\ub294 \ub4e4\uc5b4\ub9de\uc9c0\ub9cc \uc544\uc9c1 \uc8fc\uc81c \uacb9\uce68\uc740 \uc5c6\uc2b5\ub2c8\ub2e4. \ub0b4\ub7ec\ud2f0\ube0c \ubc29\ud5a5\uc73c\ub85c \ud504\ub808\uc774\ubc0d\ud558\uc2dc\uba74 \uac15\ud55c \ubd80\ud569\ub3c4\ub85c \ubc14\ub014 \uc218 \uc788\uc2b5\ub2c8\ub2e4.",
 
     // ─── Deadlines (F7) ───
-    "deadlines.no_upcoming": "\uc608\uc815\ub41c \ub9c8\uac10\uc77c\uc774 \uc5c6\uc2b5\ub2c8\ub2e4. POST /api/students/deadlines\ub85c \ucd94\uac00\ud574\uc8fc\uc138\uc694.",
+    "deadlines.no_upcoming": "\uc608\uc815\ub41c \ub9c8\uac10\uc77c\uc774 \uc5c6\uc2b5\ub2c8\ub2e4. \u2018\ub9c8\uac10\uc77c\u2019 \ud0ed\uc5d0\uc11c \ucd94\uac00\ud558\uac70\ub098, \ubaa9\ud45c \ub300\ud559\uc744 \ucd94\uac00\ud558\uba74 \uc8fc\uc694 \uc77c\uc815\uc774 \uc790\ub3d9\uc73c\ub85c \ub9cc\ub4e4\uc5b4\uc9d1\ub2c8\ub2e4.",
     "deadlines.overdue_one": "{count}\uac1c\uc758 \ub9c8\uac10\uc77c\uc774 \uc774\ubbf8 \uc9c0\ub0ac\uc5b4\uc694 \u2014 \ub2e4\uc2dc \uc54c\ub9bc \ub610\ub294 \uc644\ub8cc \ucc98\ub9ac\ud574\uc8fc\uc138\uc694.",
     "deadlines.overdue_many": "{count}\uac1c\uc758 \ub9c8\uac10\uc77c\uc774 \uc774\ubbf8 \uc9c0\ub0ac\uc5b4\uc694 \u2014 \ub2e4\uc2dc \uc54c\ub9bc \ub610\ub294 \uc644\ub8cc \ucc98\ub9ac\ud574\uc8fc\uc138\uc694.",
     "deadlines.upcoming_next_one": "\uc608\uc815 {count}\uac74 \u2014 \ub2e4\uc74c\uc740 {title}, 1\uc77c \ub0a8\uc558\uc5b4\uc694.",
@@ -578,7 +580,7 @@ export const STRINGS = {
     "register.err.unknown_flag": "\uc624\ub958: \uc54c \uc218 \uc5c6\ub294 \uc635\uc158\uc785\ub2c8\ub2e4: {flag}. \uc804\uccb4 \uc635\uc158\uc740 --help\ub85c \ud655\uc778\ud574\uc8fc\uc138\uc694.",
     "register.err.unexpected": "\uc624\ub958: \uc608\uc0c1\uce58 \ubabb\ud55c \uc2e4\ud328\uac00 \ubc1c\uc0dd\ud588\uc2b5\ub2c8\ub2e4: {message}",
     "register.nextstep.ready": "\uc704\uc758 \ud1a0\ud070\uc744 COLLEGEAPP_SESSION_TOKEN\uc73c\ub85c \uc124\uc815\ud558\uc2e0 \ub4a4, scripts/fetch-context.js\ub97c \uc2e4\ud589\ud574 \ucd94\ub860 \ubc88\ub4e4\uc744 \uac00\uc838\uc624\uc138\uc694.",
-    "register.nextstep.no_narrative": "\uc790\uae30\uc11c\uc0ac\ub97c ./narrative.txt\uc5d0 \uc800\uc7a5\ud558\uc2e0 \ub4a4, \uc138\uc158 \ud1a0\ud070\uc73c\ub85c /api/ec/narrative\uc5d0 POST \ud574\uc8fc\uc138\uc694.",
+    "register.nextstep.no_narrative": "\u2018\ub0b4 \uc774\uc57c\uae30 \ud3b8\uc9d1\u2019\uc5d0\uc11c \uc790\uae30\uc11c\uc0ac\ub97c \uc791\uc131\ud574 \uc800\uc7a5\ud558\uba74 \uc0c1\ub2f4\uc0ac\uac00 \uc774\ub97c \uae30\uc900\uc73c\ub85c \uc0ac\uc6a9\ud569\ub2c8\ub2e4.",
 
     // ─── 동의 유형 친숙 라벨 ───
     "consent.type.data_processing": "\uac1c\uc778\uc815\ubcf4 \ucc98\ub9ac \ub3d9\uc758",

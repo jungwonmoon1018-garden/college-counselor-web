@@ -278,17 +278,47 @@ function answerText(result, modelOutput, claims, regulated) {
     : "There is not enough information to produce a specific suggestion.";
 }
 
+// Does the student's question actually concern the regulated sub-intent the
+// classifier assigned? The "consult the official source" follow-up action
+// (StudentAid.gov, the privacy office, the Scorecard) is only useful when it
+// does. A biomedical-engineering coaching question that mentioned cost in
+// passing, or a transcript summary, was getting "Next actions: StudentAid.gov"
+// appended because the classifier had filed it under aid and no verified
+// fact matched — the answer itself was fine, the footer was noise.
+const SUB_INTENT_TOPIC_RE = {
+  fafsa: /\b(fafsa|student aid|federal aid|financial aid|pell|fsa id|sai|expected family contribution|efc)\b/i,
+  eligibility: /\b(fafsa|student aid|federal aid|financial aid|pell|eligib\w*|qualif\w*)\b/i,
+  financial_aid_policy: /\b(financial aid|aid polic\w*|need[- ]blind|need[- ]aware|meets? (?:full )?need|merit aid|aid package|award letter|css profile)\b/i,
+  ferpa: /\b(ferpa|privacy|education(?:al)? records?|school records?|directory information)\b/i,
+  deadlines: /\b(deadline|due date|due by|when (?:is|are|do)|last day|cutoff)\b/i,
+  financial_amounts: /\b(cost|tuition|price|afford|expensive|how much|net price|room and board|fees?)\b/i,
+  school_policies: /\b(polic\w*|require\w*|test[- ]optional|superscore|rule|allowed|accept)\b/i,
+  official_stats: /\b(acceptance rate|admit rate|admission rate|average (?:sat|act|gpa)|middle 50|statistic|percent|yield|enrollment)\b/i,
+};
+
+export function questionConcernsSubIntent(subIntent, questionText) {
+  const re = SUB_INTENT_TOPIC_RE[normalizeSubIntent(subIntent)];
+  if (!re) return true; // unknown sub-intent: keep the old behaviour
+  return re.test(String(questionText || ""));
+}
+
 export function composeAnswer({
   classification = {},
   evidence = [],
   modelOutput = null,
   deterministicResult = null,
   locale = "en-US",
+  questionText = null,
 }) {
   const topicType = normalizeTopicType(classification.topicType);
   const subIntent = normalizeSubIntent(classification.subIntent);
   const regulated = topicType === TOPIC_TYPES.REGULATED || topicType === TOPIC_TYPES.HIGH_STAKES;
   const modelUsed = modelOutput?.model || classification.modelTier || "none";
+  // A model-written answer only gets the official-source follow-up when the
+  // question is about that source's domain. Deterministic answers (a canned
+  // FAFSA checklist, a no-source message) keep it unconditionally, and so
+  // does any call that does not pass the question (older callers).
+  const followUpRelevant = !modelOutput?.text || questionText == null || questionConcernsSubIntent(subIntent, questionText);
 
   const claims = dedupeClaims([
     ...buildEvidenceClaims(evidence, subIntent),
@@ -318,7 +348,7 @@ export function composeAnswer({
   if (noVerified) limitations.push("No relevant, unexpired official source matched this question.");
   if (deterministicResult?.advisory) limitations.push(deterministicResult.advisory);
   if (modelClaims.length) limitations.push("AI coaching suggestions are not admissions predictions or official determinations.");
-  const actions = noVerified ? [{ type: "consult_official_source", ...suggestedSource(subIntent) }] : [];
+  const actions = noVerified && followUpRelevant ? [{ type: "consult_official_source", ...suggestedSource(subIntent) }] : [];
   const disclosure = buildAIDisclosure(modelUsed, locale);
   if (subIntent === "fafsa") {
     disclosure.fafsa_disclosure = "This is not an official FAFSA tool and does not replace StudentAid.gov.";

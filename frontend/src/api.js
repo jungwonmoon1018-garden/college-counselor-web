@@ -16,6 +16,9 @@
 // ═══════════════════════════════════════════════════════════════════════
 
 const HANGUL_RE = /^ko/i;
+// Client-side cap on any API call (see ccFetch). Model-backed tools pass a
+// longer `timeoutMs` explicitly.
+const DEFAULT_TIMEOUT_MS = 45_000;
 
 export function getApiBase() {
   // App.jsx convention: window.__CC_PROXY_URL__ is the chat endpoint
@@ -79,7 +82,28 @@ async function ccFetch(path, opts = {}) {
     headers["Content-Type"] = "application/json";
     opts = { ...opts, body: JSON.stringify(opts.body) };
   }
-  const resp = await fetch(url.toString(), { ...opts, headers });
+  // Every call is bounded. Without a client-side cap, a stalled request (the
+  // EC ranker's model re-rank was the observed case) left the tool showing
+  // its busy state with no result and no way to retry. `opts.timeoutMs`
+  // overrides the default; the thrown error carries `timedOut` so the UI
+  // can say what happened and offer a retry.
+  const timeoutMs = Number(opts.timeoutMs) > 0 ? Number(opts.timeoutMs) : DEFAULT_TIMEOUT_MS;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  if (opts.signal) opts.signal.addEventListener("abort", () => ctrl.abort(), { once: true });
+  let resp;
+  try {
+    resp = await fetch(url.toString(), { ...opts, headers, signal: ctrl.signal });
+  } catch (cause) {
+    if (ctrl.signal.aborted && !opts.signal?.aborted) {
+      const err = new Error(`The request took longer than ${Math.round(timeoutMs / 1000)} seconds and was stopped.`);
+      err.timedOut = true;
+      throw err;
+    }
+    throw cause;
+  } finally {
+    clearTimeout(timer);
+  }
   const text = await resp.text();
   let json;
   try { json = text ? JSON.parse(text) : null; }
@@ -123,7 +147,7 @@ export const narrative = {
   // student edits, then calls save()), optionally tailored to target schools.
   async draft(targetSchools) {
     const body = (Array.isArray(targetSchools) && targetSchools.length) ? { targetSchools } : {};
-    return ccFetch("/api/narrative/draft", { method: "POST", body });
+    return ccFetch("/api/narrative/draft", { method: "POST", body, timeoutMs: 120_000 });
   },
 };
 
@@ -132,9 +156,12 @@ export const ec = {
   async rankCandidates(candidates, targetSchools) {
     const body = { candidates };
     if (Array.isArray(targetSchools) && targetSchools.length) body.targetSchools = targetSchools;
+    // The server returns the deterministic ranking within ~30 s even when
+    // its model re-rank stalls; 60 s here leaves headroom for the network.
     return ccFetch("/api/ec/candidates/rank", {
       method: "POST",
       body,
+      timeoutMs: 60_000,
     });
   },
   async strength() {
@@ -148,7 +175,7 @@ export const ec = {
     const qs = (Array.isArray(targetSchools) && targetSchools.length)
       ? `?targetSchools=${encodeURIComponent(targetSchools.join(","))}`
       : "";
-    return ccFetch(`/api/ec/spike${qs}`, { method: "GET" });
+    return ccFetch(`/api/ec/spike${qs}`, { method: "GET", timeoutMs: 120_000 });
   },
   // Auto-generate grounded EC ideas from the student's full profile,
   // optionally tailored to specific target universities.
@@ -156,7 +183,7 @@ export const ec = {
     const body = {};
     if (count) body.count = count;
     if (Array.isArray(targetSchools) && targetSchools.length) body.targetSchools = targetSchools;
-    return ccFetch("/api/ec/ideas/generate", { method: "POST", body });
+    return ccFetch("/api/ec/ideas/generate", { method: "POST", body, timeoutMs: 120_000 });
   },
 };
 

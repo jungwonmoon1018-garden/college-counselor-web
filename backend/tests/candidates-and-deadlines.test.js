@@ -27,7 +27,10 @@ test("candidate-rank returns 409 when there's no active narrative (narrative-fir
   // Server.js references the i18n key; the literal copy lives in i18n.js
   // (Round 5 localization moved friendly strings there so ko/en both work).
   assert.match(SERVER, /no_active_narrative/);
-  assert.match(I18N, /Save your narrative first/);
+  assert.match(I18N, /Save your story first/);
+  // Student-facing copy names the UI action, never an API endpoint: the
+  // dashboard once told students to "POST /api/ec/narrative".
+  assert.doesNotMatch(I18N, /POST \/api|\/api\/ec\/narrative/);
 });
 
 test("candidate-rank uses deterministic matchMajorBucket + theme overlap (no LLM)", () => {

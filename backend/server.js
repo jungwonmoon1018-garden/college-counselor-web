@@ -2146,9 +2146,13 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
     // Attached-file prefaces are stripped too: a transcript's "Credits
     // earned" / "Financial" lines were steering the topic classifier into
     // regulated-aid territory for a plain "summarize my transcript" question.
+    // The single-file upload priming sentence ("If it is a school records
+    // document … essay draft, resume, award, notes …") is the client's, not
+    // the student's; classified as-is it filed every upload under "essay".
     const questionText = userText
       .replace(/\[context appendix[\s\S]*?(\[end context appendix\]|$)/gi, "")
       .replace(/\[Attached files —[\s\S]*?(\[End of attached files\]|$)/gi, "")
+      .replace(/The student uploaded "[^"]*"\.[\s\S]*?answer their question about it substantively\.\s*/i, "")
       .trim() || userText;
     // JSON-only utility calls (the client's gatekeeper classifier, output
     // validator, and upload screener) don't counsel the student: they get no
@@ -2491,6 +2495,7 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
       evidence,
       modelOutput: { text: answerText, model: response.model || model, usage },
       locale,
+      questionText,
     });
     res.json({
       ...composed,
@@ -5038,11 +5043,28 @@ app.post("/api/ec/candidates/rank", studentLimiter, requireStudentAuth, async (r
     // those scores and rationales over the baseline. Any failure keeps the
     // deterministic result.
     let engine = "deterministic";
+    let rerankNote = null;
     const targetSchools = resolveTargetSchools(req.studentId, req.body?.targetSchools);
     try {
       const { modelConfig, callLLM } = buildStudentCallLLM(req.studentId);
       if (modelConfig && callLLM) {
-        const llm = await llmRankCandidates({ callLLM, modelConfig, studentId: req.studentId, active, candidates, targetSchools });
+        // The re-rank is bounded: a slow or stalled provider call used to hold
+        // the whole response (the adapter allows ~105 s), and the student saw
+        // "Ranking…" with no result for the entire wait. Past the budget the
+        // deterministic ranking goes back with a note; the model call finishes
+        // in the background and is simply discarded.
+        const budgetMs = Number(process.env.EC_RERANK_TIMEOUT_MS) > 0 ? Number(process.env.EC_RERANK_TIMEOUT_MS) : 30_000;
+        let timer = null;
+        const llm = await Promise.race([
+          llmRankCandidates({ callLLM, modelConfig, studentId: req.studentId, active, candidates, targetSchools })
+            .catch((e) => { console.warn("[EC candidates rank] LLM re-rank failed, using deterministic:", e.message); return null; }),
+          new Promise((resolve) => { timer = setTimeout(() => resolve("timeout"), budgetMs); timer.unref?.(); }),
+        ]);
+        if (timer) clearTimeout(timer);
+        if (llm === "timeout") {
+          rerankNote = t("candidates.rerank_timeout", locale);
+          console.warn(`[EC candidates rank] LLM re-rank exceeded ${budgetMs} ms, returning deterministic ranking`);
+        }
         if (Array.isArray(llm) && llm.length) {
           const byName = new Map(llm.map((x) => [x.name.toLowerCase(), x]));
           for (const row of ranked) {
@@ -5070,6 +5092,7 @@ app.post("/api/ec/candidates/rank", studentLimiter, requireStudentAuth, async (r
     res.json({
       ok: true,
       engine,
+      rerankNote,
       narrativeId: active.id,
       narrativeHash: active.hash,
       narrativeBuckets: [...narrativeBuckets],
@@ -6803,6 +6826,23 @@ app.post("/api/calendar/context", studentLimiter, requireStudentAuth, async (req
           const snapshot = readPolicySnapshot(policyScoutStmts, { name: school });
           record = snapshot ? snapshotAsDeadlineRecord(snapshot) : null;
         } catch { record = null; }
+      }
+      // No cached record and no scout snapshot: read the school's own
+      // admissions pages now (deterministic, bounded, no model), the same
+      // on-demand read the chat's deadline lookup uses. Johns Hopkins was
+      // getting the generic January 1 / February 1 fallbacks in its reminders
+      // although its pages state January 2 and January 15, because the scout
+      // only tracks a fixed list and the model research is optional.
+      if (!record) {
+        try {
+          const status = await scoutSchoolOnDemand(school);
+          if (status === "ok") {
+            const snapshot = readPolicySnapshot(policyScoutStmts, { name: school });
+            record = snapshot ? snapshotAsDeadlineRecord(snapshot) : null;
+          }
+        } catch (err) {
+          console.warn(`[calendar context] on-demand read failed for ${school}:`, err?.message);
+        }
       }
       if (!record && researcher) {
         try {
