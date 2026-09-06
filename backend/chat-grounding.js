@@ -113,7 +113,13 @@ export function formatProfileForModel(profile, limits = {}) {
       const label = TEST_LABELS[String(t?.test || "").toLowerCase()] || String(t?.test || "test").toUpperCase();
       const subject = t?.subject ? ` (${t.subject})` : "";
       const date = t?.date ? ` (taken ${t.date})` : "";
-      return `${label}${subject} ${t?.totalScore ?? "?"}${date}`;
+      // SAT section scores ride with the total so the model can compare
+      // them against a school's section bands instead of guessing a split.
+      const sections = t?.sections && typeof t.sections === "object" ? t.sections : null;
+      const sectionText = sections && (sections.math != null || sections.readingWriting != null)
+        ? ` (${[sections.readingWriting != null ? `Reading & Writing ${sections.readingWriting}` : null, sections.math != null ? `Math ${sections.math}` : null].filter(Boolean).join(", ")})`
+        : "";
+      return `${label}${subject} ${t?.totalScore ?? "?"}${sectionText}${date}`;
     }).join("; ")}`);
   } else {
     lines.push("Test scores: none recorded");
@@ -422,9 +428,26 @@ export function checkProfileFidelity(answerText, profile) {
     return hit && Number.isFinite(Number(hit.totalScore)) ? Number(hit.totalScore) : null;
   };
   const sat = testTotal("sat");
-  for (const stated of statedTestScores(text, "SAT", { min: 400, max: 1600, step: 10 })) {
-    if (sat != null && stated === sat) continue;
-    add({ kind: "sat", item: "SAT", stated: String(stated), actual: sat != null ? String(sat) : "no SAT score recorded" });
+  const satEntry = tests.find((t) => String(t?.test || "").toLowerCase() === "sat");
+  const satSections = satEntry?.sections && typeof satEntry.sections === "object" ? satEntry.sections : {};
+  const sectionValues = [satSections.math, satSections.readingWriting].map(Number).filter(Number.isFinite);
+  // A section score the reply states ("your SAT Math 780") is checked
+  // against the recorded sections, not the total; before sections existed a
+  // correct section figure was flagged as a wrong total.
+  const sectionSentence = /\bSAT\b[^.!?]{0,40}\b(?:math|reading|writing|EBRW|verbal|section)\b|\b(?:math|reading|writing|EBRW|verbal)\b[^.!?]{0,20}\bSAT\b/i;
+  for (const sentence of text.split(SENTENCE_SPLIT_RE)) {
+    if (!/\bSAT\b/.test(sentence)) continue;
+    const scoped = sectionSentence.test(sentence);
+    for (const stated of statedTestScores(sentence, "SAT", { min: scoped ? 200 : 400, max: scoped ? 800 : 1600, step: 10 })) {
+      if (scoped) {
+        if (sectionValues.includes(stated) || (sat != null && stated === sat)) continue;
+        if (!sectionValues.length && stated >= 400 && sat != null && stated === sat) continue;
+        add({ kind: "sat", item: "SAT section", stated: String(stated), actual: sectionValues.length ? `Reading & Writing ${satSections.readingWriting ?? "?"}, Math ${satSections.math ?? "?"}` : (sat != null ? `total ${sat}, no section scores recorded` : "no SAT score recorded") });
+        continue;
+      }
+      if (sat != null && stated === sat) continue;
+      add({ kind: "sat", item: "SAT", stated: String(stated), actual: sat != null ? String(sat) : "no SAT score recorded" });
+    }
   }
   const act = testTotal("act");
   for (const stated of statedTestScores(text, "ACT", { min: 1, max: 36, step: 1 })) {
@@ -649,6 +672,39 @@ function baselineLine(row) {
   return `${parts.join("; ")} [Source: ${source}]`;
 }
 
+// The wider read of the document (cds-pdf-parser.js extractExtras): SAT
+// section bands, submit rates, class rank, application fee, Early Decision
+// volume, the closing dates the school reported for its own cycle, the
+// average first-year aid package, and the student-to-faculty ratio. Dates
+// are month-day as reported and belong to the CDS's own (previous) cycle,
+// so the line says so — they orient a student, they are not this year's
+// deadline.
+const CDS_DATE_LABELS = { regularClosing: "Regular Decision", edClosing: "Early Decision", edIIClosing: "Early Decision II", eaClosing: "Early Action", aidPriority: "aid priority", aidDeadline: "aid filing deadline" };
+
+export function cdsExtrasParts(extras) {
+  if (!extras || typeof extras !== "object") return [];
+  const parts = [];
+  const ebrw = range(extras.satSections?.ebrw?.p25, extras.satSections?.ebrw?.p75);
+  const math = range(extras.satSections?.math?.p25, extras.satSections?.math?.p75);
+  if (ebrw || math) parts.push(`enrolled SAT sections middle 50%: ${[ebrw ? `Reading & Writing ${ebrw}` : null, math ? `Math ${math}` : null].filter(Boolean).join(", ")}`);
+  if (extras.submitting?.satPct != null || extras.submitting?.actPct != null) {
+    parts.push(`share of enrolled students who submitted scores: ${[extras.submitting.satPct != null ? `SAT ${extras.submitting.satPct}%` : null, extras.submitting.actPct != null ? `ACT ${extras.submitting.actPct}%` : null].filter(Boolean).join(", ")}`);
+  }
+  if (extras.classRank?.topTenthPct != null) parts.push(`${extras.classRank.topTenthPct}% of enrolled students ranked in the top tenth of their class${extras.classRank.topQuarterPct != null ? ` (${extras.classRank.topQuarterPct}% top quarter)` : ""}`);
+  if (extras.earlyDecision?.applications && extras.earlyDecision?.admitted) {
+    parts.push(`Early Decision: ${formatNumber(extras.earlyDecision.applications)} applied, ${formatNumber(extras.earlyDecision.admitted)} admitted (${percent(extras.earlyDecision.admitRate)})`);
+  }
+  if (extras.applicationFeeUsd != null) parts.push(`application fee ${formatNumber(extras.applicationFeeUsd)} USD`);
+  if (extras.aid?.averagePackageFirstYearUsd != null) parts.push(`average first-year need-based aid package ${formatNumber(extras.aid.averagePackageFirstYearUsd)} USD`);
+  if (extras.studentFacultyRatio) parts.push(`student-to-faculty ratio ${extras.studentFacultyRatio}`);
+  const dates = extras.dates && typeof extras.dates === "object" ? extras.dates : {};
+  const dateParts = Object.entries(CDS_DATE_LABELS)
+    .map(([key, label]) => (dates[key]?.mmdd ? `${label} ${dates[key].mmdd.replace("-", "/")}` : null))
+    .filter(Boolean);
+  if (dateParts.length) parts.push(`closing dates the school reported for its CDS cycle (month/day; confirm this year's dates on its admissions page): ${dateParts.join(", ")}`);
+  return parts;
+}
+
 function cdsLine(record, validated) {
   if (!record) return null;
   const parts = [];
@@ -666,6 +722,7 @@ function cdsLine(record, validated) {
   const important = Object.entries(c7).filter(([, v]) => v === "important").map(([k]) => C7_LABELS[k] || k.replace(/_/g, " "));
   if (veryImportant.length) parts.push(`admissions factors rated very important: ${veryImportant.join(", ")}`);
   if (important.length) parts.push(`rated important: ${important.join(", ")}`);
+  parts.push(...cdsExtrasParts(record.extras));
   if (!parts.length) return null;
   const cycle = record.yearLabel || (record.year != null ? String(record.year) : "");
   const label = `${record.school || "the school"} Common Data Set${cycle ? ` ${cycle}` : ""}${validated ? " (validated against ground truth)" : " (unverified parse)"}`;

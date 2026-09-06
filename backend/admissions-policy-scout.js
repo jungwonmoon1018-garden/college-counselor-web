@@ -939,6 +939,10 @@ export function snapshotAsDeadlineRecord(snapshot) {
     deadlines: {
       ea: pick("early_action", "restrictive_early_action"),
       ed: pick("early_decision"),
+      // The scout has read ED II ("Early Decision II", "ED2") from pages all
+      // along; the record shape simply had no slot for it, so Hopkins'
+      // second round never reached the calendar or the deadline answer.
+      edII: pick("early_decision_2"),
       rd: pick("regular_decision"),
       financialAid: null,
       commitBy: null,

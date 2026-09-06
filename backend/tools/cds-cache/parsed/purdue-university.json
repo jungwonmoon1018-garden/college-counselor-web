@@ -49,5 +49,35 @@
     "discrepancies": [],
     "overrides": {},
     "scopeFromPDF": null
+  },
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 600,
+        "p75": 720
+      },
+      "math": {
+        "p25": 600,
+        "p75": 760
+      }
+    },
+    "submitting": {
+      "satPct": 79,
+      "actPct": 25
+    },
+    "classRank": {
+      "topTenthPct": 47,
+      "topQuarterPct": 77
+    },
+    "applicationFeeUsd": 60,
+    "dates": {
+      "eaClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 14019
+    }
   }
 }

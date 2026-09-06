@@ -46,5 +46,44 @@
   "parserVersion": 3,
   "parserNotes": [],
   "ingestedAt": "2026-08-31 04:13:25",
-  "updatedAt": "2026-08-31 04:13:25"
+  "updatedAt": "2026-08-31 04:13:25",
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 720,
+        "p75": 770
+      },
+      "math": {
+        "p25": 720,
+        "p75": 790
+      }
+    },
+    "submitting": {
+      "satPct": 69,
+      "actPct": 33
+    },
+    "classRank": {
+      "topTenthPct": 96,
+      "topQuarterPct": 99
+    },
+    "earlyDecision": {
+      "applications": 3552,
+      "admitted": 768,
+      "admitRate": 0.2162
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-03",
+        "raw": "1/3"
+      },
+      "edClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      },
+      "edNotification": "mid-December"
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 73208
+    }
+  }
 }

@@ -980,3 +980,26 @@ test("persisted turns build the thread graph and a later question recalls them a
   assert.equal(after.status, 200, `${JSON.stringify(after.data)}\n${serverOutput}`);
   assert.equal(after.data._meta.threadMemory, 0);
 });
+
+test("calendar context falls back to the school's Common Data Set closing dates before typical dates", async () => {
+  const token = await registerWithProfile("calendar-cds");
+  // No scout snapshot, the on-demand page read fails in the test harness
+  // (every other host throws), and no model research is requested — so the
+  // stored CDS's reported closing dates, rolled onto this cycle, are the
+  // institutional fallback. Boston University's 2025-26 CDS reports RD and
+  // ED II on January 5 and ED on November 1.
+  const cal = await request("POST", "/api/calendar/context", { token, body: { targetSchools: ["Boston University"], research: false } });
+  assert.equal(cal.status, 200, JSON.stringify(cal.data));
+  assert.equal(cal.data.deadlinesSource, "cds", JSON.stringify(cal.data.schools));
+  const entry = cal.data.schools.find((s) => s.school === "Boston University");
+  assert.ok(entry, JSON.stringify(cal.data.schools));
+  assert.equal(entry.source, "cds");
+  assert.match(entry.sourceLabel, /Boston University Common Data Set/);
+  assert.match(entry.deadlines.ed, /^\d{4}-11-01$/);
+  assert.match(entry.deadlines.edII, /^\d{4}-01-05$/);
+  assert.match(entry.deadlines.rd, /^\d{4}-01-05$/);
+  // A school with no CDS on file still gets the labeled typical fallback.
+  const none = await request("POST", "/api/calendar/context", { token, body: { targetSchools: ["Elm College"], research: false } });
+  assert.equal(none.status, 200);
+  assert.equal(none.data.schools[0].source, "typical");
+});

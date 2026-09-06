@@ -49,5 +49,37 @@
     "discrepancies": [],
     "overrides": {},
     "scopeFromPDF": null
+  },
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 740,
+        "p75": 770
+      },
+      "math": {
+        "p25": 770,
+        "p75": 800
+      }
+    },
+    "submitting": {
+      "satPct": 48,
+      "actPct": 22
+    },
+    "classRank": {
+      "topTenthPct": 89,
+      "topQuarterPct": 96
+    },
+    "applicationFeeUsd": 75,
+    "earlyDecision": {
+      "applications": 3087,
+      "admitted": 519,
+      "admitRate": 0.1681
+    },
+    "dates": {
+      "edNotification": "15-Dec"
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 71698
+    }
   }
 }

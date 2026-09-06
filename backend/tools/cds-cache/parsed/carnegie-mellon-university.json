@@ -60,5 +60,23 @@
       "p75": 1600
     }
   },
-  "overallAdmitRate": 0.1166
+  "overallAdmitRate": 0.1166,
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 730,
+        "p75": 770
+      },
+      "math": {
+        "p25": 770,
+        "p75": 800
+      }
+    },
+    "dates": {
+      "edClosing": {
+        "mmdd": "11-01",
+        "raw": "November 1 (not available for Ac Ɵ ng, Direc Ɵ ng, Dramaturgy, Music Theater,"
+      }
+    }
+  }
 }

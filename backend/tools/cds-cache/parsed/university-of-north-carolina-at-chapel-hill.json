@@ -46,5 +46,39 @@
   "parserVersion": 3,
   "parserNotes": [],
   "ingestedAt": "2026-08-31 04:13:33",
-  "updatedAt": "2026-08-31 04:13:33"
+  "updatedAt": "2026-08-31 04:13:33",
+  "extras": {
+    "satSections": {
+      "math": {
+        "p25": 700,
+        "p75": 780
+      }
+    },
+    "submitting": {
+      "satPct": 28,
+      "actPct": 41
+    },
+    "classRank": {
+      "topTenthPct": 2,
+      "topQuarterPct": 7
+    },
+    "applicationFeeUsd": 85,
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-15",
+        "raw": "Jan. 15"
+      },
+      "eaClosing": {
+        "mmdd": "10-15",
+        "raw": "Oct. 15"
+      },
+      "aidPriority": {
+        "mmdd": "03-01",
+        "raw": "3/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 21695
+    }
+  }
 }

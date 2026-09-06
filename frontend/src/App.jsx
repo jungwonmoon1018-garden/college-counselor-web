@@ -2736,7 +2736,7 @@ export default function App() {
   // Tests — expanded categories
   const [sTests, setSTests] = useState([]);
   const [sTestCategory, setSTestCategory] = useState("sat"); // which test type tab
-  const [sTestInput, setSTestInput] = useState({ test:"sat", totalScore:"", date:"", subject:"", section:"" });
+  const [sTestInput, setSTestInput] = useState({ test:"sat", totalScore:"", date:"", subject:"", section:"", math:"", readingWriting:"" });
   const [sNoTestsYet, setSNoTestsYet] = useState(false);
   // AP exam scores (separate from test scores for clarity)
   const [sAPScores, setSAPScores] = useState([]); // [{subject,score,year}]
@@ -3313,11 +3313,13 @@ export default function App() {
       totalScore: t.totalScore != null ? String(t.totalScore) : "",
       date: t.date || "",
       subject: t.subject || "",
-      section: t.section || ""
+      section: t.section || "",
+      math: t.sections?.math != null ? String(t.sections.math) : "",
+      readingWriting: t.sections?.readingWriting != null ? String(t.sections.readingWriting) : "",
     })));
     setSNoTestsYet(Boolean(d.profile?.testingStatus === "planned"));
     setSTestCategory("sat");
-    setSTestInput({ test:"sat", totalScore:"", date:"", subject:"", section:"" });
+    setSTestInput({ test:"sat", totalScore:"", date:"", subject:"", section:"", math:"", readingWriting:"" });
     setSAPScores((d.profile?.apScores || []).map(a => ({
       subject: a.exam || a.subject || "",
       score: String(a.score ?? 5),
@@ -3461,15 +3463,18 @@ export default function App() {
     // never block deadline creation on it — fall back to client typical dates
     // so deadlines are added even if the web call is rate-limited/unavailable.
     let iso = clientTypicalISO();
-    let sd = {};       // per-school web-researched dates
-    let srcUrl = null; // source URL when web-researched
+    let sd = {};       // per-school dates: read from the school's pages, or its Common Data Set
+    let srcUrl = null; // source URL when read from the school's pages
+    let cdsLabel = null; // set when the dates come from the school's Common Data Set (previous cycle, rolled forward)
     try {
       const r = await authedFetch("/api/calendar/context", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // research: true → the backend fetches this school's own admissions
-        // pages (cached 30 days) so the created deadlines carry the school's
-        // actual dates instead of the typical-cycle fallbacks.
+        // research: true → the backend reads this school's own admissions
+        // pages (scout snapshot, on-demand read, then model research) so the
+        // created deadlines carry the school's actual dates; failing that,
+        // the closing dates its Common Data Set reported; only then the
+        // typical-cycle fallbacks.
         body: JSON.stringify({ targetSchools: [name], research: true }),
       });
       if (r.ok) {
@@ -3477,7 +3482,8 @@ export default function App() {
         if (body?.calendar?.typicalISO) iso = body.calendar.typicalISO;
         const entry = (body?.schools || []).find(s => String(s.school).toLowerCase() === name.toLowerCase());
         sd = entry?.deadlines || {};
-        srcUrl = entry?.source || null;
+        if (entry?.source === "cds") cdsLabel = entry.sourceLabel || "its Common Data Set";
+        else if (entry?.source && entry.source !== "typical") srcUrl = entry.source;
       }
     } catch (err) { console.warn("[DEADLINES] calendar lookup failed, using typical dates:", err?.message); }
 
@@ -3499,20 +3505,27 @@ export default function App() {
       ? `${name}'s published date, read from ${srcUrl}. Re-check the page before you rely on it.`
       : `${name}'s published date for the current cycle. Re-check ${name}'s official site before you rely on it.`;
     const typicalNote = `Approximate planning window from typical US cycle dates — NOT ${name}'s verified deadline. Look up the exact date on ${name}'s official admissions or financial-aid page and edit this entry.`;
-    const mk = (round, webVal, typicalVal, category) => {
-      const fromWeb = Boolean(webVal && Number.isFinite(Date.parse(webVal)));
-      const date = toISO(webVal, typicalVal);
+    const cdsNote = `Closing date ${name} reported in ${cdsLabel} for its previous cycle, rolled forward to this cycle. Institutional, but confirm this year's date on ${name}'s admissions page.`;
+    const mk = (round, schoolVal, typicalVal, category) => {
+      const fromSchool = Boolean(schoolVal && Number.isFinite(Date.parse(schoolVal)));
+      const date = toISO(schoolVal, typicalVal);
       if (!date) return null;
+      const title = fromSchool
+        ? (cdsLabel ? `${name} — ${round} (from Common Data Set — confirm)` : `${name} — ${round}`)
+        : `${name} — ${round} (approximate — verify)`;
       return {
-        title: fromWeb ? `${name} — ${round}` : `${name} — ${round} (approximate — verify)`,
+        title,
         dueAt: date,
         category,
-        notes: fromWeb ? webNote : typicalNote,
+        notes: fromSchool ? (cdsLabel ? cdsNote : webNote) : typicalNote,
         ...(unitId ? { collegeIds: [unitId] } : {}),
       };
     };
+    // Early Decision II has no typical-cycle stand-in: it exists only when
+    // the school's pages or its Common Data Set state a second round.
     const items = [
       mk("Early (EA/ED)", sd.ea || sd.ed, iso.earlyEaEd, "admissions"),
+      mk("Early Decision II", sd.edII, null, "admissions"),
       mk("Regular Decision", sd.rd, iso.regularDecision, "admissions"),
       mk("Financial aid", sd.financialAid, iso.financialAidPriority, "financial_aid"),
       mk("Commit by", sd.commitBy, iso.nationalDepositDeadline, "admissions"),
@@ -4179,7 +4192,16 @@ export default function App() {
       gpaStatus: sNoGpaYet ? "pending" : undefined,
       courses: allCourses,
       apScores: sAPScores.map(a => ({ exam: a.subject, score: parseInt(a.score), year: parseInt(a.year) })),
-      testScores: sTests.map(t => ({ test: t.test, totalScore: parseInt(t.totalScore), date: t.date || undefined, subject: t.subject || undefined })),
+      testScores: sTests.map(t => ({
+        test: t.test,
+        totalScore: parseInt(t.totalScore),
+        date: t.date || undefined,
+        subject: t.subject || undefined,
+        // SAT section scores (Math, Reading & Writing) when the student entered them.
+        ...(t.test === "sat" && (t.math || t.readingWriting)
+          ? { sections: { ...(t.math ? { math: parseInt(t.math) } : {}), ...(t.readingWriting ? { readingWriting: parseInt(t.readingWriting) } : {}) } }
+          : {}),
+      })),
       testingStatus: sNoTestsYet ? "planned" : undefined,
       majorInterest: sMajorInterest || undefined
     };
@@ -4771,10 +4793,23 @@ export default function App() {
           return;
         }
       }
+      // SAT section scores: each 200–800 in steps of 10, and when both are
+      // present they must add up to the total the student entered.
+      if (sTestInput.test === "sat" && (sTestInput.math || sTestInput.readingWriting)) {
+        const sections = [["Math", sTestInput.math], ["Reading & Writing", sTestInput.readingWriting]];
+        for (const [label, raw] of sections) {
+          if (!raw) continue;
+          const v = Number(raw);
+          if (!Number.isFinite(v) || v < 200 || v > 800 || v % 10 !== 0) { setSurveyError(`SAT ${label} must be 200-800 in steps of 10.`); return; }
+        }
+        if (sTestInput.math && sTestInput.readingWriting && Number(sTestInput.math) + Number(sTestInput.readingWriting) !== score) {
+          setSurveyError("SAT Math and Reading & Writing must add up to the total."); return;
+        }
+      }
       setSurveyError("");
       setSNoTestsYet(false);
       setSTests(p=>[...p,{...sTestInput,subject:(sTestInput.subject||"").slice(0,60)}]);
-      setSTestInput({test:sTestCategory,totalScore:"",date:"",subject:"",section:""});
+      setSTestInput({test:sTestCategory,totalScore:"",date:"",subject:"",section:"", math:"", readingWriting:""});
     };
     const addAP = () => { if (!sAPInput.subject || sAPScores.length >= MAX_ITEMS) return; setSAPScores(p=>[...p,{...sAPInput}]); setSAPInput({subject:"",score:"5",year:sAPInput.year}); };
 
@@ -4938,13 +4973,20 @@ export default function App() {
             </div>
 
             {sTestCategory!=="ap_exam" ? (<div>
-              {sTests.length>0 && <div style={{marginBottom:12,display:"flex",flexWrap:"wrap"}}>{sTests.map((t,i)=>pill(`${t.test.toUpperCase()}${t.subject?` (${t.subject})`:""}: ${t.totalScore}${t.date?` \u00b7 ${t.date}`:""}`,()=>setSTests(p=>p.filter((_,j)=>j!==i))))}</div>}
+              {sTests.length>0 && <div style={{marginBottom:12,display:"flex",flexWrap:"wrap"}}>{sTests.map((t,i)=>pill(`${t.test.toUpperCase()}${t.subject?` (${t.subject})`:""}: ${t.totalScore}${(t.readingWriting||t.math)?` (R&W ${t.readingWriting||"?"} / M ${t.math||"?"})`:""}${t.date?` \u00b7 ${t.date}`:""}`,()=>setSTests(p=>p.filter((_,j)=>j!==i))))}</div>}
               <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
                 {[["sat","SAT"],["act","ACT"],["psat","PSAT"],["toefl","TOEFL"],["ielts","IELTS"],["sat_subject","SAT Subject"],["duolingo","Duolingo"],["clep","CLEP"]].map(([k,l])=>chip(sTestInput.test===k,()=>setSTestInput(p=>({...p,test:k,subject:k==="sat_subject"?p.subject:""})),l))}
               </div>
               {sTestInput.test==="sat_subject" && <div style={{marginBottom:8}}><input value={sTestInput.subject||""} onChange={e=>setSTestInput(p=>({...p,subject:e.target.value}))} placeholder="Subject (e.g. Math Level 2)" style={inputStyle} /></div>}
+              {sTestInput.test==="sat" && (
+                <div style={{display:"flex",gap:8,marginBottom:8}}>
+                  {/* Section scores are optional; when both are given the total is derived from them. */}
+                  <div style={{flex:1}}><input type="number" min={200} max={800} step={10} value={sTestInput.readingWriting||""} onChange={e=>setSTestInput(p=>{ const rw=e.target.value; const m=p.math; const total=(rw&&m)?String(Number(rw)+Number(m)):p.totalScore; return {...p,readingWriting:rw,totalScore:total}; })} placeholder="Reading & Writing (200-800)" style={inputStyle} /></div>
+                  <div style={{flex:1}}><input type="number" min={200} max={800} step={10} value={sTestInput.math||""} onChange={e=>setSTestInput(p=>{ const m=e.target.value; const rw=p.readingWriting; const total=(rw&&m)?String(Number(rw)+Number(m)):p.totalScore; return {...p,math:m,totalScore:total}; })} placeholder="Math (200-800)" style={inputStyle} /></div>
+                </div>
+              )}
               <div style={{display:"flex",gap:8}}>
-                <div style={{flex:1}}><input type="number" min={testLimit?.min} max={testLimit?.max} step={testLimit?.step ?? "any"} value={sTestInput.totalScore} onChange={e=>setSTestInput(p=>({...p,totalScore:e.target.value}))} placeholder={scoreHint[sTestInput.test]||"Score"} style={inputStyle} /></div>
+                <div style={{flex:1}}><input type="number" min={testLimit?.min} max={testLimit?.max} step={testLimit?.step ?? "any"} value={sTestInput.totalScore} onChange={e=>setSTestInput(p=>({...p,totalScore:e.target.value}))} placeholder={sTestInput.test==="sat"?"Total (400-1600)":(scoreHint[sTestInput.test]||"Score")} style={inputStyle} /></div>
                 <div style={{flex:1}}><input type="month" value={sTestInput.date||""} onChange={e=>setSTestInput(p=>({...p,date:e.target.value}))} style={inputStyle} /></div>
                 <button onClick={addTest} style={{padding:"0 20px",borderRadius:12,border:"none",background:sTestInput.totalScore?"linear-gradient(135deg,#378ADD,#667eea)":"rgba(255,255,255,0.03)",color:sTestInput.totalScore?"#fff":"#444",fontSize:14,fontWeight:600,cursor:sTestInput.totalScore?"pointer":"default"}}>Add</button>
               </div>
@@ -5515,6 +5557,11 @@ export default function App() {
                 style={{ background:"rgba(127,119,221,0.08)",borderRadius:10,padding:12,marginBottom:12,border:"1px solid rgba(127,119,221,0.15)",cursor:"pointer",userSelect:"none" }}>
                 <div style={{ fontSize:11,color:"#9a94d4" }}>{t.test?.toUpperCase()}</div>
                 <div style={{ fontSize:22,fontWeight:700,color:"#afa9ec" }}>{t.totalScore}</div>
+                {(t.sections?.readingWriting != null || t.sections?.math != null) && (
+                  <div style={{ fontSize:11,color:"#9a94d4",marginTop:2 }}>
+                    {[t.sections?.readingWriting != null ? `R&W ${t.sections.readingWriting}` : null, t.sections?.math != null ? `Math ${t.sections.math}` : null].filter(Boolean).join(" · ")}
+                  </div>
+                )}
               </div>
             )
           ))}

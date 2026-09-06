@@ -178,6 +178,7 @@ import {
 import {
   ensureCdsStoreSeeded,
   resolveStoredCdsRecord,
+  cdsDeadlinesForCycle,
   cdsRecordToPositioningResult,
   slugifySchoolName,
   isCdsRecordValidated,
@@ -2071,7 +2072,7 @@ function deadlinesFromResearchCache(userText) {
   }
   if (!found.length) return null;
   const labels = {
-    ea: "Early Action", ed: "Early Decision", rd: "Regular Decision",
+    ea: "Early Action", ed: "Early Decision", edII: "Early Decision II", rd: "Regular Decision",
     financialAid: "Financial aid priority", commitBy: "Commit by", decisionRelease: "RD decisions",
   };
   const lines = found.map((record) => {
@@ -2085,8 +2086,9 @@ function deadlinesFromResearchCache(userText) {
   // gives an Early Action date and admits on a rolling basis after it). Say
   // so instead of answering a different question with the dates on file.
   const asked = /\bregular\s+(?:decision|action)\b|\bRD\b/i.test(userText) ? "rd"
-    : /\bearly\s+decision\b|\bED\b/i.test(userText) ? "ed"
-      : /\b(?:restrictive\s+)?early\s+action\b|\bR?EA\b/i.test(userText) ? "ea" : null;
+    : /\bearly\s+decision\s+(?:ii|2)\b|\bED\s?(?:II|2)\b/i.test(userText) ? "edII"
+      : /\bearly\s+decision\b|\bED\b/i.test(userText) ? "ed"
+        : /\b(?:restrictive\s+)?early\s+action\b|\bR?EA\b/i.test(userText) ? "ea" : null;
   const missingPlan = asked && !first.deadlines?.[asked] ? asked : null;
   const note = missingPlan
     ? ` The pages read do not state a ${labels[missingPlan]} deadline for ${first.displayName}${missingPlan === "rd" ? " (some schools admit on a rolling basis after Early Action)" : ""} — check the linked admissions page.`
@@ -6857,13 +6859,28 @@ app.post("/api/calendar/context", studentLimiter, requireStudentAuth, async (req
           console.warn(`[calendar context] deadline research failed for ${school}:`, err?.code || err?.message);
         }
       }
+      // Last institutional fallback before the typical-cycle table: the
+      // closing dates the school reported in its Common Data Set, rolled
+      // forward to this cycle. Labeled as such — the client titles these
+      // "(from Common Data Set — confirm)".
+      let cdsDates = null;
+      if (!record) {
+        try {
+          const stored = resolveStoredCdsRecord(ragStmts, { schoolName: school });
+          cdsDates = stored ? cdsDeadlinesForCycle(stored) : null;
+        } catch { cdsDates = null; }
+      }
       schools.push(record
-        ? { school, deadlines: record.deadlines, source: record.sourceUrl, cycle: record.cycle, extractedAt: record.extractedAt }
-        : { school, deadlines: null, source: "typical" });
+        ? { school, deadlines: record.deadlines, labels: record.labels || null, source: record.sourceUrl, cycle: record.cycle, extractedAt: record.extractedAt }
+        : cdsDates
+          ? { school, deadlines: cdsDates.deadlines, source: "cds", sourceLabel: cdsDates.label, sourceUrl: cdsDates.sourceUrl, cycle: cdsDates.cycle }
+          : { school, deadlines: null, source: "typical" });
     }
-    const deadlinesSource = schools.some((s) => s.deadlines)
+    const deadlinesSource = schools.some((s) => s.deadlines && s.source !== "cds")
       ? "official_pages"
-      : (targetSchools.length ? "typical" : "none");
+      : schools.some((s) => s.source === "cds")
+        ? "cds"
+        : (targetSchools.length ? "typical" : "none");
 
     res.json({ ok: true, today: calendar.today, calendar, schools, deadlinesSource, targetSchools, locale });
   } catch (err) {

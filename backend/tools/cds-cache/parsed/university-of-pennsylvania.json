@@ -39,5 +39,49 @@
       "p75": 1600
     }
   },
-  "overallAdmitRate": 0.0587
+  "overallAdmitRate": 0.0587,
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 740,
+        "p75": 770
+      },
+      "math": {
+        "p25": 770,
+        "p75": 800
+      }
+    },
+    "submitting": {
+      "satPct": 50,
+      "actPct": 17
+    },
+    "classRank": {
+      "topTenthPct": 91,
+      "topQuarterPct": 99
+    },
+    "applicationFeeUsd": 75,
+    "earlyDecision": {
+      "applications": 8683,
+      "admitted": 1235,
+      "admitRate": 0.1422
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-05",
+        "raw": "C14 1/5"
+      },
+      "edClosing": {
+        "mmdd": "11-01",
+        "raw": "C21 11/1"
+      },
+      "edNotification": "C21  12/15",
+      "aidPriority": {
+        "mmdd": "02-01",
+        "raw": "H9 2/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 70971
+    }
+  }
 }

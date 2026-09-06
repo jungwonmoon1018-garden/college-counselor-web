@@ -77,5 +77,34 @@
   "enrolledSAT": {
     "p25": 1390,
     "p75": 1520
+  },
+  "extras": {
+    "satSections": {
+      "math": {
+        "p25": 690,
+        "p75": 790
+      }
+    },
+    "submitting": {
+      "satPct": 77,
+      "actPct": 35
+    },
+    "classRank": {
+      "topTenthPct": 87,
+      "topQuarterPct": 97
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-06",
+        "raw": "1/6"
+      },
+      "eaClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 18127
+    }
   }
 }

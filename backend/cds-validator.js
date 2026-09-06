@@ -374,6 +374,12 @@ export async function persistAndValidate(stmts, parsedRecord, options = {}) {
     parser_notes_json: parsedRecord.parserNotes
       ? JSON.stringify(parsedRecord.parserNotes)
       : null,
+    // The wider read of the document (C9 sections, C10, C13, C14, C21, C22,
+    // H2, I2) rides along as one JSON blob; nothing in it is validated
+    // against ground truth, so the renderer labels it as parsed.
+    extras_json: parsedRecord.extras && typeof parsedRecord.extras === "object" && Object.keys(parsedRecord.extras).length
+      ? JSON.stringify(parsedRecord.extras)
+      : null,
   };
 
   stmts.cds.upsert.run(
@@ -385,7 +391,7 @@ export async function persistAndValidate(stmts, parsedRecord, options = {}) {
     cdsRow.test_policy, cdsRow.c7_json, cdsRow.b1_json, cdsRow.c1_breakdown_json,
     cdsRow.majors_json, cdsRow.priorities_json,
     cdsRow.source_url, cdsRow.source_kind,
-    cdsRow.parser_version, cdsRow.parser_notes_json,
+    cdsRow.parser_version, cdsRow.parser_notes_json, cdsRow.extras_json,
     cdsRow.slug,  // for COALESCE(SELECT ingested_at WHERE slug = ?)
   );
 
@@ -448,6 +454,7 @@ function rowToRecord(row) {
     sourceKind: row.source_kind,
     parserVersion: row.parser_version,
     parserNotes: row.parser_notes_json ? safeJSON(row.parser_notes_json, []) : [],
+    extras: row.extras_json ? safeJSON(row.extras_json, null) : null,
     ingestedAt: row.ingested_at,
     updatedAt: row.updated_at,
   };

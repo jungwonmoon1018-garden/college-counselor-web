@@ -91,6 +91,29 @@ test("fidelity check catches misstated grades, GPA, test and AP scores", () => {
   assert.match(buildFidelityFootnote(contradictions, "ko"), /저장된 프로필 기준 정정/);
 });
 
+test("SAT section scores reach the model and are checked as sections, not totals", () => {
+  const withSections = {
+    ...profile,
+    testScores: [{ test: "sat", totalScore: 1500, date: "2026-03", sections: { math: 780, readingWriting: 720 } }],
+  };
+  const block = formatProfileForModel(withSections);
+  assert.match(block, /Test scores: SAT 1500 \(Reading & Writing 720, Math 780\) \(taken 2026-03\)/);
+
+  // A correct section figure is not a wrong total; a wrong section figure is
+  // reported against the recorded sections.
+  const faithful = checkProfileFidelity("Your SAT Math 780 is at the top of Brown's band, and your SAT of 1500 fits.", withSections);
+  assert.deepEqual(faithful.contradictions, []);
+  const wrong = checkProfileFidelity("Your SAT Math score of 800 is perfect.", withSections);
+  assert.equal(wrong.contradictions.length, 1);
+  assert.equal(wrong.contradictions[0].item, "SAT section");
+  assert.equal(wrong.contradictions[0].stated, "800");
+  assert.equal(wrong.contradictions[0].actual, "Reading & Writing 720, Math 780");
+  // Without recorded sections a section claim is reported against the total.
+  const noSections = checkProfileFidelity("Your SAT Math 780 is strong.", { ...profile, testScores: [{ test: "sat", totalScore: 1450 }] });
+  assert.equal(noSections.contradictions.length, 1);
+  assert.equal(noSections.contradictions[0].actual, "total 1450, no section scores recorded");
+});
+
 test("fidelity check accepts a faithful answer and ignores generic statistics", () => {
   const answer = [
     "Your B+ in AP English Language and Composition and your A in AP Statistics, plus a 5 on AP Computer Science A and a 4 on AP Statistics, are real evidence.",
@@ -189,4 +212,35 @@ test("verified data block formats baseline, CDS, and research facts and is empty
   assert.match(drive, /\n  Admissions policy \(official site, checked 2026-09-03\): test policy — test scores required/);
   // A school with only a scouted policy line still gets an entry.
   assert.match(formatVerifiedDataBlock({ schools: [{ name: "Elm College", baseline: null, cds: null, policyLine: "Admissions policy (official site, checked 2026-09-03): application fee none [Source: https://elm.edu/apply]" }] }), /- Elm College: Admissions policy/);
+
+  // The wider CDS read (sections C9/C10/C13/C14/C21/C22/H2/I2) renders as
+  // part of the same CDS line; the reported closing dates say which cycle
+  // they describe and carry no year.
+  const wide = formatVerifiedDataBlock({
+    schools: [{
+      name: "Boston University",
+      baseline: null,
+      cds: {
+        school: "Boston University", yearLabel: "2025-26", overallAdmitRate: 0.108, sourceUrl: "https://www.bu.edu/cds.pdf",
+        extras: {
+          satSections: { ebrw: { p25: 700, p75: 750 }, math: { p25: 720, p75: 780 } },
+          submitting: { satPct: 36, actPct: 10 },
+          classRank: { topTenthPct: 86, topQuarterPct: 98 },
+          applicationFeeUsd: 80,
+          earlyDecision: { applications: 6907, admitted: 2165, admitRate: 0.3135 },
+          dates: { regularClosing: { mmdd: "01-05", raw: "January 5" }, edClosing: { mmdd: "11-01", raw: "November 1" }, edIIClosing: { mmdd: "01-05", raw: "January 5" }, aidDeadline: { mmdd: "01-05", raw: "January 5 (November 1 for ED)" } },
+          aid: { averagePackageFirstYearUsd: 68926 },
+          studentFacultyRatio: "10 to 1",
+        },
+      },
+      cdsValidated: false,
+    }],
+  });
+  assert.match(wide, /enrolled SAT sections middle 50%: Reading & Writing 700–750, Math 720–780/);
+  assert.match(wide, /share of enrolled students who submitted scores: SAT 36%, ACT 10%/);
+  assert.match(wide, /86% of enrolled students ranked in the top tenth of their class \(98% top quarter\)/);
+  assert.match(wide, /Early Decision: 6,907 applied, 2,165 admitted \(31\.4%\)/);
+  assert.match(wide, /application fee 80 USD; average first-year need-based aid package 68,926 USD; student-to-faculty ratio 10 to 1/);
+  assert.match(wide, /closing dates the school reported for its CDS cycle \(month\/day; confirm this year's dates on its admissions page\): Regular Decision 01\/05, Early Decision 11\/01, Early Decision II 01\/05, aid filing deadline 01\/05/);
+  assert.doesNotMatch(wide, /\$/);
 });

@@ -156,7 +156,7 @@ export function verifyQuote(quote, pages) {
 }
 
 export function sanitizeDeadlineDates(raw, now = new Date()) {
-  const fields = ["ea", "ed", "rd", "financialAid", "commitBy", "decisionRelease"];
+  const fields = ["ea", "ed", "edII", "rd", "financialAid", "commitBy", "decisionRelease"];
   const min = now.getTime() - 365 * 24 * 60 * 60 * 1000;
   const max = now.getTime() + 730 * 24 * 60 * 60 * 1000;
   const out = {};
@@ -490,10 +490,10 @@ export async function researchCollegeDeadlines({
 
   const system = [
     "You extract first-year admissions deadline DATES from official pages of a university's own website. Reply with ONLY valid JSON, no markdown fences.",
-    'Schema: {"ea": "YYYY-MM-DD"|null, "ed": "YYYY-MM-DD"|null, "rd": "YYYY-MM-DD"|null, "financialAid": "YYYY-MM-DD"|null, "commitBy": "YYYY-MM-DD"|null, "decisionRelease": "YYYY-MM-DD"|null, "sourceUrl": "<page url>"}',
+    'Schema: {"ea": "YYYY-MM-DD"|null, "ed": "YYYY-MM-DD"|null, "edII": "YYYY-MM-DD"|null, "rd": "YYYY-MM-DD"|null, "financialAid": "YYYY-MM-DD"|null, "commitBy": "YYYY-MM-DD"|null, "decisionRelease": "YYYY-MM-DD"|null, "sourceUrl": "<page url>"}',
     "Rules:",
     `- Report dates for the ${cycle} first-year application cycle (applications submitted in fall ${cycle.slice(0, 4)} for entry the following fall). When a page gives a month and day without a year, infer the year from that cycle.`,
-    "- ea = Early Action, ed = Early Decision (use ED I if multiple rounds), rd = Regular Decision, financialAid = the aid/CSS/FAFSA priority date, commitBy = the enrollment deposit date, decisionRelease = when RD decisions come out.",
+    "- ea = Early Action, ed = Early Decision I (the first binding round), edII = Early Decision II (a second binding round, usually in January), rd = Regular Decision, financialAid = the aid/CSS/FAFSA priority date, commitBy = the enrollment deposit date, decisionRelease = when RD decisions come out.",
     "- Use ONLY dates explicitly stated in the page text. A field the pages don't state is null. NEVER guess or use typical dates.",
     "- \"sourceUrl\" must be the provided PAGE url the dates came from.",
   ].join("\n");

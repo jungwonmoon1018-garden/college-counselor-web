@@ -29,5 +29,17 @@
     "discrepancies": [],
     "overrides": {},
     "scopeFromPDF": null
+  },
+  "extras": {
+    "satSections": {
+      "math": {
+        "p25": 550,
+        "p75": 660
+      }
+    },
+    "applicationFeeUsd": 65,
+    "aid": {
+      "averagePackageFirstYearUsd": 17699
+    }
   }
 }

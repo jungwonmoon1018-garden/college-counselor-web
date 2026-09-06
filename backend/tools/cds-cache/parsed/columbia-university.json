@@ -67,5 +67,39 @@
       "p25": 1460,
       "p75": 1530
     }
+  },
+  "extras": {
+    "satSections": {
+      "math": {
+        "p25": 750,
+        "p75": 780
+      }
+    },
+    "submitting": {
+      "satPct": 17,
+      "actPct": 8
+    },
+    "applicationFeeUsd": 80,
+    "dates": {
+      "regularClosing": {
+        "mmdd": "05-15",
+        "raw": "May 15"
+      },
+      "eaClosing": {
+        "mmdd": "01-15",
+        "raw": "January 15 (priority) or March 1"
+      },
+      "aidPriority": {
+        "mmdd": "03-01",
+        "raw": "March 1"
+      },
+      "aidDeadline": {
+        "mmdd": "06-01",
+        "raw": "June 1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 46800
+    }
   }
 }

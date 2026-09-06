@@ -22,6 +22,43 @@ import { normalizeSchoolName } from "./cds-search.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_PARSED_CDS_DIR = path.join(__dirname, "tools", "cds-cache", "parsed");
 
+// The closing dates a school reported in its Common Data Set (C14, C21, C22,
+// H) projected onto the current application cycle. The document describes
+// the previous cycle, so these are institutional dates with a rolled
+// forward year — far better than the generic "January 1" fallback, still
+// not this year's verified deadline. Callers label them accordingly. A
+// month of August or later belongs to the cycle's start year (the fall the
+// application is submitted); January to July to the entry year.
+export function cdsDeadlinesForCycle(record, now = new Date()) {
+  const dates = record?.extras?.dates;
+  if (!dates || typeof dates !== "object") return null;
+  const y = now.getUTCFullYear();
+  const m = now.getUTCMonth() + 1;
+  const cycleStartYear = m >= 2 ? y : y - 1;
+  const iso = (entry) => {
+    const mmdd = entry?.mmdd;
+    if (!/^\d{2}-\d{2}$/.test(String(mmdd || ""))) return null;
+    const month = Number(mmdd.slice(0, 2));
+    return `${month >= 8 ? cycleStartYear : cycleStartYear + 1}-${mmdd}`;
+  };
+  const deadlines = {
+    ea: iso(dates.eaClosing),
+    ed: iso(dates.edClosing),
+    edII: iso(dates.edIIClosing),
+    rd: iso(dates.regularClosing),
+    financialAid: iso(dates.aidPriority) || iso(dates.aidDeadline),
+    commitBy: null,
+    decisionRelease: null,
+  };
+  if (!Object.values(deadlines).some(Boolean)) return null;
+  return {
+    deadlines,
+    cycle: `${cycleStartYear}-${String(cycleStartYear + 1).slice(-2)}`,
+    label: `${record.school || "the school"} Common Data Set${record.yearLabel ? ` ${record.yearLabel}` : ""}`,
+    sourceUrl: record.sourceUrl || null,
+  };
+}
+
 // Turn a school display name into the slug convention used by the parsed
 // cache files and the context/bundle endpoint ("Columbia University" →
 // "columbia-university").
@@ -126,8 +163,23 @@ export async function ensureCdsStoreSeeded(ragStmts, { dir = DEFAULT_PARSED_CDS_
           .map((file) => file.replace(/\.json$/, ""));
       } catch { /* unreadable dir → nothing to top up */ }
       const missing = diskSlugs.filter((slug) => !storedSlugs.has(slug));
-      if (missing.length === 0) return { seeded: false, reason: "already_populated" };
-      console.log(`[cds-store] topping up ${missing.length} new parsed CDS record(s): ${missing.slice(0, 8).join(", ")}${missing.length > 8 ? ", …" : ""}`);
+      // A parser that reads more of the document than the stored rows carry
+      // (the wider extras read) also triggers a re-ingest: the upsert is
+      // idempotent, and without this a populated deployment would never see
+      // the new sections.
+      const stored = loadAllValidatedRecords(ragStmts);
+      const storedWithExtras = stored.filter((record) => record.extras && Object.keys(record.extras).length).length;
+      let diskWithExtras = 0;
+      try {
+        for (const slug of diskSlugs) {
+          const parsed = JSON.parse(fs.readFileSync(path.join(dir, `${slug}.json`), "utf8"));
+          if (parsed?.extras && Object.keys(parsed.extras).length) diskWithExtras++;
+        }
+      } catch { /* unreadable file → treat as no extras */ }
+      const extrasBehind = diskWithExtras > 0 && storedWithExtras === 0;
+      if (missing.length === 0 && !extrasBehind) return { seeded: false, reason: "already_populated" };
+      if (missing.length) console.log(`[cds-store] topping up ${missing.length} new parsed CDS record(s): ${missing.slice(0, 8).join(", ")}${missing.length > 8 ? ", …" : ""}`);
+      if (extrasBehind) console.log(`[cds-store] re-ingesting ${diskWithExtras} parsed CDS record(s) that carry the wider section read`);
     }
   }
   const res = await ingestParsedCdsCache(ragStmts, { dir });

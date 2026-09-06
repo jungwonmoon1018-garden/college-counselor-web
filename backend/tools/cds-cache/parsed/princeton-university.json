@@ -79,5 +79,39 @@
       "p25": 1510,
       "p75": 1600
     }
+  },
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 740,
+        "p75": 780
+      },
+      "math": {
+        "p25": 770,
+        "p75": 800
+      }
+    },
+    "submitting": {
+      "satPct": 56,
+      "actPct": 21
+    },
+    "applicationFeeUsd": 70,
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-01",
+        "raw": "1/1"
+      },
+      "eaClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      },
+      "aidPriority": {
+        "mmdd": "02-01",
+        "raw": "2/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 71237
+    }
   }
 }

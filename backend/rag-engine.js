@@ -403,6 +403,11 @@ export function initRAGTables(db) {
     if (!cdsCols.includes("c1_breakdown_json")) {
       db.exec(`ALTER TABLE cds_records ADD COLUMN c1_breakdown_json TEXT`);
     }
+    // Sections beyond C1/C7/C9/C12: SAT section bands, submit rates, class
+    // rank, application fee, ED counts, closing dates, aid package, ratio.
+    if (!cdsCols.includes("extras_json")) {
+      db.exec(`ALTER TABLE cds_records ADD COLUMN extras_json TEXT`);
+    }
   } catch (err) {
     console.warn("[RAG] cds_records migration warning:", err.message);
   }
@@ -654,9 +659,9 @@ export function prepareRAGStatements(db) {
            enrolled_gpa_p25, enrolled_gpa_p75, enrolled_gpa_avg,
            test_policy, c7_json, b1_json, c1_breakdown_json,
            majors_json, priorities_json,
-           source_url, source_kind, parser_version, parser_notes_json,
+           source_url, source_kind, parser_version, parser_notes_json, extras_json,
            ingested_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                 COALESCE((SELECT ingested_at FROM cds_records WHERE slug = ?), datetime('now')),
                 datetime('now'))
       `),

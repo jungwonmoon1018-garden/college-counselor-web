@@ -793,6 +793,154 @@ export function extractYear(text) {
 // The C7/C9/C1/C12 extractors are method-agnostic: they consume the same
 // `{page, x, y, str, width}[]` items shape that both pdfjs and tesseract
 // produce.
+// ─── Wider read: C9 sections, C10, C13, C14, C21, C22, H2, I2 ─────────
+// Everything the VERIFIED DATA block could cite beyond the admit rate and
+// composite bands: SAT section middle-50% bands (so a student's Math and
+// Reading & Writing scores compare section by section), the share of
+// enrolled students who submitted each test, class-rank shares, the
+// application fee, Early Decision volume and admit rate, the closing dates
+// the school reported (RD, ED, ED II, EA) plus aid filing dates, the average
+// first-year aid package, and the student-to-faculty ratio. Two PDF
+// generations are handled: the older form puts a label's numbers on the
+// next line ("SAT Evidence-Based Reading" / "740 760 780"); the newer one
+// keeps label and numbers together ("SAT Math 720 750 780"). Dates are kept
+// as the month-day the document states ("01-03") with the raw text, never
+// converted to a year here — the CDS describes the previous cycle.
+const MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+
+export function parseCdsMonthDay(text) {
+  const raw = String(text || "").replace(/\s+/g, " ").trim();
+  if (!raw) return null;
+  let m = raw.match(/\b(\d{1,2})\/(\d{1,2})(?:\/\d{2,4})?\b/);
+  if (m) {
+    const month = Number(m[1]), day = Number(m[2]);
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) return { mmdd: `${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`, raw };
+  }
+  m = raw.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})\b/i);
+  if (m) {
+    const month = MONTHS.findIndex((name) => name.startsWith(m[1].toLowerCase().slice(0, 3))) + 1;
+    const day = Number(m[2]);
+    if (month >= 1 && day >= 1 && day <= 31) return { mmdd: `${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`, raw };
+  }
+  return null;
+}
+
+export function extractExtras(items) {
+  const lines = groupByLine(items, 2.5).map((l) => l.items.map((it) => it.str).join(" ").replace(/\s+/g, " ").trim());
+  const extras = {};
+  const find = (re, from = 0) => { for (let i = from; i < lines.length; i++) if (re.test(lines[i])) return i; return -1; };
+  const windowText = (i, n) => lines.slice(Math.max(0, i), i + n).join(" ");
+  // Whole numbers not attached to a range, decimal or percentage.
+  const numbers = (text, lo, hi) => [...String(text).matchAll(/(?<![\d.\-–$])(\d{1,3}(?:,\d{3})+|\d+)(?![\d.%\-–])/g)]
+    .map((m) => Number(m[1].replace(/,/g, "")))
+    .filter((n) => n >= lo && n <= hi);
+  const band = (values) => (values.length >= 2 ? { p25: values[0], p75: values[values.length - 1] } : null);
+  const afterLabel = (line, labelRe) => String(line).replace(labelRe, "").trim();
+
+  // C9: section bands. The first label occurrence is the percentile table;
+  // the later one heads the score-range distribution and is skipped by
+  // requiring 2–3 plain numbers within the label line or the next two.
+  // A "(200 - 800)" scale note after the label is not a score; a real
+  // section band sits well above the floor and spans at most a few hundred
+  // points.
+  const stripScale = (text) => String(text).replace(/\(\s*\d{2,3}\s*[-–]\s*\d{2,3}\s*\)/g, " ");
+  const plausibleBand = (b) => Boolean(b) && b.p25 >= 300 && b.p25 <= b.p75 && b.p75 - b.p25 <= 250;
+  const sectionBand = (labelRe) => {
+    let from = 0;
+    for (let guard = 0; guard < 4; guard++) {
+      const i = find(labelRe, from);
+      if (i < 0) return null;
+      const own = numbers(stripScale(afterLabel(lines[i], labelRe)), 200, 800);
+      // Older layout: the numbers sit on the first following line that has
+      // any — never pooled across lines, or the next row's scores (SAT Math
+      // right under Reading) would stretch the band.
+      let below = [];
+      for (let k = i + 1; k <= i + 2 && k < lines.length && below.length < 2; k++) below = numbers(stripScale(lines[k]), 200, 800);
+      const candidate = band(own.length >= 2 ? own : below);
+      if (plausibleBand(candidate) && !/score range|%/i.test(windowText(i, 3))) return candidate;
+      from = i + 1;
+    }
+    return null;
+  };
+  const ebrw = sectionBand(/SAT\s+Evidence-?\s*Based\s+Reading(?:\s+and(?:\s+Writing)?)?/i);
+  const math = sectionBand(/SAT\s+Math(?:ematics)?\b/i);
+  if (ebrw || math) extras.satSections = { ...(ebrw ? { ebrw } : {}), ...(math ? { math } : {}) };
+
+  const satSubmit = find(/Submitting SAT Scores/i);
+  const actSubmit = find(/Submitting ACT Scores/i);
+  const pct = (line) => { const m = String(line || "").match(/(\d{1,3})\s?%/); return m ? Number(m[1]) : null; };
+  if (satSubmit >= 0 || actSubmit >= 0) {
+    extras.submitting = {
+      ...(satSubmit >= 0 && pct(lines[satSubmit]) != null ? { satPct: pct(lines[satSubmit]) } : {}),
+      ...(actSubmit >= 0 && pct(lines[actSubmit]) != null ? { actPct: pct(lines[actSubmit]) } : {}),
+    };
+    if (!Object.keys(extras.submitting).length) delete extras.submitting;
+  }
+
+  // C10 class rank
+  const topTenth = find(/top tenth of high school graduating class/i);
+  const topQuarter = find(/top quarter of high school graduating class/i);
+  if (topTenth >= 0 || topQuarter >= 0) {
+    const rank = {};
+    if (topTenth >= 0 && pct(lines[topTenth].replace(/^.*?class/i, "")) != null) rank.topTenthPct = pct(lines[topTenth].replace(/^.*?class/i, ""));
+    if (topQuarter >= 0 && pct(lines[topQuarter].replace(/^.*?class/i, "")) != null) rank.topQuarterPct = pct(lines[topQuarter].replace(/^.*?class/i, ""));
+    if (Object.keys(rank).length) extras.classRank = rank;
+  }
+
+  // C13 application fee
+  const fee = find(/Amount of application fee/i);
+  if (fee >= 0) {
+    const m = windowText(fee, 2).match(/Amount of application fee:?\s*\$?\s*([\d,]+(?:\.\d+)?)/i);
+    if (m) extras.applicationFeeUsd = Math.round(Number(m[1].replace(/,/g, "")));
+  }
+
+  // C21 early decision volume
+  const edReceived = find(/Number of early decision applications received/i);
+  const edAdmitted = find(/Number of applicants admitted under early decision plan/i);
+  if (edReceived >= 0 && edAdmitted >= 0) {
+    const received = numbers(afterLabel(windowText(edReceived, 2), /.*?received(?: by your(?: institution)?)?/i), 1, 200000)[0];
+    const admitted = numbers(afterLabel(windowText(edAdmitted, 2), /.*?early decision plan/i), 1, 200000)[0];
+    if (received && admitted && admitted <= received) {
+      extras.earlyDecision = { applications: received, admitted, admitRate: Math.round((admitted / received) * 10000) / 10000 };
+    }
+  }
+
+  // C14 / C21 / C22 / H: closing and filing dates, same line as the label
+  // only — a blank slot's next line is the next label.
+  const dateAfter = (labelRe) => {
+    const i = find(labelRe);
+    if (i < 0) return null;
+    return parseCdsMonthDay(afterLabel(lines[i], labelRe));
+  };
+  const dates = {
+    regularClosing: dateAfter(/Application closing date \(fall\):?/i),
+    edClosing: dateAfter(/First or only early decision plan closing date:?/i),
+    edNotification: (() => { const i = find(/First or only early decision plan notification date:?/i); return i >= 0 ? (afterLabel(lines[i], /First or only early decision plan notification date:?/i) || null) : null; })(),
+    edIIClosing: dateAfter(/Other early decision plan closing date:?/i),
+    eaClosing: dateAfter(/^Early action closing date:?/i),
+    aidPriority: dateAfter(/Priority date for filing required financial aid forms:?/i),
+    aidDeadline: dateAfter(/^Deadline for filing required financial aid forms:?/i),
+  };
+  for (const key of Object.keys(dates)) if (!dates[key]) delete dates[key];
+  if (Object.keys(dates).length) extras.dates = dates;
+
+  // H2 average first-year aid package: first dollar figure after the label.
+  const pkg = find(/average financial aid package/i);
+  if (pkg >= 0) {
+    const m = windowText(pkg, 4).match(/\$\s*([\d,]{4,})/);
+    if (m) extras.aid = { averagePackageFirstYearUsd: Number(m[1].replace(/,/g, "")) };
+  }
+
+  // I2 student-to-faculty ratio
+  const ratio = find(/Student to Faculty r(?:atio)?\b/i);
+  if (ratio >= 0) {
+    const m = windowText(ratio, 2).match(/(\d{1,2})\s*to\s*1\b/i);
+    if (m) extras.studentFacultyRatio = `${m[1]} to 1`;
+  }
+
+  return extras;
+}
+
 export async function parseCDSPositional(pdfPath, { method = "auto" } = {}) {
   const items = await extractItems(pdfPath, { method });
   const allText = items.map((i) => i.str).join(" ");
@@ -827,6 +975,12 @@ export async function parseCDSPositional(pdfPath, { method = "auto" } = {}) {
   if (c1Sub) positional.c1Breakdown = c1Sub;
   const c7 = extractC7Positional(items);
   if (c7 && Object.values(c7).some((v) => v !== "not_considered")) positional.c7 = c7;
+  try {
+    const extras = extractExtras(items);
+    if (Object.keys(extras).length) positional.extras = extras;
+  } catch (e) {
+    positional.parserNotes = (positional.parserNotes || []).concat("extras_failed: " + String(e.message).slice(0, 60));
+  }
 
   // Form-fields pass: only run if positional left key fields empty.
   const needsFormFields =

@@ -226,6 +226,20 @@ Optional: Creative portfolios
 November 1*
 January 4*`;
 
+test("a second Early Decision round reaches the deadline record as edII", () => {
+  const hopkins = extractPolicyFromPages([{
+    url: "https://apply.jhu.edu/how-to-apply/application-deadlines-requirements/",
+    text: "Application Deadlines\nEarly Decision I deadline: November 1\nEarly Decision II deadline: January 2\nRegular Decision deadline: January 2\nFinancial aid documents are due with the application.",
+  }], NOW);
+  assert.equal(hopkins.deadlines.early_decision.date, "2026-11-01", JSON.stringify(hopkins.deadlines));
+  assert.equal(hopkins.deadlines.early_decision_2.date, "2027-01-02", JSON.stringify(hopkins.deadlines));
+  assert.equal(hopkins.deadlines.regular_decision.date, "2027-01-02");
+  const record = snapshotAsDeadlineRecord({ school: "Johns Hopkins University", slug: "johns-hopkins-university", checkedAt: NOW.toISOString(), policy: hopkins });
+  assert.equal(record.deadlines.ed, "2026-11-01");
+  assert.equal(record.deadlines.edII, "2027-01-02");
+  assert.equal(record.deadlines.rd, "2027-01-02");
+});
+
 test("deadline extraction handles real page layouts: headed sections with portfolio sub-blocks, and 'due' prose", () => {
   const stanford = extractPolicyFromPages([{ url: "https://admission.stanford.edu/apply/first-year/", text: STANFORD_LINES }], NOW);
   assert.equal(stanford.deadlines.restrictive_early_action.date, "2026-11-01", JSON.stringify(stanford.deadlines));
@@ -291,7 +305,7 @@ test("a scout run snapshots a school, writes verified facts, and logs changes on
   assert.equal(snapshot.checkedAt, NOW.toISOString());
   assert.equal(snapshot.changedAt, NOW.toISOString());
   assert.match(formatPolicyLine(snapshot), /^Admissions policy \(official site, checked 2026-09-03\): test policy — test-optional \(through 2027\); Early Decision deadline 2026-11-01; Early Decision II deadline 2027-01-05; Regular Decision deadline 2027-01-15; application fee 75 USD \[Source: https:\/\/exampleuadmissions\.org\/apply\/firstyear\/tests-scores\/ ; https:\/\/exampleu\.edu\/admission\/first-year\]$/);
-  assert.deepEqual(snapshotAsDeadlineRecord(snapshot).deadlines, { ea: null, ed: "2026-11-01", rd: "2027-01-15", financialAid: null, commitBy: null, decisionRelease: null });
+  assert.deepEqual(snapshotAsDeadlineRecord(snapshot).deadlines, { ea: null, ed: "2026-11-01", edII: "2027-01-05", rd: "2027-01-15", financialAid: null, commitBy: null, decisionRelease: null });
 
   // The pages change: testing becomes required, ED moves to Nov 15.
   const later = new Date("2026-09-04T12:00:00Z");

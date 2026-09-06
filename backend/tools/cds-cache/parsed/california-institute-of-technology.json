@@ -44,5 +44,11 @@
   "enrolledSAT": {
     "p25": 1530,
     "p75": 1580
+  },
+  "extras": {
+    "applicationFeeUsd": 75,
+    "aid": {
+      "averagePackageFirstYearUsd": 74780
+    }
   }
 }

@@ -39,5 +39,42 @@
       "p75": 1560
     }
   },
-  "overallAdmitRate": 0.2015
+  "overallAdmitRate": 0.2015,
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 680,
+        "p75": 750
+      },
+      "math": {
+        "p25": 680,
+        "p75": 780
+      }
+    },
+    "submitting": {
+      "satPct": 51,
+      "actPct": 18
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "02-01",
+        "raw": "2/1"
+      },
+      "eaClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      },
+      "aidPriority": {
+        "mmdd": "12-15",
+        "raw": "(MM/DD) 12/15"
+      },
+      "aidDeadline": {
+        "mmdd": "03-31",
+        "raw": "(MM/DD) 3/31"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 35086
+    }
+  }
 }
