@@ -238,6 +238,21 @@ test("a second Early Decision round reaches the deadline record as edII", () => 
   assert.equal(record.deadlines.ed, "2026-11-01");
   assert.equal(record.deadlines.edII, "2027-01-02");
   assert.equal(record.deadlines.rd, "2027-01-02");
+
+  // A header-row table can pair "Early Decision II" with a neighbouring
+  // date; an ED II on or before ED I is impossible and is dropped, never
+  // turned into a reminder.
+  const mispaired = snapshotAsDeadlineRecord({
+    school: "Johns Hopkins University", slug: "johns-hopkins-university", checkedAt: NOW.toISOString(),
+    policy: { cycle: "2026-27", deadlines: {
+      early_decision: { date: "2026-11-01", sourceUrl: "https://apply.jhu.edu/" },
+      early_decision_2: { date: "2026-11-15", sourceUrl: "https://apply.jhu.edu/" },
+      regular_decision: { date: "2027-01-02", sourceUrl: "https://apply.jhu.edu/" },
+    } },
+  });
+  assert.equal(mispaired.deadlines.edII, null);
+  assert.equal(mispaired.deadlines.ed, "2026-11-01");
+  assert.equal(mispaired.deadlines.rd, "2027-01-02");
 });
 
 test("deadline extraction handles real page layouts: headed sections with portfolio sub-blocks, and 'due' prose", () => {

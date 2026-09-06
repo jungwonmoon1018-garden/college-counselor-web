@@ -957,6 +957,17 @@ export function snapshotAsDeadlineRecord(snapshot) {
     extractedAt: snapshot.checkedAt,
     source: "admissions_policy_scout",
   };
+  // A second Early Decision round opens after the first round's decisions
+  // are out — a month or more after ED I, never a fortnight. Header-row
+  // tables (plans across the top, dates beneath) can pair the "Early
+  // Decision II" heading with a date from a neighbouring column or row:
+  // Johns Hopkins' page yielded November 15 for ED II when its ED II
+  // deadline is January 2. Such a date is dropped rather than turned into a
+  // reminder; the ED I and RD dates on the same page stand.
+  if (record.deadlines.edII && record.deadlines.ed) {
+    const gapDays = (Date.parse(record.deadlines.edII) - Date.parse(record.deadlines.ed)) / 86_400_000;
+    if (!Number.isFinite(gapDays) || gapDays < 30) record.deadlines.edII = null;
+  }
   return Object.values(record.deadlines).some(Boolean) ? record : null;
 }
 

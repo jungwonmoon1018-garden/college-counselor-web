@@ -49,7 +49,7 @@ import {
   releaseBudget,
   getBudgetStatus,
 } from "./usage-budget.js";
-import { OPENROUTER_TARGETS, OPENROUTER_STATUS, OPENROUTER_CATALOG, refreshOpenRouterTargets, refreshOpenRouterCatalog } from "./openrouter-model-refresh.js";
+import { OPENROUTER_TARGETS, OPENROUTER_STATUS, OPENROUTER_CATALOG, refreshOpenRouterTargets, refreshOpenRouterCatalog, configureOpenRouterCatalogCache, ensureOpenRouterCatalog } from "./openrouter-model-refresh.js";
 import { randomExemplarGroup, exemplarsPromptBlock } from "./crimson-ec-exemplars.js";
 import { buildMethodology } from "./methodology.js";
 import * as chatHistory from "./chat-history.js";
@@ -393,12 +393,22 @@ const REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000;
 //     dropdown (GET /api/llm/openrouter/models) and budget pricing
 //     (usage-budget.js). If OpenRouter is unreachable we keep the last-known
 //     catalog and the static fallback list and retry next cycle.
+// The catalog is also the budget tracker's price table, so an empty
+// catalog means every model call is refused. A failed boot fetch now falls
+// back to the last-known catalog on disk, retries every five minutes until
+// OpenRouter answers, and the chat route triggers one refresh itself when
+// it finds the catalog empty (see ensureOpenRouterCatalog).
+configureOpenRouterCatalogCache(path.join(DATA_DIR, "openrouter-catalog.json"));
 refreshOpenRouterCatalog()
   .then(() => maybeRunModelCatalogScout("boot", { refreshCatalog: false }).catch((err) => console.warn("[MODEL-SCOUT] boot run failed:", err?.message)))
   .catch(err => console.warn("[OR-CATALOG] Boot refresh threw:", err.message));
 setInterval(() => {
   refreshOpenRouterCatalog().catch(err => console.warn("[OR-CATALOG] Daily refresh threw:", err.message));
 }, REFRESH_INTERVAL_MS).unref();
+setInterval(() => {
+  if (OPENROUTER_CATALOG.reachable === true && OPENROUTER_CATALOG.models.length) return;
+  refreshOpenRouterCatalog().catch(err => console.warn("[OR-CATALOG] Retry refresh threw:", err.message));
+}, 5 * 60 * 1000).unref();
 
 // 2c. OpenRouter recommended-model refresh — same 24h cadence, but migration
 //     is PROPOSE-ONLY (human approval via the BYOK "Update models" prompt). No
@@ -2289,6 +2299,11 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
         missingConsents: consents.missing,
         blocked: true,
       });
+    }
+    // An empty model catalog means no verified prices and a 402 on every
+    // turn; try one refresh (rate-limited) before giving up on the call.
+    if (!OPENROUTER_CATALOG.models.length) {
+      try { await ensureOpenRouterCatalog(); } catch { /* the budget check reports the outcome */ }
     }
     const { modelConfig: operator, callLLM } = buildStudentCallLLM(studentId, {
       requestIdPrefix: "chat:" + studentId + ":" + requestId,

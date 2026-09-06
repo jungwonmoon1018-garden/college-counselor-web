@@ -15,6 +15,8 @@
 // replacement, exposing status for /api/llm/providers and /api/methodology.
 // ═══════════════════════════════════════════════════════════════════════
 
+import fs from "node:fs";
+import path from "node:path";
 import { TIER_DEFAULTS } from "./llm-adapters/tier-defaults.js";
 
 const OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models";
@@ -115,20 +117,78 @@ export async function fetchOpenRouterModels(fetchImpl = fetch) {
     .filter(Boolean);
 }
 
+// Last-known catalog on disk. The budget tracker refuses every model call
+// whose price it cannot verify, and the price table IS this catalog — so a
+// failed fetch at boot (one bad response from OpenRouter right after a
+// deploy) used to leave the catalog empty and every chat turn answered with
+// "The selected model has no verified price" until the daily timer fired.
+// Each successful refresh now writes the catalog to a file; a failed
+// refresh with nothing in memory loads that file instead.
+let catalogCachePath = null;
+export function configureOpenRouterCatalogCache(filePath) {
+  catalogCachePath = filePath ? String(filePath) : null;
+}
+
+function writeCatalogCache(models) {
+  if (!catalogCachePath) return;
+  try {
+    fs.mkdirSync(path.dirname(catalogCachePath), { recursive: true });
+    fs.writeFileSync(catalogCachePath, JSON.stringify({ savedAt: nowISO(), models }), "utf8");
+  } catch (err) {
+    console.warn("[OR-CATALOG] cache write failed:", String(err.message).slice(0, 120));
+  }
+}
+
+export function loadOpenRouterCatalogCache() {
+  if (!catalogCachePath) return null;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(catalogCachePath, "utf8"));
+    return Array.isArray(parsed?.models) && parsed.models.length ? { savedAt: parsed.savedAt || null, models: parsed.models } : null;
+  } catch {
+    return null;
+  }
+}
+
+function applyCatalog(models, { reachable, fromCache = null }) {
+  OPENROUTER_CATALOG.models = models;
+  OPENROUTER_CATALOG.byId = new Map(models.map((m) => [m.id, m]));
+  OPENROUTER_CATALOG.reachable = reachable;
+  OPENROUTER_CATALOG.lastFetched = nowISO();
+  OPENROUTER_CATALOG.fromCache = fromCache;
+}
+
 // Refresh the in-memory catalog. Safe to call at boot and on a daily timer.
 export async function refreshOpenRouterCatalog({ fetchImpl = fetch } = {}) {
   try {
     const models = await fetchOpenRouterModels(fetchImpl);
-    OPENROUTER_CATALOG.models = models;
-    OPENROUTER_CATALOG.byId = new Map(models.map((m) => [m.id, m]));
-    OPENROUTER_CATALOG.reachable = true;
-    OPENROUTER_CATALOG.lastFetched = nowISO();
+    if (!models.length) throw new Error("OpenRouter /models returned no models");
+    applyCatalog(models, { reachable: true });
+    writeCatalogCache(models);
   } catch (err) {
     OPENROUTER_CATALOG.reachable = false;
     OPENROUTER_CATALOG.lastFetched = nowISO();
     console.warn("[OR-CATALOG] refresh failed:", String(err.message).slice(0, 160));
+    if (!OPENROUTER_CATALOG.models.length) {
+      const cached = loadOpenRouterCatalogCache();
+      if (cached) {
+        applyCatalog(cached.models, { reachable: false, fromCache: cached.savedAt || true });
+        console.warn(`[OR-CATALOG] serving the last-known catalog from disk (${cached.models.length} models, saved ${cached.savedAt || "unknown"})`);
+      }
+    }
   }
   return OPENROUTER_CATALOG;
+}
+
+// Called on the request path when the catalog is empty: one refresh attempt
+// per minute at most, so a chat turn right after a bad boot heals the
+// catalog instead of failing on it.
+let lastEnsureAttemptAt = 0;
+export async function ensureOpenRouterCatalog({ fetchImpl = fetch, minIntervalMs = 60_000 } = {}) {
+  if (OPENROUTER_CATALOG.models.length) return OPENROUTER_CATALOG;
+  const now = Date.now();
+  if (now - lastEnsureAttemptAt < minIntervalMs) return OPENROUTER_CATALOG;
+  lastEnsureAttemptAt = now;
+  return refreshOpenRouterCatalog({ fetchImpl });
 }
 
 // Pricing lookup for the budget tracker. Returns { input, output } USD per
