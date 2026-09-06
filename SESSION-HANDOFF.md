@@ -6,13 +6,13 @@ it. Read `CLAUDE.md` first: it is the edit-time harness (invariants, how to
 prove a change, how to land it). This file says where things stand, what
 changed recently and why, what was verified live, and what is open.
 
-## Where things stand (2026-09-05)
+## Where things stand (2026-09-06)
 
-- **Deployed:** `main` at `3b833b8`, live at
+- **Deployed:** `main` at `6e4a4ec`, live at
   https://college-counselor-web.onrender.com. Render deploys after GitHub
-  Actions CI passes; every deploy today was confirmed (CI green, Render
-  restart observed, behavior probed).
-- **Tests:** backend `npm test` 632 tests, 627 pass, 5 skipped, 0 fail;
+  Actions CI passes; the deploy was confirmed (CI green, new student bundle
+  `main-BMa9ZAx7.js` served, behavior probed with a throwaway account).
+- **Tests:** backend `npm test` 641 tests, 636 pass, 5 skipped, 0 fail;
   frontend `npx vitest run` 25 pass; `npm run lint` 0 errors, 70 warnings
   (the CI cap is 500).
 - **Working tree:** clean apart from the repository's dozens of phantom
@@ -31,6 +31,44 @@ changed recently and why, what was verified live, and what is open.
 Each item names the commit that carries it. Earlier sessions' work
 (profile grounding, the policy scout, the fit double-check) is summarized
 at the end.
+
+**Chat latency and context rot (2026-09-06)** — `d292cb4`, `5fb313e`,
+`15a2643`, `6e4a4ec`. Four commits, in order:
+
+1. *Timings.* `POST /api/chat` returns `_meta.timings` (`classify`,
+   `on_demand_read`, `attachments`, `context`, `model`, `fidelity_retry`,
+   `total`, in ms) and logs one `[CHAT] timings {...}` line per turn; the
+   client pipeline logs `[chat timing] {...}` (`quick_query`, `gatekeeper`,
+   `upload_screen`, `specialists`, `supervisor`, `refusal_retry`,
+   `validator`, `total`) and puts `timings` on the orchestrate result.
+2. *Chain cut* (client, `orchestrateStages` in `frontend/src/App.jsx`). The
+   `/api/agents/orchestrate` pre-flight is gone (`/api/chat` runs the same
+   router and deterministic answers). Multi-route now needs an explicit
+   conjunction AND two keyword families (it fired on any "and"/"plan").
+   The LLM validator runs only when a deterministic read of the draft finds
+   guarantees/predictions, medical-financial-legal advice, overclaiming,
+   conduct or grooming signals, an unsourced statistic, an essay turn, an
+   attachment, or a non-`safe_*` category; everything else returns as
+   drafted (the server still screens every answer).
+3. *Prompt order* (server). System prompt is now fixed rules → specialist
+   prompt → STUDENT PROFILE → THREAD MEMORY → regulated prefix → VERIFIED
+   DATA, most-static first, so the adapter's `cache_control` on the system
+   message (and providers' automatic prefix caching) can hit. Pinned in
+   `council-naming-deadlines-routes.test.js`.
+4. *Thread graph* (`backend/chat-graph.js`, tables `chat_graph_facts` and
+   `chat_graph_edges`). When an assistant turn is persisted through
+   `POST /api/students/threads/:id/messages`, the preceding question plus a
+   ≤420-char excerpt of the answer become one fact (encrypted with the
+   chat-history key), linked to schools (`detectSchoolMentions`), plans,
+   the student's recorded activities, topics, the classifier intent and an
+   attachment name. No model call. `/api/chat` detects the entities in the
+   new question, pulls up to 6 matching facts (≤2400 chars), drops facts
+   already in the verbatim history, and renders a THREAD MEMORY block
+   (`_meta.threadMemory` = count). A new thread with no match recalls the
+   two latest facts. Hard-deleting a thread forgets its facts; account
+   erasure removes them (both tables carry `student_id`). The client sends
+   3 exchanges verbatim (was 6) and 2 short memory excerpts (was 4 full
+   answers). Side fix: "AP Calculus BC" no longer links Boston College.
 
 **Official-source gate sensitivity** — `e737f62`, `a02ff77`, `3b833b8`.
 The regulated / high-stakes patterns in `backend/policy-router.js` fired on
@@ -104,7 +142,19 @@ deadline answers from scouted snapshots.
 
 ## Verified live today, and not
 
-Verified on production with throwaway accounts (all deleted): the gate
+Verified on production 2026-09-06 with a throwaway account (deleted): an
+assistant append returned `threadGraph: { factId, entities: 7 }`; a new
+thread asking about Brown University's binding plan got
+`_meta.threadMemory: 1` and the model recapped the earlier advice; the
+same turn sent inside the verbatim history got `threadMemory: 0`; an EC
+question recalled the fact through its activity/topic edges. Server-side
+timings on those turns: `classify` 7–34 ms, `context` 2–118 ms, `model`
+6.3–15.2 s, total within 160 ms of the model call — the model call is
+essentially all of the server's turn time now. Not verified live: the
+client-side `[chat timing]` line and the validator skip rate (both need a
+browser session; watch the console on the next manual check).
+
+Verified earlier (2026-09-05) with throwaway accounts (all deleted): the gate
 cases above (Brown ED/EA strategy answered with scouted dates and source;
 acceptance-rate strategy question answered; "legal studies" routed as
 coaching; "When is NJIT's regular decision deadline?" triggered a live read
@@ -123,6 +173,22 @@ the counselor.
 
 ## Open items and things to watch
 
+- The model call is now ~99% of server turn time (6–15 s). The next real
+  latency win is streaming the final answer, which conflicts with the
+  post-hoc fidelity check, PII restore and validator; the workable design
+  is "stream, then patch the footnote". Not started.
+- The thread graph only links a school when `detectSchoolMentions` does:
+  bare "Brown" or "Cornell" (no "University") is not an alias, so a fact
+  about such a question links by plan/topic only. Adding bare names to
+  `SCHOOL_ALIASES` would also change what the VERIFIED DATA block pulls in;
+  decide deliberately.
+- The validator skip is broader now. If a bad answer slips through, add
+  the pattern to `RISKY_OUTPUT_TOKENS` / `OVERCLAIM_OUTPUT_TOKENS` /
+  `CONDUCT_OUTPUT_TOKENS` in `orchestrateStages` rather than restoring the
+  length rule.
+- Facts accumulate one per assistant turn per student with no cap; a
+  long-lived account could reach thousands of rows. Retrieval is indexed
+  and bounded, so this is a storage question, not a latency one.
 - On-demand page reads add up to 15 s to a pure deadline lookup about a
   school with no snapshot (bounded; the read finishes in the background).
 - `LOOKUP_ASK_RE` / `GUIDANCE_RE` in `policy-router.js` are word lists. When
@@ -141,6 +207,12 @@ Route tests for the gate and the admin page:
 
 ```bash
 cd backend && node --test tests/policy-router.test.js tests/admin-models-routes.test.js && node --test --test-name-pattern="no-source gate|old refusal|College Scorecard|pages read" tests/council-naming-deadlines-routes.test.js
+```
+
+Thread graph, prompt order and timings:
+
+```bash
+cd backend && node --test tests/chat-graph.test.js tests/chat-grounding.test.js && node --test --test-name-pattern="THREAD MEMORY|VERIFIED DATA block|profile and theme guard" tests/council-naming-deadlines-routes.test.js
 ```
 
 Live gate probe with a throwaway account (Node 22, `BASE` is the site):
