@@ -574,9 +574,16 @@ export function detectSchoolMentions(text, { knownNames = [], max = MAX_SCHOOL_M
 
   for (const [alias, canonical] of Object.entries(SCHOOL_ALIASES)) {
     const caseSensitive = alias.length <= 5 && alias === alias.toUpperCase();
-    const re = new RegExp(`(?<![A-Za-z0-9])${escapeRegExp(alias)}(?![A-Za-z0-9])`, caseSensitive ? "" : "i");
-    const m = re.exec(source);
-    if (m) push(m.index, canonical);
+    const re = new RegExp(`(?<![A-Za-z0-9])${escapeRegExp(alias)}(?![A-Za-z0-9])`, caseSensitive ? "g" : "gi");
+    for (const m of source.matchAll(re)) {
+      // A short code after a course name is an AP exam, not a school: "AP
+      // Calculus BC" used to pull Boston College into the VERIFIED DATA
+      // block (and "Physics C" is not a school either). Skip that hit and
+      // keep looking, so "I took Calc BC; is BC a match?" still finds BC.
+      if (caseSensitive && /(?:calculus|physics|calc)\s*$/i.test(source.slice(Math.max(0, m.index - 12), m.index))) continue;
+      push(m.index, canonical);
+      break;
+    }
   }
 
   const lower = source.toLowerCase();

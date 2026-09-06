@@ -915,3 +915,68 @@ test("a dates answer says when the plan the student asked for is not on the page
   const calls = loggedModelCalls();
   assert.match(JSON.stringify(calls[calls.length - 1].messages), /Early Action deadline 2026-11-01/);
 });
+
+test("persisted turns build the thread graph and a later question recalls them as THREAD MEMORY", async () => {
+  const token = await registerWithProfile("thread-graph");
+  const thread = await createThread(token, "Brown plans");
+  await appendUserMessage(token, thread, "Should I apply early decision to Brown University?");
+  const answer = "Brown University's early decision round is binding, so commit only if it is your clear first choice and the net price calculator works for your family. Your AP Calculus BC grade and the Robotics Club captaincy are strong signals for an applied-math applicant.";
+  const appended = await request("POST", `/api/students/threads/${thread}/messages`, { token, body: { role: "assistant", content: answer } });
+  assert.equal(appended.status, 200, JSON.stringify(appended.data));
+  assert.ok(appended.data.threadGraph?.factId, JSON.stringify(appended.data));
+  assert.ok(appended.data.threadGraph.entities >= 2, JSON.stringify(appended.data));
+
+  // A new thread about the same school: the earlier advice comes back as a
+  // few lines of THREAD MEMORY inside the system prompt, placed after the
+  // profile and before the per-question VERIFIED DATA block.
+  const turn = await request("POST", "/api/chat", {
+    token,
+    body: {
+      system: "You are the COLLEGE FIT specialist for students ages 14-18.",
+      messages: [{ role: "user", content: "Remind me what we decided about Brown University's binding plan?" }],
+      request_id: "thread-graph-1",
+    },
+  });
+  assert.equal(turn.status, 200, `${JSON.stringify(turn.data)}\n${serverOutput}`);
+  assert.equal(turn.data._meta.threadMemory, 1);
+  const calls = loggedModelCalls();
+  const systemText = String(calls[calls.length - 1].messages[0]?.content?.[0]?.text || calls[calls.length - 1].messages[0]?.content || "");
+  assert.match(systemText, /THREAD MEMORY \(earlier counseling with this student/);
+  // Labels: schools, then plans, then the student's own activities. "AP
+  // Calculus BC" in the answer must not link Boston College.
+  assert.match(systemText, /\[brown university; early decision; robotics club\] Asked: Should I apply early decision to Brown University\? → Advised: Brown University's early decision round is binding/);
+  assert.doesNotMatch(systemText, /boston college/i);
+  assert.ok(systemText.indexOf("STUDENT PROFILE (the student's saved record") < systemText.indexOf("THREAD MEMORY"));
+  assert.ok(systemText.indexOf("THREAD MEMORY") < systemText.indexOf("VERIFIED DATA (the ONLY statistics"));
+
+  // The same question sent with that turn in the verbatim history does not
+  // get it a second time as memory.
+  const inHistory = await request("POST", "/api/chat", {
+    token,
+    body: {
+      system: "You are the COLLEGE FIT specialist for students ages 14-18.",
+      messages: [
+        { role: "user", content: "Should I apply early decision to Brown University?" },
+        { role: "assistant", content: answer },
+        { role: "user", content: "And what is Brown University's deadline for that plan?" },
+      ],
+      request_id: "thread-graph-2",
+    },
+  });
+  assert.equal(inHistory.status, 200, `${JSON.stringify(inHistory.data)}\n${serverOutput}`);
+  if (inHistory.data._meta?.deterministic !== true) assert.equal(inHistory.data._meta.threadMemory, 0);
+
+  // A hard delete of the thread forgets its memory.
+  const removed = await request("DELETE", `/api/students/threads/${thread}?hard=1`, { token });
+  assert.equal(removed.status, 200, JSON.stringify(removed.data));
+  const after = await request("POST", "/api/chat", {
+    token,
+    body: {
+      system: "You are the COLLEGE FIT specialist for students ages 14-18.",
+      messages: [{ role: "user", content: "What did we decide about Brown University's binding plan?" }],
+      request_id: "thread-graph-3",
+    },
+  });
+  assert.equal(after.status, 200, `${JSON.stringify(after.data)}\n${serverOutput}`);
+  assert.equal(after.data._meta.threadMemory, 0);
+});

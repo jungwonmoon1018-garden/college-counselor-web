@@ -143,6 +143,9 @@ test("school mentions resolve aliases and official names, case-sensitively for s
   );
   assert.deepEqual(detectSchoolMentions("What ECs should I add?", { knownNames: known }), []);
   assert.deepEqual(detectSchoolMentions("MIT", { knownNames: known, max: 1 }), ["Massachusetts Institute of Technology"]);
+  // A short code after a course name is an AP exam, not a school.
+  assert.deepEqual(detectSchoolMentions("Does my AP Calculus BC grade and AP Physics C score matter?", { knownNames: known }), []);
+  assert.deepEqual(detectSchoolMentions("I took Calc BC; is BC a match for me?", { knownNames: known }), ["Boston College"]);
 });
 
 test("verified data block formats baseline, CDS, and research facts and is empty without data", () => {

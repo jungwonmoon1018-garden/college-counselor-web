@@ -1587,8 +1587,14 @@ const auditLog = {
 // prefaces / multi-file context) — fall back to display `content` when
 // the message predates that wiring. We cap at HISTORY_TURNS to keep
 // per-request context bounded.
-const HISTORY_TURNS = 12; // last 6 user/assistant pairs
-const HISTORY_MAX_CHARS = 60_000; // total budget — file prefaces in modelContent can be huge
+//
+// Only the most recent turns travel verbatim. Older turns reach the model
+// through the server's thread graph (backend/chat-graph.js): a few lines of
+// entity-keyed memory instead of a replayed transcript. Twelve turns and
+// 60k characters used to ride along on every specialist call, which is
+// where stale advice from earlier in a thread kept steering new answers.
+const HISTORY_TURNS = 6; // last 3 user/assistant pairs
+const HISTORY_MAX_CHARS = 30_000; // total budget — file prefaces in modelContent can be huge
 function buildHistoryMsgs(history) {
   if (!Array.isArray(history) || history.length === 0) return [];
   const tail = history.slice(-HISTORY_TURNS);
@@ -1949,13 +1955,16 @@ function buildMemoryPreamble(data) {
     // instead of letting outdated advice steer a new conversation.
     .filter((entry) => !String(entry.key).startsWith("ec") || entry.activitiesFingerprint === fingerprint)
     .sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))
-    .slice(0, 4);
+    // Two entries, short excerpts. Cross-thread recall is the server's
+    // thread graph's job now (entity-matched, bounded); this appendix only
+    // carries the very latest highlights, and never a whole answer.
+    .slice(0, 2);
   if (!entries.length) return "";
   const lines = [
     "[Cached counseling context — highlights of this student's recent conversations. If any entry conflicts with the current STUDENT PROFILE, the profile wins.]",
   ];
   for (const entry of entries) {
-    lines.push(`• (${entry.key}, ${String(entry.updatedAt).slice(0, 10)}) Student asked: ${entry.question || "(attachment)"} → Advice given: ${entry.answer}`);
+    lines.push(`• (${entry.key}, ${String(entry.updatedAt).slice(0, 10)}) Student asked: ${entry.question || "(attachment)"} → Advice given: ${String(entry.answer || "").slice(0, 400)}`);
   }
   return lines.join("\n");
 }

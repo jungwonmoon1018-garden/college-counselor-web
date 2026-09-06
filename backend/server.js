@@ -152,6 +152,7 @@ import {
   detectSchoolMentions,
   formatVerifiedDataBlock,
 } from "./chat-grounding.js";
+import * as chatGraph from "./chat-graph.js";
 import {
   SCOUT_VERSION,
   initPolicyScout,
@@ -459,6 +460,10 @@ seedBaselines(db, { GPA_BASELINES, SAT_BASELINES, ACT_BASELINES, EC_BENCHMARKS, 
 seedOfficialCipMappings(db);
 
 const ragStmts = prepareRAGStatements(db);
+// Thread graph: entity-keyed memory of earlier counseling turns, built when
+// assistant turns are persisted and read by the chat route (chat-graph.js).
+chatGraph.ensureChatGraphTables(db);
+const chatGraphStmts = chatGraph.prepareChatGraphStatements(db);
 const admissionsIntelStmts = prepareAdmissionsIntelStatements(db);
 
 // Seed the cds_records table from the on-disk parsed/validated CDS cache so
@@ -2330,6 +2335,33 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
         profileTokenMap = masked.tokenMap || {};
       }
     } catch { studentProfile = null; /* profile context is best-effort */ }
+    // Thread memory: facts from earlier counseling turns that share an entity
+    // (school, plan, activity, topic) with this question, rendered as a few
+    // lines instead of replayed transcripts. Turns already in the verbatim
+    // history the client sent are left out. Masked like the profile: the
+    // excerpts are the student's own words.
+    let threadMemoryContext = "";
+    let threadMemoryCount = 0;
+    if (!jsonUtilityCall) {
+      try {
+        const historyQuestions = payload.messages
+          .filter((m) => m?.role === "user")
+          .map((m) => messageText(m));
+        const memory = chatGraph.buildThreadGraphContext(chatGraphStmts, {
+          studentId,
+          questionText,
+          knownSchoolNames: baselineCollegeNames(),
+          activityNames: (studentProfile?.activities || []).map((a) => a?.name).filter(Boolean),
+          historyQuestions,
+        });
+        if (memory.text) {
+          const masked = redactProviderText(memory.text);
+          threadMemoryContext = masked.text;
+          profileTokenMap = { ...profileTokenMap, ...(masked.tokenMap || {}) };
+          threadMemoryCount = memory.count;
+        }
+      } catch (err) { console.warn("[CHAT] thread memory failed:", err?.message); }
+    }
     // Grounding data for college questions: the IPEDS baseline row, the stored
     // Common Data Set, and verified research-cache facts for every school the
     // question names (plus the student's target schools on college-fit,
@@ -2369,6 +2401,7 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
       // a cache miss from the regulated prefix onward.
       redacted.payload.system || "",
       profileContext || "",
+      threadMemoryContext || "",
       regulatedSystemPrefix || "",
       verifiedDataContext || "",
     ].filter(Boolean).join("\n\n");
@@ -2472,9 +2505,10 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
         inputScreened: inputScreen.redacted,
         profileFidelity,
         verifiedData: Boolean(verifiedDataContext),
+        threadMemory: threadMemoryCount,
         attachmentTurn,
         attachmentsInlined,
-        timings: finishTimings({ tier, model: response.model || model }),
+        timings: finishTimings({ tier, model: response.model || model, threadMemory: threadMemoryCount }),
       },
     });
   } catch (error) {
@@ -3304,10 +3338,40 @@ app.post("/api/students/threads/:id/messages", studentLimiter, requireStudentAut
         chatHistory.CRISIS_SAFE_TITLE,
       );
     }
+    // An assistant turn closes a question/answer pair: index it into the
+    // thread graph (entities + a short advice excerpt, no model call) so
+    // later turns can recall it without replaying the transcript.
+    let threadGraph = null;
+    if (role === "assistant") {
+      try {
+        const prior = chatGraph.latestUserTurn(chatGraphStmts, req.params.id);
+        if (prior?.content) {
+          let activityNames = [];
+          try {
+            const profile = assembleProfileForGeneration(req.studentId);
+            activityNames = (profile?.activities || []).map((a) => a?.name).filter(Boolean);
+          } catch { activityNames = []; }
+          const indexed = chatGraph.indexTurn(chatGraphStmts, {
+            studentId: req.studentId,
+            threadId: req.params.id,
+            messageId: prior.id,
+            question: prior.content,
+            answer: safeContent,
+            attachmentName: prior.attachmentName,
+            knownSchoolNames: baselineCollegeNames(),
+            activityNames,
+          });
+          if (indexed) threadGraph = { factId: indexed.factId, entities: indexed.entities.length };
+        }
+      } catch (err) {
+        console.warn("[CHAT] thread graph index failed:", err?.message);
+      }
+    }
     res.json({
       appended: true,
       redacted: safeContent !== originalContent,
       crisisSafe: crisisRelated,
+      threadGraph,
     });
   } catch (err) {
     console.error("[CHAT] Append message error:", err.message);
@@ -3381,6 +3445,9 @@ app.post("/api/students/threads/:id/autoname", studentLimiter, requireStudentAut
 app.delete("/api/students/threads/:id", studentLimiter, requireStudentAuth, (req, res) => {
   try {
     const hard = req.query.hard === "1";
+    // A hard delete removes the thread's memory too; an archived thread
+    // keeps its facts — the student can still ask what was discussed.
+    if (hard) chatGraph.forgetThread(chatGraphStmts, req.studentId, req.params.id);
     const ok = hard
       ? chatHistory.deleteThread(ragStmts, req.studentId, req.params.id)
       : chatHistory.archiveThread(ragStmts, req.studentId, req.params.id);

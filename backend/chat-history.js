@@ -39,6 +39,11 @@ function open(value, fallback = "") {
   return plaintext == null ? fallback : plaintext;
 }
 
+// The thread graph (chat-graph.js) stores excerpts of student turns under
+// the same key and prefix, so its rows read back with the same helpers.
+export const sealText = seal;
+export const openText = open;
+
 function publicThread(row) {
   if (!row) return row;
   return { ...row, title: open(row.title, "Conversation unavailable") };
