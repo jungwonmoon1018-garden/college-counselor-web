@@ -1997,8 +1997,43 @@ function formatThreeLaneAnswer(answer) {
 }
 
 
+// Per-turn stage timings for the client pipeline. Every model call in a turn
+// runs in series (gatekeeper, specialists, supervisor, validator), and until
+// now nothing recorded how long each link took — a slow turn was one opaque
+// wait. One JSON line per turn in the console, and `timings` on the result.
+function startTurnClock() {
+  const now = () => (typeof performance !== "undefined" && performance.now ? performance.now() : Date.now());
+  const startedAt = now();
+  let stageStartedAt = startedAt;
+  const stages = {};
+  return {
+    mark(name) {
+      const at = now();
+      stages[name] = Math.round((stages[name] || 0) + (at - stageStartedAt));
+      stageStartedAt = at;
+    },
+    finish() {
+      const summary = { ...stages, total: Math.round(now() - startedAt) };
+      console.info("[chat timing]", JSON.stringify(summary));
+      return summary;
+    },
+  };
+}
+
 // FIX 1a: Rules-first orchestration — backend handles deterministic topics before any model call
 async function orchestrate(userMsg,data,setData,setStatus,signal,pendingFileData,history=[]){
+  const clock = startTurnClock();
+  let result;
+  try {
+    result = await orchestrateStages(userMsg,data,setData,setStatus,signal,pendingFileData,history,clock);
+  } finally {
+    const timings = clock.finish();
+    if (result && typeof result === "object") result.timings = timings;
+  }
+  return result;
+}
+
+async function orchestrateStages(userMsg,data,setData,setStatus,signal,pendingFileData,history,clock){
   // Skip the quick-query rules engine when:
   //   1. A binary attachment is present (PDF/image — existing OCR path)
   //   2. The user message contains an [Attached files —] preface
@@ -2013,6 +2048,7 @@ async function orchestrate(userMsg,data,setData,setStatus,signal,pendingFileData
   // student's actual question.
   const coreMsg = (userMsg || "").replace(/\[context appendix[\s\S]*?(\[end context appendix\]|$)/gi, "").trim();
   const quickReply = (!pendingFileData && !msgHasFilePreface) ? maybeHandleQuickQuery(coreMsg, data) : null;
+  clock.mark("quick_query");
   if (quickReply) {
     return { text: quickReply, blocked: false };
   }
@@ -2049,7 +2085,7 @@ async function orchestrate(userMsg,data,setData,setStatus,signal,pendingFileData
       // Fall through to frontend agent pipeline
     }
   }
-
+  clock.mark("rules_engine");
 
   // ── STEP 1: Gatekeeper classification (Haiku — cheap T1 routing) ──
   // The gatekeeper only needs the student's INTENT — not the full
@@ -2234,6 +2270,7 @@ async function orchestrate(userMsg,data,setData,setStatus,signal,pendingFileData
   }
   gatekeeperCache.lastCategory = gate.category;
   gatekeeperCache.lastRoutes = gate.route_to;
+  clock.mark("gatekeeper");
   gatekeeperCache.lastTopic = gate.category;
 
   // Default to a single route, not multi. The supervisor merge step
@@ -2273,6 +2310,8 @@ async function orchestrate(userMsg,data,setData,setStatus,signal,pendingFileData
     multimodalContent.push({ type: "text", text: `The student uploaded "${sanitizeFilename(pendingFileData.name)}". If it is a school records document (report card, transcript, score report), extract the academic data (grades, scores, courses, GPA). Otherwise treat it as the student's own material (project, competition entry, essay draft, resume, award, notes) — whatever its subject — and answer their question about it substantively. ${userMsg}` });
   }
 
+  clock.mark("upload_screen");
+
   // The backend composer validates claim-level evidence. Raw retrieval rows are
   // never promoted to VERIFIED or injected into a specialist prompt here.
   const evidenceContext = "";
@@ -2296,6 +2335,7 @@ async function orchestrate(userMsg,data,setData,setStatus,signal,pendingFileData
       return{agent:rt,label:ag.label,result};});
     results.push(...(await Promise.allSettled(ps)).filter(r=>r.status==="fulfilled"&&r.value).map(r=>r.value));
   }
+  clock.mark("specialists");
   if(results.length===0)return{text:"I couldn't process that request. Could you try rephrasing?",blocked:false};
 
   // ── STEP 5: Merge multi-agent results ──
@@ -2321,7 +2361,8 @@ SOURCES (required):
 - Never invent a source. If neither web results nor profile data were used, omit the section entirely.
 - Do NOT mention model names, providers, or the system's internals anywhere.`;
     const supervisorUserMsg = `Merge these specialist responses into ONE cohesive answer. Do NOT add any new information — only reorganize and deduplicate what the specialists wrote.\n\nStudent question: "${sanitizeInput(userMsg)}"\n\n${results.map(a=>`--- ${a.label} ---\n${a.result}`).join("\n\n")}`;
-    draft=await runAgent({id:"supervisor",label:"Supervisor",color:"#7F77DD",tier:"medium",system:supervisorSystem,tools:[],maxTokens:2000},supervisorUserMsg,data,setData,signal);}
+    draft=await runAgent({id:"supervisor",label:"Supervisor",color:"#7F77DD",tier:"medium",system:supervisorSystem,tools:[],maxTokens:2000},supervisorUserMsg,data,setData,signal);
+    clock.mark("supervisor");}
 
   // ── STEP 5b: Off-theme refusal recovery ──
   // The gatekeeper already classified this turn as in-scope, so a reply that
@@ -2338,6 +2379,7 @@ SOURCES (required):
       ? await runAgentMultimodal(retryAgent, buildScopedMultimodalContent([...multimodalContent, { type:"text", text: correction }], retryAgent.label), data, setData, signal, history)
       : await runAgent(retryAgent, `${sanitizeInput(userMsg)}${evidenceContext}${correction}`, data, setData, signal, history);
     if (typeof retried === "string" && retried && !OFF_THEME_REFUSAL_RE.test(retried)) draft = retried;
+    clock.mark("refusal_retry");
   }
 
   // ── STEP 6: Output validation (Haiku — cheap T1 moderation) ──
@@ -2367,6 +2409,7 @@ SOURCES (required):
   if(!validationPassed){
     final = draft + "\n\n_Note: This response could not be fully verified. Statistics may need independent confirmation._";
   }
+  clock.mark("validator");
   return{text:withSupport(final, supportNeeded),blocked:false,routeKey:routes[0]||null};
 }
 

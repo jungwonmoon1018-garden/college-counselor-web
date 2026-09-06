@@ -2114,6 +2114,24 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
     }
 
     const studentId = req.studentId;
+    // Per-stage wall-clock timings, returned in _meta.timings and logged once
+    // per turn. Nobody could say which link of the chain dominated a slow
+    // turn before this: the route ran classification, on-demand official
+    // reads, attachment OCR, context assembly, the model call and the
+    // fidelity retry in series without a single timestamp.
+    const turnStartedAt = Date.now();
+    const timings = {};
+    let stageStartedAt = turnStartedAt;
+    const markStage = (name) => {
+      const now = Date.now();
+      timings[name] = (timings[name] || 0) + (now - stageStartedAt);
+      stageStartedAt = now;
+    };
+    const finishTimings = (extra = {}) => {
+      timings.total = Date.now() - turnStartedAt;
+      console.log(`[CHAT] timings ${JSON.stringify({ ...timings, ...extra })}`);
+      return timings;
+    };
     const userText = messageText(payload.messages[payload.messages.length - 1]).slice(0, 12_000);
     if (!userText.trim()) return res.status(400).json({ error: "The final user message must contain text." });
     // Classification and screening run on the student's QUESTION only. The
@@ -2164,6 +2182,7 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
 
     let evidence = [];
     try { evidence = searchFacts(factStmts, questionText, 12) || []; } catch { /* fail closed below */ }
+    markStage("classify");
     let regulatedSystemPrefix = null;
     if (
       !jsonUtilityCall && (
@@ -2193,14 +2212,16 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
           const stats = await scorecardStatsOnDemand(namedSchools[0]);
           onDemand = stats ? "ok" : "failed";
           if (stats) {
+            markStage("on_demand_read");
             const composed = composeDeterministicAnswer({ classification, result: stats, evidence, locale });
             return res.json({
               ...composed,
               content: [{ type: "text", text: composed.answer }],
-              _meta: { deterministic: true, topicType: classification.topicType, modelTier: "NONE", onDemandRead: "ok" },
+              _meta: { deterministic: true, topicType: classification.topicType, modelTier: "NONE", onDemandRead: "ok", timings: finishTimings() },
             });
           }
         }
+        markStage("on_demand_read");
       }
       // Canned deterministic answers are reserved for queries the rules
       // engine genuinely answers (federal-aid eligibility checks, deadline
@@ -2230,7 +2251,7 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
           return res.json({
             ...composed,
             content: [{ type: "text", text: composed.answer }],
-            _meta: { deterministic: true, topicType: classification.topicType, modelTier: "NONE", onDemandRead: onDemand },
+            _meta: { deterministic: true, topicType: classification.topicType, modelTier: "NONE", onDemandRead: onDemand, timings: finishTimings() },
           });
         }
       }
@@ -2283,6 +2304,7 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
     // simply absent, and the model narrated a truncated file. Extract the text
     // here (OCR for scans) and hand the model the full document.
     const attachmentsInlined = await inlineAttachmentBlocks(payload.messages);
+    markStage("attachments");
 
     const redacted = redactPayloadForModel({
       system: payload.system || "",
@@ -2344,6 +2366,7 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
     ].filter(Boolean).join("\n\n");
 
     const temperature = typeof payload.temperature === "number" ? payload.temperature : 0.2;
+    markStage("context");
     const response = await callLLM({
       model,
       system,
@@ -2352,6 +2375,7 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
       temperature,
       requestId: "chat:" + studentId + ":" + requestId,
     });
+    markStage("model");
     let answerText = llmResponseText(response);
     const screened = screenOutput(answerText);
     answerText = restorePII(screened.text, { ...redacted.tokenMap, ...profileTokenMap });
@@ -2405,6 +2429,7 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
         } catch (err) {
           console.warn("[CHAT] fidelity retry failed:", err?.code || err?.message);
         }
+        markStage("fidelity_retry");
         if (remaining.length) answerText += buildFidelityFootnote(remaining, locale);
         console.warn(`[CHAT] profile fidelity: ${check.contradictions.length} contradiction(s), resolved by ${profileFidelity.resolved}`);
         try {
@@ -2441,6 +2466,7 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
         verifiedData: Boolean(verifiedDataContext),
         attachmentTurn,
         attachmentsInlined,
+        timings: finishTimings({ tier, model: response.model || model }),
       },
     });
   } catch (error) {

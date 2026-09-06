@@ -414,6 +414,13 @@ test("chat injects the student profile and theme guard into model calls", async 
     },
   });
   assert.equal(turn.status, 200, `${JSON.stringify(turn.data)}\n${serverOutput}`);
+  // Every model-backed turn reports where its time went, stage by stage.
+  const timings = turn.data._meta?.timings;
+  assert.ok(timings, "expected _meta.timings");
+  for (const stage of ["classify", "context", "model", "total"]) {
+    assert.ok(Number.isInteger(timings[stage]) && timings[stage] >= 0, `timings.${stage} = ${timings[stage]}`);
+  }
+  assert.match(serverOutput, /\[CHAT\] timings \{/);
 
   // The web deployment has no client-side tool loop, so the profile must be
   // injected server-side or the model coaches blind and drifts off-theme.
