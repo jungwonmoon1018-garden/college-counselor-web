@@ -8,11 +8,12 @@ changed recently and why, what was verified live, and what is open.
 
 ## Where things stand (2026-09-06)
 
-- **Deployed:** `main` at `0cf696c`, live at
+- **Deployed:** `main` at `9f75ddb`, live at
   https://college-counselor-web.onrender.com. Render deploys after GitHub
-  Actions CI passes; the deploy was confirmed (CI green, new student bundle
-  `main-C77xLMj6.js` served, behavior probed with a throwaway account).
-- **Tests:** backend `npm test` 642 tests, 637 pass, 5 skipped, 0 fail;
+  Actions CI passes. Student bundle `main-C3Z-asGA.js` (from `cb73dd8`);
+  `9f75ddb` is backend-only — verify it by `GET /api/methodology` showing
+  `openRouterCatalog.count > 0` (see the outage note below).
+- **Tests:** backend `npm test` 651 tests, 646 pass, 5 skipped, 0 fail;
   frontend `npx vitest run` 25 pass; `npm run lint` 0 errors, 70 warnings
   (the CI cap is 500).
 - **Working tree:** clean apart from the repository's dozens of phantom
@@ -31,6 +32,40 @@ changed recently and why, what was verified live, and what is open.
 Each item names the commit that carries it. Earlier sessions' work
 (profile grounding, the policy scout, the fit double-check) is summarized
 at the end.
+
+**Catalog outage and ED II guard (2026-09-07)** — `9f75ddb`. After the
+`cb73dd8` deploy, production answered every chat turn with a 402 "The
+selected model has no verified price": the OpenRouter catalog fetch at boot
+had failed, the catalog is the budget tracker's price table, and the only
+retry was the daily timer (`/api/methodology` showed
+`openRouterCatalog: { count: 0, reachable: false }`). Now each successful
+refresh writes `DATA_DIR/openrouter-catalog.json`; a failed refresh with
+nothing in memory serves that file (marked `reachable: false`,
+`fromCache` set); an empty response is a failure, not a wipe; a 5-minute
+timer retries while empty/unreachable; the chat route calls
+`ensureOpenRouterCatalog()` (one attempt per minute) when it finds the
+catalog empty. Also: an ED II date less than 30 days after ED I is dropped
+in `snapshotAsDeadlineRecord` — Johns Hopkins' page is a header-row table
+and the scout paired "Early Decision II" with November 15.
+
+**ED II, SAT sections, wider CDS read (2026-09-07)** — `cb73dd8`.
+`snapshotAsDeadlineRecord` carries `edII`; the deadline answer detects
+"ED II"; the model research schema asks for `edII`; the client creates an
+"Early Decision II" entry only when a school's pages or its CDS state one.
+`POST /api/calendar/context` falls back, after snapshot → on-demand read →
+model research, to the closing dates in the school's Common Data Set
+rolled onto this cycle (`cdsDeadlinesForCycle` in `cds-store.js`,
+`source: "cds"`, titled "(from Common Data Set — confirm)"), and only then
+to typical dates. SAT entries accept `sections: { math, readingWriting }`
+(survey inputs, sidebar, STUDENT PROFILE line, section-aware fidelity
+check). `cds-pdf-parser.js extractExtras` reads C9 sections and submit
+rates, C10 class rank, C13 fee, C14/C21/C22 closing dates (+ ED
+notification, aid filing dates), C21 ED volume, H2 average aid package,
+I2 ratio → `cds_records.extras_json` → `record.extras` → rendered on the
+VERIFIED DATA CDS line (`cdsExtrasParts`). The 35 cached PDFs were
+re-read offline with `scratchpad/reparse-extras.mjs` (only `extras` was
+merged into `tools/cds-cache/parsed/*.json`; validated numbers untouched);
+`ensureCdsStoreSeeded` re-ingests when stored rows lack extras.
 
 **Seven review fixes (2026-09-06)** — `0cf696c`, one commit. (1) Deadlines:
 `POST /api/calendar/context` reads a school's own pages on demand
@@ -167,6 +202,19 @@ deadline answers from scouted snapshots.
 
 ## Verified live today, and not
 
+Verified on production 2026-09-07 after `9f75ddb` (throwaway account
+deleted): `/api/methodology` reports a populated catalog again and chat
+answers (the 402 outage lasted from the `cb73dd8` deploy until this one);
+a College Fit turn for a profile with SAT 1500 (Math 780, Reading &
+Writing 720) compared each section against Brown's CDS section bands
+(Math 770–800, R&W 740–780) with the CDS source and no fidelity
+contradiction; `POST /api/calendar/context` for Johns Hopkins returned ED
+2026-11-01, RD 2027-01-02 and `edII: null` (the November 15 mis-pairing is
+dropped), and for Emory an on-demand page read (13 s) returned ED
+2026-11-01, ED II and RD 2027-01-01 from apply.emory.edu. The CDS-fallback
+path (`source: "cds"`) is covered by the route test but was not seen live:
+every probed school had a page read succeed first.
+
 Verified on production 2026-09-06 (second probe, throwaway account
 deleted): a "write my whole college essay" turn returned 400 with
 `blocked: true` and the coaching redirect as its message; `POST
@@ -211,11 +259,20 @@ the counselor.
 
 ## Open items and things to watch
 
-- Johns Hopkins' pages also state January 15 (its Early Decision II date);
-  the scout's deadline extraction knows ED / EA / RD / REA only, so ED II
-  is neither scouted nor detected as an asked plan. Adding it touches
-  `admissions-policy-scout.js`, `snapshotAsDeadlineRecord`, and the
-  client's four-round deadline creation.
+- The scout mis-pairs plans and dates on header-row tables (plans across
+  the top, one date row beneath): Johns Hopkins' page gave ED II November
+  15 (real: January 2). The 30-day guard drops the bad value but does not
+  recover the right one; the real fix is column-aware table reading in
+  `extractDeadlines` (`admissions-policy-scout.js`).
+- `tools/cds-cache/parsed/columbia-university.json` extras read "Application
+  closing date May 15, Early action closing date January 15 (priority) or
+  March 1" — that PDF looks like a School of General Studies CDS, not
+  Columbia College's. Decide whether to replace the cached PDF.
+- CDS extras are parsed, never validated against ground truth; the VERIFIED
+  DATA line labels dates as the CDS cycle's month/day. Cornell, Washington
+  and Wisconsin yielded no extras (layout/OCR); 32 of 35 did.
+- SAT sections are not yet read from an uploaded score report
+  (`transcript-import.js` parses courses only).
 - The on-demand page read in `POST /api/calendar/context` adds up to 15 s
   per school (observed 12 s for JHU) the first time a target is added; the
   snapshot is reused afterwards.
