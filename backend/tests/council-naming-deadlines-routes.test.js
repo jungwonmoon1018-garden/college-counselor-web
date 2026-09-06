@@ -712,6 +712,18 @@ test("chat grounds a college question in the VERIFIED DATA block", async () => {
   // The stored Common Data Set for Stanford rides along with its C7 factors.
   assert.match(wire, /Stanford University Common Data Set[^"]*validated/);
   assert.match(wire, /admissions factors rated very important: [^"]*course rigor/);
+  // Stable-prefix order for provider prompt caching: fixed rules, then the
+  // client's specialist prompt, then the profile, and the per-question
+  // VERIFIED DATA block last. The per-question block used to sit before the
+  // specialist prompt, so the cacheable prefix ended at the profile.
+  const systemText = String(calls[calls.length - 1].messages[0]?.content?.[0]?.text || calls[calls.length - 1].messages[0]?.content || "");
+  const at = (needle) => { const i = systemText.indexOf(needle); assert.ok(i >= 0, `system prompt lacks ${needle}`); return i; };
+  assert.ok(at("STAY ON THEME") < at("PROFILE FIDELITY"));
+  assert.ok(at("PROFILE FIDELITY") < at("COLLEGE FIT specialist"));
+  // "STUDENT PROFILE" alone also appears inside the fidelity rule; the block
+  // itself opens with the parenthetical.
+  assert.ok(at("COLLEGE FIT specialist") < at("STUDENT PROFILE (the student's saved record"));
+  assert.ok(at("STUDENT PROFILE (the student's saved record") < at("VERIFIED DATA (the ONLY statistics"));
 });
 
 test("college fit falls back to College Scorecard stats when CDS and baselines have nothing", async () => {
