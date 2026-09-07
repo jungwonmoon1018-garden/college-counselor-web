@@ -93,6 +93,16 @@ export function initModelCatalogScout(db) {
       summary_json TEXT
     );
   `);
+  // A run row without a finish time at boot belongs to a process that is
+  // gone, so it is abandoned, not in progress; the cadence check then runs
+  // the scout at once instead of waiting out the age threshold.
+  try {
+    db.prepare(`
+      UPDATE model_catalog_runs
+      SET summary_json = json_set(COALESCE(summary_json, '{}'), '$.inProgress', json('false'), '$.abandoned', json('true'))
+      WHERE finished_at IS NULL
+    `).run();
+  } catch { /* JSON1 unavailable — the age threshold still applies */ }
 }
 
 export function prepareModelCatalogStatements(db) {
@@ -217,6 +227,7 @@ export function lastModelCatalogRun(stmts) {
   return {
     id: row.id, startedAt: row.started_at, finishedAt: row.finished_at, trigger: row.trigger,
     scoutVersion: summary?.scoutVersion ?? 1,
+    abandoned: summary?.abandoned === true,
     catalogCount: row.catalog_count, eligible: row.eligible, added: row.added, pruned: summary?.pruned ?? 0,
     addedIds: Array.isArray(summary?.added) ? summary.added.map((a) => a.id) : [],
   };

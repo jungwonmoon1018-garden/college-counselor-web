@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import Database from "better-sqlite3";
 import { initFactStore, prepareFactStatements } from "../fact-store.js";
+import { scoutRunDue } from "../scout-cadence.js";
 import {
   initPolicyScout,
   preparePolicyScoutStatements,
@@ -20,6 +21,7 @@ import {
   formatPolicyLine,
   listRecentChanges,
   lastRunSummary,
+  lastAutomaticRun,
 } from "../admissions-policy-scout.js";
 
 const NOW = new Date("2026-09-03T12:00:00Z"); // cycle 2026-27 → entering fall 2027
@@ -439,6 +441,25 @@ test("schema init removes first-population 'changes' logged by scout versions be
   assert.deepEqual(listRecentChanges(stmts, { days: 3650 }).map((c) => c.id).sort(), ["c2", "c3"]);
   initPolicyScout(db);
   assert.equal(listRecentChanges(stmts, { days: 3650 }).length, 2);
+});
+
+test("a run the previous process never finished is marked abandoned at boot and is due at once", () => {
+  const { db, stmts } = freshStores();
+  stmts.insertRun.run("run-done", "2026-09-07T09:00:00.000Z", "boot", 60, JSON.stringify({ scoutVersion: 4, inProgress: true }));
+  stmts.finishRun.run("2026-09-07T09:31:00.000Z", 58, 2, 3, JSON.stringify({ scoutVersion: 4 }), "run-done");
+  // A deploy restarted the process twenty minutes into this sweep.
+  stmts.insertRun.run("run-cut", "2026-09-07T10:15:00.000Z", "boot", 60, JSON.stringify({ scoutVersion: 4, inProgress: true }));
+  assert.equal(lastAutomaticRun(stmts).abandoned, false);
+  assert.equal(scoutRunDue({ lastRun: lastAutomaticRun(stmts), cadenceMs: 14 * 24 * 3600 * 1000, now: Date.parse("2026-09-07T10:40:00.000Z") }).reason, "run_in_progress");
+
+  initPolicyScout(db); // the next boot
+  const last = lastAutomaticRun(stmts);
+  assert.equal(last.id, "run-cut");
+  assert.equal(last.abandoned, true);
+  assert.equal(last.scoutVersion, 4);
+  assert.deepEqual(scoutRunDue({ lastRun: last, cadenceMs: 14 * 24 * 3600 * 1000, now: Date.parse("2026-09-07T10:40:00.000Z") }), { due: true, reason: "previous_run_abandoned", nextRunAt: null, lastFinishedAt: null });
+  // The finished run is untouched.
+  assert.equal(JSON.parse(stmts.listRuns.all(5).find((r) => r.id === "run-done").summary_json).abandoned, undefined);
 });
 
 test("a school whose site cannot be resolved or read is reported, not invented", async () => {

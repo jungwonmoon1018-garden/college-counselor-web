@@ -100,6 +100,18 @@ export function initPolicyScout(db) {
         ), '')
     `).run();
   } catch { /* JSON1 unavailable — leave the rows */ }
+  // A run row without a finish time at boot belongs to a process that is
+  // gone — runs live in-process — so it is abandoned, not in progress. The
+  // cadence check treats an abandoned run as due at once instead of
+  // waiting out the six-hour age threshold meant for a row this process
+  // may still be working on.
+  try {
+    db.prepare(`
+      UPDATE admissions_policy_runs
+      SET summary_json = json_set(COALESCE(summary_json, '{}'), '$.inProgress', json('false'), '$.abandoned', json('true'))
+      WHERE finished_at IS NULL
+    `).run();
+  } catch { /* JSON1 unavailable — the age threshold still applies */ }
 }
 
 export function preparePolicyScoutStatements(db) {
@@ -1206,6 +1218,7 @@ function summarizeRun(row) {
     finishedAt: row.finished_at,
     trigger: row.trigger,
     scoutVersion: summary?.scoutVersion ?? 1,
+    abandoned: summary?.abandoned === true,
     schoolsTotal: row.schools_total,
     schoolsChecked: row.schools_checked,
     schoolsFailed: row.schools_failed,

@@ -36,6 +36,13 @@ export function scoutRunDue({ lastRun = null, cadenceMs, now = Date.now(), force
   if (!lastRun) return { due: true, reason: "never_ran", nextRunAt: null, lastFinishedAt: null };
   const finished = Date.parse(lastRun.finishedAt || "");
   if (!Number.isFinite(finished)) {
+    // A run the previous process never finished is abandoned the moment a
+    // new process boots (the scouts' schema init marks it); the age
+    // threshold below only covers a row this process may still be working
+    // on. Without the flag a deploy that landed mid-sweep — a version bump
+    // re-reading sixty schools takes half an hour — stalled the rest of the
+    // sweep for six hours.
+    if (lastRun.abandoned) return { due: true, reason: "previous_run_abandoned", nextRunAt: null, lastFinishedAt: null };
     const started = Date.parse(lastRun.startedAt || "");
     if (Number.isFinite(started) && nowMs - started < ABANDONED_RUN_MS) {
       return { due: false, reason: "run_in_progress", nextRunAt: null, lastFinishedAt: null };

@@ -47,6 +47,10 @@ test("an unfinished run blocks only until it is old enough to be abandoned", () 
   assert.deepEqual(scoutRunDue({ lastRun: running, cadenceMs, now: NOW }), { due: false, reason: "run_in_progress", nextRunAt: null, lastFinishedAt: null });
   const abandoned = { startedAt: new Date(NOW - ABANDONED_RUN_MS - 1000).toISOString(), finishedAt: null };
   assert.equal(scoutRunDue({ lastRun: abandoned, cadenceMs, now: NOW }).reason, "previous_run_abandoned");
+  // A run the previous process left unfinished is marked abandoned at boot
+  // and is due at once, however young the row is.
+  const cutShort = { ...running, abandoned: true };
+  assert.deepEqual(scoutRunDue({ lastRun: cutShort, cadenceMs, now: NOW }), { due: true, reason: "previous_run_abandoned", nextRunAt: null, lastFinishedAt: null });
   // Garbage rows never wedge the scout.
   assert.equal(scoutRunDue({ lastRun: { startedAt: "garbage", finishedAt: null }, cadenceMs, now: NOW }).due, true);
 });
