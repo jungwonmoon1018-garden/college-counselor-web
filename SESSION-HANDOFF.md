@@ -6,338 +6,335 @@ it. Read `CLAUDE.md` first: it is the edit-time harness (invariants, how to
 prove a change, how to land it). This file says where things stand, what
 changed recently and why, what was verified live, and what is open.
 
-## Where things stand (2026-09-06)
+## Where things stand (2026-09-07)
 
-- **Deployed:** `main` at `9f75ddb`, live at
-  https://college-counselor-web.onrender.com. Render deploys after GitHub
-  Actions CI passes. Student bundle `main-C3Z-asGA.js` (from `cb73dd8`);
-  `9f75ddb` is backend-only — verify it by `GET /api/methodology` showing
-  `openRouterCatalog.count > 0` (see the outage note below).
-- **Tests:** backend `npm test` 651 tests, 646 pass, 5 skipped, 0 fail;
-  frontend `npx vitest run` 25 pass; `npm run lint` 0 errors, 70 warnings
-  (the CI cap is 500).
-- **Working tree:** clean apart from the repository's dozens of phantom
-  CRLF-only diffs (never stage them) and one untracked file,
-  `backend/kor.traineddata` — a Tesseract Korean model that appeared during
-  the OCR work. It is not committed; delete it or leave it.
+- **Deployed:** `main` at `f9a8346`, live at
+  https://college-counselor-web.onrender.com. Five backend-only commits
+  went out on 2026-09-07 (`81e400b`, `3185827`, `f51e9ef`, `be12040`,
+  `f9a8346`), each after CI passed; the student bundle is still
+  `main-C3Z-asGA.js` from `cb73dd8`. Render redeploys on every push to
+  `main`, including a handoff-only commit, and each deploy restarts the
+  process (a few seconds of 502s).
+- **Tests:** backend `npm test` 658 tests, 653 pass, 5 skipped, 0 fail;
+  `npm run lint` 0 errors, 70 warnings (CI cap 500); frontend untouched
+  this session (25 vitest tests passed in CI).
+- **Working tree:** clean apart from the repository's phantom CRLF-only
+  diffs (never stage them; two of them, `backend/tools/cds-validator.js`
+  and `backend/tools/cds-cache/_corrections.json`, got normalized to LF in
+  `3185827` because they had to change) and two untracked files:
+  `backend/kor.traineddata` (a Tesseract Korean model left by the OCR work)
+  and `AGENTS.md` at the root, a copy of `CLAUDE.md` with "Claude" changed
+  to "Codex" in two places. Neither was made by this session; neither is
+  committed. Delete or keep as you see fit.
 - **Standing authorizations from the user:** push straight to `main`; create
   and delete throwaway student accounts on production for live checks.
-  Never ask for or use the counselor's password or a real student's.
+  Never ask for or use the counselor's password or a real student's. The
+  user also approved, on 2026-09-07, downloading Columbia's official CDS
+  PDF into the cache ("Yes, go ahead and replace the Columbia PDF").
 - **Deferred by the user:** the University of Wyoming College Fit data-source
   precedence ("Wait, the wyoming is not answering. I think that it would be
   ok for that to be dealt with that later"). Do not pursue until asked.
 
 ## What changed, newest first
 
-Each item names the commit that carries it. Earlier sessions' work
-(profile grounding, the policy scout, the fit double-check) is summarized
-at the end.
+Each item names the commit that carries it. Earlier sessions' work is
+summarized at the end.
 
-**Catalog outage and ED II guard (2026-09-07)** — `9f75ddb`. After the
-`cb73dd8` deploy, production answered every chat turn with a 402 "The
-selected model has no verified price": the OpenRouter catalog fetch at boot
-had failed, the catalog is the budget tracker's price table, and the only
-retry was the daily timer (`/api/methodology` showed
-`openRouterCatalog: { count: 0, reachable: false }`). Now each successful
-refresh writes `DATA_DIR/openrouter-catalog.json`; a failed refresh with
-nothing in memory serves that file (marked `reachable: false`,
-`fromCache` set); an empty response is a failure, not a wipe; a 5-minute
-timer retries while empty/unreachable; the chat route calls
-`ensureOpenRouterCatalog()` (one attempt per minute) when it finds the
-catalog empty. Also: an ED II date less than 30 days after ED I is dropped
-in `snapshotAsDeadlineRecord` — Johns Hopkins' page is a header-row table
-and the scout paired "Early Decision II" with November 15.
+**Older snapshots are re-read on demand; sweeps read stale schools first
+(2026-09-07)** — `f9a8346`. The version-4 sweep refreshed Brown and
+Carnegie Mellon in its first minute and then spent its sixty-school cap
+(`POLICY_SCOUT_MAX_SCHOOLS`, students' target lists come first) without
+reaching the Common Data Set schools it was bumped for; Johns Hopkins kept
+its version-3 reading and nothing would have touched it before the next
+fortnightly cadence, because an on-demand read only happened when no
+snapshot existed. Every reading now records `policy.scoutVersion`;
+`snapshotIsCurrent` in `backend/admissions-policy-scout.js` says whether
+a snapshot was made by the running version; the chat's deadline lookup
+(`deadlinesFromResearchCache(text, { current: true })`) and the calendar
+context treat an older snapshot like a missing one for the bounded
+on-demand read and keep answering from it if the read fails; and
+`runPolicyScout` orders targets before the cap — no snapshot, then older
+version, then longest-unread. Pinned in the scout tests and
+`council-naming-deadlines-routes.test.js`. Side effect to expect: the
+first on-demand re-read of a school logs its changed readings (Hopkins' ED
+II from November 15 to January 2) in the counselor's change list.
 
-**ED II, SAT sections, wider CDS read (2026-09-07)** — `cb73dd8`.
-`snapshotAsDeadlineRecord` carries `edII`; the deadline answer detects
-"ED II"; the model research schema asks for `edII`; the client creates an
-"Early Decision II" entry only when a school's pages or its CDS state one.
-`POST /api/calendar/context` falls back, after snapshot → on-demand read →
-model research, to the closing dates in the school's Common Data Set
-rolled onto this cycle (`cdsDeadlinesForCycle` in `cds-store.js`,
-`source: "cds"`, titled "(from Common Data Set — confirm)"), and only then
-to typical dates. SAT entries accept `sections: { math, readingWriting }`
-(survey inputs, sidebar, STUDENT PROFILE line, section-aware fidelity
-check). `cds-pdf-parser.js extractExtras` reads C9 sections and submit
-rates, C10 class rank, C13 fee, C14/C21/C22 closing dates (+ ED
-notification, aid filing dates), C21 ED volume, H2 average aid package,
-I2 ratio → `cds_records.extras_json` → `record.extras` → rendered on the
-VERIFIED DATA CDS line (`cdsExtrasParts`). The 35 cached PDFs were
-re-read offline with `scratchpad/reparse-extras.mjs` (only `extras` was
-merged into `tools/cds-cache/parsed/*.json`; validated numbers untouched);
-`ensureCdsStoreSeeded` re-ingests when stored rows lack extras.
+**Applicant counts on the CDS line (2026-09-07)** — `be12040`. The VERIFIED
+DATA line for a stored Common Data Set rendered the admit rate but not the
+B1 counts behind it, so a chat turn asking how many students applied to
+Columbia answered that it had no verified total while quoting the ED
+volume from the same record. `cdsLine` in `backend/chat-grounding.js` now
+reads "admit rate 3.9% (60,247 applied, 2,325 admitted, 1,483 enrolled)".
 
-**Seven review fixes (2026-09-06)** — `0cf696c`, one commit. (1) Deadlines:
-`POST /api/calendar/context` reads a school's own pages on demand
-(`scoutSchoolOnDemand`) before the optional model research; the client's
-`createDeadlinesForSchool` titles any typical-cycle fallback
-"(approximate — verify)" and its note says it is a planning window, while
-page-read dates cite the page. (2) Signup privacy footer rewritten to
-describe browser-side vault encryption, server storage, redaction and
-OpenRouter processing. (3) A `blocked: true` 400 from `/api/chat` (essay
-ghostwriting) is shown as the counselor's reply, not "Something went
-wrong". (4) Add-activity default category is `academic` (was the legacy
-`club`, which saved as "Other Club/Activity"). (5) i18n strings no longer
-name API endpoints (test forbids `POST /api`); `DriftBanner` takes
-`refreshKey` (bumped on narrative save) and a "Write your story" button.
-(6) `composeAnswer` takes `questionText` and attaches the official-source
-follow-up action only when the question concerns that sub-intent's domain
-(`questionConcernsSubIntent`); the upload priming sentence is stripped
-before classification. (7) The EC re-rank is bounded at 30 s
-(`EC_RERANK_TIMEOUT_MS`, `rerankNote` on the response); `ccFetch` has a
-45 s default timeout (`timeoutMs` per call; 60 s rank, 120 s model tools);
-the ranker shows elapsed seconds and a Retry button. Four files
-(`backend/i18n.js`, `candidates-and-deadlines.test.js`,
-`CandidateRanker.jsx`, `DriftBanner.jsx`) were among the phantom-CRLF files
-and got normalized to LF in this commit; the diff is large but content-wise
-small.
+**Interrupted scout runs resume at the next boot (2026-09-07)** — `f51e9ef`.
+Each scout inserts a run row at the start and fills in the finish time at
+the end; `scoutRunDue` treated a row without a finish time as in progress
+until it was six hours old. A deploy that lands mid-sweep (a version bump
+re-reads sixty schools and takes half an hour or more) therefore stalled
+the rest of the sweep for six hours. The schema init of both scouts now
+marks unfinished rows abandoned (`summary_json.abandoned`), run summaries
+expose the flag, and an abandoned run is due at once. Pinned in
+`scout-cadence.test.js` and `admissions-policy-scout.test.js`.
 
-**Chat latency and context rot (2026-09-06)** — `d292cb4`, `5fb313e`,
-`15a2643`, `6e4a4ec`. Four commits, in order:
+**Columbia's CDS is the Columbia College and Engineering document
+(2026-09-07)** — `3185827`. The cached "Columbia University" PDF (a
+College Transitions Drive link) was the School of General Studies CDS:
+509 applicants, 30% admitted, interviews and work experience rated very
+important, closing dates in May. The registry override hid the admit rate
+but the counts, yield, C7 factors, submit rates and closing dates reached
+the VERIFIED DATA block as Columbia's. The cache now holds the official
+2024-25 Columbia College and Columbia Engineering CDS from
+opir.columbia.edu (60,247 applied, 2,325 admitted, SAT 1510–1560, fee 85
+USD, RD January 1, ED November 1), parsed clean with parser version 3 and
+`yearLabel: "2024-25"`; the General Studies PDF and Columbia's Drive links
+are gone from the cache and `index.json`. Two fixes rode along: the
+validator's document-scope extractor had never matched anything (its name
+patterns required the name's last word to follow the previous one without
+a space), so every `scopeFromPDF` was null; it now returns the cover text
+plus A1's institution name, and Columbia's `expectedScope` insists on
+"Columbia College" or "Columbia Engineering" because A1 reads the same on
+both documents. And `ensureCdsStoreSeeded` in `backend/cds-store.js` now
+re-ingests a record whose year label on disk differs from the stored one,
+which is how the replacement reached the populated production database.
+New `tests/cds-validator.test.js`; the store test covers the re-ingest.
 
-1. *Timings.* `POST /api/chat` returns `_meta.timings` (`classify`,
-   `on_demand_read`, `attachments`, `context`, `model`, `fidelity_retry`,
-   `total`, in ms) and logs one `[CHAT] timings {...}` line per turn; the
-   client pipeline logs `[chat timing] {...}` (`quick_query`, `gatekeeper`,
-   `upload_screen`, `specialists`, `supervisor`, `refusal_retry`,
-   `validator`, `total`) and puts `timings` on the orchestrate result.
-2. *Chain cut* (client, `orchestrateStages` in `frontend/src/App.jsx`). The
-   `/api/agents/orchestrate` pre-flight is gone (`/api/chat` runs the same
-   router and deterministic answers). Multi-route now needs an explicit
-   conjunction AND two keyword families (it fired on any "and"/"plan").
-   The LLM validator runs only when a deterministic read of the draft finds
-   guarantees/predictions, medical-financial-legal advice, overclaiming,
-   conduct or grooming signals, an unsourced statistic, an essay turn, an
-   attachment, or a non-`safe_*` category; everything else returns as
-   drafted (the server still screens every answer).
-3. *Prompt order* (server). System prompt is now fixed rules → specialist
-   prompt → STUDENT PROFILE → THREAD MEMORY → regulated prefix → VERIFIED
-   DATA, most-static first, so the adapter's `cache_control` on the system
-   message (and providers' automatic prefix caching) can hit. Pinned in
-   `council-naming-deadlines-routes.test.js`.
-4. *Thread graph* (`backend/chat-graph.js`, tables `chat_graph_facts` and
-   `chat_graph_edges`). When an assistant turn is persisted through
-   `POST /api/students/threads/:id/messages`, the preceding question plus a
-   ≤420-char excerpt of the answer become one fact (encrypted with the
-   chat-history key), linked to schools (`detectSchoolMentions`), plans,
-   the student's recorded activities, topics, the classifier intent and an
-   attachment name. No model call. `/api/chat` detects the entities in the
-   new question, pulls up to 6 matching facts (≤2400 chars), drops facts
-   already in the verbatim history, and renders a THREAD MEMORY block
-   (`_meta.threadMemory` = count). A new thread with no match recalls the
-   two latest facts. Hard-deleting a thread forgets its facts; account
-   erasure removes them (both tables carry `student_id`). The client sends
-   3 exchanges verbatim (was 6) and 2 short memory excerpts (was 4 full
-   answers). Side fix: "AP Calculus BC" no longer links Boston College.
+**Column-aware deadline tables in the policy scout (2026-09-07)** —
+`81e400b`. Johns Hopkins' deadlines page is a header-row table (Early
+Decision I / Early Decision II / Regular Decision / Transfer across the
+top; Application Deadline, Financial Aid Deadline, Decision Release,
+Reply-By Date rows beneath). Its source breaks lines between cells, so
+`htmlToText` yields one cell per line, and the section logic in
+`extractDeadlines` paired the last header with the first date below it;
+the ED II value production held (November 15, dropped by the 30-day guard)
+came from a plan-change sentence on the Early Decision page. Now
+`tableCandidates` in `backend/admissions-policy-scout.js` runs before the
+line pass and recognizes the table in both text layouts (one cell per
+line, or one line per row after a line naming two or more plans separated
+only by punctuation), zips plan columns with date columns, ignores
+non-plan columns, skips rows about aid, decision release, reply-by or
+deposits, outranks same-line statements with a deadline-labeled row, and
+keeps the line pass off the lines it used. Plan-change ("can change to ED
+II until …") and reply-by wording hedge a same-line candidate; decision
+release is not hedged because MIT's deadline sentence mentions it.
+Replayed against the live pages, Hopkins reads ED 2026-11-01, ED II
+2027-01-02, RD 2027-01-02; Brown, Emory, NJIT and Northeastern read as
+before. `SCOUT_VERSION` is 4, which forced a full re-scout at the next
+boot. Pinned in `tests/admissions-policy-scout.test.js`.
 
-**Official-source gate sensitivity** — `e737f62`, `a02ff77`, `3b833b8`.
-The regulated / high-stakes patterns in `backend/policy-router.js` fired on
-ordinary counseling words ("legal studies", "school records", "am I
-eligible for Princeton", "early decision", "how much time", "scholarship")
-and the hard no-source rule refused every deadline or statistics question
-without verified evidence, strategy questions included. Now the patterns
-need the regulated sense, and `enforceGates` refuses only a *pure lookup*
-(`isLookupQuestion`: an exact date or figure asked without strategy,
-comparison or explanation words) about a *named* school for which nothing
-is held — and only after the chat route has read the official source on
-demand: the school's own admissions pages through `scoutSchool` (snapshot
-kept for later turns) for dates, the College Scorecard for statistics
-(answered deterministically with its source). What remains is an honest
-message with the typical deadline window and a pointer to the official
-page. A cached deadline record no longer short-circuits strategy questions;
-"holding data" is judged per lookup (an IPEDS row does not count for a
-deadline question); the dates answer says when the plan asked about is not
-on the pages read; a school known only through a scouted snapshot now
-reaches the VERIFIED DATA block. The high-stakes system prompt in
-`orchestration-engine.js` no longer tells the model to refuse.
+**Catalog outage and ED II guard (2026-09-07)** — `9f75ddb`. The
+OpenRouter catalog is now cached in `DATA_DIR/openrouter-catalog.json` and
+served from there when a refresh fails, an empty response is a failure
+rather than a wipe, a 5-minute timer retries while empty, and the chat
+route calls `ensureOpenRouterCatalog()` when it finds the catalog empty
+(a failed boot fetch had turned every chat turn into a 402). Also the
+30-day ED II guard in `snapshotAsDeadlineRecord`.
 
-**Edit harness** — `e737f62`. `CLAUDE.md` rewritten around the current
-pipeline; `backend/docs/HANDOFF.md` points at it.
+**ED II, SAT sections, wider CDS read (2026-09-07)** — `cb73dd8`. ED II
+through the scout, the deadline answer, the research schema and the
+client's deadline creation; `POST /api/calendar/context` falls back
+snapshot → on-demand page read → model research → CDS closing dates rolled
+onto this cycle → typical dates; SAT `sections` end to end;
+`cds-pdf-parser.js extractExtras` reads C9 sections, submit rates, C10,
+C13, C14/C21/C22 dates, H2 and I2 into `cds_records.extras_json`.
 
-**Admin picker and scout cadence** — `64c6520`, `4f993d3`. Each tier
-dropdown in `frontend/src/AdminApp.jsx` now has a "Reviewed models" group
-plus one "Found by the scout" group per price band, and a panel below
-shows the last and next check, every candidate with price / context /
-dates, Dismiss / List again, and "Check the catalog now"
-(`POST /api/admin/models/scout/run`). Korean copy for the models section
-added. Both automatic scouts moved from 24-hour timers to one persisted
-two-week cadence (`backend/scout-cadence.js`, `SCOUT_CADENCE_DAYS`
-overrides): an hourly job and a boot hook compare the last completed run
-in the database with the cadence. The catalog scout prunes rows a run no
-longer confirms (dismissals kept) and carries `MODEL_SCOUT_VERSION`; a
-version bump forces one run at the next boot, which is how production's
-stale ":batch" rows were cleared.
+**2026-09-06** — `0cf696c` (seven review fixes: on-demand page read before
+model research for calendar deadlines, "(approximate — verify)" titles,
+privacy footer, the ghostwriting 400 shown as the reply, activity category
+default, endpoint-free i18n strings and drift refresh, relevant follow-up
+actions, bounded EC re-rank); `d292cb4`, `5fb313e`, `15a2643`, `6e4a4ec`
+(per-turn timings, the orchestrate pre-flight removed and the validator
+run only on risky drafts, prompt ordered most-static first, the thread
+graph in `backend/chat-graph.js` with THREAD MEMORY recall).
 
-**Model-catalog scout** — `34e366f`, `f985290`. `backend/model-catalog-scout.js`:
-trusted providers, text in/out, ≥32k context, priced, released within a
-year, no ":suffix" / preview / safety variants; price bands ≤$1 small,
-≤$6 medium, else large; newest 15 per band in the picker; every listed id
-passes the adapter allowlist; tier defaults never change on their own.
+**Earlier (2026-09-03 to 2026-09-05)** — official-source gate sensitivity
+(`e737f62`, `a02ff77`, `3b833b8`); `CLAUDE.md` as the edit harness; admin
+model picker and the two-week scout cadence (`64c6520`, `4f993d3`); the
+model-catalog scout (`34e366f`, `f985290`); crisis gate on first-person
+statements only (`209335b`); untruncated uploads with OCR and transcript
+import (`fdfb517`, `aca3525`); the College Fit double-check (`02c5256`,
+`1a4c823`); profile grounding, the CDS source label and the
+admissions-policy scout itself.
 
-**Crisis gate** — `209335b`, `f985290`. Server lexicon (`PATTERNS.crisis`)
-and client lexicon (`frontend/src/crisis-lexicon.js`) trigger on
-first-person safety statements only; a model "crisis" call needs lexicon
-corroboration; ordinary stress gets the 988 footer and a normal answer.
-Verified live: essay-ending, ER volunteering and "hopeless at chemistry"
-questions answered normally; "I want to end my life" still returns the
-crisis resources.
+## Verified live, and not
 
-**Uploads and transcripts** — `fdfb517`, `aca3525`. The client no longer
-truncates uploads (`sanitizeInput` 200k chars); document and image blocks
-are inlined as extracted text with OCR fallback; a transcript import card
-adds courses to the profile; AP exam scores are listed in the sidebar;
-the classifier sees only the question, never the attachment or context
-appendix; JSON utility calls skip the regulated gate.
+All checks used throwaway student accounts on production, deleted
+afterwards except two whose deletes were lost to a restart and a
+connection timeout (see *Open items*).
 
-**College Fit double-check** — `02c5256`, `1a4c823`. `backend/fit-verifier.js`
-compares the inputs a fit read used against three live sources; the read
-and its verdict are shared with the chat's VERIFIED DATA block.
+- **Columbia (after `3185827`, 2026-09-07 10:44 UTC):** `GET
+  /api/cds/school/columbia-university` returned the new record —
+  `yearLabel 2024-25`, 60,247 applied / 2,325 admitted / 1,483 enrolled,
+  admit rate 3.86%, SAT 1510–1560, interview not considered, RD January 1,
+  fee 85 USD, source opir.columbia.edu — so the boot re-ingest worked on the
+  populated database. A chat turn asking for Columbia's applicant numbers
+  and SAT range cited "Columbia CDS 2024-25" for the ED volume (6,007
+  applied, 795 admitted) and the 1510–1560 band; it said it had no verified
+  total applicant count, which `be12040` addresses. After `be12040`
+  (11:02 UTC) the same question answered "Applied: 60,247 · Admitted: 2,325
+  (3.9%) · Enrolled: 1,483 (yield 63.8%) · SAT 1510–1560" with the
+  opir.columbia.edu source, 14 s on the small tier.
+- **Johns Hopkins ED II (after `81e400b` and `f9a8346`):** before the
+  deploys, the calendar entry came from the scout snapshot of
+  2026-09-06T10:08:51Z with `edII: null`, and the deterministic deadline
+  answer said the pages read do not state an ED II deadline (so the "asked
+  plan" detection for ED II works). At 11:20:51 UTC, minutes after
+  `f9a8346` went live, a calendar request took 13.5 s — the on-demand
+  re-read of the older snapshot — and returned ED 2026-11-01, ED II
+  2027-01-02, RD 2027-01-02 with the deadlines page as source and a fresh
+  `extractedAt`; the chat turn "When is Johns Hopkins University's Early
+  Decision II deadline?" then answered deterministically "Early Decision:
+  2026-11-01 · Early Decision II: 2027-01-02 · Regular Decision:
+  2027-01-02" with `onDemandRead: null` (the snapshot was current by
+  then). That is the table fix, the version stamp and the on-demand refresh
+  working together on production.
+- **Sweep progress:** Brown's snapshot refreshed at 2026-09-07T10:15:48Z
+  and Carnegie Mellon's at 10:16:51Z, proving the version-4 boot sweep ran
+  on the new build. Stanford (still 2026-09-03), Cornell and Emory (still
+  2026-09-06) and Johns Hopkins were never reached, and Yale, Duke,
+  Harvard, Dartmouth and Princeton had no snapshot at all until probes read
+  them on demand — the sixty-school cap filled before the Common Data Set
+  schools. No sweep resumed after the later boots (Brown's time did not
+  change), consistent with that sweep having completed within its cap
+  rather than being cut short, so the abandoned-run path in `f51e9ef` was
+  not exercised live.
+- **Incidental on-demand reads:** probing Northeastern, Yale, Duke and
+  Harvard created snapshots for them (10–12 s each); Harvard's pages
+  yielded no dates and the calendar entry fell back to its Common Data Set
+  (`source: "cds"`, RD 2027-01-01) — the first time the CDS fallback was
+  seen live.
+- One chat turn about Columbia returned the composer's "There is not enough
+  information to produce a specific suggestion." with `verifiedData: true`
+  on the small tier, right before a 502 during the `f51e9ef` deploy; the
+  same question answered fully a minute later. Not reproduced; if it
+  recurs, capture `_meta` and the model's raw reply.
 
-**Earlier (2026-09-03 to 2026-09-04)** — profile grounding
-(`backend/chat-grounding.js`: structured profile block, deterministic
-fidelity check with one retry then a footnote, invented-course detection),
-CDS source label, and the admissions-policy scout
-(`backend/admissions-policy-scout.js`, `SCOUT_VERSION` 3) with deterministic
-deadline answers from scouted snapshots.
+Verified on 2026-09-06 and earlier (throwaways deleted): the catalog
+recovery and SAT-section fit read after `9f75ddb`; the ghostwriting 400;
+Johns Hopkins and Emory calendar context from official pages; EC ranking
+timing; the thread graph writing and recalling facts; the gate cases; the
+crisis probes; the admin picker on a local copy.
 
-## Verified live today, and not
-
-Verified on production 2026-09-07 after `9f75ddb` (throwaway account
-deleted): `/api/methodology` reports a populated catalog again and chat
-answers (the 402 outage lasted from the `cb73dd8` deploy until this one);
-a College Fit turn for a profile with SAT 1500 (Math 780, Reading &
-Writing 720) compared each section against Brown's CDS section bands
-(Math 770–800, R&W 740–780) with the CDS source and no fidelity
-contradiction; `POST /api/calendar/context` for Johns Hopkins returned ED
-2026-11-01, RD 2027-01-02 and `edII: null` (the November 15 mis-pairing is
-dropped), and for Emory an on-demand page read (13 s) returned ED
-2026-11-01, ED II and RD 2027-01-01 from apply.emory.edu. The CDS-fallback
-path (`source: "cds"`) is covered by the route test but was not seen live:
-every probed school had a page read succeed first.
-
-Verified on production 2026-09-06 (second probe, throwaway account
-deleted): a "write my whole college essay" turn returned 400 with
-`blocked: true` and the coaching redirect as its message; `POST
-/api/calendar/context` for Johns Hopkins University with `research: false`
-came back in 12 s with `deadlinesSource: official_pages`, ED 2026-11-01 and
-RD 2027-01-02 from https://apply.jhu.edu/ (financial aid and commit-by
-not found on the pages read, so those two entries would be created as
-"(approximate — verify)"); an EC ranking with a saved narrative returned in
-6.2 s with `engine: llm`; the drift message after saving no longer names
-an endpoint. Not verified in a browser: the ghostwriting reply rendering,
-the approximate titles in the Deadlines tab, the ranker's elapsed counter
-and Retry button, the drift banner refresh, and the category default.
-
-Verified on production 2026-09-06 (first probe) with a throwaway account
-(deleted): an assistant append returned `threadGraph: { factId, entities: 7 }`; a new
-thread asking about Brown University's binding plan got
-`_meta.threadMemory: 1` and the model recapped the earlier advice; the
-same turn sent inside the verbatim history got `threadMemory: 0`; an EC
-question recalled the fact through its activity/topic edges. Server-side
-timings on those turns: `classify` 7–34 ms, `context` 2–118 ms, `model`
-6.3–15.2 s, total within 160 ms of the model call — the model call is
-essentially all of the server's turn time now. Not verified live: the
-client-side `[chat timing]` line and the validator skip rate (both need a
-browser session; watch the console on the next manual check).
-
-Verified earlier (2026-09-05) with throwaway accounts (all deleted): the gate
-cases above (Brown ED/EA strategy answered with scouted dates and source;
-acceptance-rate strategy question answered; "legal studies" routed as
-coaching; "When is NJIT's regular decision deadline?" triggered a live read
-of njit.edu and answers "Early Action: 2026-11-15" plus the missing-plan
-note; NJIT acceptance rate cited from IPEDS and the Common Data Set); the
-crisis probes; the admin picker's grouped options and panel on a local
-website-mode copy fed by the live OpenRouter catalog (431 models, 106
-eligible: 23 low, 52 mid, 31 high).
-
-Not verified: the production admin page itself (needs the counselor
-password); Render's boot log lines (reading them needs the Chrome tool,
-which blocks on a browser choice); the exact date of the next automatic
-scout runs — read `GET /api/admin/policy-scout/status` (`nextRunAt`,
-`cadenceDays`) and `GET /api/admin/models` (`catalogScout.nextRunAt`) as
-the counselor.
+Not verified: anything that needs a browser session (the client `[chat
+timing]` line, the validator skip rate, the ghostwriting reply rendering,
+the approximate deadline titles, the ranker's elapsed counter and Retry,
+the drift banner refresh); the production admin page (needs the counselor
+password); Render's boot log; the next automatic scout dates — read `GET
+/api/admin/policy-scout/status` and `GET /api/admin/models` as the
+counselor.
 
 ## Open items and things to watch
 
-- The scout mis-pairs plans and dates on header-row tables (plans across
-  the top, one date row beneath): Johns Hopkins' page gave ED II November
-  15 (real: January 2). The 30-day guard drops the bad value but does not
-  recover the right one; the real fix is column-aware table reading in
-  `extractDeadlines` (`admissions-policy-scout.js`).
-- `tools/cds-cache/parsed/columbia-university.json` extras read "Application
-  closing date May 15, Early action closing date January 15 (priority) or
-  March 1" — that PDF looks like a School of General Studies CDS, not
-  Columbia College's. Decide whether to replace the cached PDF.
-- CDS extras are parsed, never validated against ground truth; the VERIFIED
-  DATA line labels dates as the CDS cycle's month/day. Cornell, Washington
-  and Wisconsin yielded no extras (layout/OCR); 32 of 35 did.
+- **Two throwaway accounts may remain on production.** A Columbia probe at
+  2026-09-07 10:44:53 UTC registered `probe-<id>@example.test` (the id is
+  the registration time in base-36, between `mtr467pk` and `mtr46993`) and
+  its `DELETE /api/students` got a 502 during the `f51e9ef` deploy; a
+  Johns Hopkins probe registered at about 10:29 UTC (id between
+  `mtr3lsdc` and `mtr3nptc`) crashed on a connection timeout before its
+  delete. Whether either delete landed is unknown. If they show in the
+  admin roster (email domain `example.test`, grade 11, CA), delete them.
+  Probes now print their account, survive connection errors and retry
+  deletion.
+- The automatic sweep is capped at sixty schools per run
+  (`POLICY_SCOUT_MAX_SCHOOLS`) and the target list is students' goal
+  schools, then every school with a stored CDS, then the research cache.
+  With the stale-first ordering every school is reached within a few
+  sweeps, but a fortnight apart; if the counselor wants the whole list
+  every time, raise the cap on Render or run the scout from the admin page.
+  The next automatic run's date is on `GET /api/admin/policy-scout/status`.
+- The table pass has known limits: a non-plan column before or between
+  plan columns makes it stand down (the old section logic then applies); a
+  heading like "Early Decision or Regular Decision" followed by a line
+  with two dates reads as a one-line table (bounded by the 30-day guard and
+  the evidence string). When a school misreads, add its text to
+  `admissions-policy-scout.test.js` first.
+- The new document-scope extractor has only been exercised on the two
+  Columbia PDFs; running `tools/cds-validator.js`'s `validateAll` would
+  compute scopes for all 35 cached PDFs and could flag mismatches the
+  registry's `expectedScope` patterns did not anticipate (Caltech's
+  pattern wants "California Institute of Technology"). Run it deliberately
+  and review before committing what it rewrites.
+- `index.json` is a cache of College Transitions' index; `fetchIndex({force:
+  true})` would restore Columbia's Drive (General Studies) links. The
+  registry's scope pattern and admit-rate drift would flag a re-parse, but
+  keep the 2024-25 official link preferred.
+- The scout spent one of its seven page slots on Johns Hopkins' Spanish
+  duplicate (`/es/how-to-apply/…`). Excluding locale-prefixed paths in
+  `LINK_EXCLUDE_RE` is cheap; not done to avoid yet another deploy.
+- The deterministic deadline answer says "a Early Decision II deadline"
+  (article). Cosmetic, in `deadlinesFromResearchCache` in `server.js`.
+- CDS extras are parsed, never validated against ground truth; Cornell,
+  Washington and Wisconsin yielded no extras (layout/OCR).
 - SAT sections are not yet read from an uploaded score report
   (`transcript-import.js` parses courses only).
-- The on-demand page read in `POST /api/calendar/context` adds up to 15 s
-  per school (observed 12 s for JHU) the first time a target is added; the
-  snapshot is reused afterwards.
-- The StudentAid.gov follow-up fix is a relevance rule in the composer; the
-  reviewer's exact biomedical / transcript questions could not be
-  reproduced through the classifier, so if the footer reappears, capture
-  the question text and add it to `answer-composer.test.js`.
-- The model call is now ~99% of server turn time (6–15 s). The next real
-  latency win is streaming the final answer, which conflicts with the
-  post-hoc fidelity check, PII restore and validator; the workable design
-  is "stream, then patch the footnote". Not started.
-- The thread graph only links a school when `detectSchoolMentions` does:
-  bare "Brown" or "Cornell" (no "University") is not an alias, so a fact
-  about such a question links by plan/topic only. Adding bare names to
-  `SCHOOL_ALIASES` would also change what the VERIFIED DATA block pulls in;
-  decide deliberately.
-- The validator skip is broader now. If a bad answer slips through, add
-  the pattern to `RISKY_OUTPUT_TOKENS` / `OVERCLAIM_OUTPUT_TOKENS` /
-  `CONDUCT_OUTPUT_TOKENS` in `orchestrateStages` rather than restoring the
-  length rule.
-- Facts accumulate one per assistant turn per student with no cap; a
-  long-lived account could reach thousands of rows. Retrieval is indexed
-  and bounded, so this is a storage question, not a latency one.
-- On-demand page reads add up to 15 s to a pure deadline lookup about a
-  school with no snapshot (bounded; the read finishes in the background).
-- `LOOKUP_ASK_RE` / `GUIDANCE_RE` in `policy-router.js` are word lists. When
-  a phrasing misroutes, add it to `policy-router.test.js` and extend the
-  list; keep "decide/deciding" rather than "decid*" so "early decision"
-  stays a lookup word.
-- The dates answer's plan detection (`deadlinesFromResearchCache`) knows
-  RD / ED / EA / REA; ED II is not detected as an asked plan.
-- The policy scout's per-school on-demand read reuses `scoutSchool`, so it
-  also logs a "change" the first time a school is read; that is expected.
-- `backend/kor.traineddata` (untracked) — decide whether to keep it.
+- The on-demand page read adds up to 15 s to a calendar request or a pure
+  deadline lookup for a school with no snapshot; the snapshot is reused
+  afterwards and the first read logs a "change"; expected.
+- The model call is ~99% of server turn time. Streaming the final answer
+  conflicts with the post-hoc fidelity check, PII restore and validator
+  ("stream, then patch the footnote"). Not started.
+- The thread graph links a school only when `detectSchoolMentions` does;
+  bare "Brown" or "Cornell" is not an alias. Adding bare names to
+  `SCHOOL_ALIASES` would also change the VERIFIED DATA block; decide
+  deliberately. Facts accumulate one per assistant turn with no cap.
+- If a bad answer slips past the narrower validator, add the pattern to
+  `RISKY_OUTPUT_TOKENS` / `OVERCLAIM_OUTPUT_TOKENS` / `CONDUCT_OUTPUT_TOKENS`
+  in `orchestrateStages` rather than restoring the length rule.
+- `LOOKUP_ASK_RE` / `GUIDANCE_RE` in `policy-router.js` are word lists; when
+  a phrasing misroutes, pin it in `policy-router.test.js` and extend them.
+- If the StudentAid.gov follow-up footer reappears on an unrelated
+  question, capture the question text and add it to
+  `answer-composer.test.js`.
 
 ## Quick verification recipes
 
-Route tests for the gate and the admin page:
+Scout extraction, cadence, CDS store and validator:
 
 ```bash
-cd backend && node --test tests/policy-router.test.js tests/admin-models-routes.test.js && node --test --test-name-pattern="no-source gate|old refusal|College Scorecard|pages read" tests/council-naming-deadlines-routes.test.js
+cd backend && node --test tests/admissions-policy-scout.test.js tests/scout-cadence.test.js tests/cds-store.test.js tests/cds-validator.test.js tests/chat-grounding.test.js
 ```
 
-Thread graph, prompt order and timings:
+Replay the scout's read of one school offline (network, no database):
+from `backend/`, run a `.mjs` script in a scratch folder that imports
+`readSchoolPolicyLive` from `./admissions-policy-scout.js`, calls it with
+`{ name, website }` (the website is needed without a Scorecard key) and
+prints `live.policy.deadlines` and each `live.pages[i].text`. Set
+`POLICY_SCOUT_DEBUG=1` to see every fetch, and run it from the scratch
+folder: anything it writes lands in the current directory.
 
-```bash
-cd backend && node --test tests/chat-graph.test.js tests/chat-grounding.test.js && node --test --test-name-pattern="THREAD MEMORY|VERIFIED DATA block|profile and theme guard" tests/council-naming-deadlines-routes.test.js
-```
+Re-parse one cached CDS PDF the way the cache was built: from `backend/`,
+a script that imports `parseCDSPositional` from `./cds-pdf-parser.js` and
+`extractDocumentScope`, `validateRecord`, `loadCorrections` from
+`./tools/cds-validator.js`; parse the PDF, detect its scope, validate
+against `loadCorrections()[slug]`, and write the record with the
+`validation` block to `tools/cds-cache/parsed/<slug>.json` (keep
+`yearLabel`, `sourceUrl`, `tier`). `loadCorrections()` also rewrites
+`_corrections.json` from the in-code table.
 
-Live gate probe with a throwaway account (Node 22, `BASE` is the site):
+Live probe with a throwaway account (Node 22, `BASE` is the site):
 
 ```js
 const base = process.env.BASE, t = Date.now().toString(36); let token = "";
+console.log("account", `probe-${t}@example.test`);
 const call = async (m, p, b) => { const r = await fetch(base + p, { method: m, headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) }, body: b && JSON.stringify(b) }); return { status: r.status, data: await r.json().catch(() => null) }; };
 token = (await call("POST", "/api/students/register", { email: `probe-${t}@example.test`, password: `probe-${t}-correct-horse`, grade: 11, state: "CA", schoolDomain: "example.edu", majorInterest: "Computer Science" })).data.token;
 for (const consentType of ["data_processing", "ai_interaction", "cross_border_transfer"]) await call("POST", "/api/consent/grant", { consentType, grantedBy: "student" });
 await call("POST", "/api/students/sync", { profile: { gpa: { unweighted: 3.7 }, courses: [], testScores: [{ test: "sat", totalScore: 1380 }], apScores: [] }, activities: [], majorInterest: "Computer Science", goals: [] });
-const turn = await call("POST", "/api/chat", { system: "You are the COLLEGE FIT specialist for students ages 14-18.", messages: [{ role: "user", content: "When is NJIT's regular decision deadline?" }], request_id: `probe-${t}-1` });
+const cal = await call("POST", "/api/calendar/context", { targetSchools: ["Johns Hopkins University"], research: false });
+console.log(cal.data.schools[0].deadlines, cal.data.schools[0].extractedAt);
+console.log((await call("GET", "/api/cds/school/columbia-university")).data?.b1);
+const turn = await call("POST", "/api/chat", { system: "You are the COLLEGE FIT specialist for students ages 14-18.", messages: [{ role: "user", content: "When is Johns Hopkins University's Early Decision II deadline?" }], request_id: `probe-${t}-1` });
 console.log(turn.data._meta, turn.data.answer);
-console.log(await call("DELETE", "/api/students"));
+let del; for (let i = 0; i < 6 && del?.status !== 200; i += 1) { del = await call("DELETE", "/api/students"); if (del.status !== 200) await new Promise((r) => setTimeout(r, 10000)); }
+console.log(del);
 ```
 
 Deploy markers: `/` carries `assets/main-*.js` (changes only with
 `App.jsx`), `/admin.html` carries `assets/admin-*.js`; a backend-only
-deploy shows only as a brief `/api/health` blip after CI succeeds.
+deploy shows only as a brief `/api/health` blip (and 502s for a few
+seconds) after CI succeeds, and `/api/health` reports nothing but
+`status` in production. A scout version bump or a resumed sweep shows up
+as fresh `extractedAt` values on calendar entries, school by school, five
+minutes after boot and over the following half hour or more.
 
 Admin page on a scratch database (never production): build the frontend,
 then from `backend/` run `web-launcher.mjs` with `PORT`, `SIM_PORT`,
@@ -349,14 +346,19 @@ Delete the scratch `DATA_DIR` afterwards.
 
 ## Tooling notes for a Claude session on this machine
 
-- Bash heredocs containing single quotes fail here; write node patch
-  scripts with the Write tool and run them. The working directory can
-  drift between calls — use absolute paths.
+- Bash heredocs containing single quotes fail here; write node scripts and
+  commit messages with the Write tool and run or `-F` them. The working
+  directory drifts between calls (it sat in `backend/` for most of this
+  session) — use absolute paths, especially for `git add`.
 - Stage explicit paths only; commit messages end with
   `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
+- Foreground `sleep` is blocked; a background Bash loop with `sleep` (CI
+  watch over `gh run list`, a delayed probe) works, as does the Monitor
+  tool tailing a background task's output file.
+- A probe that spans a deploy can lose its final request to a 502; print
+  the account first and retry the delete. Student session tokens are
+  SQLite-backed and survive the restart.
 - The in-app Browser pane can fill forms but screenshots are correct only
   at scroll position 0; for anything below the fold use headless Chrome
   (`npm i playwright-core` in a scratch folder,
   `chromium.launch({ channel: "chrome" })`, clip with page coordinates).
-- Watch a deploy with a background loop over `gh run list --branch main`
-  and the markers above; foreground `sleep` is blocked.
