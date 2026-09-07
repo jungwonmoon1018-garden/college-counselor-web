@@ -255,6 +255,83 @@ test("a second Early Decision round reaches the deadline record as edII", () => 
   assert.equal(mispaired.deadlines.rd, "2027-01-02");
 });
 
+test("a header-row dates table is read by column, in both text layouts", () => {
+  // Johns Hopkins' deadlines page (September 2026): the table's source
+  // breaks lines between cells, so the text carries one cell per line —
+  // plan headers, a row label, then one date per column. The section logic
+  // paired the last header with the first date, and a plan-change sentence
+  // on the Early Decision page ("can change to Early Decision II ... until
+  // November 15") outscored the real cell.
+  const HOPKINS_TABLE = `Deadlines & Important Dates
+Updated dates are made public in August each year.
+Early Decision I
+Early Decision II
+Regular Decision
+Transfer
+Application Deadline
+November 1, 2026
+January 2, 2027
+January 2, 2027
+March 1, 2027
+Financial Aid Deadline
+November 15, 2026
+January 15, 2027
+January 15, 2027
+March 15, 2027
+Decision Release
+December 11, 2026
+February 12, 2027
+March 24, 2027
+May 14, 2027
+Reply-By Date
+January 15, 2027
+February 26, 2027
+May 1, 2027
+June 1, 2027
+First-Year Application Requirements`;
+  const HOPKINS_ED_PAGE = `What if I can't complete my Early Decision I application by the deadline?
+If Hopkins is your first-choice school and you want to apply Early Decision but need more time to complete your application materials, consider applying Early Decision II by January 2.
+Early Decision I applicants can change to Early Decision II or Regular Decision until November 15 at 11:59 p.m. EST.
+Early Decision II and Regular Decision applicants can change to Early Decision I until November 15 at 11:59 p.m. EST.`;
+  const hopkins = extractPolicyFromPages([
+    { url: "https://apply.jhu.edu/how-to-apply/application-deadlines-requirements/early-decision/", text: HOPKINS_ED_PAGE },
+    { url: "https://apply.jhu.edu/how-to-apply/application-deadlines-requirements/", text: HOPKINS_TABLE },
+  ], NOW);
+  assert.equal(hopkins.deadlines.early_decision.date, "2026-11-01", JSON.stringify(hopkins.deadlines));
+  assert.equal(hopkins.deadlines.early_decision_2.date, "2027-01-02", JSON.stringify(hopkins.deadlines));
+  assert.equal(hopkins.deadlines.regular_decision.date, "2027-01-02");
+  assert.equal(hopkins.deadlines.early_decision_2.evidence, "Early Decision II — Application Deadline: January 2, 2027");
+  assert.equal(hopkins.deadlines.early_decision_2.sourceUrl, "https://apply.jhu.edu/how-to-apply/application-deadlines-requirements/");
+  assert.equal(hopkins.deadlines.early_action, undefined);
+  const record = snapshotAsDeadlineRecord({ school: "Johns Hopkins University", slug: "johns-hopkins-university", checkedAt: NOW.toISOString(), policy: hopkins });
+  assert.deepEqual([record.deadlines.ed, record.deadlines.edII, record.deadlines.rd], ["2026-11-01", "2027-01-02", "2027-01-02"]);
+
+  // The same table with no line breaks between cells reads as one line per
+  // row; the trailing Transfer column and the aid / release rows must not
+  // shift or replace the application dates.
+  const compact = htmlText(`<table><thead><tr><td></td><th>Early Decision I</th><th>Early Decision II</th><th>Regular Decision</th><th>Transfer</th></tr></thead><tbody>
+<tr><th>Application Deadline</th><td>November 1, 2026</td><td>January 2, 2027</td><td>January 2, 2027</td><td>March 1, 2027</td></tr>
+<tr><th>Financial Aid Deadline</th><td>November 15, 2026</td><td>January 15, 2027</td><td>January 15, 2027</td><td>March 15, 2027</td></tr>
+<tr><th>Decision Release</th><td>December 11, 2026</td><td>February 12, 2027</td><td>March 24, 2027</td><td>May 14, 2027</td></tr>
+</tbody></table>`);
+  const rows = extractPolicyFromPages([{ url: "https://apply.jhu.edu/", text: compact }], NOW).deadlines;
+  assert.equal(rows.early_decision.date, "2026-11-01", JSON.stringify(rows));
+  assert.equal(rows.early_decision_2.date, "2027-01-02");
+  assert.equal(rows.regular_decision.date, "2027-01-02");
+  assert.equal(rows.early_action, undefined);
+
+  // The Early Decision page alone: the plan-change sentences are hedged, so
+  // their November 15 loses to "consider applying Early Decision II by
+  // January 2".
+  const edOnly = extractPolicyFromPages([{ url: "https://apply.jhu.edu/ed/", text: HOPKINS_ED_PAGE }], NOW).deadlines;
+  assert.equal(edOnly.early_decision_2.date, "2027-01-02", JSON.stringify(edOnly));
+
+  // A stacked list (plan, its date, next plan, its date) is not a table and
+  // still reads plan by plan.
+  const stacked = extractPolicyFromPages([{ url: "https://apply.jhu.edu/", text: "Application Deadlines\nEarly Decision I\nNov. 1\nEarly Decision II\nJan. 2\nRegular Decision\nJan. 2\nTransfer\nMar. 1" }], NOW).deadlines;
+  assert.deepEqual([stacked.early_decision.date, stacked.early_decision_2.date, stacked.regular_decision.date], ["2026-11-01", "2027-01-02", "2027-01-02"]);
+});
+
 test("deadline extraction handles real page layouts: headed sections with portfolio sub-blocks, and 'due' prose", () => {
   const stanford = extractPolicyFromPages([{ url: "https://admission.stanford.edu/apply/first-year/", text: STANFORD_LINES }], NOW);
   assert.equal(stanford.deadlines.restrictive_early_action.date, "2026-11-01", JSON.stringify(stanford.deadlines));
