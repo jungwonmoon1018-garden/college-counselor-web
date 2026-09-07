@@ -556,6 +556,10 @@ export function extractApplicationFee(pages) {
 export function extractPolicyFromPages(pages, now = new Date()) {
   return {
     cycle: currentAdmissionsCycle(now),
+    // The rules that produced this reading; a snapshot from an older scout
+    // is re-read on demand (snapshotIsCurrent) and ahead of fresh ones in
+    // the next sweep.
+    scoutVersion: SCOUT_VERSION,
     testPolicy: extractTestPolicy(pages, now),
     deadlines: extractDeadlines(pages, now),
     applicationFee: extractApplicationFee(pages),
@@ -1050,7 +1054,23 @@ export async function runPolicyScout(targets, {
   stmts, factStmts, scorecardKey = null, fetchImpl = fetch, assertTarget = assertSafeFetchTarget,
   concurrency = 2, maxSchools = 60, trigger = "scheduled", now = () => new Date(), sleep,
 } = {}) {
-  const list = dedupeTargets(targets).slice(0, maxSchools);
+  // Schools with no snapshot first, then those last read by an older scout,
+  // then the longest-unread — so the cap (students' target schools alone
+  // can fill it) never starves a school for good, and a version bump reaches
+  // every school within a few sweeps. The sweep that followed the version-4
+  // bump spent its sixty slots on the same schools as always and never got
+  // to the Common Data Set schools it was bumped for.
+  const ranked = dedupeTargets(targets).map((target, index) => {
+    let row = null;
+    try {
+      row = (target.unitId ? stmts.getSnapshotByUnitId.get(String(target.unitId)) : null) || stmts.getSnapshot.get(slugifyCollege(target.name)) || null;
+    } catch { row = null; }
+    const policy = row ? safeJson(row.policy_json) : null;
+    const rank = !row ? 0 : policy?.scoutVersion === SCOUT_VERSION ? 2 : 1;
+    return { target, index, rank, checkedAt: String(row?.checked_at || "") };
+  });
+  ranked.sort((a, b) => a.rank - b.rank || (a.checkedAt < b.checkedAt ? -1 : a.checkedAt > b.checkedAt ? 1 : 0) || a.index - b.index);
+  const list = ranked.map((r) => r.target).slice(0, maxSchools);
   const runId = crypto.randomUUID();
   const startedAt = now().toISOString();
   // The version is recorded up front so an in-progress run reports the
@@ -1116,6 +1136,15 @@ export function readPolicySnapshot(stmts, { unitId = null, name = null } = {}) {
     policy,
     fields: policyFields(policy),
   };
+}
+
+// A snapshot read by the scout version now running. One from an older
+// version (or from before versions were recorded) still answers, but the
+// school's pages are read again on demand the next time it is asked about:
+// Johns Hopkins kept a version-3 reading with no ED II date for a day
+// after the table fix shipped because the sweep never reached it.
+export function snapshotIsCurrent(snapshot) {
+  return snapshot?.policy?.scoutVersion === SCOUT_VERSION;
 }
 
 // The calendar context and the deterministic deadline answer read the

@@ -22,6 +22,8 @@ import {
   listRecentChanges,
   lastRunSummary,
   lastAutomaticRun,
+  snapshotIsCurrent,
+  SCOUT_VERSION,
 } from "../admissions-policy-scout.js";
 
 const NOW = new Date("2026-09-03T12:00:00Z"); // cycle 2026-27 → entering fall 2027
@@ -441,6 +443,31 @@ test("schema init removes first-population 'changes' logged by scout versions be
   assert.deepEqual(listRecentChanges(stmts, { days: 3650 }).map((c) => c.id).sort(), ["c2", "c3"]);
   initPolicyScout(db);
   assert.equal(listRecentChanges(stmts, { days: 3650 }).length, 2);
+});
+
+test("a sweep reads schools without a snapshot first, then older-version ones, then the longest-unread", async () => {
+  const stores = freshStores();
+  const { fetchImpl } = makeSite();
+  const put = (slug, name, checkedAt, policy) => stores.stmts.upsertSnapshot.run(slug, name, null, `https://${slug}.edu/`, checkedAt, null, "h", "[]", JSON.stringify(policy));
+  put("example-university", "Example University", "2026-09-01T00:00:00.000Z", { cycle: "2026-27", scoutVersion: SCOUT_VERSION, deadlines: {} });
+  put("old-college", "Old College", "2026-09-02T00:00:00.000Z", { cycle: "2026-27", scoutVersion: SCOUT_VERSION - 1, deadlines: {} });
+  put("older-college", "Older College", "2026-08-20T00:00:00.000Z", { cycle: "2026-27", deadlines: {} }); // before versions were recorded
+  assert.equal(snapshotIsCurrent(readPolicySnapshot(stores.stmts, { name: "Example University" })), true);
+  assert.equal(snapshotIsCurrent(readPolicySnapshot(stores.stmts, { name: "Old College" })), false);
+  assert.equal(snapshotIsCurrent(readPolicySnapshot(stores.stmts, { name: "Older College" })), false);
+
+  // Four targets, room for three: the fresh Example University is the one
+  // left out, and the never-read school goes first.
+  const summary = await runPolicyScout(
+    [{ name: "Example University", website: "https://exampleu.edu" }, { name: "Old College" }, { name: "Older College" }, { name: "Nowhere University" }],
+    { ...scoutOptions(stores, fetchImpl), maxSchools: 3, concurrency: 1 },
+  );
+  assert.equal(summary.total, 3);
+  assert.deepEqual(summary.failures.map((f) => f.school), ["Nowhere University", "Older College", "Old College"]);
+  // A fresh reading records the version it was made with.
+  const full = await runPolicyScout([TARGET], scoutOptions(stores, fetchImpl));
+  assert.equal(full.checked, 1);
+  assert.equal(readPolicySnapshot(stores.stmts, { name: "Example University" }).policy.scoutVersion, SCOUT_VERSION);
 });
 
 test("a run the previous process never finished is marked abandoned at boot and is due at once", () => {

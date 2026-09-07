@@ -8,6 +8,7 @@ import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import Database from "better-sqlite3";
+import { SCOUT_VERSION } from "../admissions-policy-scout.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, "..");
@@ -890,7 +891,7 @@ test("a dates answer says when the plan the student asked for is not on the page
     db.prepare(`INSERT OR REPLACE INTO admissions_policy_snapshots (slug, school_name, unit_id, homepage, checked_at, changed_at, content_hash, pages_json, policy_json, check_count)
       VALUES (?, ?, NULL, ?, ?, NULL, ?, ?, ?, 1)`).run(
       "worcester-polytechnic-institute", "Worcester Polytechnic Institute", "https://www.wpi.edu/", "2026-09-05T00:00:00.000Z", "test-hash", "[]",
-      JSON.stringify({ cycle: "2026-27", testPolicy: null, applicationFee: null, deadlines: { early_action: { date: "2026-11-01", sourceUrl: "https://www.wpi.edu/admissions/undergraduate/apply", evidence: "Early Action: November 1" } } }),
+      JSON.stringify({ cycle: "2026-27", scoutVersion: SCOUT_VERSION, testPolicy: null, applicationFee: null, deadlines: { early_action: { date: "2026-11-01", sourceUrl: "https://www.wpi.edu/admissions/undergraduate/apply", evidence: "Early Action: November 1" } } }),
     );
   } finally {
     db.close();
@@ -914,6 +915,39 @@ test("a dates answer says when the plan the student asked for is not on the page
   assert.match(strategy.data.answer, /non-binding/);
   const calls = loggedModelCalls();
   assert.match(JSON.stringify(calls[calls.length - 1].messages), /Early Action deadline 2026-11-01/);
+});
+
+test("a snapshot from an older scout version is read again on demand, and still answers when the read fails", async () => {
+  // The same school, but its snapshot predates the scout version now
+  // running (no version recorded at all, as every snapshot before version 4
+  // was). Johns Hopkins kept a version-3 reading with no ED II date for a
+  // day after the table fix shipped because the sweep never reached it.
+  const db = new Database(path.join(testDataDir, "operational.db"));
+  try {
+    db.prepare(`INSERT OR REPLACE INTO admissions_policy_snapshots (slug, school_name, unit_id, homepage, checked_at, changed_at, content_hash, pages_json, policy_json, check_count)
+      VALUES (?, ?, NULL, ?, ?, NULL, ?, ?, ?, 1)`).run(
+      "worcester-polytechnic-institute", "Worcester Polytechnic Institute", "https://www.wpi.edu/", "2026-09-05T00:00:00.000Z", "test-hash", "[]",
+      JSON.stringify({ cycle: "2026-27", testPolicy: null, applicationFee: null, deadlines: { early_action: { date: "2026-11-01", sourceUrl: "https://www.wpi.edu/admissions/undergraduate/apply", evidence: "Early Action: November 1" } } }),
+    );
+  } finally {
+    db.close();
+  }
+  const token = await registerWithProfile("gate-stale");
+  const turn = await request("POST", "/api/chat", {
+    token,
+    body: { messages: [{ role: "user", content: "When is WPI's early action deadline?" }], request_id: "gate-stale-1" },
+  });
+  assert.equal(turn.status, 200, JSON.stringify(turn.data));
+  assert.equal(turn.data._meta?.deterministic, true, JSON.stringify(turn.data._meta));
+  // The pages were read again (the harness throws for every host, so the
+  // read fails) and the older reading answered in the meantime.
+  assert.ok(["failed", "skipped", "error", "timeout"].includes(turn.data._meta?.onDemandRead), JSON.stringify(turn.data._meta));
+  assert.match(turn.data.answer, /Worcester Polytechnic Institute \(2026-27 cycle\): Early Action: 2026-11-01/);
+  // The calendar context does the same and keeps the older dates.
+  const cal = await request("POST", "/api/calendar/context", { token, body: { targetSchools: ["Worcester Polytechnic Institute"], research: false } });
+  assert.equal(cal.status, 200, JSON.stringify(cal.data));
+  const entry = cal.data.schools.find((s) => /Worcester/.test(s.school));
+  assert.equal(entry?.deadlines?.ea, "2026-11-01", JSON.stringify(cal.data.schools));
 });
 
 test("persisted turns build the thread graph and a later question recalls them as THREAD MEMORY", async () => {

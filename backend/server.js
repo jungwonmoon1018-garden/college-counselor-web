@@ -162,6 +162,7 @@ import {
   readSchoolPolicyLive,
   scoutSchool,
   snapshotAsDeadlineRecord,
+  snapshotIsCurrent,
   formatPolicyLine,
   listRecentChanges,
   lastRunSummary,
@@ -2061,7 +2062,9 @@ function regulatedResultForChat(classification, payload) {
 // Answer a chat deadline question from the official-source research cache
 // when the query names schools whose admissions pages have been researched
 // (see college-research.js). Returns null when nothing cached matches.
-function deadlinesFromResearchCache(userText) {
+// `current: true` ignores a snapshot read by an older scout version, so the
+// caller reads the school's pages again before answering from it.
+function deadlinesFromResearchCache(userText, { current = false } = {}) {
   let names = [];
   // Schools named in the question (aliases + baseline names). This used to
   // pass the question STRING to extractTargetSchoolNames, which iterates a
@@ -2075,7 +2078,7 @@ function deadlinesFromResearchCache(userText) {
       // stands in when no model-researched record is cached.
       try {
         const snapshot = readPolicySnapshot(policyScoutStmts, { name });
-        record = snapshot ? snapshotAsDeadlineRecord(snapshot) : null;
+        record = snapshot && (!current || snapshotIsCurrent(snapshot)) ? snapshotAsDeadlineRecord(snapshot) : null;
       } catch { record = null; }
     }
     if (record) found.push(record);
@@ -2227,7 +2230,7 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
       // a snapshot.
       let onDemand = null;
       if (pureLookup && namedSchools.length) {
-        if (lookupIntent === "deadlines" && !deadlinesFromResearchCache(questionText)) {
+        if (lookupIntent === "deadlines" && !deadlinesFromResearchCache(questionText, { current: true })) {
           onDemand = await scoutSchoolOnDemand(namedSchools[0]);
         } else if (lookupIntent === "official_stats" && !hasVerifiedCollegeData(questionText)) {
           const stats = await scorecardStatsOnDemand(namedSchools[0]);
@@ -6838,24 +6841,28 @@ app.post("/api/calendar/context", studentLimiter, requireStudentAuth, async (req
     const schools = [];
     for (const school of targetSchools) {
       let record = readCachedDeadlines(collegeResearchStmts, school);
+      let stale = false;
       if (!record) {
         try {
           const snapshot = readPolicySnapshot(policyScoutStmts, { name: school });
           record = snapshot ? snapshotAsDeadlineRecord(snapshot) : null;
+          stale = Boolean(snapshot) && !snapshotIsCurrent(snapshot);
         } catch { record = null; }
       }
-      // No cached record and no scout snapshot: read the school's own
-      // admissions pages now (deterministic, bounded, no model), the same
-      // on-demand read the chat's deadline lookup uses. Johns Hopkins was
-      // getting the generic January 1 / February 1 fallbacks in its reminders
-      // although its pages state January 2 and January 15, because the scout
-      // only tracks a fixed list and the model research is optional.
-      if (!record) {
+      // No cached record and no scout snapshot — or a snapshot from an older
+      // scout version: read the school's own admissions pages now
+      // (deterministic, bounded, no model), the same on-demand read the
+      // chat's deadline lookup uses. Johns Hopkins was getting the generic
+      // January 1 / February 1 fallbacks in its reminders although its pages
+      // state January 2 and January 15, because the scout only tracks a
+      // fixed list and the model research is optional. A stale snapshot
+      // stands if the read fails.
+      if (!record || stale) {
         try {
           const status = await scoutSchoolOnDemand(school);
           if (status === "ok") {
             const snapshot = readPolicySnapshot(policyScoutStmts, { name: school });
-            record = snapshot ? snapshotAsDeadlineRecord(snapshot) : null;
+            record = (snapshot ? snapshotAsDeadlineRecord(snapshot) : null) || record;
           }
         } catch (err) {
           console.warn(`[calendar context] on-demand read failed for ${school}:`, err?.message);
