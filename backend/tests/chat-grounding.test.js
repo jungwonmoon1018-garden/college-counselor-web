@@ -221,7 +221,7 @@ test("verified data block formats baseline, CDS, and research facts and is empty
       name: "Boston University",
       baseline: null,
       cds: {
-        school: "Boston University", yearLabel: "2025-26", overallAdmitRate: 0.108, sourceUrl: "https://www.bu.edu/cds.pdf",
+        school: "Boston University", yearLabel: "2025-26", overallAdmitRate: 0.108, b1: { applied: 78749, admitted: 8505, enrolled: 3137 }, sourceUrl: "https://www.bu.edu/cds.pdf",
         extras: {
           satSections: { ebrw: { p25: 700, p75: 750 }, math: { p25: 720, p75: 780 } },
           submitting: { satPct: 36, actPct: 10 },
@@ -240,6 +240,9 @@ test("verified data block formats baseline, CDS, and research facts and is empty
   assert.match(wide, /share of enrolled students who submitted scores: SAT 36%, ACT 10%/);
   assert.match(wide, /86% of enrolled students ranked in the top tenth of their class \(98% top quarter\)/);
   assert.match(wide, /Early Decision: 6,907 applied, 2,165 admitted \(31\.4%\)/);
+  // The applicant counts behind the admit rate ride along, so "how many
+  // applied" is answerable from the block.
+  assert.match(wide, /admit rate 10\.8% \(78,749 applied, 8,505 admitted, 3,137 enrolled\)/);
   assert.match(wide, /application fee 80 USD; average first-year need-based aid package 68,926 USD; student-to-faculty ratio 10 to 1/);
   assert.match(wide, /closing dates the school reported for its CDS cycle \(month\/day; confirm this year's dates on its admissions page\): Regular Decision 01\/05, Early Decision 11\/01, Early Decision II 01\/05, aid filing deadline 01\/05/);
   assert.doesNotMatch(wide, /\$/);

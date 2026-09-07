@@ -709,7 +709,14 @@ function cdsLine(record, validated) {
   if (!record) return null;
   const parts = [];
   const admit = percent(record.overallAdmitRate);
-  if (admit) parts.push(`admit rate ${admit}`);
+  // The counts behind the rate. Students ask how many applied, and the
+  // model was sending them to the PDF for a number the record holds.
+  const b1 = record.b1 && typeof record.b1 === "object" ? record.b1 : null;
+  const counts = b1
+    ? [b1.applied ? `${formatNumber(b1.applied)} applied` : null, b1.admitted ? `${formatNumber(b1.admitted)} admitted` : null, b1.enrolled ? `${formatNumber(b1.enrolled)} enrolled` : null].filter(Boolean)
+    : [];
+  if (admit) parts.push(`admit rate ${admit}${counts.length ? ` (${counts.join(", ")})` : ""}`);
+  else if (counts.length) parts.push(counts.join(", "));
   if (record.yieldRate != null) parts.push(`yield ${percent(record.yieldRate)}`);
   const sat = range(record.enrolledSAT?.p25, record.enrolledSAT?.p75);
   if (sat) parts.push(`enrolled SAT middle 50% ${sat}`);
