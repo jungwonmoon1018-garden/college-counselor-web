@@ -28,20 +28,27 @@ import { extractItems } from "./cds-pdf-parser.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // ─── Document-scope extractor ─────────────────────────────────────────
-// Detects which institution the CDS PDF actually describes. Catches
-// College Transitions-style linking errors where one school's URL
-// resolves to a different school's CDS.
+// Detects which institution — and which unit of it — the CDS PDF actually
+// describes. Catches College Transitions-style linking errors where one
+// school's URL resolves to a different school's CDS. The cover names the
+// unit ("Columbia College Columbia Engineering 2024–25 COMMON DATA SET"
+// against "2024–25 COMMON DATA SET Columbia General Studies") while A1's
+// "Name of University" reads the same on both, so the scope is the cover
+// plus that name and an expectedScope pattern can insist on the unit. The
+// earlier name-only patterns required the name's last word to follow the
+// previous one without a space; they matched nothing and every scope was
+// null, which is how the General Studies document went unnoticed.
 export async function extractDocumentScope(pdfPath) {
   const items = await extractItems(pdfPath);
-  const headSlice = items.slice(0, 120).map((i) => i.str).join(" ");
-  const m =
-    headSlice.match(/COMMON\s+DATA\s+SET\s+\d{4}.{0,5}\d{2,4}\s+([A-Z][\w'.&-]+(?:\s+[A-Za-z'.&-]+){1,8}?(?:University|College|Institute|School))\b/i) ||
-    headSlice.match(/Name\s+of\s+(?:College(?:\/University)?|University)\s*:?\s+([A-Z][\w'.&-]+(?:\s+[A-Za-z'.&-]+){1,8}?(?:University|College|Institute|School|Studies))\b/i) ||
-    headSlice.match(/^([A-Z][\w'.&-]+(?:\s+[A-Za-z'.&-]+){1,8}?(?:University|College|Institute|School))\s+Common\s+Data\s+Set/i);
-  if (!m) return null;
-  const candidate = m[1].trim().replace(/\s+/g, " ");
-  if (candidate.length < 8 || /^[^A-Z]/.test(candidate)) return null;
-  return candidate;
+  const head = items.slice(0, 160).map((i) => i.str).join(" ").replace(/\s+/g, " ");
+  const cover = head.split(/GENERAL INFORMATION|A1\.\s*Address/i)[0]
+    .replace(/The information provided is accurate[^.]*\./gi, " ")
+    .replace(/\b\d\s+Common\s+Data\s+Set\s+\d{4}\s*[–-]\s*\d{2,4}/gi, " ")
+    .replace(/\s+/g, " ").trim().slice(0, 160);
+  const named = head.match(/Name\s+of\s+(?:College(?:\/University)?|University|Institution)\s*:?\s+([A-Z][^:]{4,90}?)\s+(?:Stre|Street|Mailing|Address|\d)/);
+  const name = named ? named[1].trim() : null;
+  const scope = [cover && /COMMON\s+DATA\s+SET/i.test(cover) ? cover : null, name].filter(Boolean).join(" · ").trim();
+  return scope.length >= 8 && /University|College|Institute|School/i.test(scope) ? scope : null;
 }
 
 // ─── Ground-truth registry ─────────────────────────────────────────────
@@ -104,15 +111,18 @@ export const CORRECTIONS = {
     sources: ["https://ira.upenn.edu/penn-numbers/common-data-set"],
   },
   "columbia-university": {
-    // Critical: College Transitions' "Columbia University" link points to
-    // Columbia General Studies CDS. Real Columbia College + SEAS is much
-    // more selective. Validator forces an override on scope mismatch.
-    expectedScope: /Columbia\s+(?:College|Engineering|University in the City)/i,
-    actualScopeWarning: "Source PDF is Columbia General Studies; numbers do not represent Columbia College / SEAS",
-    overallAdmitRate: 0.0389,
-    applied: 60248, admitted: 2355,
-    enrolledSAT: { p25: 1490, p75: 1560 },
-    sources: ["https://opir.columbia.edu/cds"],
+    // College Transitions' "Columbia University" links (and the cached
+    // 2023-24 PDF they produced) were the School of General Studies CDS:
+    // 509 applicants, 30% admitted, closing dates in May. The cache now
+    // holds Columbia's own 2024-25 Columbia College and Columbia
+    // Engineering CDS. The scope pattern insists on that unit, because A1
+    // names the institution identically on both documents.
+    expectedScope: /Columbia\s+(?:College|Engineering)/i,
+    actualScopeWarning: "PDF is the Columbia School of General Studies CDS; its numbers do not describe Columbia College / Columbia Engineering",
+    overallAdmitRate: 0.0386,
+    applied: 60247, admitted: 2325, enrolled: 1483,
+    enrolledSAT: { p25: 1510, p75: 1560 },
+    sources: ["https://opir.columbia.edu/sites/opir.columbia.edu/files/content/Common%20Data%20Set/2024-25_Columbia_College_and_Columbia_Engineering_CDS.pdf"],
   },
   "cornell-university": {
     expectedScope: /Cornell\s+University/i,

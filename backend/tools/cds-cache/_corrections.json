@@ -100,17 +100,18 @@
     ]
   },
   "columbia-university": {
-    "expectedScope": "Columbia\\s+(?:College|Engineering|University in the City)",
-    "actualScopeWarning": "Source PDF is Columbia General Studies; numbers do not represent Columbia College / SEAS",
-    "overallAdmitRate": 0.0389,
-    "applied": 60248,
-    "admitted": 2355,
+    "expectedScope": "Columbia\\s+(?:College|Engineering)",
+    "actualScopeWarning": "PDF is the Columbia School of General Studies CDS; its numbers do not describe Columbia College / Columbia Engineering",
+    "overallAdmitRate": 0.0386,
+    "applied": 60247,
+    "admitted": 2325,
+    "enrolled": 1483,
     "enrolledSAT": {
-      "p25": 1490,
+      "p25": 1510,
       "p75": 1560
     },
     "sources": [
-      "https://opir.columbia.edu/cds"
+      "https://opir.columbia.edu/sites/opir.columbia.edu/files/content/Common%20Data%20Set/2024-25_Columbia_College_and_Columbia_Engineering_CDS.pdf"
     ]
   },
   "cornell-university": {

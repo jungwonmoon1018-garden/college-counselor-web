@@ -3,103 +3,109 @@
   "slug": "columbia-university",
   "tier": "T20",
   "year": 2024,
+  "yearLabel": "2024-25",
+  "sourceUrl": "https://opir.columbia.edu/sites/opir.columbia.edu/files/content/Common%20Data%20Set/2024-25_Columbia_College_and_Columbia_Engineering_CDS.pdf",
+  "sourceKind": "pdf_text",
   "source": "cds",
-  "parserVersion": 2,
+  "parserVersion": 3,
+  "extractionMethod": "pdfjs",
   "testPolicy": "test_optional",
   "b1": {
-    "applied": 509,
-    "admitted": 152,
-    "enrolled": 75
+    "applied": 60247,
+    "admitted": 2325,
+    "enrolled": 1483
   },
-  "overallAdmitRate": 0.0389,
-  "yieldRate": 0.4934,
+  "overallAdmitRate": 0.0386,
+  "yieldRate": 0.6378,
   "enrolledSAT": {
-    "p25": 1460,
-    "p75": 1530
+    "p25": 1510,
+    "p75": 1560
   },
   "enrolledACT": {
-    "p25": 33,
-    "p75": 35
+    "p25": 34,
+    "p75": 36
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 26575,
+        "admitted": 1082,
+        "admitRate": 0.0407
+      },
+      "women": {
+        "applied": 32668,
+        "admitted": 1191,
+        "admitRate": 0.0365
+      }
+    }
   },
   "c7": {
     "rigor": "very_important",
-    "class_rank": "important",
+    "class_rank": "very_important",
     "gpa": "very_important",
-    "test_scores": "very_important",
+    "test_scores": "considered",
     "application_essay": "very_important",
-    "recommendations": "important",
-    "interview": "very_important",
-    "ec": "important",
+    "recommendations": "very_important",
+    "interview": "not_considered",
+    "ec": "very_important",
     "talent_ability": "important",
     "character": "very_important",
-    "first_generation": "very_important",
+    "first_generation": "considered",
     "alumni_relation": "considered",
     "geographical_residence": "considered",
-    "state_residency": "considered",
+    "state_residency": "not_considered",
     "religious_affiliation": "not_considered",
     "racial_ethnic_status": "not_considered",
     "volunteer_work": "considered",
-    "work_experience": "very_important",
-    "level_of_interest": "very_important"
-  },
-  "validation": {
-    "school": "Columbia University",
-    "slug": "columbia-university",
-    "status": "discrepancies",
-    "discrepancies": [
-      {
-        "severity": "high",
-        "field": "overallAdmitRate",
-        "parsed": 0.2986,
-        "expected": 0.0389,
-        "delta": 0.2597,
-        "note": "drift_exceeds_tolerance"
-      }
-    ],
-    "overrides": {
-      "overallAdmitRate": 0.0389
-    },
-    "scopeFromPDF": null
-  },
-  "_uncorrected": {
-    "overallAdmitRate": 0.2986,
-    "enrolledSAT": {
-      "p25": 1460,
-      "p75": 1530
-    }
+    "work_experience": "considered",
+    "level_of_interest": "not_considered"
   },
   "extras": {
     "satSections": {
       "math": {
-        "p25": 750,
-        "p75": 780
+        "p25": 770,
+        "p75": 800
       }
     },
     "submitting": {
-      "satPct": 17,
-      "actPct": 8
+      "satPct": 44,
+      "actPct": 17
     },
-    "applicationFeeUsd": 80,
+    "classRank": {
+      "topTenthPct": 94,
+      "topQuarterPct": 100
+    },
+    "applicationFeeUsd": 85,
+    "earlyDecision": {
+      "applications": 6007,
+      "admitted": 795,
+      "admitRate": 0.1323
+    },
     "dates": {
       "regularClosing": {
-        "mmdd": "05-15",
-        "raw": "May 15"
+        "mmdd": "01-01",
+        "raw": "January 1"
       },
-      "eaClosing": {
-        "mmdd": "01-15",
-        "raw": "January 15 (priority) or March 1"
+      "edClosing": {
+        "mmdd": "11-01",
+        "raw": "November 1"
       },
-      "aidPriority": {
-        "mmdd": "03-01",
-        "raw": "March 1"
-      },
+      "edNotification": "December 15",
       "aidDeadline": {
-        "mmdd": "06-01",
-        "raw": "June 1"
+        "mmdd": "02-15",
+        "raw": "February 15"
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 46800
+      "averagePackageFirstYearUsd": 78824
     }
+  },
+  "validation": {
+    "school": "Columbia University",
+    "slug": "columbia-university",
+    "status": "ok",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Columbia College Columbia Engineering 2024–25 COMMON DATA SET · Columbia University in the City of New York"
   }
 }

@@ -2,9 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import Database from "better-sqlite3";
 
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
 import { initRAGTables, prepareRAGStatements } from "../rag-engine.js";
 import {
   ingestParsedCdsCache,
+  ensureCdsStoreSeeded,
   resolveStoredCdsRecord,
   cdsRecordToPositioningResult,
   normalizeCdsTestPolicy,
@@ -115,6 +120,47 @@ test("isBlockedIp rejects loopback/private/link-local, allows public", () => {
   assert.equal(isBlockedIp("fe80::1", 6), true);
   assert.equal(isBlockedIp("fd00::1", 6), true); // unique-local
   assert.equal(isBlockedIp("2001:4860:4860::8888", 6), false);
+});
+
+test("a parsed record replaced by a newer document is re-ingested on boot", async () => {
+  // Columbia's cached CDS was the School of General Studies document; the
+  // Columbia College and Engineering one replaced it on disk with a new
+  // year label. A populated deployment used to keep the old row forever
+  // because the boot seed only topped up missing slugs.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cds-parsed-"));
+  const file = path.join(dir, "example-university.json");
+  const record = (overrides) => ({
+    school: "Example University", slug: "example-university", tier: "T50", year: 2024, yearLabel: "2023-24",
+    source: "cds", parserVersion: 3, testPolicy: "test_optional",
+    b1: { applied: 509, admitted: 152, enrolled: 75 }, overallAdmitRate: 0.2986, yieldRate: 0.4934,
+    enrolledSAT: { p25: 1460, p75: 1530 }, c7: { gpa: "very_important" },
+    extras: { dates: { regularClosing: { mmdd: "05-15", raw: "May 15" } } },
+    ...overrides,
+  });
+  try {
+    fs.writeFileSync(file, JSON.stringify(record({})));
+    const stmts = freshStmts();
+    const first = await ensureCdsStoreSeeded(stmts, { dir });
+    assert.equal(first.seeded, true);
+    assert.equal((await ensureCdsStoreSeeded(stmts, { dir })).reason, "already_populated");
+
+    fs.writeFileSync(file, JSON.stringify(record({
+      year: 2024, yearLabel: "2024-25",
+      b1: { applied: 60247, admitted: 2325, enrolled: 1483 }, overallAdmitRate: 0.0386, yieldRate: 0.6378,
+      enrolledSAT: { p25: 1510, p75: 1560 },
+      extras: { dates: { regularClosing: { mmdd: "01-01", raw: "January 1" } } },
+    })));
+    const again = await ensureCdsStoreSeeded(stmts, { dir });
+    assert.equal(again.seeded, true, JSON.stringify(again));
+    const stored = resolveStoredCdsRecord(stmts, { schoolName: "Example University" });
+    assert.equal(stored.yearLabel, "2024-25");
+    assert.equal(stored.overallAdmitRate, 0.0386);
+    assert.deepEqual(stored.b1, { applied: 60247, admitted: 2325, enrolled: 1483 });
+    assert.equal(stored.extras.dates.regularClosing.mmdd, "01-01");
+    assert.equal((await ensureCdsStoreSeeded(stmts, { dir })).reason, "already_populated");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("assertSafeFetchTarget rejects malformed URLs, non-http(s) schemes, and loopback hosts", async () => {

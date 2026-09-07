@@ -169,17 +169,26 @@ export async function ensureCdsStoreSeeded(ragStmts, { dir = DEFAULT_PARSED_CDS_
       // the new sections.
       const stored = loadAllValidatedRecords(ragStmts);
       const storedWithExtras = stored.filter((record) => record.extras && Object.keys(record.extras).length).length;
+      const storedLabel = new Map(stored.map((record) => [record.slug, record.yearLabel || null]));
       let diskWithExtras = 0;
+      // A parsed record replaced on disk by a newer document (Columbia's
+      // General Studies CDS swapped for the Columbia College and Engineering
+      // one) carries a new year label; the stored row would otherwise keep
+      // the old document's numbers on every deployment that was already
+      // populated.
+      const relabeled = [];
       try {
         for (const slug of diskSlugs) {
           const parsed = JSON.parse(fs.readFileSync(path.join(dir, `${slug}.json`), "utf8"));
           if (parsed?.extras && Object.keys(parsed.extras).length) diskWithExtras++;
+          if (parsed?.yearLabel && storedLabel.has(slug) && storedLabel.get(slug) !== parsed.yearLabel) relabeled.push(slug);
         }
       } catch { /* unreadable file → treat as no extras */ }
       const extrasBehind = diskWithExtras > 0 && storedWithExtras === 0;
-      if (missing.length === 0 && !extrasBehind) return { seeded: false, reason: "already_populated" };
+      if (missing.length === 0 && !extrasBehind && !relabeled.length) return { seeded: false, reason: "already_populated" };
       if (missing.length) console.log(`[cds-store] topping up ${missing.length} new parsed CDS record(s): ${missing.slice(0, 8).join(", ")}${missing.length > 8 ? ", …" : ""}`);
       if (extrasBehind) console.log(`[cds-store] re-ingesting ${diskWithExtras} parsed CDS record(s) that carry the wider section read`);
+      if (relabeled.length) console.log(`[cds-store] re-ingesting ${relabeled.length} parsed CDS record(s) whose document changed: ${relabeled.slice(0, 8).join(", ")}${relabeled.length > 8 ? ", …" : ""}`);
     }
   }
   const res = await ingestParsedCdsCache(ragStmts, { dir });

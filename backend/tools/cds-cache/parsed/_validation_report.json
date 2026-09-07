@@ -73,21 +73,10 @@
   {
     "school": "Columbia University",
     "slug": "columbia-university",
-    "status": "discrepancies",
-    "discrepancies": [
-      {
-        "severity": "high",
-        "field": "overallAdmitRate",
-        "parsed": 0.2986,
-        "expected": 0.0389,
-        "delta": 0.2597,
-        "note": "drift_exceeds_tolerance"
-      }
-    ],
-    "overrides": {
-      "overallAdmitRate": 0.0389
-    },
-    "scopeFromPDF": null
+    "status": "ok",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Columbia College Columbia Engineering 2024–25 COMMON DATA SET · Columbia University in the City of New York"
   },
   {
     "school": "Cornell University",
