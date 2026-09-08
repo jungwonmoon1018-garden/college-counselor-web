@@ -6,359 +6,337 @@ it. Read `CLAUDE.md` first: it is the edit-time harness (invariants, how to
 prove a change, how to land it). This file says where things stand, what
 changed recently and why, what was verified live, and what is open.
 
-## Where things stand (2026-09-07)
+## Where things stand (2026-09-09)
 
-- **Deployed:** `main` at `f9a8346`, live at
-  https://college-counselor-web.onrender.com. Five backend-only commits
-  went out on 2026-09-07 (`81e400b`, `3185827`, `f51e9ef`, `be12040`,
-  `f9a8346`), each after CI passed; the student bundle is still
-  `main-C3Z-asGA.js` from `cb73dd8`. Render redeploys on every push to
-  `main`, including a handoff-only commit, and each deploy restarts the
-  process (a few seconds of 502s).
-- **Tests:** backend `npm test` 658 tests, 653 pass, 5 skipped, 0 fail;
-  `npm run lint` 0 errors, 70 warnings (CI cap 500); frontend untouched
-  this session (25 vitest tests passed in CI).
+- **Deployed:** `main` at `333cfc3` (this session's seven commits:
+  `c33004f`, `2e49205`, `9dbafe0`, `8469d60`, `b7e7bba`, `52a833c`,
+  `333cfc3`, then the handoff commit), live at
+  https://college-counselor-web.onrender.com. Every push
+  to `main` runs CI (backend lint, syntax, tests; frontend tests and build)
+  and Render redeploys after it passes; each deploy restarts the process (a
+  few seconds of 502s). The student bundle changed twice this session
+  (`main-bGb17sj1.js`, then `main-ENyTRcx7.js`).
+- **Tests:** backend `npm test` 682 tests, 677 pass, 5 skipped, 0 fail
+  (the last full local run took eight minutes on the slow machine noted
+  under *Tooling*; CI is the gate);
+  `npm run lint` 0 errors, 70 warnings (CI cap 500); frontend `npx vitest
+  run` 9 files, 31 tests; `npm run build` clean.
 - **Working tree:** clean apart from the repository's phantom CRLF-only
-  diffs (never stage them; two of them, `backend/tools/cds-validator.js`
-  and `backend/tools/cds-cache/_corrections.json`, got normalized to LF in
-  `3185827` because they had to change) and two untracked files:
-  `backend/kor.traineddata` (a Tesseract Korean model left by the OCR work)
-  and `AGENTS.md` at the root, a copy of `CLAUDE.md` with "Claude" changed
-  to "Codex" in two places. Neither was made by this session; neither is
-  committed. Delete or keep as you see fit.
+  diffs (never stage them) and two untracked files not made by any session
+  (`backend/kor.traineddata`, a Tesseract Korean model; `AGENTS.md`, a copy
+  of `CLAUDE.md` with "Claude" changed to "Codex"). Two files that had CRLF
+  in the working tree, `backend/cds-pdf-parser.js` and
+  `frontend/src/components/CalibratedFitCard.jsx`, were normalized to LF
+  because they had to change.
 - **Standing authorizations from the user:** push straight to `main`; create
   and delete throwaway student accounts on production for live checks.
-  Never ask for or use the counselor's password or a real student's. The
-  user also approved, on 2026-09-07, downloading Columbia's official CDS
-  PDF into the cache ("Yes, go ahead and replace the Columbia PDF").
-- **Deferred by the user:** the University of Wyoming College Fit data-source
-  precedence ("Wait, the wyoming is not answering. I think that it would be
-  ok for that to be dealt with that later"). Do not pursue until asked.
+  Never ask for or use the counselor's password or a real student's.
+- **Deferred by the user (2026-09-07):** the University of Wyoming College
+  Fit data-source precedence. Do not pursue until asked.
 
 ## What changed, newest first
 
-Each item names the commit that carries it. Earlier sessions' work is
-summarized at the end.
+The user's ask for this session, verbatim: "make sure that in college fit,
+other sections of the CDS is used and the profile of the student like for
+standardized tests and GPA. Also, make sure to allow subscores in
+standardized tests and other things, and allow edits for all standardized
+tests in the dashboard page. Also, allow edits of AP scores in the
+dashboard page." Everything below is that ask, plus the four bugs it
+surfaced (a cross-student fit cache, a weighted average read as
+unweighted, and two ways a model reply came back empty).
 
-**Older snapshots are re-read on demand; sweeps read stale schools first
-(2026-09-07)** — `f9a8346`. The version-4 sweep refreshed Brown and
-Carnegie Mellon in its first minute and then spent its sixty-school cap
-(`POLICY_SCOUT_MAX_SCHOOLS`, students' target lists come first) without
-reaching the Common Data Set schools it was bumped for; Johns Hopkins kept
-its version-3 reading and nothing would have touched it before the next
-fortnightly cadence, because an on-demand read only happened when no
-snapshot existed. Every reading now records `policy.scoutVersion`;
-`snapshotIsCurrent` in `backend/admissions-policy-scout.js` says whether
-a snapshot was made by the running version; the chat's deadline lookup
-(`deadlinesFromResearchCache(text, { current: true })`) and the calendar
-context treat an older snapshot like a missing one for the bounded
-on-demand read and keep answering from it if the read fails; and
-`runPolicyScout` orders targets before the cap — no snapshot, then older
-version, then longest-unread. Pinned in the scout tests and
-`council-naming-deadlines-routes.test.js`. Side effect to expect: the
-first on-demand re-read of a school logs its changed readings (Hopkins' ED
-II from November 15 to January 2) in the counselor's change list.
+**Server-spawning tests wait up to a minute (2026-09-09)** — `333cfc3`.
+The five test files that spawn `server.js` gave it 8–20 s to answer
+`/api/health`; on the machine described under *Tooling* a boot took 56 s
+and the suite reported 31 timeouts that were nothing but the wait
+expiring. The `waitForHealth`/`waitFor`/`waitForUrl` loops now allow a
+minute and the launcher test's own limit is 90 s. Nothing changes on a
+healthy machine: the loops return at the first healthy reply.
 
-**Applicant counts on the CDS line (2026-09-07)** — `be12040`. The VERIFIED
-DATA line for a stored Common Data Set rendered the admit rate but not the
-B1 counts behind it, so a chat turn asking how many students applied to
-Columbia answered that it had no verified total while quoting the ED
-volume from the same record. `cdsLine` in `backend/chat-grounding.js` now
-reads "admit rate 3.9% (60,247 applied, 2,325 admitted, 1,483 enrolled)".
+**An empty reply that exhausted its budget is retried with room to answer
+(2026-09-09)** — `52a833c`, `backend/llm-adapters/openai.js` and
+`index.js`. After the cut-off fix deployed, one College Fit turn still
+came back as the composer's fallback after 15.7 s — not a timeout. The
+wire adapter took only a string `content` (an array of parts translated
+to nothing) and treated an empty reply as an answer; the small tier's
+default model is reasoning-capable but not on the reasoning list, so at
+the chat's 1,024-token budget it can spend everything thinking and return
+empty content with `finish_reason: "length"`. The adapter joins array
+content, reports `reasoning_tokens`/`had_reasoning`, makes one follow-up
+at 4,096 tokens within the same attempt when the reply is empty and the
+budget was exhausted or reasoning was present (result marked
+`budget_retry`, a `[llm] … returned no text` warning in the log), and
+starts that model at 4,096 for the rest of the process. Pinned in
+`tests/llm-adapters.test.js`.
 
-**Interrupted scout runs resume at the next boot (2026-09-07)** — `f51e9ef`.
-Each scout inserts a run row at the start and fills in the finish time at
-the end; `scoutRunDue` treated a row without a finish time as in progress
-until it was six hours old. A deploy that lands mid-sweep (a version bump
-re-reads sixty schools and takes half an hour or more) therefore stalled
-the rest of the sweep for six hours. The schema init of both scouts now
-marks unfinished rows abandoned (`summary_json.abandoned`), run summaries
-expose the flag, and an abandoned run is due at once. Pinned in
-`scout-cadence.test.js` and `admissions-policy-scout.test.js`.
+**A cut-off model attempt is retried, not returned blank (2026-09-08)** —
+`b7e7bba`, `backend/llm-adapters/openai.js` and `index.js`. Live College Fit chat turns
+kept answering "There is not enough information to produce a specific
+suggestion." after exactly 40 s on the small tier (`_meta.timings.model`
+40001, `profileFidelity: null`). OpenRouter sends headers first and the
+body when generation ends; the attempt budget's abort landed inside
+`response.json()`, was swallowed as "no JSON", and came back as an empty
+200, so the adapter's retry on a fresh connection never ran. The body read
+now throws the aborted error, so the retry happens. The attempt split was
+also backwards for chat: `maxTokens <= 1024` counted the chat turn's
+default budget as a quick call (40 s first attempt); it is now `< 1024`,
+so chat gets the 60 s first attempt and client utility calls (24, 700
+tokens) stay quick. Pinned in `tests/llm-adapters.test.js`. This is the
+"not enough information" reply the 2026-09-07 handoff could not reproduce.
 
-**Columbia's CDS is the Columbia College and Engineering document
-(2026-09-07)** — `3185827`. The cached "Columbia University" PDF (a
-College Transitions Drive link) was the School of General Studies CDS:
-509 applicants, 30% admitted, interviews and work experience rated very
-important, closing dates in May. The registry override hid the admit rate
-but the counts, yield, C7 factors, submit rates and closing dates reached
-the VERIFIED DATA block as Columbia's. The cache now holds the official
-2024-25 Columbia College and Columbia Engineering CDS from
-opir.columbia.edu (60,247 applied, 2,325 admitted, SAT 1510–1560, fee 85
-USD, RD January 1, ED November 1), parsed clean with parser version 3 and
-`yearLabel: "2024-25"`; the General Studies PDF and Columbia's Drive links
-are gone from the cache and `index.json`. Two fixes rode along: the
-validator's document-scope extractor had never matched anything (its name
-patterns required the name's last word to follow the previous one without
-a space), so every `scopeFromPDF` was null; it now returns the cover text
-plus A1's institution name, and Columbia's `expectedScope` insists on
-"Columbia College" or "Columbia Engineering" because A1 reads the same on
-both documents. And `ensureCdsStoreSeeded` in `backend/cds-store.js` now
-re-ingests a record whose year label on disk differs from the stored one,
-which is how the replacement reached the populated production database.
-New `tests/cds-validator.test.js`; the store test covers the re-ingest.
+**A weighted admitted average is read against the weighted GPA
+(2026-09-08)** — `8469d60`, `positioning-engine.js compareGpaToSchool`. Harvard's CDS
+reports a 4.21 average; read against an unweighted 4.0 it made a perfect
+record "below average" and asked for ten AP courses. An average above 4.0
+is compared with the student's weighted GPA (or with 4.0 when none is
+recorded), the rigor expectation stays on the 4.0 scale, the read carries
+`averageScale` and `comparedGpa`, the card shows "(weighted)", and the
+VERIFIED DATA line says "(weighted scale)".
 
-**Column-aware deadline tables in the policy scout (2026-09-07)** —
-`81e400b`. Johns Hopkins' deadlines page is a header-row table (Early
-Decision I / Early Decision II / Regular Decision / Transfer across the
-top; Application Deadline, Financial Aid Deadline, Decision Release,
-Reply-By Date rows beneath). Its source breaks lines between cells, so
-`htmlToText` yields one cell per line, and the section logic in
-`extractDeadlines` paired the last header with the first date below it;
-the ED II value production held (November 15, dropped by the 30-day guard)
-came from a plan-change sentence on the Early Decision page. Now
-`tableCandidates` in `backend/admissions-policy-scout.js` runs before the
-line pass and recognizes the table in both text layouts (one cell per
-line, or one line per row after a line naming two or more plans separated
-only by punctuation), zips plan columns with date columns, ignores
-non-plan columns, skips rows about aid, decision release, reply-by or
-deposits, outranks same-line statements with a deadline-labeled row, and
-keeps the line pass off the lines it used. Plan-change ("can change to ED
-II until …") and reply-by wording hedge a same-line candidate; decision
-release is not hedged because MIT's deadline sentence mentions it.
-Replayed against the live pages, Hopkins reads ED 2026-11-01, ED II
-2027-01-02, RD 2027-01-02; Brown, Emory, NJIT and Northeastern read as
-before. `SCOUT_VERSION` is 4, which forced a full re-scout at the next
-boot. Pinned in `tests/admissions-policy-scout.test.js`.
+**Dashboard editing and the fit card (2026-09-08)** — `9dbafe0`.
+`frontend/src/App.jsx`: every test card opens an inline editor
+(`TestScoreEditor`: test type, total, every section the catalog defines,
+date, subject; Save / Cancel / Remove; a pencil button for anyone a
+double-click does not suit) and "+ Add test score" adds one; the AP list
+has the same (`ApScoreEditor`: exam, score, year) with "+ Add AP score";
+class rank sits under the GPA with `ClassRankEditor` (rank + class size,
+or top %). The survey's test step takes sections for every test through
+`sectionDefs`/`withSection` (the total derives once every counting section
+is filled: SAT/PSAT sum, ACT rounded mean, TOEFL sum, IELTS nearest half
+band), and its GPA step takes the class rank. The login-recover and
+reconcile merges carry `classRank`. `CalibratedFitCard.jsx` renders
+`positioning.profileComparison` as "How your record compares" (test read
+with each section against its band, placement in the score-range table,
+test-optional advice, GPA against average/band/distribution, class rank
+against the top-tenth share, AP evidence); strings in `i18n.js` (en + ko).
+Tests: `CalibratedFitCard.test.jsx`, `App.dashboard.test.jsx` (signs in
+with a populated backend profile, edits an ACT section, rejects an
+out-of-range one, adds an SAT, edits/adds/removes AP scores, records a
+class rank, checks each synced profile); `test-setup.js` shims
+`scrollIntoView` for jsdom.
 
-**Catalog outage and ED II guard (2026-09-07)** — `9f75ddb`. The
-OpenRouter catalog is now cached in `DATA_DIR/openrouter-catalog.json` and
-served from there when a refresh fails, an empty response is a failure
-rather than a wipe, a 5-minute timer retries while empty, and the chat
-route calls `ensureOpenRouterCatalog()` when it finds the catalog empty
-(a failed boot fetch had turned every chat turn into a 402). Also the
-30-day ED II guard in `snapshotAsDeadlineRecord`.
+**College Fit reads the whole record against the whole document
+(2026-09-08)** — `2e49205`. `backend/positioning-engine.js`:
+`compareTestsToSchool` (SAT and ACT both scored, the stronger read;
+concordance `actToSat`/`satToAct` when the school reports only the other
+band; sections against section bands with the section part half mean,
+half weakest; placement in the score-range table; test-optional: a score
+under the 25th percentile is "withhold" — counts no worse than no score
+and the test weight drops to 0), `compareGpaToSchool` (average + C11 band
++ C11 distribution, 60/40 formula/distribution), `compareRankToSchool`
+(student's top share against C10 shares), `compareApExams` (new 0.06
+component only when the student has exam results, weighted toward exams
+in the intended field); red flags for a Math section under the 25th
+percentile for a quantitative major and for field AP scores under 3;
+`profileComparison` on every positioning result. `buildStudentModel`
+reads `ap_scores_json`/`apScores` and `class_rank_json`/`classRank`.
+New `backend/test-catalog.js` (mirrored by `frontend/src/test-scores.js`,
+pinned together by `tests/test-catalog.test.js`): every test's range,
+sections and derivation rule, `validateTestEntry`, `normalizeTestScores`,
+`normalizeClassRank`. `chat-grounding.js`: the profile block renders every
+test's sections and "Class rank: top 3% (12 of 400)"; the fidelity check
+compares a stated ACT subscore with the recorded sections (not the
+composite) and flags a class-rank claim of better standing than recorded;
+the VERIFIED DATA block renders ACT section bands, score-range shares, the
+GPA distribution, the GPA band and submitted shares. `rag-engine.js`:
+`profile_snapshots.class_rank_json` (migration on boot;
+`setSnapshotClassRank` runs after the unchanged twelve-value insert).
+`server.js`: all three `buildStudentModel` call sites pass AP scores and
+class rank; the three profile loaders return `classRank`. Route test in
+`council-naming-deadlines-routes.test.js` ("subscores, AP scores and class
+rank reach the profile, the College Fit read and the counselor").
+**Bug found by that test:** the positioning cache was keyed by targets and
+major only, so a second student asking about the same school and major
+was served the first student's read; the key now includes `studentId` and
+the snapshot id, so a profile edit recomputes.
 
-**ED II, SAT sections, wider CDS read (2026-09-07)** — `cb73dd8`. ED II
-through the scout, the deadline answer, the research schema and the
-client's deadline creation; `POST /api/calendar/context` falls back
-snapshot → on-demand page read → model research → CDS closing dates rolled
-onto this cycle → typical dates; SAT `sections` end to end;
-`cds-pdf-parser.js extractExtras` reads C9 sections, submit rates, C10,
-C13, C14/C21/C22 dates, H2 and I2 into `cds_records.extras_json`.
+**The wider Common Data Set read (2026-09-08)** — `c33004f`.
+`cds-pdf-parser.js extractExtras` reads ACT English/Math/Reading/Science
+bands (`extras.actSections`, with `p50` when three numbers are printed —
+`satSections` gained `p50` too), the C9 score-range tables
+(`extras.scoreDistribution.{satComposite, satSections, actComposite,
+actSections}`, read column by column from header x-positions via
+`extractScoreDistributions`, so Columbia's blank composite cell in "24-29
+2% 7% 1% 3%" cannot shift values), the C11 GPA distribution
+(`extras.gpaDistribution`, last column when three are filled, a truncated
+"between 3.75" label handled), the C12 average and submitted share
+(`extras.gpa`), and `classRank.topHalfPct`/`submittedPct`. Two old bugs:
+percentages were read as whole numbers ("97.8%" → 8, Stanford's top-tenth
+share was 8 and its SAT submit rate 3 — now decimals), and the text-scan
+GPA extractors expected "3.75-3.99" where the form says "between 3.75 and
+3.99", so no cached record had a GPA band. `parserVersion` is 4;
+`cds-store.js ensureCdsStoreSeeded` re-ingests a parsed file whose version
+is newer than the row's; `cdsRecordToPositioningResult` carries
+`gpaBand`, `satSections`, `actSections`, `scoreDistribution`,
+`gpaDistribution`, `classRank`, `submitting` into `parsed`. All 30 PDF-
+backed parsed records were regenerated with only `extras`, `enrolledGPA`
+and `parserVersion` replaced (validated numbers untouched); the three
+xlsx-backed ones (Stony Brook, Berkeley, UIUC) were not.
 
-**2026-09-06** — `0cf696c` (seven review fixes: on-demand page read before
-model research for calendar deadlines, "(approximate — verify)" titles,
-privacy footer, the ghostwriting 400 shown as the reply, activity category
-default, endpoint-free i18n strings and drift refresh, relevant follow-up
-actions, bounded EC re-rank); `d292cb4`, `5fb313e`, `15a2643`, `6e4a4ec`
-(per-turn timings, the orchestrate pre-flight removed and the validator
-run only on risky drafts, prompt ordered most-static first, the thread
-graph in `backend/chat-graph.js` with THREAD MEMORY recall).
-
-**Earlier (2026-09-03 to 2026-09-05)** — official-source gate sensitivity
-(`e737f62`, `a02ff77`, `3b833b8`); `CLAUDE.md` as the edit harness; admin
-model picker and the two-week scout cadence (`64c6520`, `4f993d3`); the
-model-catalog scout (`34e366f`, `f985290`); crisis gate on first-person
-statements only (`209335b`); untruncated uploads with OCR and transcript
-import (`fdfb517`, `aca3525`); the College Fit double-check (`02c5256`,
-`1a4c823`); profile grounding, the CDS source label and the
-admissions-policy scout itself.
+**Earlier (2026-09-07 and before)** — deadline tables in the policy scout,
+Columbia's official CDS, scout resilience, applicant counts on the CDS
+line (`c4c5bb0` and the commits it summarizes); the official-source gate,
+the model-catalog scout, crisis handling, OCR uploads, the College Fit
+double-check, profile grounding.
 
 ## Verified live, and not
 
-All checks used throwaway student accounts on production, deleted
-afterwards except two whose deletes were lost to a restart and a
-connection timeout (see *Open items*).
+All checks used throwaway `probe-*@example.test` accounts on production,
+deleted afterwards (each delete returned 200).
 
-- **Columbia (after `3185827`, 2026-09-07 10:44 UTC):** `GET
-  /api/cds/school/columbia-university` returned the new record —
-  `yearLabel 2024-25`, 60,247 applied / 2,325 admitted / 1,483 enrolled,
-  admit rate 3.86%, SAT 1510–1560, interview not considered, RD January 1,
-  fee 85 USD, source opir.columbia.edu — so the boot re-ingest worked on the
-  populated database. A chat turn asking for Columbia's applicant numbers
-  and SAT range cited "Columbia CDS 2024-25" for the ED volume (6,007
-  applied, 795 admitted) and the 1510–1560 band; it said it had no verified
-  total applicant count, which `be12040` addresses. After `be12040`
-  (11:02 UTC) the same question answered "Applied: 60,247 · Admitted: 2,325
-  (3.9%) · Enrolled: 1,483 (yield 63.8%) · SAT 1510–1560" with the
-  opir.columbia.edu source, 14 s on the small tier.
-- **Johns Hopkins ED II (after `81e400b` and `f9a8346`):** before the
-  deploys, the calendar entry came from the scout snapshot of
-  2026-09-06T10:08:51Z with `edII: null`, and the deterministic deadline
-  answer said the pages read do not state an ED II deadline (so the "asked
-  plan" detection for ED II works). At 11:20:51 UTC, minutes after
-  `f9a8346` went live, a calendar request took 13.5 s — the on-demand
-  re-read of the older snapshot — and returned ED 2026-11-01, ED II
-  2027-01-02, RD 2027-01-02 with the deadlines page as source and a fresh
-  `extractedAt`; the chat turn "When is Johns Hopkins University's Early
-  Decision II deadline?" then answered deterministically "Early Decision:
-  2026-11-01 · Early Decision II: 2027-01-02 · Regular Decision:
-  2027-01-02" with `onDemandRead: null` (the snapshot was current by
-  then). That is the table fix, the version stamp and the on-demand refresh
-  working together on production.
-- **Sweep progress:** Brown's snapshot refreshed at 2026-09-07T10:15:48Z
-  and Carnegie Mellon's at 10:16:51Z, proving the version-4 boot sweep ran
-  on the new build. Stanford (still 2026-09-03), Cornell and Emory (still
-  2026-09-06) and Johns Hopkins were never reached, and Yale, Duke,
-  Harvard, Dartmouth and Princeton had no snapshot at all until probes read
-  them on demand — the sixty-school cap filled before the Common Data Set
-  schools. No sweep resumed after the later boots (Brown's time did not
-  change), consistent with that sweep having completed within its cap
-  rather than being cut short, so the abandoned-run path in `f51e9ef` was
-  not exercised live.
-- **Incidental on-demand reads:** probing Northeastern, Yale, Duke and
-  Harvard created snapshots for them (10–12 s each); Harvard's pages
-  yielded no dates and the calendar entry fell back to its Common Data Set
-  (`source: "cds"`, RD 2027-01-01) — the first time the CDS fallback was
-  seen live.
-- One chat turn about Columbia returned the composer's "There is not enough
-  information to produce a specific suggestion." with `verifiedData: true`
-  on the small tier, right before a 502 during the `f51e9ef` deploy; the
-  same question answered fully a minute later. Not reproduced; if it
-  recurs, capture `_meta` and the model's raw reply.
-
-Verified on 2026-09-06 and earlier (throwaways deleted): the catalog
-recovery and SAT-section fit read after `9f75ddb`; the ghostwriting 400;
-Johns Hopkins and Emory calendar context from official pages; EC ranking
-timing; the thread graph writing and recalling facts; the gate cases; the
-crisis probes; the admin picker on a local copy.
-
-Not verified: anything that needs a browser session (the client `[chat
-timing]` line, the validator skip rate, the ghostwriting reply rendering,
-the approximate deadline titles, the ranker's elapsed counter and Retry,
-the drift banner refresh); the production admin page (needs the counselor
-password); Render's boot log; the next automatic scout dates — read `GET
-/api/admin/policy-scout/status` and `GET /api/admin/models` as the
-counselor.
+- **After `9dbafe0` (bundle `main-bGb17sj1.js`, ~21:00 UTC):** sync of a
+  profile with SAT 1520 (740/780), ACT 33 (35/31/34/32), AP 5 and 4,
+  class rank 12 of 400 → `GET /api/students/profile` returned
+  `classRank {topPercent 3, rank 12, size 400}` and the ACT sections;
+  `POST /api/positioning/targets` for Stanford (searchCds false) returned
+  `profileComparison` with the SAT read "within" 1510–1580, both sections
+  against Stanford's 740–780 / 770–800 bands, the ACT as the weaker
+  alternative (33 vs 34–36), placement "1400–1600, 97.3% of submitters",
+  GPA 3.9 in the 3.75–3.99 band with 73.3% above, class rank top10 against
+  97.8%, AP count 2, advice "submit"; provenance `cds_store`, validated —
+  so the boot re-ingest of the parser-4 records reached production. Label
+  "High reach 20.5" (the probe's profile had two courses and no narrative;
+  three pre-existing red flags).
+- **Chat, before the adapter fixes:** the College Fit question about ACT
+  sections and class rank at Stanford answered fully on the small tier in
+  36 s, citing "Stanford University Common Data Set 2024 (validated
+  against ground truth)" with a section-by-section table; a plain coaching
+  question answered on the medium tier in 17 s and quoted the AP score
+  correctly. Two shorter fit questions came back as the composer's
+  fallback sentence at exactly 40.0 s (the cut-off body read).
+- **Chat, after `b7e7bba` (bundle `main-ENyTRcx7.js`, 03:22 UTC on
+  2026-09-09):** the plain question 17 s; "Should I submit my SAT to
+  Stanford?" answered in 18 s ("Stanford requires test scores… your SAT is
+  clearly the right one", citing the scouted policy line); the Knox
+  College question (no CDS, no baseline) answered honestly in 26 s: no
+  verified data, then the student's own SAT and ACT sections listed. The
+  Stanford ACT-sections question came back blank after 15.7 s — not a
+  timeout: the small tier's model returned empty content, the second
+  adapter fix.
+- **Chat, after `52a833c`/`333cfc3` (backend-only deploy, restart seen
+  at 06:28 UTC on 2026-09-09), two probes of four turns each, eight
+  answers, no blanks:** the Stanford ACT-sections question answered in
+  11.2 s and 18.2 s with a section table quoting "English 35–36, Math
+  33–36, Reading 34–36, Science 33–36 [Source: Stanford University Common
+  Data Set 2024]"; "Should I submit my SAT to Stanford?" answered in 56 s
+  once (the empty-reply follow-up at 4,096 tokens inside the same
+  attempt) and 16.4 s the next time (the learned floor); the Knox College
+  question answered in 5.3–8.7 s pointing at Knox's own CDS and IPEDS;
+  the plain coaching question 16.5–17.9 s on the medium tier. Every
+  probe account deleted (200).
+- **Not verified:** the dashboard editors and the fit card in a real
+  browser (vitest covers them); the Korean strings in situ; the
+  `class_rank_json` migration on the populated production database beyond
+  the profile round-trip above (it worked); the weighted-average read
+  live (Harvard); `GET /api/cds/school/<slug>` does not expose `extras` or
+  `parserVersion` (it returns a canonical shape), so the fit read is the
+  way to see the wider data on production.
 
 ## Open items and things to watch
 
-- **Two throwaway accounts may remain on production.** A Columbia probe at
-  2026-09-07 10:44:53 UTC registered `probe-<id>@example.test` (the id is
-  the registration time in base-36, between `mtr467pk` and `mtr46993`) and
-  its `DELETE /api/students` got a 502 during the `f51e9ef` deploy; a
-  Johns Hopkins probe registered at about 10:29 UTC (id between
-  `mtr3lsdc` and `mtr3nptc`) crashed on a connection timeout before its
-  delete. Whether either delete landed is unknown. If they show in the
-  admin roster (email domain `example.test`, grade 11, CA), delete them.
-  Probes now print their account, survive connection errors and retry
-  deletion.
-- The automatic sweep is capped at sixty schools per run
-  (`POLICY_SCOUT_MAX_SCHOOLS`) and the target list is students' goal
-  schools, then every school with a stored CDS, then the research cache.
-  With the stale-first ordering every school is reached within a few
-  sweeps, but a fortnight apart; if the counselor wants the whole list
-  every time, raise the cap on Render or run the scout from the admin page.
-  The next automatic run's date is on `GET /api/admin/policy-scout/status`.
-- The table pass has known limits: a non-plan column before or between
-  plan columns makes it stand down (the old section logic then applies); a
-  heading like "Early Decision or Regular Decision" followed by a line
-  with two dates reads as a one-line table (bounded by the 30-day guard and
-  the evidence string). When a school misreads, add its text to
-  `admissions-policy-scout.test.js` first.
-- The new document-scope extractor has only been exercised on the two
-  Columbia PDFs; running `tools/cds-validator.js`'s `validateAll` would
-  compute scopes for all 35 cached PDFs and could flag mismatches the
-  registry's `expectedScope` patterns did not anticipate (Caltech's
-  pattern wants "California Institute of Technology"). Run it deliberately
-  and review before committing what it rewrites.
-- `index.json` is a cache of College Transitions' index; `fetchIndex({force:
-  true})` would restore Columbia's Drive (General Studies) links. The
-  registry's scope pattern and admit-rate drift would flag a re-parse, but
-  keep the 2024-25 official link preferred.
-- The scout spent one of its seven page slots on Johns Hopkins' Spanish
-  duplicate (`/es/how-to-apply/…`). Excluding locale-prefixed paths in
-  `LINK_EXCLUDE_RE` is cheap; not done to avoid yet another deploy.
-- The deterministic deadline answer says "a Early Decision II deadline"
-  (article). Cosmetic, in `deadlinesFromResearchCache` in `server.js`.
-- CDS extras are parsed, never validated against ground truth; Cornell,
-  Washington and Wisconsin yielded no extras (layout/OCR).
-- SAT sections are not yet read from an uploaded score report
-  (`transcript-import.js` parses courses only).
-- The on-demand page read adds up to 15 s to a calendar request or a pure
-  deadline lookup for a school with no snapshot; the snapshot is reused
-  afterwards and the first read logs a "change"; expected.
-- The model call is ~99% of server turn time. Streaming the final answer
-  conflicts with the post-hoc fidelity check, PII restore and validator
-  ("stream, then patch the footnote"). Not started.
-- The thread graph links a school only when `detectSchoolMentions` does;
-  bare "Brown" or "Cornell" is not an alias. Adding bare names to
-  `SCHOOL_ALIASES` would also change the VERIFIED DATA block; decide
-  deliberately. Facts accumulate one per assistant turn with no cap.
-- If a bad answer slips past the narrower validator, add the pattern to
-  `RISKY_OUTPUT_TOKENS` / `OVERCLAIM_OUTPUT_TOKENS` / `CONDUCT_OUTPUT_TOKENS`
-  in `orchestrateStages` rather than restoring the length rule.
-- `LOOKUP_ASK_RE` / `GUIDANCE_RE` in `policy-router.js` are word lists; when
-  a phrasing misroutes, pin it in `policy-router.test.js` and extend them.
-- If the StudentAid.gov follow-up footer reappears on an unrelated
-  question, capture the question text and add it to
-  `answer-composer.test.js`.
+- **Old positioning cache rows** keyed without a student remain in the
+  scorecard query cache until pruned; they are unreachable under the new
+  key. Every student's first fit read after the deploy recomputes.
+- **Rows regenerated by the parser** are unvalidated extras (the validator
+  checks admit rate, SAT band, scope and B1 only). Spot checks: Columbia
+  (blank C11 → no GPA), Stanford, Harvard (4.21 weighted average), Boston
+  University (truncated label), Florida, Yale (no ACT table) read right.
+  Cornell, Washington and Wisconsin still yield no extras (pdfjs finds
+  nothing usable); the xlsx records keep parser version 2/3 and no
+  sections — running `cds-xlsx-parser.js` through the same regeneration
+  would fill them, since the C11/C12 text-scan fixes apply to it too.
+- **Georgia Tech's GPA band reads 4.0–4.0** (more than 75% of the class
+  at 4.0); `cdsLine` prints "25th and 75th percentile both in the 4 band".
+- **Small-tier latency and empty replies.** A College Fit turn on the
+  small tier takes 16–45 s; the medium tier answers in ~17 s. The default
+  small model (`google/gemma-4-26b-a4b-it`, `llm-adapters/tier-defaults.js`)
+  is reasoning-capable but not on `REASONING_MODEL_PATTERNS`, so at the
+  chat's 1,024-token budget it can return empty content with
+  `finish_reason: "length"`; the adapter now retries once at 4,096 and
+  remembers the floor per process (`BUDGET_RETRY_MODELS` in
+  `llm-adapters/index.js`), and logs `[llm] <model> returned no text`.
+  If blanks still appear, read that log line, add the model to the
+  reasoning patterns (floor 8,192), or route COLLEGE FIT turns to the
+  medium tier (`TIER_BY_CLASSIFICATION` in the chat route).
+- The `normalizeTestScores` helper exists but the sync route still stores
+  `profile.testScores` as sent; the client validates before saving. Wiring
+  it in would drop malformed entries from older builds silently — decide
+  deliberately.
+- The class-rank fidelity check flags only "top N%" claims of better
+  standing than recorded; "top tenth" wording is not checked.
+- Items carried from 2026-09-07: the sixty-school scout cap
+  (`POLICY_SCOUT_MAX_SCHOOLS`), the table-pass limits in the scout, the
+  document-scope extractor exercised only on Columbia, `index.json` as a
+  cache of College Transitions' index, the Spanish duplicate page slot,
+  the "a Early Decision II" article, SAT sections not read from uploaded
+  score reports, streaming vs the post-hoc fidelity check, bare "Brown"
+  not an alias, validator token lists, the StudentAid.gov footer.
 
 ## Quick verification recipes
 
-Scout extraction, cadence, CDS store and validator:
+Engine, grounding, catalog, parser, store and adapter:
 
 ```bash
-cd backend && node --test tests/admissions-policy-scout.test.js tests/scout-cadence.test.js tests/cds-store.test.js tests/cds-validator.test.js tests/chat-grounding.test.js
+cd backend && node --test tests/positioning-engine.test.js tests/chat-grounding.test.js tests/test-catalog.test.js tests/cds-extras.test.js tests/cds-store.test.js tests/llm-adapters.test.js
 ```
 
-Replay the scout's read of one school offline (network, no database):
-from `backend/`, run a `.mjs` script in a scratch folder that imports
-`readSchoolPolicyLive` from `./admissions-policy-scout.js`, calls it with
-`{ name, website }` (the website is needed without a Scorecard key) and
-prints `live.policy.deadlines` and each `live.pages[i].text`. Set
-`POLICY_SCOUT_DEBUG=1` to see every fetch, and run it from the scratch
-folder: anything it writes lands in the current directory.
+Route test for the whole path (spawns the server, ~1 min):
 
-Re-parse one cached CDS PDF the way the cache was built: from `backend/`,
-a script that imports `parseCDSPositional` from `./cds-pdf-parser.js` and
-`extractDocumentScope`, `validateRecord`, `loadCorrections` from
-`./tools/cds-validator.js`; parse the PDF, detect its scope, validate
-against `loadCorrections()[slug]`, and write the record with the
-`validation` block to `tools/cds-cache/parsed/<slug>.json` (keep
-`yearLabel`, `sourceUrl`, `tier`). `loadCorrections()` also rewrites
-`_corrections.json` from the in-code table.
-
-Live probe with a throwaway account (Node 22, `BASE` is the site):
-
-```js
-const base = process.env.BASE, t = Date.now().toString(36); let token = "";
-console.log("account", `probe-${t}@example.test`);
-const call = async (m, p, b) => { const r = await fetch(base + p, { method: m, headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) }, body: b && JSON.stringify(b) }); return { status: r.status, data: await r.json().catch(() => null) }; };
-token = (await call("POST", "/api/students/register", { email: `probe-${t}@example.test`, password: `probe-${t}-correct-horse`, grade: 11, state: "CA", schoolDomain: "example.edu", majorInterest: "Computer Science" })).data.token;
-for (const consentType of ["data_processing", "ai_interaction", "cross_border_transfer"]) await call("POST", "/api/consent/grant", { consentType, grantedBy: "student" });
-await call("POST", "/api/students/sync", { profile: { gpa: { unweighted: 3.7 }, courses: [], testScores: [{ test: "sat", totalScore: 1380 }], apScores: [] }, activities: [], majorInterest: "Computer Science", goals: [] });
-const cal = await call("POST", "/api/calendar/context", { targetSchools: ["Johns Hopkins University"], research: false });
-console.log(cal.data.schools[0].deadlines, cal.data.schools[0].extractedAt);
-console.log((await call("GET", "/api/cds/school/columbia-university")).data?.b1);
-const turn = await call("POST", "/api/chat", { system: "You are the COLLEGE FIT specialist for students ages 14-18.", messages: [{ role: "user", content: "When is Johns Hopkins University's Early Decision II deadline?" }], request_id: `probe-${t}-1` });
-console.log(turn.data._meta, turn.data.answer);
-let del; for (let i = 0; i < 6 && del?.status !== 200; i += 1) { del = await call("DELETE", "/api/students"); if (del.status !== 200) await new Promise((r) => setTimeout(r, 10000)); }
-console.log(del);
+```bash
+cd backend && node --test --test-name-pattern="subscores, AP scores and class rank" tests/council-naming-deadlines-routes.test.js
 ```
+
+Frontend: `cd frontend && npx vitest run && npm run build`.
+
+Re-parse one cached CDS PDF and print the wider read: from a scratch
+folder, a `.mjs` that imports `parseCDSPositional` from
+`file:///…/backend/cds-pdf-parser.js` (Windows needs the `file://` form),
+calls it on `backend/tools/cds-cache/pdfs/<slug>.<year>.pdf` with
+`{ method: "auto" }`, and prints `enrolledGPA` and `extras`. To regenerate
+the parsed records after a parser change, spread the existing JSON, replace
+only `extras`, `enrolledGPA` and `parserVersion`, keep the 2-space indent
+and trailing newline, and review `git diff` of the previously existing
+values (this session's regeneration changed only the decimal-bug values).
+
+Live probe with a throwaway account (Node 22, `BASE` is the site): register
+with grade 11 / CA / example.edu, grant the three consents, sync a profile
+with `classRank: { rank, size }`, SAT and ACT `sections`, and `apScores`;
+then `GET /api/students/profile` (expect `classRank` and `sections` back),
+`POST /api/positioning/targets` `{ targets: [{ schoolName: "Stanford
+University" }], major: "Computer Science", searchCds: false }` (expect
+`targets[0].profileComparison`), a `POST /api/chat` with the COLLEGE FIT
+system prompt asking how the ACT sections compare at Stanford (expect a
+cited section table, `_meta.timings.model` well under 60 s), and `DELETE
+/api/students` with retries. Print the account first; a 502 during a
+deploy can lose the delete.
 
 Deploy markers: `/` carries `assets/main-*.js` (changes only with
 `App.jsx`), `/admin.html` carries `assets/admin-*.js`; a backend-only
-deploy shows only as a brief `/api/health` blip (and 502s for a few
-seconds) after CI succeeds, and `/api/health` reports nothing but
-`status` in production. A scout version bump or a resumed sweep shows up
-as fresh `extractedAt` values on calendar entries, school by school, five
-minutes after boot and over the following half hour or more.
-
-Admin page on a scratch database (never production): build the frontend,
-then from `backend/` run `web-launcher.mjs` with `PORT`, `SIM_PORT`,
-`HOST=127.0.0.1`, a scratch `DATA_DIR`, `PUBLIC_DIR=../frontend/dist`,
-`WEB_CONFIG_KEY` (32+ chars), `WEB_ADMIN_BOOTSTRAP_TOKEN` (24+ chars),
-`WEB_COOKIE_SECURE=0`, `CDS_DAILY_REFRESH=0`, `POLICY_SCOUT=0`; the first
-visit to `/admin.html` bootstraps a throwaway counselor with that token.
-Delete the scratch `DATA_DIR` afterwards.
+deploy shows only as a brief `/api/health` blip after CI succeeds. The
+boot log line `[cds-store] re-ingesting N parsed CDS record(s) from a
+newer parser version` is the parser-4 top-up.
 
 ## Tooling notes for a Claude session on this machine
 
 - Bash heredocs containing single quotes fail here; write node scripts and
-  commit messages with the Write tool and run or `-F` them. The working
-  directory drifts between calls (it sat in `backend/` for most of this
-  session) — use absolute paths, especially for `git add`.
+  commit messages with the Write tool and run or `-F` them. Import backend
+  modules from scratch scripts with `file:///C:/…` URLs.
 - Stage explicit paths only; commit messages end with
   `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
 - Foreground `sleep` is blocked; a background Bash loop with `sleep` (CI
-  watch over `gh run list`, a delayed probe) works, as does the Monitor
-  tool tailing a background task's output file.
-- A probe that spans a deploy can lose its final request to a 502; print
-  the account first and retry the delete. Student session tokens are
-  SQLite-backed and survive the restart.
-- The in-app Browser pane can fill forms but screenshots are correct only
-  at scroll position 0; for anything below the fold use headless Chrome
-  (`npm i playwright-core` in a scratch folder,
-  `chromium.launch({ channel: "chrome" })`, clip with page coordinates).
+  watch over `gh run list`, a deploy-marker wait that then runs the probe)
+  works and notifies on completion.
+- The route-test file shares one server and database across its tests;
+  a cache or state leak between students shows up only in the full run,
+  never when a test runs alone (`--test-name-pattern`).
+- Overnight on 2026-09-09 every process launch on this machine took
+  seconds (`node -e 1` 2–15 s, `cmd /c echo` 11 s, CPU idle, memory
+  free; even a PowerShell counter sample timed out), so a server boot took
+  56 s and the five server-spawning test files reported 31 timeouts that
+  were nothing but the health wait expiring. Those waits are now a minute
+  (`waitForHealth`/`waitFor`/`waitForUrl` loops). If `npm test` fails only
+  with "Timed out waiting for route-test server", time `node -e 1` before
+  suspecting the code; run the failing file alone to confirm.
+- jsdom has no `scrollIntoView`; `frontend/src/test-setup.js` shims it.
+  The chat screen's sidebar is in the DOM even when closed, so its editors
+  are reachable from a signed-in vitest without toggling it.
