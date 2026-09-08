@@ -467,10 +467,15 @@ export function compareGpaToSchool(student, college, cdsResult) {
   const band = bandOf(parsed.gpaBand?.low, parsed.gpaBand?.high);
   const rows = Array.isArray(parsed.gpaDistribution) && parsed.gpaDistribution.length ? parsed.gpaDistribution : null;
   const gpa = student.gpa;
+  // An average above 4.0 is a weighted one (Harvard reports 4.21): it is
+  // compared with the student's weighted GPA, or capped at 4.0 when the
+  // student has none, never with the unweighted GPA it would dwarf.
+  const weightedScale = average != null && average > 4;
+  const gpaForAverage = weightedScale ? (student.weightedGpa ?? gpa) : gpa;
   // Tighter than before but not punitive: at the admitted average ≈54, ~0.2
   // above ≈85, ~0.2 below ≈23. No-GPA default 30.
-  const target = average ?? 3.75;
-  const formulaScore = gpa != null ? clamp01((gpa - (target - 0.35)) / 0.65) * 100 : 30;
+  const target = weightedScale && student.weightedGpa == null ? 4 : (average ?? 3.75);
+  const formulaScore = gpaForAverage != null ? clamp01((gpaForAverage - (target - 0.35)) / 0.65) * 100 : 30;
   let placement = null;
   let distributionScore = null;
   if (gpa != null && rows) {
@@ -497,10 +502,12 @@ export function compareGpaToSchool(student, college, cdsResult) {
   else { score = formulaScore; basis = "default"; }
   const position = gpa == null
     ? "unknown"
-    : (band ? positionLabel(gpa, band) : (average != null ? (gpa >= average + 0.05 ? "above" : gpa >= average - 0.1 ? "within" : "below") : "unknown"));
+    : (band ? positionLabel(gpa, band) : (average != null && gpaForAverage != null ? (gpaForAverage >= target + 0.05 ? "above" : gpaForAverage >= target - 0.1 ? "within" : "below") : "unknown"));
   return {
     gpa,
     average,
+    averageScale: average == null ? null : (weightedScale ? "weighted" : "unweighted"),
+    comparedGpa: gpaForAverage,
     band,
     position,
     placement,
@@ -568,7 +575,9 @@ export function scoreAcademicReadiness(student, college, cdsResult) {
   const totalWeight = Object.values(featureWeights).reduce((a, b) => a + b, 0);
   for (const key of Object.keys(featureWeights)) featureWeights[key] /= totalWeight;
 
-  const targetGpa = gpaRead.average ?? 3.75;
+  // The rigor expectation follows the admitted average on the 4.0 scale; a
+  // weighted average (4.21) would otherwise demand ten AP courses.
+  const targetGpa = Math.min(4, gpaRead.average ?? 3.75);
   const gpaScore = gpaRead.score;
   const rigorExpectation = Math.max(4, Math.round((targetGpa - 3.2) * 10));
   const rigorScore = clamp01((student.rigorousCourseCount + student.seniorRigorCount * 0.5) / Math.max(1, rigorExpectation)) * 100;
@@ -837,7 +846,7 @@ export function buildProfileComparison(reads) {
       submitting: tests?.submitting ?? null,
       score: tests?.score ?? null,
     },
-    gpa: gpa ? { gpa: gpa.gpa, average: gpa.average, band: gpa.band, position: gpa.position, placement: gpa.placement, basis: gpa.basis, score: gpa.score } : null,
+    gpa: gpa ? { gpa: gpa.gpa, average: gpa.average, averageScale: gpa.averageScale, comparedGpa: gpa.comparedGpa, band: gpa.band, position: gpa.position, placement: gpa.placement, basis: gpa.basis, score: gpa.score } : null,
     classRank: classRank ? { topPercent: classRank.topPercent, bucket: classRank.bucket, school: classRank.school, shareAbove: classRank.shareAbove, basis: classRank.basis, score: classRank.score } : null,
     apExams: apExams ? { count: apExams.count, average: apExams.average, strong: apExams.strong, weak: apExams.weak, relevant: apExams.relevant, relevantAverage: apExams.relevantAverage, score: apExams.score } : null,
   };

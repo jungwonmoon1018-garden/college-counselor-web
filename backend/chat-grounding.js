@@ -785,7 +785,9 @@ function cdsLine(record, validated) {
   if (sat) parts.push(`enrolled SAT middle 50% ${sat}`);
   const act = range(record.enrolledACT?.p25, record.enrolledACT?.p75);
   if (act) parts.push(`enrolled ACT middle 50% ${act}`);
-  if (record.enrolledGPA?.avg != null) parts.push(`average enrolled GPA ${record.enrolledGPA.avg}`);
+  // An average above 4.0 is on the school's weighted scale (Harvard reports
+  // 4.21); the model must not read it against an unweighted GPA.
+  if (record.enrolledGPA?.avg != null) parts.push(`average enrolled GPA ${record.enrolledGPA.avg}${Number(record.enrolledGPA.avg) > 4 ? " (weighted scale)" : ""}`);
   // C11 read as a band: the lower bounds of the GPA ranges that hold the
   // 25th and 75th percentile of the enrolled class.
   const gpaBand = range(record.enrolledGPA?.p25, record.enrolledGPA?.p75);

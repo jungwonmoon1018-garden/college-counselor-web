@@ -170,9 +170,12 @@ function ProfileComparison({ pc, locale }) {
   const g = pc.gpa;
   if (g && g.gpa != null) {
     const parts = [];
-    if (g.average != null) parts.push(`${t(locale, "fit.cmp_average")} ${g.average}`);
+    // A weighted average (above 4.0) is compared with the weighted GPA.
+    const weighted = g.averageScale === "weighted";
+    if (g.average != null) parts.push(`${t(locale, "fit.cmp_average")} ${g.average}${weighted ? ` (${t(locale, "fit.cmp_weighted")})` : ""}`);
     if (g.band) parts.push(`${t(locale, "fit.cmp_band")} ${g.band.low}–${g.band.high}`);
-    rows.push({ label: t(locale, "fit.cmp_gpa"), value: `${g.gpa}${parts.length ? ` · ${parts.join(", ")}` : ""}${g.position !== "unknown" ? ` · ${t(locale, `fit.pos_${g.position}`)}` : ""}`, tone: g.position });
+    const shownGpa = weighted && g.comparedGpa != null && g.comparedGpa !== g.gpa ? `${g.gpa} (${t(locale, "fit.cmp_weighted")} ${g.comparedGpa})` : `${g.gpa}`;
+    rows.push({ label: t(locale, "fit.cmp_gpa"), value: `${shownGpa}${parts.length ? ` · ${parts.join(", ")}` : ""}${g.position !== "unknown" ? ` · ${t(locale, `fit.pos_${g.position}`)}` : ""}`, tone: g.position });
     if (g.placement) rows.push({ value: fill(t(locale, "fit.cmp_gpa_placement"), { above: g.placement.shareAbove, band: g.placement.band }), tone: "unknown", sub: true });
   }
   const r = pc.classRank;

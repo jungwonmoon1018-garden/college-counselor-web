@@ -451,3 +451,26 @@ test("the positioning result carries the profile comparison the card renders", (
   assert.equal(bare.profileComparison.classRank.bucket, null);
   assert.equal(bare.profileComparison.apExams.score, null);
 });
+
+test("a weighted admitted average (Harvard's 4.21) is compared with the weighted GPA, never the unweighted one", () => {
+  const harvard = { name: "Harvard", acceptanceRate: 3.6, avgGpaAdmitted: 4.21, sat25: 1500, sat75: 1580, topMajors: [] };
+  const cds = { parsed: { c7: {}, gpaAverage: 4.21, gpaDistribution: [{ low: 4, high: 4, pct: 72.4 }, { low: 3.75, high: 3.99, pct: 22.2 }, { low: 3.5, high: 3.74, pct: 4.1 }, { low: 3.25, high: 3.49, pct: 1.3 }] } };
+  const weighted = compareGpaToSchool(buildStudentModel({ gpa_unweighted: 4, gpa_weighted: 4.48, major_interest: "Biology" }, [], null), harvard, cds);
+  assert.equal(weighted.averageScale, "weighted");
+  assert.equal(weighted.comparedGpa, 4.48);
+  assert.equal(weighted.position, "above");
+  assert.ok(weighted.score >= 80, `a 4.0/4.48 at a 4.21 weighted average must read in range, got ${weighted.score}`);
+  // Without a weighted GPA the target is the top of the 4.0 scale, so a
+  // perfect unweighted record reads at the average rather than far below.
+  const unweightedOnly = compareGpaToSchool(buildStudentModel({ gpa_unweighted: 4, major_interest: "Biology" }, [], null), harvard, cds);
+  assert.equal(unweightedOnly.comparedGpa, 4);
+  assert.ok(unweightedOnly.score >= 60, `got ${unweightedOnly.score}`);
+  assert.ok(unweightedOnly.score < weighted.score);
+  // The rigor expectation stays on the 4.0 scale.
+  const readiness = scoreAcademicReadiness(buildStudentModel({ gpa_unweighted: 4, gpa_weighted: 4.48, major_interest: "Biology", courses: [{ name: "AP Biology", type: "ap", grade: "A", year: "11" }] }, [], null), harvard, cds);
+  assert.ok(readiness.componentScores.rigorScore > 10);
+  // An ordinary average is unweighted and compares with the unweighted GPA.
+  const plain = compareGpaToSchool(buildStudentModel({ gpa_unweighted: 3.8, gpa_weighted: 4.3, major_interest: "Biology" }, [], null), { avgGpaAdmitted: 3.9 }, { parsed: {} });
+  assert.equal(plain.averageScale, "unweighted");
+  assert.equal(plain.comparedGpa, 3.8);
+});
