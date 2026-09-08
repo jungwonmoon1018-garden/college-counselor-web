@@ -20,8 +20,9 @@ function freePort() {
   });
 }
 
+// Up to a minute (see council-naming-deadlines-routes.test.js).
 async function waitFor(url, output) {
-  for (let attempt = 0; attempt < 100; attempt += 1) {
+  for (let attempt = 0; attempt < 300; attempt += 1) {
     try {
       const response = await fetch(url);
       if (response.ok) return response;
@@ -31,7 +32,8 @@ async function waitFor(url, output) {
   throw new Error(`Website launcher did not become ready.\n${output.join("")}`);
 }
 
-test("website launcher gates students and protects first counselor bootstrap", { timeout: 30_000 }, async () => {
+// The test's own limit must outlast the launcher's minute-long boot wait.
+test("website launcher gates students and protects first counselor bootstrap", { timeout: 90_000 }, async () => {
   const [port, simPort] = await Promise.all([freePort(), freePort()]);
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "cc-web-launcher-"));
   const output = [];

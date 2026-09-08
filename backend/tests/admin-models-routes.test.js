@@ -34,8 +34,9 @@ function freePort() {
   });
 }
 
+// Up to a minute (see council-naming-deadlines-routes.test.js).
 async function waitForHealth() {
-  for (let attempt = 0; attempt < 80; attempt++) {
+  for (let attempt = 0; attempt < 600; attempt++) {
     if (serverProcess?.exitCode != null) {
       throw new Error(`Route-test server exited early (${serverProcess.exitCode}).\n${serverOutput}`);
     }

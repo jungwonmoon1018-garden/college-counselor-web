@@ -26,8 +26,9 @@ let sidecarProcess;
 let serverOutput = "";
 let sidecarOutput = "";
 
+// Up to a minute (see council-naming-deadlines-routes.test.js).
 async function waitForUrl(url, getOutput) {
-  for (let attempt = 0; attempt < 50; attempt++) {
+  for (let attempt = 0; attempt < 300; attempt++) {
     try {
       const res = await fetch(url);
       if (res.ok) return;

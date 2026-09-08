@@ -20,8 +20,9 @@ function clean() {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 }
 
+// Up to a minute (see council-naming-deadlines-routes.test.js).
 async function waitFor(url, proc, outputRef) {
-  for (let i = 0; i < 50; i++) {
+  for (let i = 0; i < 300; i++) {
     if (proc.exitCode != null) throw new Error(`Process exited before ${url}\n${outputRef()}`);
     try {
       const res = await fetch(url);
