@@ -1,4 +1,5 @@
 import { clamp01, matchMajorBucket } from "./ec-vectorizer.js";
+import { normalizeClassRank, sectionEntries } from "./test-catalog.js";
 
 export const C7_RATING_VALUES = Object.freeze({
   very_important: 1,
@@ -170,6 +171,34 @@ function getMajorKeywords(major) {
   return { bucket, keywords: MAJOR_KEYWORDS[bucket] || [] };
 }
 
+// { readingWriting: 720, math: 780 } from a stored test entry, or null.
+function sectionMap(entry) {
+  const out = {};
+  for (const section of sectionEntries(entry)) out[section.key] = section.value;
+  return Object.keys(out).length ? out : null;
+}
+
+// AP exam results as evidence of college-level mastery: how many, the
+// average, the strong (4–5) and weak (1–2) counts, and the exams that speak
+// to the intended major (whole-word keyword match, so "cs" never claims
+// "Physics").
+function summarizeApExams(apScores, keywords = []) {
+  const exams = (Array.isArray(apScores) ? apScores : [])
+    .map((a) => ({ name: String(a?.exam || a?.subject || a?.name || "").trim(), score: Number(a?.score) }))
+    .filter((a) => a.name && Number.isFinite(a.score) && a.score >= 1 && a.score <= 5);
+  const patterns = keywords.map((kw) => new RegExp(`(?<![a-z0-9])${String(kw).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![a-z0-9])`, "i"));
+  const relevant = exams.filter((a) => patterns.some((re) => re.test(a.name)));
+  const average = avg(exams.map((a) => a.score));
+  return {
+    count: exams.length,
+    average: average != null ? round1(average) : null,
+    strong: exams.filter((a) => a.score >= 4).length,
+    weak: exams.filter((a) => a.score <= 2).length,
+    relevant: relevant.map((a) => ({ name: a.name, score: a.score })),
+    relevantAverage: relevant.length ? round1(avg(relevant.map((a) => a.score))) : null,
+  };
+}
+
 export function buildStudentModel(snapshot, strengthRows = [], narrative = null, context = {}) {
   const courses = Array.isArray(snapshot?.courses) ? snapshot.courses : safeJson(snapshot?.courses_json, []);
   const testScores = Array.isArray(snapshot?.testScores) ? snapshot.testScores : safeJson(snapshot?.test_scores_json, []);
@@ -179,9 +208,22 @@ export function buildStudentModel(snapshot, strengthRows = [], narrative = null,
 
   const gpa = Number(snapshot?.gpa?.unweighted ?? snapshot?.gpa_unweighted ?? snapshot?.gpaUnweighted ?? 0) || null;
   const weightedGpa = Number(snapshot?.gpa?.weighted ?? snapshot?.gpa_weighted ?? snapshot?.gpaWeighted ?? 0) || null;
-  const sat = testScores.find((t) => String(t.test || "").toLowerCase() === "sat")?.totalScore || null;
-  const act = testScores.find((t) => String(t.test || "").toLowerCase() === "act")?.totalScore || null;
-  const rankPercentile = Number(snapshot?.classRankPercentile ?? context.classRankPercentile ?? 0) || null;
+  const satEntry = testScores.find((t) => String(t?.test || "").toLowerCase() === "sat") || null;
+  const actEntry = testScores.find((t) => String(t?.test || "").toLowerCase() === "act") || null;
+  const sat = Number(satEntry?.totalScore) || null;
+  const act = Number(actEntry?.totalScore) || null;
+  // Section scores (SAT Reading & Writing and Math; ACT English, Math,
+  // Reading, Science) are compared with a school's section bands.
+  const satSections = sectionMap(satEntry);
+  const actSections = sectionMap(actEntry);
+  // Class rank as the student's standing from the top; C10 of a Common
+  // Data Set reports the enrolled class in the same terms.
+  const classRank = normalizeClassRank(snapshot?.classRank ?? safeJson(snapshot?.class_rank_json, null));
+  const rankPercentile = classRank?.topPercent != null
+    ? Math.round((100 - classRank.topPercent) * 10) / 10
+    : (Number(snapshot?.classRankPercentile ?? context.classRankPercentile ?? 0) || null);
+  const apScores = Array.isArray(snapshot?.apScores) ? snapshot.apScores : safeJson(snapshot?.ap_scores_json, []);
+  const apExams = summarizeApExams(apScores, keywords);
 
   const relevantCourses = courses.filter((course) => {
     const name = normalizeCourseName(course);
@@ -218,6 +260,10 @@ export function buildStudentModel(snapshot, strengthRows = [], narrative = null,
     weightedGpa,
     sat,
     act,
+    satSections,
+    actSections,
+    classRank,
+    apExams,
     rankPercentile,
     courses,
     relevantCourses,
@@ -235,42 +281,286 @@ export function buildStudentModel(snapshot, strengthRows = [], narrative = null,
   };
 }
 
-export function scoreTestPercentile(student, college, cdsResult) {
-  const policy = cdsResult?.parsed?.testPolicy || "test_considered_or_required";
-  // No scores on file is a genuine unknown, not a positive. Keep it modest even
-  // when the school is test-optional (was 50 → 42; required floor 20 → 18).
-  if (!student.sat && !student.act) return policy === "test_optional_or_deemphasized" ? 42 : 18;
+// ─── The student's record against the Common Data Set ────────────────
+// Each read compares one part of the profile with the section of the CDS
+// that describes the enrolled class, and returns both a 0–100 score for
+// the readiness blend and the facts behind it (bands, positions, shares)
+// for the fit card and the counselor.
 
-  const sat = student.sat || null;
-  const act = student.act || null;
-  const sat25 = Number(college?.sat25 ?? college?.sat_25 ?? cdsResult?.parsed?.satComposite?.low ?? 0) || null;
-  const sat75 = Number(college?.sat75 ?? college?.sat_75 ?? cdsResult?.parsed?.satComposite?.high ?? 0) || null;
-  const act25 = Number(college?.act25 ?? college?.act_25 ?? cdsResult?.parsed?.actComposite?.low ?? 0) || null;
-  const act75 = Number(college?.act75 ?? college?.act_75 ?? cdsResult?.parsed?.actComposite?.high ?? 0) || null;
+// ACT ↔ SAT concordance (the 2018 ACT/College Board table, composite to
+// total), used when the student holds one test and the school reports
+// bands for the other.
+const ACT_TO_SAT = Object.freeze({
+  36: 1590, 35: 1540, 34: 1500, 33: 1460, 32: 1430, 31: 1400, 30: 1370, 29: 1340, 28: 1310, 27: 1280,
+  26: 1240, 25: 1210, 24: 1180, 23: 1140, 22: 1110, 21: 1080, 20: 1040, 19: 1010, 18: 970, 17: 930,
+  16: 890, 15: 850, 14: 800, 13: 760, 12: 710, 11: 670, 10: 630, 9: 590,
+});
 
-  // Below the 25th percentile drops off faster now (steeper slope, lower floor)
-  // so a sub-range test score reads as the liability it is.
-  let score = 50;
-  if (sat && sat25 && sat75) {
-    if (sat >= sat75) score = 92;
-    else if (sat >= sat25) score = 65 + ((sat - sat25) / Math.max(1, sat75 - sat25)) * 25;
-    else score = Math.max(12, 58 - ((sat25 - sat) / 6));
-  } else if (act && act25 && act75) {
-    if (act >= act75) score = 92;
-    else if (act >= act25) score = 65 + ((act - act25) / Math.max(1, act75 - act25)) * 25;
-    else score = Math.max(12, 58 - ((act25 - act) * 7));
+export function actToSat(act) {
+  const composite = Math.round(Number(act));
+  if (!Number.isFinite(composite)) return null;
+  return ACT_TO_SAT[Math.max(9, Math.min(36, composite))] ?? null;
+}
+
+export function satToAct(sat) {
+  const total = Number(sat);
+  if (!Number.isFinite(total)) return null;
+  let best = null;
+  for (const [composite, equivalent] of Object.entries(ACT_TO_SAT)) {
+    const distance = Math.abs(equivalent - total);
+    if (best == null || distance < best.distance) best = { composite: Number(composite), distance };
   }
-  if (policy === "test_optional_or_deemphasized" && !student.sat && !student.act) score = Math.max(score, 45);
-  return round1(clamp01(score / 100) * 100);
+  return best ? best.composite : null;
+}
+
+function numberOrNull(value) {
+  if (value == null || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function bandOf(low, high) {
+  const lo = numberOrNull(low);
+  const hi = numberOrNull(high);
+  return lo != null && hi != null && lo > 0 && hi >= lo ? { low: lo, high: hi } : null;
+}
+
+// Where a value sits against a middle-50% band, and the 0–100 score that
+// position earns. At or above the 75th percentile is 92; inside the band
+// runs 65–90; below the 25th drops off with the slope the scale deserves
+// (a sub-range score reads as the liability it is).
+function positionLabel(value, band) {
+  if (value == null || !band) return "unknown";
+  return value >= band.high ? "above" : value >= band.low ? "within" : "below";
+}
+
+function positionScore(value, band, slopePerPoint) {
+  if (value == null || !band) return null;
+  if (value >= band.high) return 92;
+  if (value >= band.low) return 65 + ((value - band.low) / Math.max(1e-9, band.high - band.low)) * 25;
+  return Math.max(12, 58 - (band.low - value) * slopePerPoint);
+}
+
+const SAT_SECTION_KEYS = [["readingWriting", "ebrw", "Reading & Writing"], ["math", "math", "Math"]];
+const ACT_SECTION_KEYS = [["english", "english", "English"], ["math", "math", "Math"], ["reading", "reading", "Reading"], ["science", "science", "Science"]];
+
+function sectionReads(sections, bands, keys, slope) {
+  if (!sections || !bands) return [];
+  const out = [];
+  for (const [key, bandKey, label] of keys) {
+    const value = numberOrNull(sections[key]);
+    const band = bandOf(bands[bandKey]?.p25, bands[bandKey]?.p75);
+    if (value == null || !band) continue;
+    out.push({ key, label, value, band, position: positionLabel(value, band), score: round1(positionScore(value, band, slope)) });
+  }
+  return out;
+}
+
+// One test's read: composite against the band (or against the other
+// test's band through concordance), sections against section bands, and
+// the blend the readiness score uses (70% composite, 30% sections). The
+// section part is half the mean and half the weakest section, so an 800
+// in one section cannot hide a 700 in the other — a reader sees both.
+function testCandidate({ test, score, band, convertedFrom = null, equivalent = null, sections = [] }) {
+  const slope = test === "sat" ? 1 / 6 : 7;
+  const composite = positionScore(equivalent ?? score, band, slope);
+  const sectionMean = sections.length
+    ? avg(sections.map((s) => s.score)) * 0.5 + Math.min(...sections.map((s) => s.score)) * 0.5
+    : null;
+  const blended = composite == null ? 50 : (sectionMean != null ? composite * 0.7 + sectionMean * 0.3 : composite);
+  const position = positionLabel(equivalent ?? score, band);
+  return {
+    test,
+    score,
+    convertedFrom,
+    equivalent,
+    band,
+    position,
+    sections,
+    weakSection: position !== "below" && sections.some((s) => s.position === "below"),
+    compositeScore: composite != null ? round1(composite) : null,
+    score0to100: round1(clamp01(blended / 100) * 100),
+  };
+}
+
+// Where the student's total falls in the school's score-range table: the
+// band, the share of enrolled submitters in it, and the share above it.
+function distributionPlacement(rows, value) {
+  if (!Array.isArray(rows) || !rows.length || value == null) return null;
+  const sorted = [...rows].filter((r) => r && Number.isFinite(Number(r.low))).sort((a, b) => Number(b.low) - Number(a.low));
+  let band = sorted.find((r) => value >= Number(r.low) && value <= Number(r.high));
+  if (!band) band = value > Number(sorted[0].high) ? sorted[0] : sorted[sorted.length - 1];
+  const shareAbove = sorted.filter((r) => Number(r.low) > Number(band.low)).reduce((sum, r) => sum + (Number(r.pct) || 0), 0);
+  return {
+    band: `${band.low}–${band.high}`,
+    shareInBand: round1(Number(band.pct) || 0),
+    shareAbove: round1(shareAbove),
+    shareAtOrBelow: round1(Math.max(0, 100 - shareAbove)),
+  };
+}
+
+export function compareTestsToSchool(student, college, cdsResult) {
+  const parsed = cdsResult?.parsed || {};
+  const policy = parsed.testPolicy || "test_considered_or_required";
+  const optional = policy === "test_optional_or_deemphasized";
+  const satBand = bandOf(college?.sat25 ?? college?.sat_25 ?? parsed.satComposite?.low, college?.sat75 ?? college?.sat_75 ?? parsed.satComposite?.high);
+  const actBand = bandOf(college?.act25 ?? college?.act_25 ?? parsed.actComposite?.low, college?.act75 ?? college?.act_75 ?? parsed.actComposite?.high);
+  const candidates = [];
+  if (student.sat) {
+    if (satBand || !actBand) {
+      candidates.push(testCandidate({ test: "sat", score: student.sat, band: satBand, sections: sectionReads(student.satSections, parsed.satSections, SAT_SECTION_KEYS, 1 / 3) }));
+    } else {
+      candidates.push(testCandidate({ test: "sat", score: student.sat, band: actBand, convertedFrom: "sat", equivalent: satToAct(student.sat) }));
+    }
+  }
+  if (student.act) {
+    if (actBand || !satBand) {
+      candidates.push(testCandidate({ test: "act", score: student.act, band: actBand, sections: sectionReads(student.actSections, parsed.actSections, ACT_SECTION_KEYS, 7) }));
+    } else {
+      candidates.push(testCandidate({ test: "act", score: student.act, band: satBand, convertedFrom: "act", equivalent: actToSat(student.act) }));
+    }
+  }
+  // The student submits the stronger test; a native read beats a converted
+  // one on a tie.
+  const best = candidates.length
+    ? [...candidates].sort((a, b) => (b.score0to100 - a.score0to100) || ((a.convertedFrom ? 1 : 0) - (b.convertedFrom ? 1 : 0)))[0]
+    : null;
+  // No scores on file is a genuine unknown, not a positive: modest even at
+  // a test-optional school (42), low where tests are required (18). A
+  // score the student would withhold at a test-optional school (below the
+  // 25th percentile) counts no worse than no score.
+  const baseline = optional ? 42 : 18;
+  let advice = "none";
+  let score = baseline;
+  if (best) {
+    if (!optional) advice = "submit";
+    else if (best.position === "below") advice = "withhold";
+    else if (best.score0to100 < 72) advice = "borderline";
+    else advice = "submit";
+    score = advice === "withhold" ? Math.max(best.score0to100, baseline) : best.score0to100;
+  }
+  const distributionRows = best && !best.convertedFrom
+    ? (best.test === "sat" ? parsed.scoreDistribution?.satComposite : parsed.scoreDistribution?.actComposite)
+    : null;
+  return {
+    policy,
+    advice,
+    score: round1(score),
+    best,
+    candidates,
+    distribution: distributionPlacement(distributionRows, best?.score),
+    submitting: parsed.submitting && typeof parsed.submitting === "object" ? parsed.submitting : null,
+  };
+}
+
+export function scoreTestPercentile(student, college, cdsResult) {
+  return compareTestsToSchool(student, college, cdsResult).score;
+}
+
+// GPA against the admitted average (C12), the C11 band, and the C11
+// distribution: the share of the enrolled class in the student's GPA band
+// or above. With an average, the distribution refines the read (60/40);
+// without one, the distribution or the band stands alone.
+export function compareGpaToSchool(student, college, cdsResult) {
+  const parsed = cdsResult?.parsed || {};
+  const average = numberOrNull(college?.avgGpaAdmitted ?? college?.avg_gpa_admitted ?? parsed.gpaAverage);
+  const band = bandOf(parsed.gpaBand?.low, parsed.gpaBand?.high);
+  const rows = Array.isArray(parsed.gpaDistribution) && parsed.gpaDistribution.length ? parsed.gpaDistribution : null;
+  const gpa = student.gpa;
+  // Tighter than before but not punitive: at the admitted average ≈54, ~0.2
+  // above ≈85, ~0.2 below ≈23. No-GPA default 30.
+  const target = average ?? 3.75;
+  const formulaScore = gpa != null ? clamp01((gpa - (target - 0.35)) / 0.65) * 100 : 30;
+  let placement = null;
+  let distributionScore = null;
+  if (gpa != null && rows) {
+    const sorted = [...rows].sort((a, b) => Number(b.low) - Number(a.low));
+    let studentBand = sorted.find((r) => gpa >= Number(r.low) && gpa <= Number(r.high) + 0.005);
+    if (!studentBand) studentBand = gpa > Number(sorted[0].high) ? sorted[0] : sorted[sorted.length - 1];
+    const shareAbove = sorted.filter((r) => Number(r.low) > Number(studentBand.low)).reduce((sum, r) => sum + (Number(r.pct) || 0), 0);
+    placement = {
+      band: Number(studentBand.low) === Number(studentBand.high) ? String(studentBand.low) : `${studentBand.low}–${studentBand.high}`,
+      shareInBand: round1(Number(studentBand.pct) || 0),
+      shareAbove: round1(shareAbove),
+      shareAtOrBelow: round1(Math.max(0, 100 - shareAbove)),
+    };
+    distributionScore = 20 + 72 * (placement.shareAtOrBelow / 100);
+  }
+  const bandScore = gpa != null && band ? positionScore(gpa, band, 60) : null;
+  let score;
+  let basis;
+  if (gpa == null) { score = formulaScore; basis = "none"; }
+  else if (average != null && distributionScore != null) { score = formulaScore * 0.6 + distributionScore * 0.4; basis = "average+distribution"; }
+  else if (average != null) { score = formulaScore; basis = "average"; }
+  else if (distributionScore != null) { score = bandScore != null ? distributionScore * 0.5 + bandScore * 0.5 : distributionScore; basis = "distribution"; }
+  else if (bandScore != null) { score = bandScore; basis = "band"; }
+  else { score = formulaScore; basis = "default"; }
+  const position = gpa == null
+    ? "unknown"
+    : (band ? positionLabel(gpa, band) : (average != null ? (gpa >= average + 0.05 ? "above" : gpa >= average - 0.1 ? "within" : "below") : "unknown"));
+  return {
+    gpa,
+    average,
+    band,
+    position,
+    placement,
+    basis,
+    score: round1(clamp01(score / 100) * 100),
+  };
+}
+
+// Class rank against C10: the share of the enrolled class that stood
+// above the student's bucket (top tenth, quarter, half). A top-tenth
+// student has nobody above; a top-quarter student at a school where 94%
+// were top tenth sits below almost all of them.
+export function compareRankToSchool(student, cdsResult) {
+  const shares = cdsResult?.parsed?.classRank && typeof cdsResult.parsed.classRank === "object" ? cdsResult.parsed.classRank : null;
+  const topPercent = student.classRank?.topPercent ?? (student.rankPercentile != null ? round1(100 - student.rankPercentile) : null);
+  const school = shares
+    ? { topTenthPct: numberOrNull(shares.topTenthPct), topQuarterPct: numberOrNull(shares.topQuarterPct), topHalfPct: numberOrNull(shares.topHalfPct), submittedPct: numberOrNull(shares.submittedPct) }
+    : null;
+  if (topPercent == null) return { topPercent: null, bucket: null, school, shareAbove: null, basis: "unknown", score: 50 };
+  const bucket = topPercent <= 10 ? "top10" : topPercent <= 25 ? "top25" : topPercent <= 50 ? "top50" : "bottom50";
+  let shareAbove = null;
+  if (school?.topTenthPct != null) {
+    shareAbove = bucket === "top10" ? 0
+      : bucket === "top25" ? school.topTenthPct
+      : bucket === "top50" ? (school.topQuarterPct ?? school.topTenthPct)
+      : (school.topHalfPct ?? school.topQuarterPct ?? school.topTenthPct);
+  }
+  const score = shareAbove != null ? 20 + 72 * ((100 - shareAbove) / 100) : clamp01((100 - topPercent) / 100) * 100;
+  return { topPercent, bucket, school, shareAbove: shareAbove != null ? round1(shareAbove) : null, basis: shareAbove != null ? "cds_c10" : "percentile", score: round1(score) };
+}
+
+// AP exam results: the average maps 1→20, 3→57.5, 4→76, 5→95; exams in the
+// intended field weigh 60/40 against the rest, and three or more 4s and 5s
+// add a little. No exams yet is no evidence, and the component drops out.
+export function compareApExams(student) {
+  const ap = student.apExams || { count: 0 };
+  if (!ap.count) return { ...ap, score: null };
+  const mapped = (value) => 20 + (value - 1) * 18.75;
+  const overall = mapped(ap.average);
+  let score = ap.relevantAverage != null ? mapped(ap.relevantAverage) * 0.6 + overall * 0.4 : overall;
+  if (ap.strong >= 3) score += 5;
+  return { ...ap, score: round1(Math.min(100, score)) };
 }
 
 export function scoreAcademicReadiness(student, college, cdsResult) {
   const c7 = cdsResult?.parsed?.c7 || {};
+  const tests = compareTestsToSchool(student, college, cdsResult);
+  const gpaRead = compareGpaToSchool(student, college, cdsResult);
+  const rankRead = compareRankToSchool(student, cdsResult);
+  const apRead = compareApExams(student);
   const featureWeights = {
     gpa: 0.27 + 0.08 * c7Value(c7, ["academicGpa", "academic_gpa", "gpa"], 0.7),
     rigor: 0.2 + 0.08 * c7Value(c7, ["rigor"], 0.7),
     majorPrep: 0.18,
-    test: 0.14 + 0.08 * c7Value(c7, ["standardizedTests", "standardized_tests", "test_scores"], 0.35),
+    // A score the student would withhold at a test-optional school is
+    // never read, so the other evidence carries its weight.
+    test: tests.advice === "withhold" ? 0 : 0.14 + 0.08 * c7Value(c7, ["standardizedTests", "standardized_tests", "test_scores"], 0.35),
+    // AP exam results count once the student has any; before the first
+    // exam the component is absent rather than a penalty.
+    apExams: apRead.score != null ? 0.06 : 0,
     awards: 0.08,
     trend: 0.07,
     rank: 0.06 + 0.03 * c7Value(c7, ["classRank", "class_rank"], 0.35),
@@ -278,28 +568,24 @@ export function scoreAcademicReadiness(student, college, cdsResult) {
   const totalWeight = Object.values(featureWeights).reduce((a, b) => a + b, 0);
   for (const key of Object.keys(featureWeights)) featureWeights[key] /= totalWeight;
 
-  const targetGpa = Number(college?.avgGpaAdmitted ?? college?.avg_gpa_admitted ?? cdsResult?.parsed?.gpaAverage ?? 3.75) || 3.75;
-  // Tighter than before but not punitive: at the admitted average ≈54, ~0.2
-  // above ≈85, ~0.2 below ≈23 (was 0.45 cushion / 0.75 slope → at-average ≈60
-  // and 0.45 below still passing). A transcript under the admitted range no
-  // longer reads as comfortably in-range. No-GPA default lowered (35→30).
-  const gpaScore = student.gpa != null
-    ? clamp01((student.gpa - (targetGpa - 0.35)) / 0.65) * 100
-    : 30;
+  const targetGpa = gpaRead.average ?? 3.75;
+  const gpaScore = gpaRead.score;
   const rigorExpectation = Math.max(4, Math.round((targetGpa - 3.2) * 10));
   const rigorScore = clamp01((student.rigorousCourseCount + student.seniorRigorCount * 0.5) / Math.max(1, rigorExpectation)) * 100;
   const majorPrepScore = clamp01(((student.relevantCourses.length / 5) * 0.55) + (((student.majorRelevantGpa ?? student.gpa ?? 3.2) / 4) * 0.45)) * 100;
-  const testScore = scoreTestPercentile(student, college, cdsResult);
+  const testScore = tests.score;
+  const apExamScore = apRead.score ?? 0;
   const awardsScore = Math.min(100, student.academicAwardsCount * 18 + 25);
   const trendScore = 60;
-  const rankScore = student.rankPercentile != null ? clamp01(student.rankPercentile / 100) * 100 : 50;
+  const rankScore = rankRead.score;
 
-  const componentScores = { gpaScore, rigorScore, majorPrepScore, testScore, awardsScore, trendScore, rankScore };
+  const componentScores = { gpaScore, rigorScore, majorPrepScore, testScore, apExamScore, awardsScore, trendScore, rankScore };
   const score =
     gpaScore * featureWeights.gpa +
     rigorScore * featureWeights.rigor +
     majorPrepScore * featureWeights.majorPrep +
     testScore * featureWeights.test +
+    apExamScore * featureWeights.apExams +
     awardsScore * featureWeights.awards +
     trendScore * featureWeights.trend +
     rankScore * featureWeights.rank;
@@ -321,6 +607,8 @@ export function scoreAcademicReadiness(student, college, cdsResult) {
     componentScores,
     dynamicWeights: Object.fromEntries(Object.entries(featureWeights).map(([k, v]) => [k, round2(v)])),
     c7Breakdown,
+    // The facts behind the blend, for the fit card and the counselor.
+    reads: { tests, gpa: gpaRead, classRank: rankRead, apExams: apRead },
   };
 }
 
@@ -472,8 +760,22 @@ export function scoreEvidenceConfidence({ cdsResult, collegeContext, majorPolicy
   return { score: round1(normalized * 100), label, normalized: round2(normalized), validated: !isUnvalidated };
 }
 
-export function buildRedFlags(student, collegeContext, majorCompetitiveness, narrativeFit) {
+const QUANTITATIVE_BUCKETS = new Set(["computer_science", "data_science", "computational_biology", "biomedical_engineering", "engineering", "mathematics", "physics", "chemistry", "economics"]);
+
+export function buildRedFlags(student, collegeContext, majorCompetitiveness, narrativeFit, reads = null) {
   const flags = [];
+  // A math section under the school's 25th percentile is the number a
+  // quantitative department reads first, whatever the total says.
+  const best = reads?.tests?.best;
+  if (best && QUANTITATIVE_BUCKETS.has(student.majorBucket)) {
+    const mathSection = (best.sections || []).find((s) => s.key === "math");
+    if (mathSection?.position === "below") {
+      flags.push(`${best.test.toUpperCase()} Math (${mathSection.value}) sits below this school's 25th percentile (${mathSection.band.low}), which a quantitative major will notice.`);
+    }
+  }
+  if (reads?.apExams?.relevant?.length && reads.apExams.relevantAverage != null && reads.apExams.relevantAverage < 3) {
+    flags.push("AP exam scores in the intended field average below 3.");
+  }
   if (student.relevantCourses.length <= 1 && ["computer_science", "engineering", "computational_biology", "data_science", "business"].includes(student.majorBucket)) {
     flags.push("Weak major-relevant coursework for an ambitious intended major.");
   }
@@ -516,6 +818,31 @@ export function recommendStrategy(positioningLabel, redFlags, majorCompetitivene
   return "Treat this as a high reach. Keep only if it is emotionally worth it, and balance with a healthier college list.";
 }
 
+// The card-facing summary of the reads: what test was read and how it
+// sits, each section against its band, the GPA against the average, band
+// and distribution, the class rank against C10, and the AP exam evidence.
+export function buildProfileComparison(reads) {
+  if (!reads) return null;
+  const { tests, gpa, classRank, apExams } = reads;
+  const best = tests?.best || null;
+  const brief = (c) => ({ test: c.test, score: c.score, convertedFrom: c.convertedFrom, equivalent: c.equivalent, band: c.band, position: c.position });
+  return {
+    tests: {
+      policy: tests?.policy ?? null,
+      advice: tests?.advice ?? "none",
+      used: best ? { ...brief(best), weakSection: best.weakSection } : null,
+      sections: best ? best.sections.map((s) => ({ key: s.key, label: s.label, value: s.value, band: s.band, position: s.position })) : [],
+      alternatives: (tests?.candidates || []).filter((c) => c !== best).map(brief),
+      distribution: tests?.distribution ?? null,
+      submitting: tests?.submitting ?? null,
+      score: tests?.score ?? null,
+    },
+    gpa: gpa ? { gpa: gpa.gpa, average: gpa.average, band: gpa.band, position: gpa.position, placement: gpa.placement, basis: gpa.basis, score: gpa.score } : null,
+    classRank: classRank ? { topPercent: classRank.topPercent, bucket: classRank.bucket, school: classRank.school, shareAbove: classRank.shareAbove, basis: classRank.basis, score: classRank.score } : null,
+    apExams: apExams ? { count: apExams.count, average: apExams.average, strong: apExams.strong, weak: apExams.weak, relevant: apExams.relevant, relevantAverage: apExams.relevantAverage, score: apExams.score } : null,
+  };
+}
+
 export function buildPositioningForTarget(student, collegeContext, cdsResult, options = {}) {
   const academic = scoreAcademicReadiness(student, collegeContext, cdsResult);
   const selectivity = scoreInstitutionalSelectivityAdjustment(collegeContext);
@@ -524,7 +851,7 @@ export function buildPositioningForTarget(student, collegeContext, cdsResult, op
   const narrative = scoreNarrativeFit(student);
   const differentiation = scoreDifferentiationStrength(student);
   const strategicFocus = scoreStrategicFocusBonus(options.strategicSignals || [], options.majorPolicy || null);
-  const redFlags = buildRedFlags(student, collegeContext, majorComp, narrative);
+  const redFlags = buildRedFlags(student, collegeContext, majorComp, narrative, academic.reads);
 
   // ── Displayed competitiveness blends intended-major crowding with the
   // school's ACTUAL institutional selectivity (admit rate). Previously the
@@ -608,11 +935,17 @@ export function buildPositioningForTarget(student, collegeContext, cdsResult, op
     capacityRiskFlag: majorComp.capacityRiskFlag,
     mainRedFlags: redFlags,
     recommendedPositioningStrategy: recommendStrategy(label, redFlags, majorComp),
+    // How this student's own record compares with the enrolled class the
+    // Common Data Set describes: the facts the readiness blend used.
+    profileComparison: buildProfileComparison(academic.reads),
     featureBreakdown: {
       gpa: round1(student.gpa ?? 0),
       courseRigor: round1(academic.componentScores.rigorScore),
       majorRelevantCoursework: round1(academic.componentScores.majorPrepScore),
       testScorePercentile: round1(academic.componentScores.testScore),
+      testSubmissionAdvice: academic.reads?.tests?.advice ?? null,
+      apExamScore: round1(academic.componentScores.apExamScore),
+      classRankScore: round1(academic.componentScores.rankScore),
       ecImpactTier: round1(student.ecImpactTier),
       ecMajorAlignment: round1(student.ecMajorAlignment),
       essayNarrativeCoherence: narrative.coherence,

@@ -17,6 +17,7 @@
 //                             research-cache facts) the model may cite from
 
 import { formatVerificationLine } from "./fit-verifier.js";
+import { testLabel, sectionEntries, formatSections, formatClassRank, normalizeClassRank } from "./test-catalog.js";
 
 export const CHAT_PROFILE_LIMITS = Object.freeze({ maxCourses: 40, maxActivities: 20 });
 
@@ -28,11 +29,6 @@ const YEAR_LABELS = {
 const TYPE_LABELS = {
   regular: "regular", elective: "elective", honors: "Honors", ap: "AP", ib: "IB",
   dual_enrollment: "dual enrollment",
-};
-
-const TEST_LABELS = {
-  sat: "SAT", act: "ACT", psat: "PSAT", toefl: "TOEFL", ielts: "IELTS",
-  sat_subject: "SAT Subject Test", duolingo: "Duolingo English Test", clep: "CLEP",
 };
 
 function yearLabel(value) {
@@ -110,20 +106,21 @@ export function formatProfileForModel(profile, limits = {}) {
   const tests = Array.isArray(profile.testScores) ? profile.testScores : [];
   if (tests.length) {
     lines.push(`Test scores: ${tests.map((t) => {
-      const label = TEST_LABELS[String(t?.test || "").toLowerCase()] || String(t?.test || "test").toUpperCase();
+      const label = testLabel(t?.test);
       const subject = t?.subject ? ` (${t.subject})` : "";
       const date = t?.date ? ` (taken ${t.date})` : "";
-      // SAT section scores ride with the total so the model can compare
-      // them against a school's section bands instead of guessing a split.
-      const sections = t?.sections && typeof t.sections === "object" ? t.sections : null;
-      const sectionText = sections && (sections.math != null || sections.readingWriting != null)
-        ? ` (${[sections.readingWriting != null ? `Reading & Writing ${sections.readingWriting}` : null, sections.math != null ? `Math ${sections.math}` : null].filter(Boolean).join(", ")})`
-        : "";
-      return `${label}${subject} ${t?.totalScore ?? "?"}${sectionText}${date}`;
+      // Section scores ride with the total (SAT Reading & Writing and Math,
+      // ACT English / Math / Reading / Science, the TOEFL and IELTS parts) so
+      // the model compares them against a school's section bands instead of
+      // guessing a split.
+      const sections = formatSections(t);
+      return `${label}${subject} ${t?.totalScore ?? "?"}${sections ? ` (${sections})` : ""}${date}`;
     }).join("; ")}`);
   } else {
     lines.push("Test scores: none recorded");
   }
+  const classRank = formatClassRank(profile.classRank);
+  if (classRank) lines.push(`Class rank: ${classRank}`);
 
   const courses = Array.isArray(profile.courses) ? profile.courses.filter((c) => c && c.name) : [];
   if (courses.length) {
@@ -450,9 +447,39 @@ export function checkProfileFidelity(answerText, profile) {
     }
   }
   const act = testTotal("act");
-  for (const stated of statedTestScores(text, "ACT", { min: 1, max: 36, step: 1 })) {
-    if (act != null && stated === act) continue;
-    add({ kind: "act", item: "ACT", stated: String(stated), actual: act != null ? String(act) : "no ACT score recorded" });
+  // ACT subscores are checked the same way: a sentence about "your ACT
+  // Math 34" is compared with the recorded sections, not the composite.
+  const actEntry = tests.find((t) => String(t?.test || "").toLowerCase() === "act");
+  const actValues = sectionEntries(actEntry).map((s) => s.value);
+  const actSectionSentence = /\bACT\b[^.!?]{0,40}\b(?:English|Math|Reading|Science|Writing|section|subscore)\b|\b(?:English|Math|Reading|Science|Writing)\b[^.!?]{0,20}\bACT\b/i;
+  for (const sentence of text.split(SENTENCE_SPLIT_RE)) {
+    if (!/\bACT\b/.test(sentence)) continue;
+    const scoped = actSectionSentence.test(sentence);
+    for (const stated of statedTestScores(sentence, "ACT", { min: 1, max: 36, step: 1 })) {
+      if (scoped) {
+        if (actValues.includes(stated) || (act != null && stated === act)) continue;
+        add({ kind: "act", item: "ACT section", stated: String(stated), actual: actValues.length ? formatSections(actEntry) : (act != null ? `composite ${act}, no section scores recorded` : "no ACT score recorded") });
+        continue;
+      }
+      if (act != null && stated === act) continue;
+      add({ kind: "act", item: "ACT", stated: String(stated), actual: act != null ? String(act) : "no ACT score recorded" });
+    }
+  }
+
+  // Class rank: "your class rank in the top 5%" claims a standing. A stated
+  // share that is no better than the recorded one ("top 10%" for a student
+  // recorded at top 4%) is still true, so only a claim of better standing,
+  // or any figure when none is recorded, is a contradiction.
+  const rankRecorded = normalizeClassRank(profile.classRank);
+  for (const sentence of text.split(SENTENCE_SPLIT_RE)) {
+    if (!/\b(?:class rank|ranked|ranking)\b/i.test(sentence) || !SECOND_PERSON_RE.test(sentence) || GENERIC_STAT_RE.test(sentence)) continue;
+    const re = /\btop\s+(\d{1,2}(?:\.\d)?)\s*%/gi;
+    let m;
+    while ((m = re.exec(sentence))) {
+      const stated = Number(m[1]);
+      if (rankRecorded?.topPercent != null && stated >= rankRecorded.topPercent) continue;
+      add({ kind: "class_rank", item: "Class rank", stated: `top ${stated}%`, actual: rankRecorded ? formatClassRank(rankRecorded) : "no class rank recorded" });
+    }
   }
 
   for (const exam of (Array.isArray(profile.apScores) ? profile.apScores : [])) {
@@ -477,6 +504,7 @@ export function describeContradiction(entry) {
     case "sat": return `SAT: recorded ${entry.actual} (the reply said ${entry.stated})`;
     case "act": return `ACT: recorded ${entry.actual} (the reply said ${entry.stated})`;
     case "ap_score": return `${entry.item}: recorded score ${entry.actual} (the reply said ${entry.stated})`;
+    case "class_rank": return `Class rank: recorded ${entry.actual} (the reply said ${entry.stated})`;
     default: return `${entry.item}: recorded ${entry.actual} (the reply said ${entry.stated})`;
   }
 }
@@ -640,6 +668,13 @@ function percent(rate) {
   return `${Math.round((value <= 1 ? value * 100 : value) * 10) / 10}%`;
 }
 
+// A value that is already a percentage (a CDS distribution share such as
+// 0.3 or 97.3), rounded to one decimal — unlike percent(), which treats
+// values at or below 1 as fractions.
+function plainPercent(value) {
+  return Math.round(Number(value) * 10) / 10;
+}
+
 function range(low, high) {
   if (low == null && high == null) return null;
   if (low != null && high != null) return `${low}–${high}`;
@@ -687,10 +722,38 @@ export function cdsExtrasParts(extras) {
   const ebrw = range(extras.satSections?.ebrw?.p25, extras.satSections?.ebrw?.p75);
   const math = range(extras.satSections?.math?.p25, extras.satSections?.math?.p75);
   if (ebrw || math) parts.push(`enrolled SAT sections middle 50%: ${[ebrw ? `Reading & Writing ${ebrw}` : null, math ? `Math ${math}` : null].filter(Boolean).join(", ")}`);
+  const actSectionParts = [["english", "English"], ["math", "Math"], ["reading", "Reading"], ["science", "Science"]]
+    .map(([key, label]) => { const band = range(extras.actSections?.[key]?.p25, extras.actSections?.[key]?.p75); return band ? `${label} ${band}` : null; })
+    .filter(Boolean);
+  if (actSectionParts.length) parts.push(`enrolled ACT sections middle 50%: ${actSectionParts.join(", ")}`);
   if (extras.submitting?.satPct != null || extras.submitting?.actPct != null) {
     parts.push(`share of enrolled students who submitted scores: ${[extras.submitting.satPct != null ? `SAT ${extras.submitting.satPct}%` : null, extras.submitting.actPct != null ? `ACT ${extras.submitting.actPct}%` : null].filter(Boolean).join(", ")}`);
   }
-  if (extras.classRank?.topTenthPct != null) parts.push(`${extras.classRank.topTenthPct}% of enrolled students ranked in the top tenth of their class${extras.classRank.topQuarterPct != null ? ` (${extras.classRank.topQuarterPct}% top quarter)` : ""}`);
+  // The score-range tables: how the enrolled class's submitted scores were
+  // distributed (top three non-empty bands), so a student sees where a
+  // total sits beyond the middle-50% band.
+  const distributionLine = (bands, label) => {
+    const filled = (Array.isArray(bands) ? bands : []).filter((b) => b && Number(b.pct) > 0).sort((a, b) => Number(b.low) - Number(a.low)).slice(0, 3);
+    return filled.length ? `${label}: ${filled.map((b) => `${b.low}–${b.high} ${plainPercent(b.pct)}%`).join(", ")}` : null;
+  };
+  const satDistribution = distributionLine(extras.scoreDistribution?.satComposite, "share of enrolled SAT submitters by total");
+  if (satDistribution) parts.push(satDistribution);
+  const actDistribution = distributionLine(extras.scoreDistribution?.actComposite, "share of enrolled ACT submitters by composite");
+  if (actDistribution) parts.push(actDistribution);
+  if (extras.classRank?.topTenthPct != null) {
+    const submitted = extras.classRank.submittedPct != null ? `; ${plainPercent(extras.classRank.submittedPct)}% of enrolled students submitted a class rank` : "";
+    parts.push(`${extras.classRank.topTenthPct}% of enrolled students ranked in the top tenth of their class${extras.classRank.topQuarterPct != null ? ` (${extras.classRank.topQuarterPct}% top quarter)` : ""}${submitted}`);
+  }
+  // C11: the enrolled class's high-school GPA distribution, summarized as
+  // the shares at 4.0 and at or above the two bands beneath it.
+  const gpaBands = (Array.isArray(extras.gpaDistribution) ? extras.gpaDistribution : []).filter((b) => b && Number.isFinite(Number(b.low)) && Number.isFinite(Number(b.pct)));
+  if (gpaBands.length) {
+    const shareAtLeast = (floor) => plainPercent(gpaBands.filter((b) => Number(b.low) >= floor).reduce((sum, b) => sum + Number(b.pct), 0));
+    const at40 = gpaBands.find((b) => Number(b.low) >= 4);
+    const pieces = [at40 ? `${plainPercent(at40.pct)}% had a 4.0` : null, `${shareAtLeast(3.75)}% had 3.75 or higher`, `${shareAtLeast(3.5)}% had 3.50 or higher`].filter(Boolean);
+    const submitted = extras.gpa?.submittedPct != null ? ` (${plainPercent(extras.gpa.submittedPct)}% of enrolled students submitted a GPA)` : "";
+    parts.push(`enrolled high-school GPA distribution: ${pieces.join(", ")}${submitted}`);
+  }
   if (extras.earlyDecision?.applications && extras.earlyDecision?.admitted) {
     parts.push(`Early Decision: ${formatNumber(extras.earlyDecision.applications)} applied, ${formatNumber(extras.earlyDecision.admitted)} admitted (${percent(extras.earlyDecision.admitRate)})`);
   }
@@ -723,6 +786,11 @@ function cdsLine(record, validated) {
   const act = range(record.enrolledACT?.p25, record.enrolledACT?.p75);
   if (act) parts.push(`enrolled ACT middle 50% ${act}`);
   if (record.enrolledGPA?.avg != null) parts.push(`average enrolled GPA ${record.enrolledGPA.avg}`);
+  // C11 read as a band: the lower bounds of the GPA ranges that hold the
+  // 25th and 75th percentile of the enrolled class.
+  const gpaBand = range(record.enrolledGPA?.p25, record.enrolledGPA?.p75);
+  if (gpaBand && record.enrolledGPA?.p25 !== record.enrolledGPA?.p75) parts.push(`enrolled GPA middle 50% ${gpaBand}`);
+  else if (gpaBand) parts.push(`enrolled GPA 25th and 75th percentile both in the ${gpaBand} band`);
   if (record.testPolicy) parts.push(`test policy: ${String(record.testPolicy).replace(/_/g, " ")}`);
   const c7 = record.c7 && typeof record.c7 === "object" ? record.c7 : {};
   const veryImportant = Object.entries(c7).filter(([, v]) => v === "very_important").map(([k]) => C7_LABELS[k] || k.replace(/_/g, " "));

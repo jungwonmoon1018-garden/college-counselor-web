@@ -13,6 +13,7 @@
 // ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??
 import crypto from "node:crypto";
 import { computePercentile, computeAPRigorIndex } from "./rules-engine.js";
+import { normalizeClassRank } from "./test-catalog.js";
 import { getCollegeHistory, summarizeCollegeHistory } from "./college-scorecard.js";
 import {
   initDirectionalityTable,
@@ -396,6 +397,16 @@ export function initRAGTables(db) {
   // SQLite files upgrade without manual intervention. Pattern mirrors
   // ec-strength-vectorizer.js::initECStrengthTables.
   try {
+    // The student's class rank (top share, rank, class size) — read by the
+    // College Fit calculation against a school's C10 shares.
+    const snapshotCols = db.prepare(`PRAGMA table_info(profile_snapshots)`).all().map((r) => r.name);
+    if (!snapshotCols.includes("class_rank_json")) {
+      db.exec(`ALTER TABLE profile_snapshots ADD COLUMN class_rank_json TEXT`);
+    }
+  } catch (err) {
+    console.warn("[RAG] profile_snapshots migration warning:", err.message);
+  }
+  try {
     const cdsCols = db.prepare(`PRAGMA table_info(cds_records)`).all().map((r) => r.name);
     if (!cdsCols.includes("enrolled_gpa_avg")) {
       db.exec(`ALTER TABLE cds_records ADD COLUMN enrolled_gpa_avg REAL`);
@@ -539,6 +550,9 @@ export function prepareRAGStatements(db) {
   return {
     // Snapshots
     insertSnapshot: db.prepare(`INSERT INTO profile_snapshots (id, student_id, snapshot_type, gpa_unweighted, gpa_weighted, courses_json, ap_scores_json, test_scores_json, activities_json, major_interest, goals_json, trigger) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`),
+    // Class rank rides in its own column, set right after the insert so the
+    // registration path and older callers keep their twelve-value insert.
+    setSnapshotClassRank: db.prepare(`UPDATE profile_snapshots SET class_rank_json = ? WHERE id = ?`),
     getLatestSnapshot: db.prepare(`SELECT * FROM profile_snapshots WHERE student_id = ? ORDER BY datetime(created_at) DESC, rowid DESC LIMIT 1`),
     getSnapshotHistory: db.prepare(`SELECT id, snapshot_type, gpa_unweighted, gpa_weighted, major_interest, trigger, created_at FROM profile_snapshots WHERE student_id = ? ORDER BY datetime(created_at) DESC, rowid DESC LIMIT ?`),
 
@@ -876,8 +890,9 @@ export function syncStudentData(stmts, studentId, profile, activities, goals, ma
   const changes = detectChanges(prev, profile, activities, majorInterest);
   const academicYear = getAcademicYear();
 
+  const snapshotId = crypto.randomUUID();
   stmts.insertSnapshot.run(
-    crypto.randomUUID(), studentId, changes.length > 0 ? "update" : "sync",
+    snapshotId, studentId, changes.length > 0 ? "update" : "sync",
     profile?.gpa?.unweighted ?? null,
     profile?.gpa?.weighted ?? null,
     JSON.stringify(profile?.courses || []),
@@ -888,6 +903,8 @@ export function syncStudentData(stmts, studentId, profile, activities, goals, ma
     JSON.stringify(goals || []),
     trigger
   );
+  const classRank = normalizeClassRank(profile?.classRank);
+  if (stmts.setSnapshotClassRank) stmts.setSnapshotClassRank.run(classRank ? JSON.stringify(classRank) : null, snapshotId);
 
   for (const change of changes) {
     stmts.insertMilestone.run(

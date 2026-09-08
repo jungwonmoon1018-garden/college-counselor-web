@@ -888,6 +888,7 @@ function requireCounselorAuth(req, res, next) {
 function snapshotToStudentProfile(snapshot, narrative = null) {
   return {
     gpa: { unweighted: snapshot.gpa_unweighted, weighted: snapshot.gpa_weighted },
+    classRank: safeJSON(snapshot.class_rank_json, null),
     courses: safeJSON(snapshot.courses_json, []),
     apScores: safeJSON(snapshot.ap_scores_json, []),
     testScores: safeJSON(snapshot.test_scores_json, []),
@@ -1142,6 +1143,7 @@ function assembleProfileForGeneration(studentId) {
   return {
     gpaUnweighted: snap.gpa_unweighted ?? profile?.gpa?.unweighted ?? null,
     gpaWeighted: snap.gpa_weighted ?? profile?.gpa?.weighted ?? null,
+    classRank: safeParseJSON(snap.class_rank_json, null),
     courses: safeParseJSON(snap.courses_json, []),
     apScores: safeParseJSON(snap.ap_scores_json, []),
     testScores: safeParseJSON(snap.test_scores_json, []),
@@ -3216,6 +3218,7 @@ app.get("/api/students/profile", studentLimiter, requireStudentAuth, (req, res) 
       retrieval: "direct_db",
       profile: {
         gpa: { unweighted: snap.gpa_unweighted, weighted: snap.gpa_weighted },
+        classRank: safeJSON(snap.class_rank_json, null),
         courses: safeJSON(snap.courses_json, []),
         apScores: safeJSON(snap.ap_scores_json, []),
         testScores: safeJSON(snap.test_scores_json, []),
@@ -3789,7 +3792,11 @@ async function runPositioning({ studentId, body = {}, bypassCache = false } = {}
     if (!refreshCds) {
       const cachedCds = getScorecardQueryCache("cds_targets", { cacheKey, cdsVersion, targets: rawTargets });
       cdsResults = cachedCds?.data?.results || null;
-      const cachedPositioning = bypassCache ? null : getScorecardQueryCache("positioning_targets", { cacheKey, cdsVersion, targets: rawTargets, major: requestedMajor });
+      // The read is this student's: keyed by student and by the snapshot
+      // it was computed from, so one student's fit (which now carries their
+      // own scores, rank and GPA against the school) is never served to
+      // another with the same targets, and a profile edit recomputes it.
+      const cachedPositioning = bypassCache ? null : getScorecardQueryCache("positioning_targets", { cacheKey, cdsVersion, targets: rawTargets, major: requestedMajor, studentId, snapshot: snap.id });
       if (cachedPositioning?.data) {
         return { payload: cachedPositioning.data, cached: true, internals: null };
       }
@@ -3811,6 +3818,8 @@ async function runPositioning({ studentId, body = {}, bypassCache = false } = {}
       gpa_weighted: snap.gpa_weighted,
       courses_json: snap.courses_json,
       test_scores_json: snap.test_scores_json,
+      ap_scores_json: snap.ap_scores_json,
+      class_rank_json: snap.class_rank_json,
       activities_json: snap.activities_json,
       major_interest: requestedMajor,
     }, strengthRows, narrative);
@@ -3986,7 +3995,7 @@ async function runPositioning({ studentId, body = {}, bypassCache = false } = {}
       targets: scoredTargets,
     };
 
-    putScorecardQueryCache("positioning_targets", { cacheKey, cdsVersion, targets: rawTargets, major: requestedMajor }, payload);
+    putScorecardQueryCache("positioning_targets", { cacheKey, cdsVersion, targets: rawTargets, major: requestedMajor, studentId, snapshot: snap.id }, payload);
     for (const target of scoredTargets) rememberFitRead(studentId, target);
     return { payload, cached: false, internals };
 }
@@ -4046,7 +4055,8 @@ app.post("/api/positioning/verify", studentLimiter, requireStudentAuth, async (r
     const snap = ragStmts.getLatestSnapshot.get(req.studentId);
     const studentModel = buildStudentModel({
       gpa_unweighted: snap.gpa_unweighted, gpa_weighted: snap.gpa_weighted, courses_json: snap.courses_json,
-      test_scores_json: snap.test_scores_json, activities_json: snap.activities_json, major_interest: run.payload.major || snap.major_interest,
+      test_scores_json: snap.test_scores_json, ap_scores_json: snap.ap_scores_json, class_rank_json: snap.class_rank_json,
+      activities_json: snap.activities_json, major_interest: run.payload.major || snap.major_interest,
     }, strengthRows, getActiveNarrative(ragStmts.narrative, req.studentId));
 
     const used = {
@@ -6706,6 +6716,8 @@ app.get("/api/courses/recommendations", studentLimiter, requireStudentAuth, asyn
       gpa_weighted: snap.gpa_weighted,
       courses_json: snap.courses_json,
       test_scores_json: snap.test_scores_json,
+      ap_scores_json: snap.ap_scores_json,
+      class_rank_json: snap.class_rank_json,
       activities_json: snap.activities_json,
       major_interest: requestedMajor,
     }, strengthRows, narrative);

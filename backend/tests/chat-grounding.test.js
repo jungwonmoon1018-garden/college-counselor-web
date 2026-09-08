@@ -247,3 +247,74 @@ test("verified data block formats baseline, CDS, and research facts and is empty
   assert.match(wide, /closing dates the school reported for its CDS cycle \(month\/day; confirm this year's dates on its admissions page\): Regular Decision 01\/05, Early Decision 11\/01, Early Decision II 01\/05, aid filing deadline 01\/05/);
   assert.doesNotMatch(wide, /\$/);
 });
+
+test("subscores of every test and the class rank reach the model", () => {
+  const rich = {
+    ...profile,
+    classRank: { rank: 12, size: 400 },
+    testScores: [
+      { test: "act", totalScore: 33, sections: { english: 35, math: 31, reading: 34, science: 32, writing: 9 } },
+      { test: "toefl", totalScore: 108, sections: { reading: 28, listening: 27, speaking: 25, writing: 28 } },
+      { test: "ielts", totalScore: 7.5, sections: { listening: 8, reading: 7.5, writing: 7, speaking: 7.5 } },
+      { test: "psat", totalScore: 1380, date: "2025-10", sections: { readingWriting: 690, math: 690 } },
+    ],
+  };
+  const block = formatProfileForModel(rich);
+  assert.match(block, /Test scores: ACT 33 \(English 35, Math 31, Reading 34, Science 32, Writing 9\); TOEFL 108 \(Reading 28, Listening 27, Speaking 25, Writing 28\); IELTS 7\.5 \(Listening 8, Reading 7\.5, Writing 7, Speaking 7\.5\); PSAT 1380 \(Reading & Writing 690, Math 690\) \(taken 2025-10\)/);
+  assert.match(block, /\nClass rank: top 3% \(12 of 400\)/);
+
+  // A correct ACT subscore is not a wrong composite; a wrong subscore is
+  // reported against the recorded sections.
+  assert.deepEqual(checkProfileFidelity("Your ACT Math 31 is the section to lift; your ACT of 33 is inside the band.", rich).contradictions, []);
+  const wrongSection = checkProfileFidelity("Your ACT English score of 36 is perfect.", rich);
+  assert.equal(wrongSection.contradictions.length, 1);
+  assert.equal(wrongSection.contradictions[0].item, "ACT section");
+  assert.equal(wrongSection.contradictions[0].actual, "English 35, Math 31, Reading 34, Science 32, Writing 9");
+  const wrongComposite = checkProfileFidelity("Your ACT of 35 is strong.", rich);
+  assert.equal(wrongComposite.contradictions[0].item, "ACT");
+  assert.equal(wrongComposite.contradictions[0].actual, "33");
+
+  // Class rank: a claim of better standing is a contradiction, a looser one
+  // ("top 10%" for a top-3% student) is still true, and a figure for a
+  // student with no rank on record is invented.
+  assert.deepEqual(checkProfileFidelity("Your class rank in the top 10% helps, and your class rank of top 3% is excellent.", rich).contradictions, []);
+  const better = checkProfileFidelity("You are ranked in the top 1% of your class.", rich);
+  assert.equal(better.contradictions.length, 1);
+  assert.equal(better.contradictions[0].kind, "class_rank");
+  assert.equal(better.contradictions[0].stated, "top 1%");
+  assert.equal(better.contradictions[0].actual, "top 3% (12 of 400)");
+  assert.match(buildFidelityFootnote(better.contradictions), /Class rank: recorded top 3% \(12 of 400\) \(the reply said top 1%\)/);
+  assert.equal(checkProfileFidelity("Your class rank in the top 5% is a real strength.", profile).contradictions.length, 1);
+  assert.deepEqual(checkProfileFidelity("Schools like this admit mostly students ranked in the top 10%.", profile).contradictions, []);
+});
+
+test("the wider CDS read renders ACT sections, score distributions and the GPA distribution", () => {
+  const block = formatVerifiedDataBlock({
+    schools: [{
+      name: "Stanford University",
+      baseline: null,
+      cds: {
+        school: "Stanford University", yearLabel: "2024-25", overallAdmitRate: 0.0361,
+        enrolledGPA: { p25: 3.75, p75: 4, avg: 3.94 },
+        extras: {
+          satSections: { ebrw: { p25: 740, p50: 760, p75: 780 }, math: { p25: 770, p50: 790, p75: 800 } },
+          actSections: { english: { p25: 35, p75: 36 }, math: { p25: 33, p75: 36 }, reading: { p25: 34, p75: 36 }, science: { p25: 33, p75: 36 } },
+          scoreDistribution: {
+            satComposite: [{ low: 1400, high: 1600, pct: 97.3 }, { low: 1200, high: 1399, pct: 2.5 }, { low: 1000, high: 1199, pct: 0.2 }, { low: 800, high: 999, pct: 0 }],
+            actComposite: [{ low: 30, high: 36, pct: 99.1 }, { low: 24, high: 29, pct: 0.6 }, { low: 18, high: 23, pct: 0.3 }],
+          },
+          classRank: { topTenthPct: 97.8, topQuarterPct: 100, submittedPct: 18.8 },
+          gpaDistribution: [{ low: 4, high: 4, pct: 73.3 }, { low: 3.75, high: 3.99, pct: 16.5 }, { low: 3.5, high: 3.74, pct: 6.7 }, { low: 3.25, high: 3.49, pct: 3 }, { low: 3, high: 3.24, pct: 0.3 }, { low: 2.5, high: 2.99, pct: 0.3 }],
+          gpa: { average: 3.94, submittedPct: 68.1 },
+        },
+      },
+      cdsValidated: true,
+    }],
+  });
+  assert.match(block, /average enrolled GPA 3\.94; enrolled GPA middle 50% 3\.75–4/);
+  assert.match(block, /enrolled ACT sections middle 50%: English 35–36, Math 33–36, Reading 34–36, Science 33–36/);
+  assert.match(block, /share of enrolled SAT submitters by total: 1400–1600 97\.3%, 1200–1399 2\.5%, 1000–1199 0\.2%/);
+  assert.match(block, /share of enrolled ACT submitters by composite: 30–36 99\.1%, 24–29 0\.6%, 18–23 0\.3%/);
+  assert.match(block, /97\.8% of enrolled students ranked in the top tenth of their class \(100% top quarter\); 18\.8% of enrolled students submitted a class rank/);
+  assert.match(block, /enrolled high-school GPA distribution: 73\.3% had a 4\.0, 89\.8% had 3\.75 or higher, 96\.5% had 3\.50 or higher \(68\.1% of enrolled students submitted a GPA\)/);
+});

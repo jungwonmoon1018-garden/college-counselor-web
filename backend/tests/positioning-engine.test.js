@@ -10,6 +10,12 @@ import {
   scoreTestPercentile,
   buildPositioningForTarget,
   classifyPositioningLabel,
+  compareTestsToSchool,
+  compareGpaToSchool,
+  compareRankToSchool,
+  compareApExams,
+  actToSat,
+  satToAct,
 } from "../positioning-engine.js";
 
 function makeStudent() {
@@ -271,4 +277,177 @@ test("low evidence confidence widens the displayed score bands", () => {
   // Band brackets the point estimate.
   assert.ok(thin.scoreRanges.admissibility.low <= thin.admissibility.academicReadinessScore);
   assert.ok(thin.scoreRanges.admissibility.high >= thin.admissibility.academicReadinessScore);
+});
+
+// ─── The student's record against the wider Common Data Set read ─────
+
+function studentWith(overrides = {}) {
+  return buildStudentModel({
+    gpa_unweighted: 3.85,
+    major_interest: "Computer Science",
+    courses: [
+      { name: "AP Calculus BC", type: "ap", grade: "A", year: "11" },
+      { name: "AP Computer Science A", type: "ap", grade: "A", year: "11" },
+    ],
+    testScores: [{ test: "sat", totalScore: 1500, sections: { readingWriting: 750, math: 750 } }],
+    activities: [],
+    ...overrides,
+  }, [], null);
+}
+
+// A Stanford-like record: composite and section bands, the score-range
+// tables, C10 class rank shares and the C11 GPA distribution.
+const WIDE_CDS = {
+  schoolName: "Wide U", fetchStatus: "ok", sourceUrl: "https://wide.edu/cds.pdf", repositoryMatch: { latestAvailableYear: "2024-25" },
+  parsed: {
+    c7: { gpa: "very_important", rigor: "very_important", test_scores: "considered", class_rank: "very_important" },
+    admitRatePercent: 4, gpaAverage: 3.94, gpaBand: { low: 3.75, high: 4 },
+    satComposite: { low: 1510, high: 1570 }, actComposite: { low: 34, high: 35 },
+    testPolicy: "test_considered_or_required",
+    satSections: { ebrw: { p25: 740, p75: 780 }, math: { p25: 770, p75: 800 } },
+    actSections: { english: { p25: 35, p75: 36 }, math: { p25: 33, p75: 36 }, reading: { p25: 34, p75: 36 }, science: { p25: 33, p75: 36 } },
+    scoreDistribution: {
+      satComposite: [{ low: 1400, high: 1600, pct: 97.3 }, { low: 1200, high: 1399, pct: 2.5 }, { low: 1000, high: 1199, pct: 0.2 }],
+      actComposite: [{ low: 30, high: 36, pct: 99.1 }, { low: 24, high: 29, pct: 0.6 }, { low: 18, high: 23, pct: 0.3 }],
+    },
+    gpaDistribution: [{ low: 4, high: 4, pct: 73.3 }, { low: 3.75, high: 3.99, pct: 16.5 }, { low: 3.5, high: 3.74, pct: 6.7 }, { low: 3.25, high: 3.49, pct: 3 }, { low: 3, high: 3.24, pct: 0.5 }],
+    classRank: { topTenthPct: 97.8, topQuarterPct: 100, topHalfPct: 100, submittedPct: 18.8 },
+    submitting: { satPct: 50.3, actPct: 19 },
+  },
+};
+const WIDE_COLLEGE = { name: "Wide U", acceptanceRate: 4, sat25: 1510, sat75: 1570, act25: 34, act75: 35, avgGpaAdmitted: 3.94, topMajors: [] };
+
+test("section scores refine the test read and a weak Math section flags a quantitative major", () => {
+  const balanced = compareTestsToSchool(studentWith(), WIDE_COLLEGE, WIDE_CDS);
+  const lopsided = compareTestsToSchool(studentWith({ testScores: [{ test: "sat", totalScore: 1500, sections: { readingWriting: 800, math: 700 } }] }), WIDE_COLLEGE, WIDE_CDS);
+  assert.equal(balanced.best.test, "sat");
+  assert.equal(balanced.best.position, "below"); // 1500 sits under the 1510 floor
+  assert.equal(balanced.best.sections.length, 2);
+  assert.equal(lopsided.best.sections.find((s) => s.key === "math").position, "below");
+  assert.equal(lopsided.best.sections.find((s) => s.key === "readingWriting").position, "above");
+  assert.ok(lopsided.score < balanced.score, `a 700 Math (${lopsided.score}) should read below a 750/750 split (${balanced.score})`);
+  // The distribution places the total: 97.3% of enrolled submitters sat in
+  // the 1400–1600 band with it.
+  assert.deepEqual(balanced.distribution, { band: "1400–1600", shareInBand: 97.3, shareAbove: 0, shareAtOrBelow: 100 });
+  assert.deepEqual(balanced.submitting, { satPct: 50.3, actPct: 19 });
+
+  const read = buildPositioningForTarget(studentWith({ testScores: [{ test: "sat", totalScore: 1530, sections: { readingWriting: 800, math: 730 } }] }), WIDE_COLLEGE, WIDE_CDS, { major: "Computer Science" });
+  assert.ok(read.mainRedFlags.some((f) => /SAT Math \(730\) sits below this school's 25th percentile \(770\)/.test(f)), JSON.stringify(read.mainRedFlags));
+  assert.equal(read.profileComparison.tests.used.weakSection, true);
+  assert.equal(read.profileComparison.tests.used.position, "within");
+  const humanities = buildPositioningForTarget(studentWith({ major_interest: "English", testScores: [{ test: "sat", totalScore: 1530, sections: { readingWriting: 800, math: 730 } }] }), WIDE_COLLEGE, WIDE_CDS, { major: "English" });
+  assert.ok(!humanities.mainRedFlags.some((f) => /SAT Math/.test(f)), "the math flag is for quantitative majors only");
+});
+
+test("the stronger test is read, through concordance when the school reports only the other", () => {
+  const both = compareTestsToSchool(studentWith({ testScores: [{ test: "sat", totalScore: 1300 }, { test: "act", totalScore: 34, sections: { english: 35, math: 33, reading: 34, science: 34 } }] }), WIDE_COLLEGE, WIDE_CDS);
+  assert.equal(both.best.test, "act");
+  assert.equal(both.best.position, "within");
+  assert.equal(both.best.sections.length, 4);
+  assert.equal(both.candidates.find((c) => c.test === "sat").position, "below");
+  assert.equal(both.distribution.band, "30–36");
+
+  // Only SAT bands at the school: a 34 ACT is read as its 1500 equivalent.
+  const satOnly = compareTestsToSchool(studentWith({ testScores: [{ test: "act", totalScore: 34 }] }), { name: "S", sat25: 1460, sat75: 1560 }, { parsed: { testPolicy: "test_considered_or_required" } });
+  assert.equal(satOnly.best.convertedFrom, "act");
+  assert.equal(satOnly.best.equivalent, 1500);
+  assert.equal(satOnly.best.position, "within");
+  assert.equal(satOnly.distribution, null, "a converted score is not placed in the other test's table");
+  assert.equal(actToSat(36), 1590);
+  assert.equal(satToAct(1460), 33);
+});
+
+test("a below-range score at a test-optional school is withheld and weighs nothing", () => {
+  const optional = { ...WIDE_CDS, parsed: { ...WIDE_CDS.parsed, testPolicy: "test_optional_or_deemphasized" } };
+  const weak = studentWith({ testScores: [{ test: "sat", totalScore: 1250 }] });
+  const withheld = compareTestsToSchool(weak, WIDE_COLLEGE, optional);
+  assert.equal(withheld.advice, "withhold");
+  assert.equal(withheld.score, 42, "no worse than a non-submitter");
+  const readiness = scoreAcademicReadiness(weak, WIDE_COLLEGE, optional);
+  assert.equal(readiness.dynamicWeights.test, 0);
+  assert.equal(readiness.reads.tests.advice, "withhold");
+
+  const required = compareTestsToSchool(weak, WIDE_COLLEGE, WIDE_CDS);
+  assert.equal(required.advice, "submit");
+  assert.ok(required.score < 42, `a required 1250 against 1510–1570 must read low, got ${required.score}`);
+  assert.ok(scoreAcademicReadiness(weak, WIDE_COLLEGE, WIDE_CDS).dynamicWeights.test > 0.1);
+
+  const strong = compareTestsToSchool(studentWith({ testScores: [{ test: "sat", totalScore: 1560 }] }), WIDE_COLLEGE, optional);
+  assert.equal(strong.advice, "submit");
+  assert.equal(compareTestsToSchool(studentWith({ testScores: [] }), WIDE_COLLEGE, optional).advice, "none");
+  assert.equal(buildPositioningForTarget(weak, WIDE_COLLEGE, optional, { major: "Computer Science" }).featureBreakdown.testSubmissionAdvice, "withhold");
+});
+
+test("GPA reads against the C11 distribution and class rank against C10", () => {
+  const gpa = compareGpaToSchool(studentWith({ gpa_unweighted: 3.8 }), WIDE_COLLEGE, WIDE_CDS);
+  assert.equal(gpa.basis, "average+distribution");
+  assert.equal(gpa.position, "within");
+  assert.deepEqual(gpa.placement, { band: "3.75–3.99", shareInBand: 16.5, shareAbove: 73.3, shareAtOrBelow: 26.7 });
+  const perfect = compareGpaToSchool(studentWith({ gpa_unweighted: 4 }), WIDE_COLLEGE, WIDE_CDS);
+  assert.equal(perfect.placement.band, "4");
+  assert.equal(perfect.placement.shareAbove, 0);
+  assert.ok(perfect.score > gpa.score);
+  // The same 3.8 reads better where the distribution says most of the
+  // class sat below it.
+  const openDistribution = { parsed: { ...WIDE_CDS.parsed, gpaAverage: null, gpaDistribution: [{ low: 4, high: 4, pct: 10 }, { low: 3.75, high: 3.99, pct: 20 }, { low: 3.5, high: 3.74, pct: 40 }, { low: 3.25, high: 3.49, pct: 30 }] } };
+  const easier = compareGpaToSchool(studentWith({ gpa_unweighted: 3.8 }), { name: "Open" }, openDistribution);
+  assert.equal(easier.basis, "distribution");
+  assert.ok(easier.score > gpa.score, `${easier.score} should beat ${gpa.score}`);
+  // Only an average: the old formula, unchanged.
+  assert.equal(compareGpaToSchool(studentWith({ gpa_unweighted: 3.8 }), { avgGpaAdmitted: 3.9 }, { parsed: {} }).basis, "average");
+  assert.equal(compareGpaToSchool(studentWith({ gpa_unweighted: null }), WIDE_COLLEGE, WIDE_CDS).score, 30);
+
+  const topTenth = compareRankToSchool(studentWith({ classRank: { rank: 12, size: 400 } }), WIDE_CDS);
+  assert.equal(topTenth.bucket, "top10");
+  assert.equal(topTenth.shareAbove, 0);
+  assert.equal(topTenth.score, 92);
+  const topQuarter = compareRankToSchool(studentWith({ classRank: { topPercent: 20 } }), WIDE_CDS);
+  assert.equal(topQuarter.bucket, "top25");
+  assert.equal(topQuarter.shareAbove, 97.8);
+  assert.ok(topQuarter.score < 25, `almost everyone enrolled ranked above a top-20% student: ${topQuarter.score}`);
+  assert.equal(compareRankToSchool(studentWith(), WIDE_CDS).score, 50, "no rank on record stays neutral");
+  assert.equal(compareRankToSchool(studentWith({ classRank: { topPercent: 20 } }), { parsed: {} }).basis, "percentile");
+});
+
+test("AP exam results enter the readiness blend only once the student has some", () => {
+  const withExams = studentWith({ apScores: [{ exam: "Computer Science A", score: 5, year: 2025 }, { exam: "Calculus BC", score: 5, year: 2026 }, { exam: "Statistics", score: 4, year: 2026 }, { exam: "Physics 1", score: 2, year: 2025 }] });
+  assert.equal(withExams.apExams.count, 4);
+  assert.equal(withExams.apExams.strong, 3);
+  assert.equal(withExams.apExams.weak, 1);
+  assert.deepEqual(withExams.apExams.relevant.map((a) => a.name), ["Computer Science A"]);
+  const ap = compareApExams(withExams);
+  assert.ok(ap.score >= 85, `three 4s and 5s with a 5 in the field should read high, got ${ap.score}`);
+  const readiness = scoreAcademicReadiness(withExams, WIDE_COLLEGE, WIDE_CDS);
+  assert.ok(readiness.dynamicWeights.apExams > 0.04);
+  const none = scoreAcademicReadiness(studentWith(), WIDE_COLLEGE, WIDE_CDS);
+  assert.equal(none.dynamicWeights.apExams, 0);
+  assert.equal(none.reads.apExams.score, null);
+  // A 2 in the field is a flag; no exams is not.
+  const weakField = buildPositioningForTarget(studentWith({ apScores: [{ exam: "Computer Science A", score: 2, year: 2025 }] }), WIDE_COLLEGE, WIDE_CDS, { major: "Computer Science" });
+  assert.ok(weakField.mainRedFlags.some((f) => /AP exam scores in the intended field average below 3/.test(f)));
+  assert.ok(!buildPositioningForTarget(studentWith(), WIDE_COLLEGE, WIDE_CDS, { major: "Computer Science" }).mainRedFlags.some((f) => /AP exam scores/.test(f)));
+});
+
+test("the positioning result carries the profile comparison the card renders", () => {
+  const student = studentWith({ classRank: { rank: 12, size: 400 }, apScores: [{ exam: "Calculus BC", score: 5, year: 2026 }] });
+  const read = buildPositioningForTarget(student, WIDE_COLLEGE, WIDE_CDS, { major: "Computer Science" });
+  const pc = read.profileComparison;
+  assert.equal(pc.tests.used.test, "sat");
+  assert.equal(pc.tests.used.score, 1500);
+  assert.deepEqual(pc.tests.used.band, { low: 1510, high: 1570 });
+  assert.equal(pc.tests.sections.length, 2);
+  assert.equal(pc.tests.advice, "submit");
+  assert.equal(pc.gpa.average, 3.94);
+  assert.equal(pc.gpa.placement.band, "3.75–3.99");
+  assert.equal(pc.classRank.bucket, "top10");
+  assert.equal(pc.classRank.school.topTenthPct, 97.8);
+  assert.equal(pc.apExams.count, 1);
+  assert.equal(read.featureBreakdown.classRankScore, 92);
+  assert.ok(read.featureBreakdown.apExamScore > 80);
+  // A bare record still yields the block, with unknowns rather than errors.
+  const bare = buildPositioningForTarget(buildStudentModel({ major_interest: "Biology" }, [], null), { name: "Bare" }, { parsed: null }, { major: "Biology" });
+  assert.equal(bare.profileComparison.tests.advice, "none");
+  assert.equal(bare.profileComparison.gpa.position, "unknown");
+  assert.equal(bare.profileComparison.classRank.bucket, null);
+  assert.equal(bare.profileComparison.apExams.score, null);
 });

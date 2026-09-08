@@ -786,6 +786,83 @@ test("the context appendix does not poison chat topic classification", async () 
   assert.doesNotMatch(String(turn.data.answer), /eligibility item/i);
 });
 
+test("subscores, AP scores and class rank reach the profile, the College Fit read and the counselor", async () => {
+  const token = await registerStudent("wider-profile");
+  for (const consentType of ["data_processing", "ai_interaction", "cross_border_transfer"]) {
+    const consent = await request("POST", "/api/consent/grant", { token, body: { consentType, grantedBy: "student" } });
+    assert.equal(consent.status, 200, JSON.stringify(consent.data));
+  }
+  const synced = await request("POST", "/api/students/sync", {
+    token,
+    body: {
+      profile: {
+        gpa: { unweighted: 3.9 },
+        classRank: { rank: 12, size: 400 },
+        courses: [
+          { name: "Calculus BC", type: "ap", grade: "A", year: "junior" },
+          { name: "Computer Science A", type: "ap", grade: "A", year: "junior" },
+        ],
+        testScores: [
+          { test: "sat", totalScore: 1520, sections: { readingWriting: 740, math: 780 } },
+          { test: "act", totalScore: 33, sections: { english: 35, math: 31, reading: 34, science: 32 } },
+        ],
+        apScores: [{ exam: "Calculus BC", score: 5, year: 2026 }, { exam: "Computer Science A", score: 4, year: 2026 }],
+      },
+      activities: [],
+      majorInterest: "Computer Science",
+      goals: [],
+    },
+  });
+  assert.equal(synced.status, 200, JSON.stringify(synced.data));
+
+  // The stored profile keeps the sections and the rank.
+  const profile = await request("GET", "/api/students/profile", { token });
+  assert.equal(profile.status, 200, JSON.stringify(profile.data));
+  assert.deepEqual(profile.data.profile.classRank, { topPercent: 3, rank: 12, size: 400 });
+  assert.deepEqual(profile.data.profile.testScores[1].sections, { english: 35, math: 31, reading: 34, science: 32 });
+
+  // The College Fit read compares them with Stanford's Common Data Set:
+  // the 1520 SAT (inside 1510–1570) is the test read, section by section;
+  // the top-3% rank against C10; the 3.9 GPA against the C11 distribution.
+  const fit = await request("POST", "/api/positioning/targets", {
+    token,
+    body: { targets: [{ schoolName: "Stanford University" }], major: "Computer Science", searchCds: false },
+  });
+  assert.equal(fit.status, 200, `${JSON.stringify(fit.data)}\n${serverOutput}`);
+  const target = fit.data.targets[0];
+  const pc = target.profileComparison;
+  assert.ok(pc, JSON.stringify(target).slice(0, 400));
+  assert.equal(pc.tests.used.test, "sat", JSON.stringify(pc.tests));
+  assert.equal(pc.tests.used.position, "within", JSON.stringify({ tests: pc.tests, provenance: target.dataProvenance, ranges: target.featureBreakdown.satGpaEnrolledRange }));
+  assert.equal(pc.tests.sections.length, 2);
+  assert.equal(pc.tests.advice, "submit");
+  assert.equal(pc.classRank.bucket, "top10");
+  assert.equal(pc.classRank.school.topTenthPct, 97.8);
+  assert.equal(pc.gpa.placement.band, "3.75–3.99");
+  assert.equal(pc.apExams.count, 2);
+  assert.equal(target.featureBreakdown.testSubmissionAdvice, "submit");
+
+  // The counselor sees the same record and the same sections of the CDS,
+  // and a faithful subscore statement draws no correction.
+  const reply = "Your ACT Math 31 is the section to lift.";
+  const turn = await request("POST", "/api/chat", {
+    token,
+    body: {
+      system: "You are the COLLEGE FIT specialist for students ages 14-18.",
+      messages: [{ role: "user", content: `How do my ACT sections compare at Stanford University? MOCKREPLY:${b64(reply)}:` }],
+      request_id: "wider-profile-1",
+    },
+  });
+  assert.equal(turn.status, 200, `${JSON.stringify(turn.data)}\n${serverOutput}`);
+  const calls = loggedModelCalls();
+  const wire = JSON.stringify(calls[calls.length - 1].messages);
+  assert.match(wire, /ACT 33 \(English 35, Math 31, Reading 34, Science 32\)/);
+  assert.match(wire, /Class rank: top 3% \(12 of 400\)/);
+  assert.match(wire, /enrolled ACT sections middle 50%: English 35–36, Math 33–36, Reading 34–36, Science 33–36/);
+  assert.match(wire, /enrolled high-school GPA distribution: 73\.3% had a 4\.0/);
+  assert.equal(turn.data.answer, reply);
+});
+
 test("uploaded-file context survives a thread reload via model_content", async () => {
   const token = await registerStudent("file-context");
   const threadId = await createThread(token);
