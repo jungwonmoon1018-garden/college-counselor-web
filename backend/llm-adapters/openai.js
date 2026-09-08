@@ -48,10 +48,18 @@ export async function callOpenAI({
     throw normalizedError(502, 'network_error', error?.message || 'Request failed');
   }
 
+  // OpenRouter sends the headers early and the body when generation ends,
+  // so an abort during the body read is the common shape of a timeout. It
+  // used to be swallowed here as "no JSON" and returned as an empty 200 —
+  // the student saw the composer's "not enough information" sentence at
+  // exactly the attempt budget, and the adapter's retry never ran.
   let data = null;
   try {
     data = await response.json();
-  } catch {
+  } catch (error) {
+    if (signal?.aborted || error?.name === 'AbortError') {
+      throw normalizedError(499, 'aborted', 'Request aborted while reading the response');
+    }
     data = null;
   }
   if (!response.ok) {

@@ -90,7 +90,11 @@ export async function callLLM(options = {}) {
   const totalMs = Number(process.env.LLM_CALL_TIMEOUT_MS) > 0
     ? Number(process.env.LLM_CALL_TIMEOUT_MS)
     : 105_000;
-  const quickCall = maxTokens <= 1024;
+  // A chat turn asks for the default 1,024 tokens and is the long
+  // generation; the client's classifier, validator and screener calls ask
+  // for less. The old "at most 1,024" split gave the chat turn the short
+  // first attempt, and a small-tier answer that needed 36–45 s was cut off.
+  const quickCall = maxTokens < 1024;
   const firstMs = quickCall
     ? Math.min(40_000, Math.ceil(totalMs / 2))
     : Math.min(60_000, Math.ceil(totalMs * 0.6));

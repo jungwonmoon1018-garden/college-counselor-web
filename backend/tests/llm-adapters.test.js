@@ -141,3 +141,46 @@ test("a stalled provider call is aborted by the adapter timeout", async () => {
     delete process.env.LLM_CALL_TIMEOUT_MS;
   }
 });
+
+// OpenRouter sends the headers at once and the body when generation ends.
+// An attempt whose body read is cut off by the attempt budget used to come
+// back as an empty 200 (the JSON parse failure was swallowed), so the chat
+// answered "There is not enough information…" at exactly the budget and
+// the retry never ran. It must throw as an abort and retry.
+test("an attempt cut off while reading the body retries on a fresh connection", async () => {
+  process.env.LLM_CALL_TIMEOUT_MS = "120";
+  const calls = [];
+  try {
+    const result = await callLLM({
+      provider: "openrouter",
+      apiKey: "sk-or-test",
+      model: TIER_DEFAULTS.openrouter.small,
+      messages: [{ role: "user", content: "hello" }],
+      maxTokens: 1024,
+      fetchImpl: (_url, options) => {
+        calls.push(Date.now());
+        if (calls.length === 1) {
+          // Headers arrive; the body settles only on abort.
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => new Promise((_resolve, reject) => {
+              const fail = () => { const err = new Error("aborted"); err.name = "AbortError"; reject(err); };
+              if (options.signal.aborted) return fail();
+              options.signal.addEventListener("abort", fail, { once: true });
+            }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ id: "x", model: TIER_DEFAULTS.openrouter.small, choices: [{ message: { role: "assistant", content: "second attempt" }, finish_reason: "stop" }], usage: { prompt_tokens: 3, completion_tokens: 2 } }),
+        });
+      },
+    });
+    assert.equal(calls.length, 2, "the cut-off attempt must be retried");
+    assert.match(JSON.stringify(result), /second attempt/);
+  } finally {
+    delete process.env.LLM_CALL_TIMEOUT_MS;
+  }
+});
