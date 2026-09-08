@@ -4,7 +4,7 @@
   "tier": "Sub-Ivy",
   "year": 2024,
   "source": "cds",
-  "parserVersion": 2,
+  "parserVersion": 4,
   "testPolicy": "test_required",
   "b1": {
     "applied": 49460,
@@ -34,12 +34,297 @@
     "satSections": {
       "math": {
         "p25": 770,
+        "p50": 780,
         "p75": 800
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 35,
+        "p50": 35,
+        "p75": 36
+      },
+      "math": {
+        "p25": 32,
+        "p50": 34,
+        "p75": 35
+      },
+      "reading": {
+        "p25": 34,
+        "p50": 35,
+        "p75": 36
+      },
+      "science": {
+        "p25": 33,
+        "p50": 35,
+        "p75": 36
       }
     },
     "submitting": {
       "satPct": 46,
       "actPct": 23
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 97
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 3
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 0
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 0
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 92
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 6
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 1
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 94
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 5
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 1
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 97
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 3
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 0
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 0
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 0
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 96
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 3
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 1
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 93
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 7
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 1
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 97
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 3
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 0
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 95
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 5
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 1
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ]
+      }
     },
     "applicationFeeUsd": 75,
     "earlyDecision": {

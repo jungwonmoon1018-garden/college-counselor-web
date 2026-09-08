@@ -4,7 +4,7 @@
   "tier": "T20",
   "year": 2024,
   "source": "cds",
-  "parserVersion": 2,
+  "parserVersion": 4,
   "testPolicy": "test_required",
   "enrolledSAT": {
     "p25": 1470,
@@ -44,20 +44,139 @@
     "satSections": {
       "ebrw": {
         "p25": 730,
+        "p50": 760,
         "p75": 780
       },
       "math": {
         "p25": 740,
+        "p50": 780,
         "p75": 790
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 34,
+        "p50": 35,
+        "p75": 36
+      },
+      "math": {
+        "p25": 31,
+        "p50": 34,
+        "p75": 35
       }
     },
     "submitting": {
       "satPct": 61,
       "actPct": 25
     },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 88.7
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 9.9
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 1.4
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 0
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 87.9
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 10.5
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 1.5
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0.1
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 88.1
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 10.2
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 1.7
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ]
+      }
+    },
     "classRank": {
       "topTenthPct": 96,
-      "topQuarterPct": 99
+      "topQuarterPct": 99,
+      "topHalfPct": 100,
+      "submittedPct": 33
+    },
+    "gpa": {
+      "submittedPct": 0
     },
     "applicationFeeUsd": 80,
     "dates": {

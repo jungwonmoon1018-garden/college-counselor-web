@@ -170,25 +170,31 @@ export async function ensureCdsStoreSeeded(ragStmts, { dir = DEFAULT_PARSED_CDS_
       const stored = loadAllValidatedRecords(ragStmts);
       const storedWithExtras = stored.filter((record) => record.extras && Object.keys(record.extras).length).length;
       const storedLabel = new Map(stored.map((record) => [record.slug, record.yearLabel || null]));
+      const storedVersion = new Map(stored.map((record) => [record.slug, Number(record.parserVersion) || 0]));
       let diskWithExtras = 0;
       // A parsed record replaced on disk by a newer document (Columbia's
       // General Studies CDS swapped for the Columbia College and Engineering
       // one) carries a new year label; the stored row would otherwise keep
       // the old document's numbers on every deployment that was already
-      // populated.
+      // populated. A file re-parsed by a newer parser version (the ACT
+      // sections, score-range and GPA distributions of version 4) is
+      // re-ingested for the same reason.
       const relabeled = [];
+      const reparsed = [];
       try {
         for (const slug of diskSlugs) {
           const parsed = JSON.parse(fs.readFileSync(path.join(dir, `${slug}.json`), "utf8"));
           if (parsed?.extras && Object.keys(parsed.extras).length) diskWithExtras++;
           if (parsed?.yearLabel && storedLabel.has(slug) && storedLabel.get(slug) !== parsed.yearLabel) relabeled.push(slug);
+          if (storedVersion.has(slug) && (Number(parsed?.parserVersion) || 0) > storedVersion.get(slug)) reparsed.push(slug);
         }
       } catch { /* unreadable file → treat as no extras */ }
       const extrasBehind = diskWithExtras > 0 && storedWithExtras === 0;
-      if (missing.length === 0 && !extrasBehind && !relabeled.length) return { seeded: false, reason: "already_populated" };
+      if (missing.length === 0 && !extrasBehind && !relabeled.length && !reparsed.length) return { seeded: false, reason: "already_populated" };
       if (missing.length) console.log(`[cds-store] topping up ${missing.length} new parsed CDS record(s): ${missing.slice(0, 8).join(", ")}${missing.length > 8 ? ", …" : ""}`);
       if (extrasBehind) console.log(`[cds-store] re-ingesting ${diskWithExtras} parsed CDS record(s) that carry the wider section read`);
       if (relabeled.length) console.log(`[cds-store] re-ingesting ${relabeled.length} parsed CDS record(s) whose document changed: ${relabeled.slice(0, 8).join(", ")}${relabeled.length > 8 ? ", …" : ""}`);
+      if (reparsed.length) console.log(`[cds-store] re-ingesting ${reparsed.length} parsed CDS record(s) from a newer parser version: ${reparsed.slice(0, 8).join(", ")}${reparsed.length > 8 ? ", …" : ""}`);
     }
   }
   const res = await ingestParsedCdsCache(ragStmts, { dir });
@@ -245,10 +251,15 @@ export function cdsRecordToPositioningResult(record, { liveFallback = null, unit
     ? Math.round(record.overallAdmitRate * 1000) / 10
     : (liveFallback?.parsed?.admitRatePercent ?? null);
 
+  const extras = record.extras && typeof record.extras === "object" ? record.extras : {};
   const parsed = {
     c7: record.c7 && Object.keys(record.c7).length ? record.c7 : (liveFallback?.parsed?.c7 ?? null),
     admitRatePercent,
-    gpaAverage: record.enrolledGPA?.avg ?? liveFallback?.parsed?.gpaAverage ?? null,
+    gpaAverage: record.enrolledGPA?.avg ?? extras.gpa?.average ?? liveFallback?.parsed?.gpaAverage ?? null,
+    // C11 as a band (the GPA ranges holding the 25th and 75th percentile).
+    gpaBand: record.enrolledGPA?.p25 != null || record.enrolledGPA?.p75 != null
+      ? { low: record.enrolledGPA.p25 ?? null, high: record.enrolledGPA.p75 ?? null }
+      : null,
     satComposite: record.enrolledSAT
       ? { low: record.enrolledSAT.p25 ?? null, high: record.enrolledSAT.p75 ?? null }
       : (liveFallback?.parsed?.satComposite ?? null),
@@ -256,6 +267,16 @@ export function cdsRecordToPositioningResult(record, { liveFallback = null, unit
       ? { low: record.enrolledACT.p25 ?? null, high: record.enrolledACT.p75 ?? null }
       : (liveFallback?.parsed?.actComposite ?? null),
     testPolicy: normalizeCdsTestPolicy(record.testPolicy) ?? liveFallback?.parsed?.testPolicy ?? null,
+    // The wider read the College Fit calculation compares the student's own
+    // sections, rank and GPA against: C9 section bands and score-range
+    // tables, C10 class-rank shares, C11 GPA distribution, and the share of
+    // the enrolled class that submitted each test.
+    satSections: extras.satSections ?? null,
+    actSections: extras.actSections ?? null,
+    scoreDistribution: extras.scoreDistribution ?? null,
+    gpaDistribution: Array.isArray(extras.gpaDistribution) ? extras.gpaDistribution : null,
+    classRank: extras.classRank ?? null,
+    submitting: extras.submitting ?? null,
   };
 
   const reportingYear = record.yearLabel || (record.year != null ? String(record.year) : null);

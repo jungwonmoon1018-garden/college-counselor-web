@@ -14,7 +14,12 @@
     "p25": 33,
     "p75": 34
   },
-  "enrolledGPA": null,
+  "enrolledGPA": {
+    "p25": 3.5,
+    "p75": 4,
+    "source": "C11_cumulative",
+    "avg": 3.86
+  },
   "testPolicy": "test_optional",
   "c7": {
     "rigor": "very_important",
@@ -43,7 +48,7 @@
   "priorities": [],
   "sourceUrl": "https://www.bu.edu/asir/files/2026/07/CDS-2025-2026-updated.pdf",
   "sourceKind": "pdf_text",
-  "parserVersion": 3,
+  "parserVersion": 4,
   "parserNotes": [],
   "ingestedAt": "2026-08-31 04:13:24",
   "updatedAt": "2026-08-31 04:13:24",
@@ -51,20 +56,229 @@
     "satSections": {
       "ebrw": {
         "p25": 700,
+        "p50": 730,
         "p75": 750
       },
       "math": {
         "p25": 720,
+        "p50": 750,
         "p75": 780
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 34,
+        "p50": 35,
+        "p75": 35
+      },
+      "math": {
+        "p25": 30,
+        "p50": 33,
+        "p75": 34
+      },
+      "reading": {
+        "p25": 33,
+        "p50": 35,
+        "p75": 36
+      },
+      "science": {
+        "p25": 31,
+        "p50": 33,
+        "p75": 34
       }
     },
     "submitting": {
       "satPct": 36,
       "actPct": 10
     },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 88
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 11
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 0
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 77
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 23
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 1
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 86
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 13
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 97
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 3
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 0
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 96
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 4
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 1
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 80
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 19
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 1
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 97
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 3
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 89
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 11
+          }
+        ]
+      }
+    },
     "classRank": {
       "topTenthPct": 86,
-      "topQuarterPct": 98
+      "topQuarterPct": 98,
+      "topHalfPct": 100,
+      "submittedPct": 14
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 36
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 36
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 27
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 1
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 0
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 0
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.86,
+      "submittedPct": 100
     },
     "applicationFeeUsd": 80,
     "earlyDecision": {

@@ -4,7 +4,7 @@
   "tier": "Sub-Ivy",
   "year": 2024,
   "source": "cds",
-  "parserVersion": 2,
+  "parserVersion": 4,
   "testPolicy": "test_optional",
   "b1": {
     "applied": 32473,
@@ -54,20 +54,308 @@
     "satSections": {
       "ebrw": {
         "p25": 740,
+        "p50": 760,
         "p75": 770
       },
       "math": {
         "p25": 770,
+        "p50": 790,
         "p75": 800
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 35,
+        "p50": 35,
+        "p75": 36
+      },
+      "math": {
+        "p25": 33,
+        "p50": 35,
+        "p75": 36
+      },
+      "reading": {
+        "p25": 34,
+        "p50": 35,
+        "p75": 36
+      },
+      "science": {
+        "p25": 33,
+        "p50": 35,
+        "p75": 36
       }
     },
     "submitting": {
       "satPct": 48,
       "actPct": 22
     },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 97.3
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 2.2
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 0.4
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 0.2
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 95.2
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 4.2
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 0.6
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 96.9
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 2.6
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 0.4
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0.2
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 99.6
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 0.4
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 0
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 0
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 0
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 98.8
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 1.2
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 0
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 92.7
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 7.3
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 0
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 99.6
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 0.4
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 0
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 98.8
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 1.2
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 0
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ]
+      }
+    },
     "classRank": {
       "topTenthPct": 89,
-      "topQuarterPct": 96
+      "topQuarterPct": 96,
+      "topHalfPct": 100,
+      "submittedPct": 44
     },
     "applicationFeeUsd": 75,
     "earlyDecision": {

@@ -14,7 +14,6 @@
     "p25": 31,
     "p75": 35
   },
-  "enrolledGPA": null,
   "testPolicy": "test_required",
   "c7": {},
   "b1": {
@@ -40,7 +39,7 @@
   "priorities": [],
   "sourceUrl": "https://drive.google.com/uc?export=download&id=1msvBhqWzTph5m5dUBiyzH6ev4kwzYS03",
   "sourceKind": "pdf_text",
-  "parserVersion": 3,
+  "parserVersion": 4,
   "parserNotes": [],
   "ingestedAt": "2026-08-31 04:13:30",
   "updatedAt": "2026-08-31 04:13:30",
@@ -48,20 +47,306 @@
     "satSections": {
       "ebrw": {
         "p25": 700,
+        "p50": 740,
         "p75": 770
       },
       "math": {
         "p25": 690,
+        "p50": 750,
         "p75": 780
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 34,
+        "p50": 35,
+        "p75": 36
+      },
+      "math": {
+        "p25": 29,
+        "p50": 32,
+        "p75": 34
+      },
+      "science": {
+        "p25": 30,
+        "p50": 33,
+        "p75": 35
       }
     },
     "submitting": {
       "satPct": 78,
       "actPct": 30
     },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 76.1
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 16.9
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 5.5
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 1.5
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 77.9
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 16.2
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 4.7
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 1.1
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 74.7
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 17.2
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 6.1
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 2
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0.1
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 87.1
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 10.2
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 2.5
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 0.2
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 0
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 89.8
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 7.9
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 1.7
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0.6
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 72.9
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 23.3
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 2.7
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 1
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 91.7
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 6.3
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 2.1
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 80.2
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 16.5
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 3.1
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0.2
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ]
+      }
+    },
     "classRank": {
       "topTenthPct": 85,
-      "topQuarterPct": 95
+      "topQuarterPct": 95,
+      "topHalfPct": 98,
+      "submittedPct": 51
+    },
+    "gpa": {
+      "submittedPct": 0
     },
     "applicationFeeUsd": 75,
     "dates": {

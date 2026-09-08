@@ -4,7 +4,7 @@
   "tier": "T100",
   "year": 2024,
   "source": "cds",
-  "parserVersion": 2,
+  "parserVersion": 4,
   "testPolicy": "test_required",
   "b1": {
     "applied": 62116,
@@ -32,14 +32,48 @@
   },
   "extras": {
     "satSections": {
+      "ebrw": {
+        "p25": 550,
+        "p50": 610,
+        "p75": 660
+      },
       "math": {
         "p25": 550,
+        "p50": 610,
         "p75": 660
       }
+    },
+    "actSections": {
+      "english": {
+        "p25": 23,
+        "p50": 27,
+        "p75": 32
+      },
+      "math": {
+        "p25": 22,
+        "p50": 26,
+        "p75": 29
+      },
+      "reading": {
+        "p25": 24,
+        "p50": 30,
+        "p75": 33
+      },
+      "science": {
+        "p25": 23,
+        "p50": 26,
+        "p75": 30
+      }
+    },
+    "gpa": {
+      "average": 3.74
     },
     "applicationFeeUsd": 65,
     "aid": {
       "averagePackageFirstYearUsd": 17699
     }
+  },
+  "enrolledGPA": {
+    "avg": 3.74
   }
 }

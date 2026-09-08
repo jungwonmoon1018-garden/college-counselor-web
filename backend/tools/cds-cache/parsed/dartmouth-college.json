@@ -14,7 +14,6 @@
     "p25": 32,
     "p75": 35
   },
-  "enrolledGPA": null,
   "testPolicy": "test_optional",
   "c7": {
     "rigor": "very_important",
@@ -43,7 +42,7 @@
   "priorities": [],
   "sourceUrl": "https://www.dartmouth.edu/oir/pdfs/cds_2025-26.pdf",
   "sourceKind": "pdf_text",
-  "parserVersion": 3,
+  "parserVersion": 4,
   "parserNotes": [],
   "ingestedAt": "2026-08-31 04:13:25",
   "updatedAt": "2026-08-31 04:13:25",
@@ -51,20 +50,144 @@
     "satSections": {
       "ebrw": {
         "p25": 720,
+        "p50": 750,
         "p75": 770
       },
       "math": {
         "p25": 720,
+        "p50": 770,
         "p75": 790
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 34,
+        "p50": 35,
+        "p75": 36
+      },
+      "math": {
+        "p25": 31,
+        "p50": 33,
+        "p75": 35
       }
     },
     "submitting": {
       "satPct": 69,
       "actPct": 33
     },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 83
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 15
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 2
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 82
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 16
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 3
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 81
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 17
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 2
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 89.8
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 9.7
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 0.5
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 92.1
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 6.9
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 1
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 81.1
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 18.1
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 0.8
+          }
+        ]
+      }
+    },
     "classRank": {
       "topTenthPct": 96,
-      "topQuarterPct": 99
+      "topQuarterPct": 99,
+      "topHalfPct": 100,
+      "submittedPct": 44
     },
     "earlyDecision": {
       "applications": 3552,

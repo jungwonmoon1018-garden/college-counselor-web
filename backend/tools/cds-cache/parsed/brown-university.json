@@ -4,7 +4,7 @@
   "tier": "Sub-Ivy",
   "year": 2024,
   "source": "cds",
-  "parserVersion": 2,
+  "parserVersion": 4,
   "testPolicy": "test_required",
   "b1": {
     "applied": 48904,
@@ -34,20 +34,135 @@
     "satSections": {
       "ebrw": {
         "p25": 740,
+        "p50": 760,
         "p75": 780
       },
       "math": {
         "p25": 770,
+        "p50": 780,
         "p75": 800
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 35,
+        "p50": 35,
+        "p75": 36
+      },
+      "math": {
+        "p25": 32,
+        "p50": 34,
+        "p75": 35
+      },
+      "reading": {
+        "p25": 34,
+        "p50": 35,
+        "p75": 36
+      },
+      "science": {
+        "p25": 33,
+        "p50": 35,
+        "p75": 36
       }
     },
     "submitting": {
       "satPct": 61,
       "actPct": 24
     },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 97
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 2
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 0
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 0
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 96
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 4
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 0
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 97
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 3
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 0
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ]
+      }
+    },
     "classRank": {
       "topTenthPct": 89,
-      "topQuarterPct": 98
+      "topQuarterPct": 98,
+      "topHalfPct": 100
     },
     "applicationFeeUsd": 75,
     "earlyDecision": {

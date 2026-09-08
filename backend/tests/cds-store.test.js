@@ -170,3 +170,64 @@ test("assertSafeFetchTarget rejects malformed URLs, non-http(s) schemes, and loo
   await assert.rejects(() => assertSafeFetchTarget("http://localhost:3001/api/health"), /non-public address/);
   await assert.rejects(() => assertSafeFetchTarget("not a url"), /malformed/);
 });
+
+test("the adapter carries the wider read (sections, distributions, class rank, GPA band) to the engine", () => {
+  const rec = {
+    slug: "x-university", school: "X University", overallAdmitRate: 0.05, year: 2024,
+    enrolledSAT: { p25: 1500, p75: 1570 }, enrolledGPA: { p25: 3.75, p75: 4 }, testPolicy: "test_optional", c7: { gpa: "very_important" },
+    extras: {
+      satSections: { ebrw: { p25: 740, p75: 780 }, math: { p25: 770, p75: 800 } },
+      actSections: { english: { p25: 35, p75: 36 }, math: { p25: 33, p75: 36 } },
+      scoreDistribution: { satComposite: [{ low: 1400, high: 1600, pct: 97 }, { low: 1200, high: 1399, pct: 3 }] },
+      gpaDistribution: [{ low: 4, high: 4, pct: 73 }, { low: 3.75, high: 3.99, pct: 17 }, { low: 3.5, high: 3.74, pct: 10 }],
+      gpa: { average: 3.94, submittedPct: 68 },
+      classRank: { topTenthPct: 98, topQuarterPct: 100, submittedPct: 19 },
+      submitting: { satPct: 50, actPct: 19 },
+    },
+  };
+  const out = cdsRecordToPositioningResult(rec, { validated: true });
+  assert.deepEqual(out.parsed.gpaBand, { low: 3.75, high: 4 });
+  assert.equal(out.parsed.gpaAverage, 3.94, "the C12 average in extras fills a record without one");
+  assert.deepEqual(out.parsed.satSections, rec.extras.satSections);
+  assert.deepEqual(out.parsed.actSections, rec.extras.actSections);
+  assert.deepEqual(out.parsed.scoreDistribution, rec.extras.scoreDistribution);
+  assert.deepEqual(out.parsed.gpaDistribution, rec.extras.gpaDistribution);
+  assert.deepEqual(out.parsed.classRank, rec.extras.classRank);
+  assert.deepEqual(out.parsed.submitting, rec.extras.submitting);
+  const bare = cdsRecordToPositioningResult({ slug: "y", school: "Y", overallAdmitRate: 0.5 }, { validated: false });
+  assert.equal(bare.parsed.gpaBand, null);
+  assert.equal(bare.parsed.satSections, null);
+  assert.equal(bare.parsed.gpaDistribution, null);
+});
+
+test("a parsed file re-parsed by a newer parser version is re-ingested on boot", async () => {
+  const stmts = freshStmts();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cds-store-version-"));
+  try {
+    const record = {
+      school: "Version University", slug: "version-university", year: 2024, yearLabel: "2024-25", parserVersion: 3,
+      overallAdmitRate: 0.2, enrolledSAT: { p25: 1300, p75: 1450 }, testPolicy: "test_optional", c7: { gpa: "very_important" },
+      extras: { satSections: { math: { p25: 650, p75: 740 } } },
+    };
+    fs.writeFileSync(path.join(dir, "version-university.json"), JSON.stringify(record));
+    const first = await ensureCdsStoreSeeded(stmts, { dir });
+    assert.equal(first.seeded, true);
+    assert.equal(resolveStoredCdsRecord(stmts, { slug: "version-university" }).parserVersion, 3);
+    // Same file, same year: nothing to do.
+    assert.equal((await ensureCdsStoreSeeded(stmts, { dir })).seeded, false);
+    // The parser learned to read more; the row must follow the file.
+    record.parserVersion = 4;
+    record.extras.actSections = { math: { p25: 28, p75: 33 } };
+    record.enrolledGPA = { p25: 3.5, p75: 4, avg: 3.86 };
+    fs.writeFileSync(path.join(dir, "version-university.json"), JSON.stringify(record));
+    const again = await ensureCdsStoreSeeded(stmts, { dir });
+    assert.equal(again.seeded, true);
+    const stored = resolveStoredCdsRecord(stmts, { slug: "version-university" });
+    assert.equal(stored.parserVersion, 4);
+    assert.deepEqual(stored.extras.actSections, { math: { p25: 28, p75: 33 } });
+    assert.deepEqual(stored.enrolledGPA, { p25: 3.5, p75: 4, avg: 3.86 });
+    assert.equal((await ensureCdsStoreSeeded(stmts, { dir })).seeded, false);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

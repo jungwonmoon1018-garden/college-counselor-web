@@ -4,7 +4,7 @@
   "tier": "T50",
   "year": 2024,
   "source": "cds",
-  "parserVersion": 2,
+  "parserVersion": 4,
   "testPolicy": "test_required",
   "enrolledSAT": {
     "p25": 1510,
@@ -65,12 +65,119 @@
     "satSections": {
       "ebrw": {
         "p25": 730,
+        "p50": 750,
         "p75": 770
       },
       "math": {
         "p25": 770,
+        "p50": 790,
         "p75": 800
       }
+    },
+    "actSections": {
+      "english": {
+        "p25": 33,
+        "p50": 35,
+        "p75": 36
+      },
+      "math": {
+        "p25": 34,
+        "p50": 35,
+        "p75": 36
+      }
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 96.3
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 3.5
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 0.1
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 0.1
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 92.2
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 7.7
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 0.1
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0.1
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 95.8
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 3.6
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 0.5
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0.1
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "gpa": {
+      "average": 3.89
     },
     "dates": {
       "edClosing": {
@@ -78,5 +185,11 @@
         "raw": "November 1 (not available for Ac Ɵ ng, Direc Ɵ ng, Dramaturgy, Music Theater,"
       }
     }
+  },
+  "enrolledGPA": {
+    "p25": 3.75,
+    "p75": 4,
+    "source": "C12_cumulative",
+    "avg": 3.89
   }
 }

@@ -14,7 +14,12 @@
     "p25": 29,
     "p75": 34
   },
-  "enrolledGPA": null,
+  "enrolledGPA": {
+    "p25": 4,
+    "p75": 4,
+    "source": "C11_cumulative",
+    "avg": 4.47
+  },
   "testPolicy": "test_required",
   "c7": {
     "rigor": "very_important",
@@ -43,7 +48,7 @@
   "priorities": [],
   "sourceUrl": "https://oira.unc.edu/wp-content/uploads/sites/297/2026/06/CDS_UNCCH_2025-26_20260615.pdf",
   "sourceKind": "pdf_text",
-  "parserVersion": 3,
+  "parserVersion": 4,
   "parserNotes": [],
   "ingestedAt": "2026-08-31 04:13:33",
   "updatedAt": "2026-08-31 04:13:33",
@@ -51,16 +56,285 @@
     "satSections": {
       "math": {
         "p25": 700,
+        "p50": 750,
         "p75": 780
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 27,
+        "p50": 33,
+        "p75": 35
+      },
+      "math": {
+        "p25": 28,
+        "p50": 33,
+        "p75": 35
+      },
+      "science": {
+        "p25": 27,
+        "p50": 31,
+        "p75": 34
       }
     },
     "submitting": {
       "satPct": 28,
       "actPct": 41
     },
+    "scoreDistribution": {
+      "satSections": {
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 73.9
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 23.7
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 2.5
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 72.2
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 20.7
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 6.5
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 0.6
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 0.1
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 67.8
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 21.5
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 9.1
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 1.5
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0.2
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 52.7
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 37.6
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 7.9
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 1.8
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 80.8
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 12.5
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 5.8
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0.9
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0.1
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 62.7
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 28.1
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 8.5
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0.6
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0.1
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ]
+      }
+    },
     "classRank": {
-      "topTenthPct": 2,
-      "topQuarterPct": 7
+      "topTenthPct": 76.2,
+      "topQuarterPct": 96.7,
+      "topHalfPct": 99.6,
+      "submittedPct": 66
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 94.6
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 2.8
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 1.2
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 0.8
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 0.5
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 0.1
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 4.47,
+      "submittedPct": 89.9
     },
     "applicationFeeUsd": 85,
     "dates": {

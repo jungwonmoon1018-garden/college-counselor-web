@@ -647,7 +647,11 @@ export function extractC9Bands(items) {
 export function extractC12AverageGPA(allText) {
   // Common phrasings: "Average GPA: 3.91", "Mean high school GPA 3.91",
   // "Average high school GPA: 3.91", "Average GPA of enrolled freshmen 3.91"
+  // The form's own wording puts the number after "first-time, first-year"
+  // (the label wraps around it: "…first-year 3.94 students who submitted
+  // GPA:"); a blank slot leaves only "%" behind and matches nothing.
   const patterns = [
+    /Average\s+(?:high\s+school\s+|HS\s+)?GPA\s+of\s+all\s+degree-seeking,?\s+first-time,?\s+first-year\s+(?:students\s+who\s+submitted\s+GPA:?\s*)?(\d\.\d{1,2})\b/i,
     /(?:Average|Mean)\s+(?:high\s+school\s+|HS\s+)?GPA(?:\s+of\s+enrolled[^\n]*)?[\s:]*([\d.]+)/i,
     /Average\s+GPA[^\n]{0,30}?([\d.]+)\s*(?:\n|$|\(|on)/i,
   ];
@@ -663,14 +667,20 @@ export function extractC12AverageGPA(allText) {
 
 // ─── C12: GPA distribution → derive p25/p75 unweighted GPA ───────────
 export function extractC12GPA(allText) {
+  // The form words each row "between 3.75 and 3.99"; a dash form is kept
+  // for documents that condense the label. Without the "and" alternative
+  // every cached record came through with no GPA band at all. The text
+  // has no line breaks, so the percentage must sit right after the label:
+  // a blank table (Columbia) would otherwise read the "100%" total of a
+  // later row into every band.
   const labelMap = [
     ["4.00", /4\.0+\s+([\d.]+)\s*%/, 4.00],
-    ["3.75-3.99", /3\.75\s*[-–]\s*3\.99[^\n]*?([\d.]+)\s*%/i, 3.75],
-    ["3.50-3.74", /3\.50\s*[-–]\s*3\.74[^\n]*?([\d.]+)\s*%/i, 3.50],
-    ["3.25-3.49", /3\.25\s*[-–]\s*3\.49[^\n]*?([\d.]+)\s*%/i, 3.25],
-    ["3.00-3.24", /3\.00\s*[-–]\s*3\.24[^\n]*?([\d.]+)\s*%/i, 3.00],
-    ["2.50-2.99", /2\.50\s*[-–]\s*2\.99[^\n]*?([\d.]+)\s*%/i, 2.50],
-    ["2.00-2.49", /2\.00\s*[-–]\s*2\.49[^\n]*?([\d.]+)\s*%/i, 2.00],
+    ["3.75-3.99", /3\.75\s*(?:[-–]|and)\s*3\.99[^\n%\d]{0,12}?([\d.]+)\s*%/i, 3.75],
+    ["3.50-3.74", /3\.50?\s*(?:[-–]|and)\s*3\.74[^\n%\d]{0,12}?([\d.]+)\s*%/i, 3.50],
+    ["3.25-3.49", /3\.25\s*(?:[-–]|and)\s*3\.49[^\n%\d]{0,12}?([\d.]+)\s*%/i, 3.25],
+    ["3.00-3.24", /3\.0{1,2}\s*(?:[-–]|and)\s*3\.24[^\n%\d]{0,12}?([\d.]+)\s*%/i, 3.00],
+    ["2.50-2.99", /2\.50?\s*(?:[-–]|and)\s*2\.99[^\n%\d]{0,12}?([\d.]+)\s*%/i, 2.50],
+    ["2.00-2.49", /2\.0{1,2}\s*(?:[-–]|and)\s*2\.49[^\n%\d]{0,12}?([\d.]+)\s*%/i, 2.00],
   ];
   const pcts = [];
   for (const [label, re, lower] of labelMap) {
@@ -825,8 +835,155 @@ export function parseCdsMonthDay(text) {
   return null;
 }
 
+// The C9 score-range tables: rows such as "700-800 97% 99%" (SAT sections),
+// "1400-1600 99%" (SAT total) and "30-36 100% 98% 93% 99% 97%" (ACT
+// composite and sections). A blank cell shifts the remaining values left
+// in the text, so each percentage is assigned to the header column nearest
+// its x position; when no header can be located, rows are read by order
+// only when every column is filled.
+const RANGE_ROW_RE = /^(\d{1,4})\s*[-–]\s*(\d{1,4})\b|^Below\s+(\d{1,2})\b/i;
+const PERCENT_TOKEN_RE = /^(\d{1,3}(?:\.\d+)?)\s?%$/;
+
+export function extractScoreDistributions(lineObjs) {
+  const tables = { satComposite: [], satSections: { ebrw: [], math: [] }, actComposite: [], actSections: { english: [], math: [], reading: [], science: [] } };
+  const text = (line) => line.items.map((it) => it.str).join(" ").replace(/\s+/g, " ").trim();
+  const percentItems = (line) => {
+    const out = [];
+    for (let i = 0; i < line.items.length; i++) {
+      const raw = line.items[i].str.trim();
+      const joined = raw === "%" ? null : (raw.endsWith("%") ? raw : (line.items[i + 1]?.str.trim() === "%" ? `${raw}%` : raw));
+      const m = joined && joined.match(PERCENT_TOKEN_RE);
+      if (m) out.push({ x: line.items[i].x, pct: Math.round(Number(m[1]) * 10) / 10 });
+    }
+    return out;
+  };
+  // Header anchors: the x of each column label within the few lines above
+  // the first data row of a table.
+  const anchorsAbove = (index, labels) => {
+    const found = {};
+    for (let k = index - 1; k >= Math.max(0, index - 5); k--) {
+      for (const it of lineObjs[k].items) {
+        // pdfjs may hand over "ACT Composite" as one item, so a label is
+        // matched at the end of the token, not as the whole token.
+        const token = it.str.trim().toLowerCase().replace(/[^a-z-]/g, "");
+        for (const [key, names] of Object.entries(labels)) {
+          if (found[key] == null && names.some((name) => token === name || token.endsWith(name))) found[key] = it.x + (it.width || 0) / 2;
+        }
+      }
+    }
+    return Object.keys(found).length === Object.keys(labels).length ? found : null;
+  };
+  const assign = (values, anchors, order) => {
+    const byKey = {};
+    if (anchors) {
+      for (const v of values) {
+        let best = null;
+        for (const key of order) {
+          const d = Math.abs(v.x - anchors[key]);
+          if (best == null || d < best.d) best = { key, d };
+        }
+        if (best && byKey[best.key] == null) byKey[best.key] = v.pct;
+      }
+      if (Object.keys(byKey).length === values.length) return byKey;
+    }
+    if (values.length === order.length) order.forEach((key, i) => { byKey[key] = values[i].pct; });
+    return Object.keys(byKey).length ? byKey : null;
+  };
+  let anchors = { sat: undefined, act: undefined };
+  for (let i = 0; i < lineObjs.length; i++) {
+    const line = text(lineObjs[i]);
+    const m = line.match(RANGE_ROW_RE);
+    if (!m) continue;
+    const low = m[3] != null ? 0 : Number(m[1]);
+    const high = m[3] != null ? Number(m[3]) - 1 : Number(m[2]);
+    if (!(high >= low)) continue;
+    const values = percentItems(lineObjs[i]);
+    if (!values.length) continue;
+    if (high <= 36) {
+      if (anchors.act === undefined) anchors.act = anchorsAbove(i, { composite: ["composite"], english: ["english"], math: ["math", "mathematics"], reading: ["reading"], science: ["science"] });
+      const row = assign(values, anchors.act, ["composite", "english", "math", "reading", "science"]);
+      if (!row) continue;
+      if (row.composite != null) tables.actComposite.push({ low, high, pct: row.composite });
+      for (const key of ["english", "math", "reading", "science"]) if (row[key] != null) tables.actSections[key].push({ low, high, pct: row[key] });
+    } else if (high <= 800) {
+      if (anchors.sat === undefined) anchors.sat = anchorsAbove(i, { ebrw: ["evidence-based", "evidence", "reading"], math: ["math", "mathematics"] });
+      const row = assign(values, anchors.sat, ["ebrw", "math"]);
+      if (!row) continue;
+      for (const key of ["ebrw", "math"]) if (row[key] != null) tables.satSections[key].push({ low, high, pct: row[key] });
+    } else if (high <= 1600 && values.length === 1) {
+      tables.satComposite.push({ low, high, pct: values[0].pct });
+    }
+  }
+  // Keep a table only when it reads like a whole distribution: a total near
+  // 100 (a single 100% band is a real reading at the most selective schools).
+  const whole = (rows) => rows.length >= 1 && Math.abs(rows.reduce((sum, r) => sum + r.pct, 0) - 100) <= 6 ? rows : null;
+  const out = {};
+  if (whole(tables.satComposite)) out.satComposite = tables.satComposite;
+  const satSections = Object.fromEntries(Object.entries(tables.satSections).filter(([, rows]) => whole(rows)));
+  if (Object.keys(satSections).length) out.satSections = satSections;
+  if (whole(tables.actComposite)) out.actComposite = tables.actComposite;
+  const actSections = Object.fromEntries(Object.entries(tables.actSections).filter(([, rows]) => whole(rows)));
+  if (Object.keys(actSections).length) out.actSections = actSections;
+  return Object.keys(out).length ? out : null;
+}
+
+// C11: "Percent who had GPA of 4.0 73.3%", "Percent who had GPA between
+// 3.75 and 3.99 16.5%", … "Percent who had GPA below 1.0". The newest form
+// carries three columns (students who submitted scores, who did not, all
+// enrolled); the last percentage on a line is the all-enrolled figure
+// whenever more than one is filled. Blank rows are 0, and a table that is
+// blank throughout (Columbia) is not a distribution at all.
+const GPA_BAND_CEILINGS = { "3.75": 3.99, "3.50": 3.74, "3.25": 3.49, "3.00": 3.24, "2.50": 2.99, "2.00": 2.49, "1.00": 1.99 };
+
+export function extractGpaDistribution(lines) {
+  const rows = [];
+  let filled = 0;
+  let sum = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    let band = null;
+    let m;
+    if (/Percent who had GPA of 4\.0/i.test(line)) band = { low: 4, high: 4 };
+    else if ((m = line.match(/Percent who had GPA between (\d\.\d{1,2}) and (\d\.\d{1,2})/i))) band = { low: Number(m[1]), high: Number(m[2]) };
+    // A label cut short by the layout ("Percent who had GPA between 3.75
+    // 36%") still names the band's floor; its ceiling is the form's.
+    else if ((m = line.match(/Percent who had GPA between (\d\.\d{1,2})\b(?!\s+and)/i))) band = { low: Number(m[1]), high: GPA_BAND_CEILINGS[Number(m[1]).toFixed(2)] ?? Number(m[1]) };
+    else if (/Percent who had GPA below 1\.0/i.test(line)) band = { low: 0, high: 0.99 };
+    if (!band) continue;
+    const own = [...line.replace(/^.*?(?:of 4\.0|between \d\.\d{1,2}(?: and \d\.\d{1,2})?|below 1\.0)/i, "").matchAll(/(\d{1,3}(?:\.\d+)?)\s?%/g)].map((x) => Number(x[1]));
+    // Older layout: the percentage alone on the next line.
+    const next = own.length ? [] : [...String(lines[i + 1] || "").matchAll(/^(\d{1,3}(?:\.\d+)?)\s?%$/g)].map((x) => Number(x[1]));
+    const values = own.length ? own : next;
+    const pct = values.length ? Math.round(values[values.length - 1] * 10) / 10 : 0;
+    if (values.length) filled++;
+    sum += pct;
+    rows.push({ ...band, pct });
+  }
+  if (filled < 3 || Math.abs(sum - 100) > 6) return null;
+  return rows;
+}
+
+// The 25th and 75th percentile GPA bands implied by a distribution: the
+// band in which the cumulative share from the top crosses 25% and 75%.
+export function gpaBandFromDistribution(rows) {
+  if (!Array.isArray(rows) || !rows.length) return null;
+  const sorted = [...rows].sort((a, b) => b.low - a.low);
+  let cum = 0;
+  let p75 = null;
+  let p25 = null;
+  for (const row of sorted) {
+    cum += Number(row.pct) || 0;
+    if (p75 == null && cum >= 25) p75 = row.low;
+    if (p25 == null && cum >= 75) p25 = row.low;
+  }
+  if (p75 == null) return null;
+  if (p25 == null) p25 = sorted[sorted.length - 1].low;
+  return { p25, p75, source: "C11_cumulative" };
+}
+
 export function extractExtras(items) {
-  const lines = groupByLine(items, 2.5).map((l) => l.items.map((it) => it.str).join(" ").replace(/\s+/g, " ").trim());
+  const lineObjs = groupByLine(items, 2.5);
+  const lines = lineObjs.map((l) => l.items.map((it) => it.str).join(" ").replace(/\s+/g, " ").trim());
   const extras = {};
   const find = (re, from = 0) => { for (let i = from; i < lines.length; i++) if (re.test(lines[i])) return i; return -1; };
   const windowText = (i, n) => lines.slice(Math.max(0, i), i + n).join(" ");
@@ -834,41 +991,61 @@ export function extractExtras(items) {
   const numbers = (text, lo, hi) => [...String(text).matchAll(/(?<![\d.\-–$])(\d{1,3}(?:,\d{3})+|\d+)(?![\d.%\-–])/g)]
     .map((m) => Number(m[1].replace(/,/g, "")))
     .filter((n) => n >= lo && n <= hi);
-  const band = (values) => (values.length >= 2 ? { p25: values[0], p75: values[values.length - 1] } : null);
+  // Two numbers are the 25th and 75th percentile; three carry the median
+  // between them (the newer form prints all three).
+  const band = (values) => (values.length >= 2
+    ? { p25: values[0], ...(values.length >= 3 ? { p50: values[1] } : {}), p75: values[values.length - 1] }
+    : null);
   const afterLabel = (line, labelRe) => String(line).replace(labelRe, "").trim();
+  // Percentages keep their decimals: "97.8%" is 97.8, not the 8 that the
+  // old whole-number read produced (which turned Stanford's class-rank and
+  // submit shares into 8% and 3%).
+  const pct = (line) => { const m = String(line || "").match(/(\d{1,3}(?:\.\d+)?)\s?%/); return m ? Math.round(Number(m[1]) * 10) / 10 : null; };
 
   // C9: section bands. The first label occurrence is the percentile table;
   // the later one heads the score-range distribution and is skipped by
   // requiring 2–3 plain numbers within the label line or the next two.
   // A "(200 - 800)" scale note after the label is not a score; a real
   // section band sits well above the floor and spans at most a few hundred
-  // points.
-  const stripScale = (text) => String(text).replace(/\(\s*\d{2,3}\s*[-–]\s*\d{2,3}\s*\)/g, " ");
-  const plausibleBand = (b) => Boolean(b) && b.p25 >= 300 && b.p25 <= b.p75 && b.p75 - b.p25 <= 250;
-  const sectionBand = (labelRe) => {
+  // points. ACT sections read the same way on the 1–36 scale.
+  const stripScale = (text) => String(text).replace(/\(\s*\d{1,3}\s*[-–]\s*\d{1,3}\s*\)/g, " ");
+  const plausibleSat = (b) => Boolean(b) && b.p25 >= 300 && b.p25 <= b.p75 && b.p75 - b.p25 <= 250;
+  const plausibleAct = (b) => Boolean(b) && b.p25 >= 1 && b.p25 <= b.p75 && b.p75 <= 36 && b.p75 - b.p25 <= 15;
+  const sectionBand = (labelRe, { lo = 200, hi = 800, plausible = plausibleSat } = {}) => {
     let from = 0;
     for (let guard = 0; guard < 4; guard++) {
       const i = find(labelRe, from);
       if (i < 0) return null;
-      const own = numbers(stripScale(afterLabel(lines[i], labelRe)), 200, 800);
-      // Older layout: the numbers sit on the first following line that has
-      // any — never pooled across lines, or the next row's scores (SAT Math
-      // right under Reading) would stretch the band.
+      const own = numbers(stripScale(afterLabel(lines[i], labelRe)), lo, hi);
+      // Older layout: the numbers sit on a following line of their own —
+      // never pooled across lines, and never a line that carries the next
+      // row's label (a blank "ACT Writing" row must not read ACT Science's
+      // scores from the line beneath it).
       let below = [];
-      for (let k = i + 1; k <= i + 2 && k < lines.length && below.length < 2; k++) below = numbers(stripScale(lines[k]), 200, 800);
+      for (let k = i + 1; k <= i + 2 && k < lines.length && below.length < 2; k++) {
+        if (!/^[\d,\s]+$/.test(lines[k])) break;
+        below = numbers(stripScale(lines[k]), lo, hi);
+      }
       const candidate = band(own.length >= 2 ? own : below);
-      if (plausibleBand(candidate) && !/score range|%/i.test(windowText(i, 3))) return candidate;
+      if (plausible(candidate) && !/score range|%/i.test(windowText(i, 3))) return candidate;
       from = i + 1;
     }
     return null;
   };
-  const ebrw = sectionBand(/SAT\s+Evidence-?\s*Based\s+Reading(?:\s+and(?:\s+Writing)?)?/i);
+  // The label wraps in some documents ("SAT Evidence-Based" / "740 760 780"
+  // / "Reading and Writing"), so "Reading and Writing" is optional.
+  const ebrw = sectionBand(/SAT\s+Evidence-?\s*Based(?:\s+Reading(?:\s+and(?:\s+Writing)?)?)?/i);
   const math = sectionBand(/SAT\s+Math(?:ematics)?\b/i);
   if (ebrw || math) extras.satSections = { ...(ebrw ? { ebrw } : {}), ...(math ? { math } : {}) };
+  const actSections = {};
+  for (const [key, re] of [["english", /ACT\s+English\b/i], ["math", /ACT\s+Math(?:ematics)?\b/i], ["reading", /ACT\s+Reading\b/i], ["science", /ACT\s+Science\b/i]]) {
+    const found = sectionBand(re, { lo: 1, hi: 36, plausible: plausibleAct });
+    if (found) actSections[key] = found;
+  }
+  if (Object.keys(actSections).length) extras.actSections = actSections;
 
   const satSubmit = find(/Submitting SAT Scores/i);
   const actSubmit = find(/Submitting ACT Scores/i);
-  const pct = (line) => { const m = String(line || "").match(/(\d{1,3})\s?%/); return m ? Number(m[1]) : null; };
   if (satSubmit >= 0 || actSubmit >= 0) {
     extras.submitting = {
       ...(satSubmit >= 0 && pct(lines[satSubmit]) != null ? { satPct: pct(lines[satSubmit]) } : {}),
@@ -877,15 +1054,51 @@ export function extractExtras(items) {
     if (!Object.keys(extras.submitting).length) delete extras.submitting;
   }
 
-  // C10 class rank
+  // The score-range tables under C9 — what share of the enrolled class's
+  // submitted scores fell in each band — read column by column.
+  const distribution = extractScoreDistributions(lineObjs);
+  if (distribution) extras.scoreDistribution = distribution;
+
+  // C10 class rank: the shares in the top tenth, quarter and half, and the
+  // share of the class that submitted a rank at all (the number may sit on
+  // the label's line or on the next one).
   const topTenth = find(/top tenth of high school graduating class/i);
   const topQuarter = find(/top quarter of high school graduating class/i);
+  const topHalf = find(/top half of high school graduating class/i);
+  const c11 = find(/C11\b|Percentage of all enrolled, degree-seeking/i, Math.max(0, topTenth));
   if (topTenth >= 0 || topQuarter >= 0) {
     const rank = {};
-    if (topTenth >= 0 && pct(lines[topTenth].replace(/^.*?class/i, "")) != null) rank.topTenthPct = pct(lines[topTenth].replace(/^.*?class/i, ""));
-    if (topQuarter >= 0 && pct(lines[topQuarter].replace(/^.*?class/i, "")) != null) rank.topQuarterPct = pct(lines[topQuarter].replace(/^.*?class/i, ""));
+    const share = (i) => (i >= 0 ? pct(lines[i].replace(/^.*?class/i, "")) : null);
+    if (share(topTenth) != null) rank.topTenthPct = share(topTenth);
+    if (share(topQuarter) != null) rank.topQuarterPct = share(topQuarter);
+    if (share(topHalf) != null) rank.topHalfPct = share(topHalf);
+    const submitted = find(/students who submitted/i, Math.max(topTenth, topQuarter) + 1);
+    if (submitted >= 0 && (c11 < 0 || submitted < c11)) {
+      const value = pct(afterLabel(windowText(submitted, 3), /^.*?who submitted/i));
+      if (value != null) rank.submittedPct = value;
+    }
     if (Object.keys(rank).length) extras.classRank = rank;
   }
+
+  // C11 / C12: the enrolled class's high-school GPA distribution, its
+  // average, and the share who submitted a GPA. A blank table (Columbia
+  // does not report GPA) yields nothing rather than a row of zeros.
+  const gpaDistribution = extractGpaDistribution(lines);
+  if (gpaDistribution) extras.gpaDistribution = gpaDistribution;
+  const gpa = {};
+  const avgLabel = find(/Average high school GPA/i);
+  if (avgLabel >= 0) {
+    // Up to 5.0: a school that averages weighted GPAs (Harvard reports
+    // 4.21) is a real reading, not a scale note.
+    const m = windowText(avgLabel, 3).match(/(?<![\d.])([1-5]\.\d{1,2})\b(?!\s*(?:%|scale))/);
+    if (m) gpa.average = Number(m[1]);
+    const submitted = find(/Percent of total[^%]*who submitted/i, avgLabel);
+    if (submitted >= 0) {
+      const value = pct(afterLabel(windowText(submitted, 3), /^.*?who submitted/i));
+      if (value != null) gpa.submittedPct = value;
+    }
+  }
+  if (Object.keys(gpa).length) extras.gpa = gpa;
 
   // C13 application fee
   const fee = find(/Amount of application fee/i);
@@ -944,7 +1157,11 @@ export function extractExtras(items) {
 export async function parseCDSPositional(pdfPath, { method = "auto" } = {}) {
   const items = await extractItems(pdfPath, { method });
   const allText = items.map((i) => i.str).join(" ");
-  const positional = { source: "cds", parserVersion: 3 };
+  // Version 4 reads ACT section bands, the score-range and GPA
+  // distributions, the C12 average and the submitted shares, and keeps the
+  // decimals of every percentage; the store re-ingests records whose
+  // parsed file carries a newer version than the row.
+  const positional = { source: "cds", parserVersion: 4 };
   // Surface the actual extraction source so the validator and the AI
   // assistant can caveat numbers with lower confidence when OCR was used.
   if (items._source === "tesseract") {
@@ -964,9 +1181,19 @@ export async function parseCDSPositional(pdfPath, { method = "auto" } = {}) {
     if (counts.admitted && counts.enrolled) positional.yieldRate = round4(counts.enrolled / counts.admitted);
   }
   Object.assign(positional, extractC9Bands(items));
-  const gpa = extractC12GPA(allText);
+  let extras = null;
+  try {
+    extras = extractExtras(items);
+    if (Object.keys(extras).length) positional.extras = extras;
+  } catch (e) {
+    positional.parserNotes = (positional.parserNotes || []).concat("extras_failed: " + String(e.message).slice(0, 60));
+  }
+  // The GPA band comes from the line-by-line C11 read when the table is
+  // filled (it takes the all-enrolled column); the text scan is the
+  // fallback for documents whose rows the line read could not place.
+  const gpa = gpaBandFromDistribution(extras?.gpaDistribution) || extractC12GPA(allText);
   if (gpa) positional.enrolledGPA = gpa;
-  const avgGPA = extractC12AverageGPA(allText);
+  const avgGPA = extractC12AverageGPA(allText) ?? extras?.gpa?.average ?? null;
   if (avgGPA != null) {
     positional.enrolledGPA = positional.enrolledGPA || {};
     positional.enrolledGPA.avg = avgGPA;
@@ -975,12 +1202,6 @@ export async function parseCDSPositional(pdfPath, { method = "auto" } = {}) {
   if (c1Sub) positional.c1Breakdown = c1Sub;
   const c7 = extractC7Positional(items);
   if (c7 && Object.values(c7).some((v) => v !== "not_considered")) positional.c7 = c7;
-  try {
-    const extras = extractExtras(items);
-    if (Object.keys(extras).length) positional.extras = extras;
-  } catch (e) {
-    positional.parserNotes = (positional.parserNotes || []).concat("extras_failed: " + String(e.message).slice(0, 60));
-  }
 
   // Form-fields pass: only run if positional left key fields empty.
   const needsFormFields =
