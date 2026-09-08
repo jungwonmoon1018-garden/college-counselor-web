@@ -8,6 +8,7 @@ import {
   PROVIDERS,
   TIER_DEFAULTS,
   OPENROUTER_BASE_URL,
+  isReasoningModel,
 } from "../llm-adapters/index.js";
 
 function fakeResponse(text = "grounded response", status = 200) {
@@ -183,4 +184,58 @@ test("an attempt cut off while reading the body retries on a fresh connection", 
   } finally {
     delete process.env.LLM_CALL_TIMEOUT_MS;
   }
+});
+
+// Some providers hand the content back as an array of parts; that used to
+// translate to an empty answer.
+test("array content translates to the joined text", async () => {
+  const result = await callLLM({
+    provider: "openrouter",
+    apiKey: "sk-or-test",
+    model: TIER_DEFAULTS.openrouter.small,
+    messages: [{ role: "user", content: "hello" }],
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: "x", model: TIER_DEFAULTS.openrouter.small, choices: [{ message: { role: "assistant", content: [{ type: "text", text: "part one " }, { type: "text", text: "part two" }] }, finish_reason: "stop" }], usage: { prompt_tokens: 3, completion_tokens: 4 } }),
+    }),
+  });
+  assert.equal(result.content[0].text, "part one part two");
+});
+
+// A reasoning-capable model outside the reasoning list can spend a small
+// budget thinking and return empty content with finish_reason "length" —
+// the chat then showed "There is not enough information…" after a
+// normal-length call. One follow-up with room for the answer, and the
+// model starts at that budget for the rest of the process.
+test("an empty reply that exhausted its budget is retried with a larger one", async () => {
+  // The small default is not on the reasoning list, so it starts at the
+  // requested budget. This test is last in the file: after it the model
+  // starts at 4,096 for the rest of the process.
+  const model = TIER_DEFAULTS.openrouter.small;
+  assert.equal(isReasoningModel(model), false);
+  const budgets = [];
+  const fetchImpl = async (_url, options) => {
+    const body = JSON.parse(options.body);
+    budgets.push(body.max_tokens);
+    const answered = body.max_tokens >= 4096;
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        id: "x", model,
+        choices: [{ message: { role: "assistant", content: answered ? "the answer" : "", reasoning: "thinking…" }, finish_reason: answered ? "stop" : "length" }],
+        usage: { prompt_tokens: 3, completion_tokens: 1024, completion_tokens_details: { reasoning_tokens: 1024 } },
+      }),
+    };
+  };
+  const first = await callLLM({ provider: "openrouter", apiKey: "sk-or-test", model, messages: [{ role: "user", content: "hello" }], maxTokens: 1024, fetchImpl });
+  assert.deepEqual(budgets, [1024, 4096]);
+  assert.equal(first.content[0].text, "the answer");
+  assert.equal(first.budget_retry, true);
+  // The next call on that model starts at the larger budget.
+  const second = await callLLM({ provider: "openrouter", apiKey: "sk-or-test", model, messages: [{ role: "user", content: "again" }], maxTokens: 1024, fetchImpl });
+  assert.deepEqual(budgets, [1024, 4096, 4096]);
+  assert.equal(second.content[0].text, "the answer");
+  assert.notEqual(second.budget_retry, true);
 });

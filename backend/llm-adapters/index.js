@@ -12,6 +12,8 @@ export const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 export const PROVIDERS = Object.freeze({ OPENROUTER: 'openrouter' });
 
 const MODEL_ID_RE = /^[\w./:@+\-]{3,120}$/;
+// Models that returned empty content at a small budget in this process.
+const BUDGET_RETRY_MODELS = new Set();
 const OPENROUTER_META = PROVIDER_META[0];
 const OPENROUTER_ALLOWED_MODELS = new Set([
   ...Object.values(TIER_DEFAULTS.openrouter).filter(Boolean),
@@ -79,7 +81,10 @@ export async function callLLM(options = {}) {
     ? Math.trunc(Number(options.maxTokens))
     : 1024;
   const reasoningFloor = isReasoningModel(model) ? 8192 : 1;
-  const maxTokens = Math.min(16384, Math.max(reasoningFloor, requested));
+  // A model that once answered empty at a small budget (see the follow-up
+  // below) starts at 4,096 for the rest of the process.
+  const learnedFloor = BUDGET_RETRY_MODELS.has(model) ? 4096 : 1;
+  const maxTokens = Math.min(16384, Math.max(reasoningFloor, learnedFloor, requested));
   // Hard cap on the upstream call, split across two attempts. Node's fetch
   // has no default timeout, so a stalled provider socket used to hang the
   // whole request (and the student's UI) indefinitely. Observed stalls
@@ -111,16 +116,34 @@ export async function callLLM(options = {}) {
     );
     const signal = options.signal ? AbortSignal.any([options.signal, attemptCtrl.signal]) : attemptCtrl.signal;
     try {
-      return await callOpenAI({
+      const call = (tokens) => callOpenAI({
         apiKey: options.apiKey,
         model,
         messages: sanitized.sanitizedPayload.messages,
         system: sanitized.sanitizedPayload.system,
-        maxTokens,
+        maxTokens: tokens,
         temperature: options.temperature,
         signal,
         fetchImpl: options.fetchImpl,
       });
+      const result = await call(maxTokens);
+      // A reasoning-capable model that is not on the reasoning list can
+      // spend a 1,024-token budget thinking and hand back empty content
+      // with finish_reason "length"; the student then saw the composer's
+      // "not enough information" sentence after a normal-length call. One
+      // follow-up within the same attempt, with a budget that leaves room
+      // for the answer, and the reasoning floor is remembered for the
+      // rest of the process.
+      const text = String(result?.content?.[0]?.text || '').trim();
+      const exhausted = result?.stop_reason === 'length' || result?.had_reasoning;
+      if (!text && exhausted && maxTokens < 4096) {
+        console.warn(`[llm] ${model} returned no text (${result?.stop_reason}, reasoning ${result?.had_reasoning ? 'present' : 'absent'}) at ${maxTokens} tokens — retrying with 4096`);
+        BUDGET_RETRY_MODELS.add(model);
+        const again = await call(4096);
+        again.budget_retry = true;
+        return again;
+      }
+      return result;
     } catch (err) {
       if (options.signal?.aborted) throw err;      // caller cancelled — not a stall
       if (!attemptCtrl.signal.aborted) throw err;  // real provider error — no retry

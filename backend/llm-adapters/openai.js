@@ -138,15 +138,27 @@ function flattenContentToText(content) {
 
 function translateOpenAIResponseToAnthropic(data, { fallbackModel }) {
   const choice = Array.isArray(data?.choices) ? data.choices[0] : null;
-  const text = typeof choice?.message?.content === 'string' ? choice.message.content : '';
+  const message = choice?.message || {};
+  // Content is a string from most models, but some providers return it as
+  // an array of parts; an array used to translate to an empty answer.
+  const raw = message.content;
+  const text = typeof raw === 'string'
+    ? raw
+    : (Array.isArray(raw) ? raw.map((part) => (typeof part === 'string' ? part : (part?.text || ''))).join('') : '');
+  // A reasoning model that spends the whole budget thinking returns empty
+  // content with finish_reason "length" (and its reasoning in a separate
+  // field); the caller retries with a larger budget on that signal.
+  const reasoning = message.reasoning ?? message.reasoning_content ?? null;
   return {
     content: [{ type: 'text', text }],
     usage: {
       input_tokens: Number(data?.usage?.prompt_tokens) || 0,
       output_tokens: Number(data?.usage?.completion_tokens) || 0,
+      reasoning_tokens: Number(data?.usage?.completion_tokens_details?.reasoning_tokens) || 0,
     },
     model: data?.model || fallbackModel,
     stop_reason: choice?.finish_reason || null,
+    had_reasoning: Boolean(reasoning && String(reasoning).trim()),
   };
 }
 
