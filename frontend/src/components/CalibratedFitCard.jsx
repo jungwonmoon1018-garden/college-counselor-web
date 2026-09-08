@@ -139,6 +139,67 @@ function VerificationPanel({ v, locale }) {
   );
 }
 
+// How the student's own record compares with the enrolled class the
+// school's Common Data Set describes — the facts behind the admissibility
+// bar: the test that was read (with each section against its band and the
+// score-range table), the GPA against the average, band and distribution,
+// the class rank against C10, and the AP exam evidence.
+const TONE_COLOR = { above: "#68d391", within: "#63b3ed", below: "#f6ad55", unknown: "#8a8a9a", note: "#fbd38d" };
+
+function fill(template, values) {
+  return String(template).replace(/\{(\w+)\}/g, (_, key) => (values[key] != null ? String(values[key]) : ""));
+}
+
+function ProfileComparison({ pc, locale }) {
+  const rows = [];
+  const tests = pc.tests;
+  if (tests?.used) {
+    const u = tests.used;
+    const band = u.band ? `${u.band.low}–${u.band.high}` : null;
+    const shown = u.convertedFrom ? `${u.test.toUpperCase()} ${u.score} (≈ ${u.equivalent})` : `${u.test.toUpperCase()} ${u.score}`;
+    rows.push({ label: t(locale, "fit.cmp_tests"), value: band ? `${shown} · ${band} · ${t(locale, `fit.pos_${u.position}`)}` : shown, tone: u.position });
+    for (const s of tests.sections || []) {
+      rows.push({ label: s.label, value: `${s.value} · ${s.band.low}–${s.band.high} · ${t(locale, `fit.pos_${s.position}`)}`, tone: s.position, sub: true });
+    }
+    if (tests.distribution) rows.push({ value: fill(t(locale, "fit.cmp_distribution"), tests.distribution), tone: "unknown", sub: true });
+    if (tests.advice === "withhold") rows.push({ value: t(locale, "fit.advice_withhold"), tone: "note", sub: true });
+    else if (tests.advice === "borderline") rows.push({ value: t(locale, "fit.advice_borderline"), tone: "note", sub: true });
+  } else if (tests) {
+    rows.push({ label: t(locale, "fit.cmp_tests"), value: t(locale, tests.policy === "test_optional_or_deemphasized" ? "fit.cmp_no_tests_optional" : "fit.cmp_no_tests"), tone: "unknown" });
+  }
+  const g = pc.gpa;
+  if (g && g.gpa != null) {
+    const parts = [];
+    if (g.average != null) parts.push(`${t(locale, "fit.cmp_average")} ${g.average}`);
+    if (g.band) parts.push(`${t(locale, "fit.cmp_band")} ${g.band.low}–${g.band.high}`);
+    rows.push({ label: t(locale, "fit.cmp_gpa"), value: `${g.gpa}${parts.length ? ` · ${parts.join(", ")}` : ""}${g.position !== "unknown" ? ` · ${t(locale, `fit.pos_${g.position}`)}` : ""}`, tone: g.position });
+    if (g.placement) rows.push({ value: fill(t(locale, "fit.cmp_gpa_placement"), { above: g.placement.shareAbove, band: g.placement.band }), tone: "unknown", sub: true });
+  }
+  const r = pc.classRank;
+  if (r && r.topPercent != null) {
+    const school = r.school?.topTenthPct != null ? ` · ${fill(t(locale, "fit.cmp_rank_school"), { tenth: r.school.topTenthPct })}` : "";
+    const tone = r.shareAbove == null ? "unknown" : r.shareAbove <= 10 ? "above" : r.shareAbove <= 50 ? "within" : "below";
+    rows.push({ label: t(locale, "fit.cmp_rank"), value: `${t(locale, "fit.cmp_top")} ${r.topPercent}%${school}`, tone });
+  }
+  const a = pc.apExams;
+  if (a && a.count) {
+    const relevant = a.relevant?.length ? ` · ${t(locale, "fit.cmp_ap_relevant")} ${a.relevant.map((x) => `${x.name} ${x.score}`).join(", ")}` : "";
+    rows.push({ label: t(locale, "fit.cmp_ap"), value: `${a.count} ${t(locale, "fit.cmp_ap_exams")} · ${t(locale, "fit.cmp_average")} ${a.average}${relevant}`, tone: a.average >= 4 ? "above" : a.average >= 3 ? "within" : "below" });
+  }
+  if (!rows.length) return null;
+  return (
+    <div data-testid="profile-comparison" style={{ marginTop: 8, padding: 8, borderRadius: 6, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
+      <div style={{ fontSize: 9, color: "#6a6a7a", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>{t(locale, "fit.compare")}</div>
+      {rows.map((row, i) => (
+        <div key={i} style={{ fontSize: 10, lineHeight: 1.5, display: "flex", gap: 6, paddingLeft: row.sub ? 10 : 0, color: row.sub ? "#9a9aa8" : "#ccc" }}>
+          <span style={{ color: TONE_COLOR[row.tone] || "#8a8a9a", flexShrink: 0 }}>●</span>
+          <span>{row.label ? <span style={{ color: "#ddd" }}>{row.label}: </span> : null}{row.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function CalibratedFitCard({ collegeValues, positioning, loading, isTarget, onAddTarget, verification, verifying, onVerify }) {
   const locale = collegeValues?.locale || "en-US";
   const hasPositioning = positioning && positioning.overallPositioningLabel;
@@ -178,6 +239,8 @@ export default function CalibratedFitCard({ collegeValues, positioning, loading,
               {positioning.admissibility.summary}
             </div>
           )}
+
+          {positioning.profileComparison && <ProfileComparison pc={positioning.profileComparison} locale={locale} />}
 
           {positioning.confidence?.evidenceConfidence && (
             <div style={{ fontSize: 10, marginTop: 6 }}>
