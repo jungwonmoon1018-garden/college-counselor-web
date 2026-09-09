@@ -8,19 +8,20 @@ changed recently and why, what was verified live, and what is open.
 
 ## Where things stand (2026-09-09, evening)
 
-- **Deployed:** `main` at `cd15135` (this session's commits `4eae5cc`,
-  `ba07b4e`, the handoff `4236c9e`, and `cd15135`, on top of the morning's
-  `333cfc3`/`db4cb5f`; then the handoff commit), live at
+- **Deployed:** `main` at `b734c6c` (this session's commits `4eae5cc`,
+  `ba07b4e`, `4236c9e`, `cd15135`, `7440c19`, `b734c6c`, on top of the
+  morning's `333cfc3`/`db4cb5f`; then the handoff commit), live at
   https://college-counselor-web.onrender.com.
   Every push to `main` runs CI (backend lint, syntax, tests, `npm audit
   --audit-level=high`; frontend tests and build) and Render redeploys
   after it passes; each deploy restarts the process (a few seconds of
   502s). The student bundle changed with `4eae5cc` (the fit card and the
   prestige card are in the main chunk): `main-ENyTRcx7.js` →
-  `main-64vLzzFp.js`.
-- **Tests:** backend `npm test` 696 tests, 691 pass, 5 skipped, 0 fail
-  (34 s when the machine is healthy); `npm run lint` 0 errors, 70
-  warnings (CI cap 500); frontend `npx vitest run` 10 files, 34 tests;
+  `main-64vLzzFp.js` → `main-CvQF7dpb.js` (the evidence list and sync
+  button in `b734c6c`).
+- **Tests:** backend `npm test` 702 tests, 697 pass, 5 skipped, 0 fail
+  (about 40 s when the machine is healthy); `npm run lint` 0 errors, 70
+  warnings (CI cap 500); frontend `npx vitest run` 11 files, 38 tests;
   `npm run build` clean.
 - **Dependencies:** `npm audit` reports 0 vulnerabilities in both
   packages (backend: `qs` overridden to 6.16 under express 4; frontend:
@@ -69,6 +70,51 @@ factor with its "✓ N matches" / "no profile match" — produced by
 `backend/college-values.js computeFit`; the "character profiles" are the
 six-factor read of each activity (`ec-vectorizer.js vectorizeEC`, whose
 sixth factor is community and character) and the stored strength vectors.
+
+**Files attached in chat are read into the activities they name
+(2026-09-09)** — `b734c6c`. The user asked to "update the EC sections with
+the chat records that are only backed up with files". Chat is the only
+place a student uploads a file, and the file's text lived only on the chat
+record (the message's `model_content`, encrypted) and in the vault's
+document list; the EC strength read consumes attachment text but nothing
+in the UI reaches `/api/ec/upload`, so an AIME certificate sitting in a
+thread never reached the Math Team's vector. New
+`backend/ec-chat-evidence.js`: `parseAttachedFilesPreface` (the
+"[Attached files — …]" block the client builds for text-extracted uploads,
+one entry per file), `filesFromInlinedBlocks` (a PDF or image sent as a
+document block, whose text the chat route now collects as it inlines it,
+named from the client's priming sentence), `matchActivity` (activity-name
+words in the student's message weigh 3, in the file name 2, in the file
+text 1, the whole name verbatim +2; threshold 2, margin 1; with several
+files in one turn the message counts for a file only when that file's own
+name or text names the activity — the first draft linked an essay to USACO
+because the message mentioned the certificate), `harvestEvidence` (stores
+each matched file as an `ec_attachments` row with `storage_path
+chat://<thread>/<message>`, the text sealed with the chat history's key,
+deduplicated by text hash) and `harvestStudentChatRecords` (the backfill
+over stored threads; an upload whose text is not in its record — a PDF
+sent through the single-file picker before this build kept only its name
+— is reported as `nameOnly`). `server.js`: `queueChatEvidence` (fire-and-
+forget, recomputes the strength vectors when anything linked) runs from
+the message-persist route (text-extracted uploads) and from the chat
+route after `inlineAttachmentBlocks` (the document block of the turn
+being answered); `POST /api/ec/evidence/from-chat` is the backfill and
+the student's button; the single-EC route marks each attachment's
+`origin` ("chat" / "upload"). `ec-strength-vectorizer.js` opens sealed
+attachment text through `openText` (plaintext rows read as before).
+`competition-research.js`: `levelMatchedIn`, and the rationale separates
+where the competition was recognized from where the level was read
+("recognized from the activity's name, read at the "USACO Gold" level from
+an uploaded document"); an alias that is the whole activity name is not
+repeated. Frontend: `EcEvidence.jsx` (the evidence list under an expanded
+activity; `ChatEvidenceSync`, the "Read chat uploads into activities"
+button with its report), `api.js` `ec.evidence`/`ec.readChatUploads`,
+`App.jsx` mounts both in the ECs section (`evidenceVersion` remounts the
+prestige card after a link). Tests: `tests/ec-chat-evidence.test.js`, the
+route test "files attached in chat become EC evidence" (USACO's prestige
+rises 0.25 → 0.65 from a persisted certificate; a document block on a chat
+turn is filed; the backfill links a letter sent before the activity
+existed), `EcEvidence.test.jsx`. `docs/METHODOLOGY.md` describes it.
 
 **Both audits clean, and the admin tests get the time they take
 (2026-09-09)** — `cd15135`. The user asked for "a package fund and fixes
@@ -286,6 +332,27 @@ deleted afterwards.
   Stanford's stored CDS by the values route itself — and
   `fit.characterProfile` had the three activities' traits (Robotics
   leadership 0.98, Math Team major focus 0.9, Food Bank character 0.45).
+- **After `b734c6c` (bundle `main-CvQF7dpb.js`, deployed 11:19 UTC on
+  2026-09-09):** one probe account with USACO ("Weekly practice contests")
+  and Food Bank, deleted afterwards (200). A letter persisted in a thread
+  before the activities existed waited; after the sync USACO read 0.25
+  (name match, participation baseline). A certificate persisted as a
+  text-extracted upload ("USACO 2026 January Contest. Gold Division —
+  promoted to Gold.", message "My USACO certificate.") lifted USACO to
+  0.65 within seconds: `GET /api/ec/strength/USACO` listed
+  `usaco-gold.txt` with `origin "chat"`, and the prestige route read
+  `level "USACO Gold"`, `matchedIn "name"`, rationale "USA Computing
+  Olympiad: recognized from the activity's name, read at the "USACO Gold"
+  level from an uploaded document. Gold reflects advanced algorithmic
+  competition standing in USACO. The next level in this catalog, "USACO
+  Platinum", reads at 0.82." A real chat turn with a document block (a
+  text/plain block naming "food-bank-award.txt" in the priming sentence,
+  question "What does this award show about my Food Bank work?")
+  answered in 37.7 s with `attachmentsInlined 1`, and the award was filed
+  to Food Bank from the turn. `POST /api/ec/evidence/from-chat` linked the
+  early letter to Food Bank, skipped the already-stored certificate,
+  reported no name-only uploads and recomputed; Food Bank then listed both
+  files, both `origin "chat"`.
 - **After `cd15135` (backend-only deploy; CI green, restart blip 502 at
   10:46:39 → 200 at 10:46:43 UTC on 2026-09-09; bundle unchanged):** a
   throwaway account's query-string routes through the overridden qs all
@@ -302,14 +369,29 @@ deleted afterwards.
   answered every turn (the Stanford ACT-sections question in 11–18 s with
   a cited section table; "Should I submit my SAT?" 56 s once with the
   budget follow-up, then 16 s; Knox College honestly in 5–9 s).
-- **Not verified:** the fit card's matrix and the prestige card in a real
-  browser (vitest covers them); the Korean strings in situ; the C7
-  fallback path on production (it triggers only when a school's site
-  cannot be read — the route test covers it with a refused host); the
-  weighted-average read live (Harvard).
+- **Not verified:** the fit card's matrix, the prestige card, the evidence
+  list and the "Read chat uploads into activities" button in a real
+  browser (vitest covers them); a real PDF or image through the chat
+  picker on production (the probe sent a text/plain document block
+  through the same inlining path; the route test does the same); the
+  Korean strings in situ; the C7 fallback path on production (it triggers
+  only when a school's site cannot be read — the route test covers it
+  with a refused host); the weighted-average read live (Harvard).
 
 ## Open items and things to watch
 
+- **Chat evidence is keyed by activity name.** An `ec_attachments` row
+  carries `ec_name`; renaming an activity orphans its evidence (the
+  pre-existing design of the upload path; `linkAttachmentToEC` exists for
+  a future re-link action). The match is deterministic and conservative:
+  a file whose name and text never mention the activity, in a turn whose
+  message names none, stays unlinked and is reported as `unmatched`; a
+  student can re-attach it with the activity named in the message. Only
+  the last user message's document block is filed on a chat turn; text-
+  extracted uploads are filed when the turn is persisted, so a turn that
+  fails moderation files nothing. Evidence text is capped at 20,000
+  characters per file and read into the vector under the existing 15,000-
+  character combined cap.
 - **Academic rows appear mostly under C7 factors.** Quoted mission values
   ("Intellectual vitality", "Service") rarely name GPA or tests, so the
   academic evidence shows when the values come from the CDS fallback; a
@@ -379,6 +461,10 @@ Route tests for the whole path (spawn the server, ~1 min each):
 
 ```bash
 cd backend && node --test --test-name-pattern="the priorities matrix and the prestige rationale" tests/council-naming-deadlines-routes.test.js
+```
+
+```bash
+cd backend && node --test tests/ec-chat-evidence.test.js && node --test --test-name-pattern="files attached in chat become EC evidence" tests/council-naming-deadlines-routes.test.js
 ```
 
 ```bash
