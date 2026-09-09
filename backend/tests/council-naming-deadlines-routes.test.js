@@ -1117,3 +1117,87 @@ test("calendar context falls back to the school's Common Data Set closing dates 
   assert.equal(none.status, 200);
   assert.equal(none.data.schools[0].source, "typical");
 });
+
+test("the priorities matrix and the prestige rationale read the whole record: scores against the school, the character an activity shows, a level named only in its description", async () => {
+  const token = await registerStudent("whole-record");
+  for (const consentType of ["data_processing", "ai_interaction", "cross_border_transfer"]) {
+    const consent = await request("POST", "/api/consent/grant", { token, body: { consentType, grantedBy: "student" } });
+    assert.equal(consent.status, 200, JSON.stringify(consent.data));
+  }
+  const synced = await request("POST", "/api/students/sync", {
+    token,
+    body: {
+      profile: {
+        gpa: { unweighted: 3.9 },
+        classRank: { rank: 12, size: 400 },
+        courses: [{ name: "Calculus BC", type: "ap", grade: "A", year: "junior" }],
+        testScores: [{ test: "sat", totalScore: 1520, sections: { readingWriting: 740, math: 780 } }],
+        apScores: [{ exam: "Calculus BC", score: 5, year: 2026 }],
+      },
+      activities: [
+        { name: "Math Team", role: "Member", category: "science_math", description: "Qualified for AIME after a 108 on the AMC 12; weekly problem sessions", hoursPerWeek: 3, weeksPerYear: 30 },
+        { name: "Food Bank", role: "Volunteer", category: "community_service", description: "Volunteered weekly at the county food bank and mentored new volunteers", hoursPerWeek: 3, weeksPerYear: 40 },
+      ],
+      majorInterest: "Computer Science",
+      goals: ["Stanford University"],
+    },
+  });
+  assert.equal(synced.status, 200, JSON.stringify(synced.data));
+
+  // The strength vectors are computed after the sync returns.
+  let strength = null;
+  for (let attempt = 0; attempt < 150; attempt++) {
+    const r = await request("GET", "/api/ec/strength?friendly=1", { token });
+    if (r.status === 200 && r.data.count === 2) { strength = r.data; break; }
+    await delay(200);
+  }
+  assert.ok(strength, `strength vectors were not computed\n${serverOutput.slice(-2000)}`);
+  const mathTeam = strength.vectors.find((v) => v.ecName === "Math Team");
+  assert.equal(mathTeam.prestigeSource, "benchmark", JSON.stringify(mathTeam));
+  assert.equal(mathTeam.friendly.prestigeSource.short, "Benchmark match");
+
+  // The prestige card: the level read from the description, where it was
+  // found, and the organizer's pages.
+  const prestige = await request("GET", `/api/ec/strength/${encodeURIComponent("Math Team")}/prestige`, { token });
+  assert.equal(prestige.status, 200, JSON.stringify(prestige.data));
+  assert.equal(prestige.data.level, "AIME qualifier");
+  assert.equal(prestige.data.matchedIn, "description");
+  assert.equal(prestige.data.score, 0.72);
+  assert.match(prestige.data.rationale, /at the "AIME qualifier" level from your description/);
+  assert.ok(prestige.data.sourcesCited.some((u) => /maa\.org/.test(u)), JSON.stringify(prestige.data.sourcesCited));
+  assert.equal(prestige.data.friendly.short, "Benchmark match");
+
+  // An activity that names no competition is told what to write, never
+  // that a key is missing.
+  const foodBank = await request("GET", `/api/ec/strength/${encodeURIComponent("Food Bank")}/prestige`, { token });
+  assert.equal(foodBank.status, 200, JSON.stringify(foodBank.data));
+  assert.equal(foodBank.data.source, "unavailable");
+  assert.match(foodBank.data.rationale, /name it and the level you reached/);
+  assert.equal(foodBank.data.friendly.short, "No catalog match");
+
+  // The priorities matrix under the fit card, from Stanford's C7: the GPA
+  // and rank placed against the enrolled class, the AP course and exam
+  // behind rigor, the food bank's character, the math team's talent, and
+  // the essay marked as something the profile cannot show.
+  const values = await request("POST", "/api/colleges/values", { token, body: { collegeName: "Stanford University" } });
+  assert.equal(values.status, 200, `${JSON.stringify(values.data)}\n${serverOutput.slice(-3000)}`);
+  assert.equal(values.data.fallback, "cds_admission_factors");
+  const row = (theme) => values.data.fit.perValueCoverage.find((p) => p.theme === theme);
+  const gpa = row("Academic GPA");
+  assert.equal(gpa.evidence[0].kind, "gpa", JSON.stringify(gpa));
+  assert.equal(gpa.evidence[0].position, "within");
+  assert.equal(gpa.evidence[0].detail.average, 3.94);
+  const rank = row("Class Rank");
+  assert.equal(rank.evidence[0].tone, "strong", JSON.stringify(rank));
+  assert.equal(rank.evidence[0].detail.topTenthPct, 97.8);
+  const rigor = row("Rigor of Secondary School Record");
+  assert.ok(rigor.evidence.some((e) => e.kind === "course") && rigor.evidence.some((e) => e.kind === "ap"), JSON.stringify(rigor));
+  const essay = row("Application Essay");
+  assert.equal(essay.unreadable, true);
+  assert.equal(essay.reason, "essay");
+  const character = row("Character / Personal Qualities");
+  assert.ok(character.evidence.some((e) => e.label.startsWith("Food Bank") && e.traits.includes("character")), JSON.stringify(character));
+  const talent = row("Talent / Ability");
+  assert.ok(talent.evidence.some((e) => e.label.startsWith("Math Team") && e.traits.includes("talent")), JSON.stringify(talent));
+  assert.equal(values.data.fit.characterProfile.length, 2);
+});

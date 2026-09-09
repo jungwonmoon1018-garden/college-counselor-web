@@ -38,31 +38,41 @@ export const TIER_FRIENDLY = Object.freeze({
   },
 });
 
-/** Human copy for the `prestige_source` enum. */
+/**
+ * Human copy for the `prestige_source` enum. Prestige is read from the
+ * activity's name, description, awards, role and attachments against the
+ * seeded benchmarks and the organizers' official catalog — no web research
+ * runs — so the copy tells the student what was matched and, when nothing
+ * was, what to write so the next read can pick it up.
+ */
 export const PRESTIGE_SOURCE_FRIENDLY = Object.freeze({
   research: {
     short: "Researched",
-    summary: "Scored from reputable admissions + competition sources. See rationale.",
+    summary: "Scored from reputable admissions and competition sources in an earlier read. See the rationale.",
   },
   benchmark: {
-    short: "Matched",
-    summary: "Recognised as a well-known competition in our catalogue.",
+    short: "Benchmark match",
+    summary: "Matched a seeded competition benchmark at the level your activity states; the rationale names the level.",
+  },
+  catalog: {
+    short: "Official catalog",
+    summary: "Matched an organizer's official competition catalog at the level your activity states; the sources are the organizer's own pages.",
   },
   legacy: {
-    short: "Not yet scored",
-    summary: "We haven't looked this one up yet — ask to refresh and we'll research it.",
+    short: "Not yet read",
+    summary: "This activity hasn't been read against the catalog yet — save your activities again or ask for a recompute.",
   },
   override: {
     short: "Counselor set",
     summary: "Your counselor set this score manually based on personal knowledge.",
   },
   unavailable: {
-    short: "Research unavailable",
-    summary: "Prestige lookup needs an OpenRouter key (it powers the web research) — ask your counselor to enable it.",
+    short: "No catalog match",
+    summary: "Nothing in the reviewed benchmarks or official catalog matches this activity yet. Name the competition and the level you reached in the description and it will be read on the next save.",
   },
   research_failed: {
     short: "Needs your context",
-    summary: "We couldn't find public sources for this one yet — a counselor can add detail.",
+    summary: "The name and description didn't identify a known competition — add the organizer's name and your level, or ask a counselor to set the score.",
   },
 });
 

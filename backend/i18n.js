@@ -184,17 +184,19 @@ export const STRINGS = {
 
     // ─── Friendly labels — prestige source ───
     "friendly.prestige.research.short": "Researched",
-    "friendly.prestige.research.summary": "Scored from reputable admissions + competition sources. See rationale.",
-    "friendly.prestige.benchmark.short": "Matched",
-    "friendly.prestige.benchmark.summary": "Recognised as a well-known competition in our catalogue.",
-    "friendly.prestige.legacy.short": "Not yet scored",
-    "friendly.prestige.legacy.summary": "We haven't looked this one up yet \u2014 ask to refresh and we'll research it.",
+    "friendly.prestige.research.summary": "Scored from reputable admissions and competition sources in an earlier read. See the rationale.",
+    "friendly.prestige.benchmark.short": "Benchmark match",
+    "friendly.prestige.benchmark.summary": "Matched a seeded competition benchmark at the level your activity states; the rationale names the level.",
+    "friendly.prestige.catalog.short": "Official catalog",
+    "friendly.prestige.catalog.summary": "Matched an organizer's official competition catalog at the level your activity states; the sources are the organizer's own pages.",
+    "friendly.prestige.legacy.short": "Not yet read",
+    "friendly.prestige.legacy.summary": "This activity hasn't been read against the catalog yet \u2014 save your activities again or ask for a recompute.",
     "friendly.prestige.override.short": "Counselor set",
     "friendly.prestige.override.summary": "Your counselor set this score manually based on personal knowledge.",
-    "friendly.prestige.unavailable.short": "Research unavailable",
-    "friendly.prestige.unavailable.summary": "Prestige lookup needs an OpenRouter key (it powers the web research) \u2014 ask your counselor to enable it.",
+    "friendly.prestige.unavailable.short": "No catalog match",
+    "friendly.prestige.unavailable.summary": "Nothing in the reviewed benchmarks or official catalog matches this activity yet. Name the competition and the level you reached in the description and it will be read on the next save.",
     "friendly.prestige.research_failed.short": "Needs your context",
-    "friendly.prestige.research_failed.summary": "We couldn't find public sources for this one yet \u2014 a counselor can add detail.",
+    "friendly.prestige.research_failed.summary": "The name and description didn't identify a known competition \u2014 add the organizer's name and your level, or ask a counselor to set the score.",
 
     // ─── Friendly labels — EC factors ───
     "friendly.factor.dedication.short": "Dedication",
@@ -463,16 +465,18 @@ export const STRINGS = {
     // ─── Friendly labels — prestige source ───
     "friendly.prestige.research.short": "\uc870\uc0ac\ub428",
     "friendly.prestige.research.summary": "\uc2e0\ub8b0\ud560 \ub9cc\ud55c \uc785\uc2dc \u00b7 \ub300\ud68c \ucd9c\ucc98\ub97c \ubc14\ud0d5\uc73c\ub85c \uc810\uc218\ub97c \uc0b0\ucd9c\ud588\uc2b5\ub2c8\ub2e4. \uadfc\uac70\ub97c \ud655\uc778\ud574\ubcf4\uc138\uc694.",
-    "friendly.prestige.benchmark.short": "\uce74\ub2e4\ub85c\uadf8 \ub9e4\uce6d",
-    "friendly.prestige.benchmark.summary": "\uc800\ud76c \uce74\ub2e4\ub85c\uadf8\uc5d0 \uc791 \uc54c\ub824\uc9c4 \ub300\ud68c\ub85c \ub4f1\ub85d\ub418\uc5b4 \uc788\uc2b5\ub2c8\ub2e4.",
-    "friendly.prestige.legacy.short": "\uc544\uc9c1 \uc810\uc218 \uc5c6\uc74c",
-    "friendly.prestige.legacy.summary": "\uc544\uc9c1 \uc870\uc0ac\ud558\uc9c0 \uc54a\uc558\uc5b4\uc694 \u2014 \uc7ac\uacc4\uc0b0\uc744 \uc694\uccad\ud558\uc2dc\uba74 \uc870\uc0ac\ud574\ub4dc\ub824\uc694.",
+    "friendly.prestige.benchmark.short": "\ubca4\uce58\ub9c8\ud06c \uc77c\uce58",
+    "friendly.prestige.benchmark.summary": "\ud65c\ub3d9\uc5d0 \uc801\ud78c \ub2e8\uacc4 \uadf8\ub300\ub85c \uc2dc\ub4dc\ub41c \ub300\ud68c \ubca4\uce58\ub9c8\ud06c\uc640 \uc77c\uce58\ud588\uc2b5\ub2c8\ub2e4. \uadfc\uac70\uc5d0 \uadf8 \ub2e8\uacc4\uac00 \ud45c\uc2dc\ub429\ub2c8\ub2e4.",
+    "friendly.prestige.catalog.short": "\uacf5\uc2dd \uce74\ud0c8\ub85c\uadf8",
+    "friendly.prestige.catalog.summary": "\uc8fc\ucd5c \uae30\uad00\uc758 \uacf5\uc2dd \ub300\ud68c \uce74\ud0c8\ub85c\uadf8\uc640 \ud65c\ub3d9\uc5d0 \uc801\ud78c \ub2e8\uacc4\uc5d0\uc11c \uc77c\uce58\ud588\uc2b5\ub2c8\ub2e4. \ucd9c\ucc98\ub294 \uc8fc\ucd5c \uae30\uad00\uc758 \ud398\uc774\uc9c0\uc785\ub2c8\ub2e4.",
+    "friendly.prestige.legacy.short": "\uc544\uc9c1 \uc77d\uc9c0 \uc54a\uc74c",
+    "friendly.prestige.legacy.summary": "\uc774 \ud65c\ub3d9\uc740 \uc544\uc9c1 \uce74\ud0c8\ub85c\uadf8\uc640 \ub300\uc870\ud558\uc9c0 \uc54a\uc558\uc5b4\uc694. \ud65c\ub3d9\uc744 \ub2e4\uc2dc \uc800\uc7a5\ud558\uac70\ub098 \uc7ac\uacc4\uc0b0\uc744 \uc694\uccad\ud558\uc138\uc694.",
     "friendly.prestige.override.short": "\uc0c1\ub2f4 \uc120\uc0dd\ub2d8\uc774 \uc124\uc815",
     "friendly.prestige.override.summary": "\uc0c1\ub2f4 \uc120\uc0dd\ub2d8\uc774 \ubcf8\uc778\uc758 \uc804\ubb38 \uc9c0\uc2dd\uc73c\ub85c \uc810\uc218\ub97c \uc9c1\uc811 \uc124\uc815\ud558\uc168\uc5b4\uc694.",
-    "friendly.prestige.unavailable.short": "\uc870\uc0ac \ubd88\uac00",
-    "friendly.prestige.unavailable.summary": "\uba85\uc131 \uc810\uc218 \uc870\uc0ac\uc5d0\ub294 OpenRouter API \ud0a4\uac00 \ud544\uc694\ud569\ub2c8\ub2e4 (\uc6f9 \uc870\uc0ac\ub97c \uc9c0\uc6d0) \u2014 \uc0c1\ub2f4 \uc120\uc0dd\ub2d8\uaed8 \ud65c\uc131\ud654\ub97c \uc694\uccad\ud558\uc138\uc694.",
+    "friendly.prestige.unavailable.short": "\uce74\ud0c8\ub85c\uadf8 \ubd88\uc77c\uce58",
+    "friendly.prestige.unavailable.summary": "\uac80\ud1a0\ub41c \ubca4\uce58\ub9c8\ud06c\ub098 \uacf5\uc2dd \uce74\ud0c8\ub85c\uadf8\uc5d0 \uc544\uc9c1 \uc774 \ud65c\ub3d9\uacfc \uc77c\uce58\ud558\ub294 \ud56d\ubaa9\uc774 \uc5c6\uc5b4\uc694. \uc124\uba85\uc5d0 \ub300\ud68c \uc774\ub984\uacfc \ub3c4\ub2ec\ud55c \ub2e8\uacc4\ub97c \uc801\uc73c\uba74 \ub2e4\uc74c \uc800\uc7a5 \ub54c \uc77d\ud799\ub2c8\ub2e4.",
     "friendly.prestige.research_failed.short": "\ub9e5\ub77d \ubcf4\uac15 \ud544\uc694",
-    "friendly.prestige.research_failed.summary": "\uc544\uc9c1 \uacf5\uac1c \ucd9c\ucc98\ub97c \ucc3e\uc9c0 \ubabb\ud588\uc2b5\ub2c8\ub2e4 \u2014 \uc0c1\ub2f4 \uc120\uc0dd\ub2d8\uc774 \uc138\ubd80 \ub9e5\ub77d\uc744 \ucd94\uac00\ud574\ub4dc\ub9b4 \uc218 \uc788\uc5b4\uc694.",
+    "friendly.prestige.research_failed.summary": "\uc774\ub984\uacfc \uc124\uba85\ub9cc\uc73c\ub85c\ub294 \uc54c\ub824\uc9c4 \ub300\ud68c\ub97c \ud655\uc778\ud558\uc9c0 \ubabb\ud588\uc5b4\uc694. \uc8fc\ucd5c \uae30\uad00 \uc774\ub984\uacfc \ub3c4\ub2ec\ud55c \ub2e8\uacc4\ub97c \ucd94\uac00\ud558\uac70\ub098 \uc0c1\ub2f4 \uc120\uc0dd\ub2d8\uaed8 \uc810\uc218 \uc124\uc815\uc744 \uc694\uccad\ud558\uc138\uc694.",
 
     // ─── Friendly labels — EC factors ───
     "friendly.factor.dedication.short": "\ud5cc\uc2e0\ub3c4",
@@ -679,7 +683,7 @@ export function t(key, locale = DEFAULT_LOCALE, params = {}) {
 export function localizeFriendlyLabels(locale = DEFAULT_LOCALE) {
   const loc = normalizeLocale(locale);
   const tierKeys = ["tier_1_distinctive", "tier_2_strong", "tier_3_developing", "tier_4_foundational"];
-  const sourceKeys = ["research", "benchmark", "legacy", "override", "unavailable", "research_failed"];
+  const sourceKeys = ["research", "benchmark", "catalog", "legacy", "override", "unavailable", "research_failed"];
   const factorKeys = ["dedication", "achievement", "leadership", "prestige", "narrative_fit", "major_spike"];
   const dirFactorKeys = [
     "academic_momentum",

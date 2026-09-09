@@ -201,6 +201,11 @@ import { loadIpedsGrowthFile } from "./admissions-intelligence-loader.js";
 import {
   buildStudentModel,
   buildPositioningForTarget,
+  buildProfileComparison,
+  compareApExams,
+  compareGpaToSchool,
+  compareRankToSchool,
+  compareTestsToSchool,
 } from "./positioning-engine.js";
 import {
   getCourseSequence,
@@ -1153,6 +1158,64 @@ function assembleProfileForGeneration(studentId) {
   };
 }
 
+// The student's record against one school's enrolled class — the same
+// reads the College Fit calculation makes (tests by section, GPA, class
+// rank, AP exams) from the stored Common Data Set and baseline row, with no
+// live fetch — so the priorities matrix under the fit card can place a
+// score against the school's middle 50% instead of only listing it. Null
+// when nothing is held for the school.
+function profileComparisonForSchool(studentId, schoolName) {
+  try {
+    if (!schoolName) return null;
+    const snap = ragStmts.getLatestSnapshot.get(studentId);
+    if (!snap) return null;
+    const wanted = expandCollegeAlias(String(schoolName));
+    const collegeRow = resolveBaselineCollegeRow(db, { schoolName: wanted });
+    const record = resolveStoredCdsRecord(ragStmts, { schoolName: collegeRow?.name || wanted });
+    if (!record && !collegeRow) return null;
+    const validated = record ? isCdsRecordValidated(ragStmts, record.slug) : false;
+    const cds = record ? cdsRecordToPositioningResult(record, { validated }) : null;
+    const pick = (cdsVal, baseVal) => (record && validated ? (cdsVal ?? baseVal) : (baseVal ?? cdsVal));
+    const college = {
+      name: collegeRow?.name || record?.school || wanted,
+      sat25: pick(record?.enrolledSAT?.p25, collegeRow?.sat_25) ?? null,
+      sat75: pick(record?.enrolledSAT?.p75, collegeRow?.sat_75) ?? null,
+      act25: pick(record?.enrolledACT?.p25, collegeRow?.act_25) ?? null,
+      act75: pick(record?.enrolledACT?.p75, collegeRow?.act_75) ?? null,
+      avgGpaAdmitted: pick(record?.enrolledGPA?.avg, collegeRow?.avg_gpa_admitted) ?? cds?.parsed?.gpaAverage ?? null,
+    };
+    const strengthRows = ragStmts.strength.getByStudent.all(studentId);
+    const student = buildStudentModel({
+      gpa_unweighted: snap.gpa_unweighted,
+      gpa_weighted: snap.gpa_weighted,
+      courses_json: snap.courses_json,
+      test_scores_json: snap.test_scores_json,
+      ap_scores_json: snap.ap_scores_json,
+      class_rank_json: snap.class_rank_json,
+      activities_json: snap.activities_json,
+      major_interest: snap.major_interest,
+    }, strengthRows, getActiveNarrative(ragStmts.narrative, studentId));
+    return buildProfileComparison({
+      tests: compareTestsToSchool(student, college, cds),
+      gpa: compareGpaToSchool(student, college, cds),
+      classRank: compareRankToSchool(student, cds),
+      apExams: compareApExams(student),
+    });
+  } catch (err) {
+    console.warn("[COLLEGE-VALUES] profile comparison skipped:", err?.message);
+    return null;
+  }
+}
+
+// What the priorities matrix reads beyond courses and activities: the
+// student's EC strength vectors (the character profile of each activity)
+// and the placement of their scores against this school.
+function fitMatrixOptions(studentId, schoolName) {
+  let strengthRows = [];
+  try { strengthRows = ragStmts.strength.getByStudent.all(studentId) || []; } catch { strengthRows = []; }
+  return { strengthRows, comparison: profileComparisonForSchool(studentId, schoolName), schoolName: schoolName || null };
+}
+
 // Names of every baseline college, cached for the per-turn school-mention
 // scan (the table only changes at boot).
 let baselineNameCache = { at: 0, names: [] };
@@ -1715,13 +1778,12 @@ app.get("/api/context/bundle", studentLimiter, requireStudentAuth, async (req, r
     try {
       const rows = ragStmts.strength?.getByStudent?.all(studentId) || [];
       const vectors = rows
-        .map(toStrengthPublicShape)
-        .filter(Boolean)
-        .map((v) => {
-          if (!wantFriendly) return v;
-          const explanation = getPrestigeExplanation(ragStmts, v.ecName);
-          return enrichECVectorWithFriendly(v, explanation);
-        });
+        .map((row) => {
+          const v = toStrengthPublicShape(row);
+          if (!v || !wantFriendly) return v;
+          return enrichECVectorWithFriendly(v, prestigeExplanationFor(row, v.ecName));
+        })
+        .filter(Boolean);
       ecStrength = {
         count: rows.length,
         factors: STRENGTH_FACTORS,
@@ -3536,7 +3598,7 @@ app.post("/api/colleges/values", studentLimiter, requireStudentAuth, async (req,
     });
 
     const profile = assembleProfileForGeneration(req.studentId);
-    const fit = profile ? computeFit(result.values, profile) : null;
+    const fit = profile ? computeFit(result.values, profile, fitMatrixOptions(req.studentId, result.displayName || collegeName)) : null;
     res.json({ ...result, fit, locale: resolveLocale(req) });
   } catch (err) {
     if (err?.code && err?.status === 404) {
@@ -3552,7 +3614,7 @@ app.post("/api/colleges/values", studentLimiter, requireStudentAuth, async (req,
           const cdsValues = record ? buildValuesFromCds(record) : null;
           if (cdsValues) {
             const profile = assembleProfileForGeneration(req.studentId);
-            const fit = profile ? computeFit(cdsValues.values, profile) : null;
+            const fit = profile ? computeFit(cdsValues.values, profile, fitMatrixOptions(req.studentId, cdsValues.displayName)) : null;
             return res.json({ ...cdsValues, fit, cached: false, locale: resolveLocale(req) });
           }
         } catch (fallbackErr) {
@@ -5638,6 +5700,31 @@ function shapeDeadline(row, nowMs) {
   };
 }
 
+// The prestige explanation for a strength row: the row's own read first
+// (computed from this student's name, description, awards and attachment
+// text), then the shared by-name cache. The cache is keyed by activity name
+// across students, so a "Math Team" read from one student's "AIME
+// qualifier" description must never explain another student's "Math Team".
+function prestigeExplanationFor(row, ecName) {
+  const reasoning = row ? safeParseJSON(row.reasoning_json, null)?.prestige : null;
+  if (reasoning && (reasoning.rationale || reasoning.catalogMatch)) {
+    return {
+      score: row.prestige ?? reasoning.score ?? 0,
+      source: row.prestige_source || reasoning.source || "unavailable",
+      rationale: reasoning.rationale || null,
+      sourcesCited: Array.isArray(reasoning.sourcesCited) ? reasoning.sourcesCited : [],
+      catalogMatch: reasoning.catalogMatch || null,
+      matchedIn: reasoning.matchedIn || null,
+      level: reasoning.level || null,
+      nextLevel: reasoning.nextLevel || null,
+      provider: null,
+      model: null,
+      fetchedAt: row.updated_at || row.computed_at || null,
+    };
+  }
+  return getPrestigeExplanation(ragStmts, ecName);
+}
+
 // GET /api/ec/strength — list 5-factor strength vectors for this student
 // When ?friendly=1, each vector is decorated with human-readable labels
 // (tier, prestige source, factors). Jiyeon UX audit F11.
@@ -5647,13 +5734,12 @@ app.get("/api/ec/strength", studentLimiter, requireStudentAuth, (req, res) => {
     const rows = ragStmts.strength.getByStudent.all(req.studentId) || [];
     const wantFriendly = req.query.friendly === "1" || req.query.friendly === "true";
     const vectors = rows
-      .map(toStrengthPublicShape)
-      .filter(Boolean)
-      .map((v) => {
-        if (!wantFriendly) return v;
-        const explanation = getPrestigeExplanation(ragStmts, v.ecName);
-        return enrichECVectorWithFriendly(v, explanation);
-      });
+      .map((row) => {
+        const v = toStrengthPublicShape(row);
+        if (!v || !wantFriendly) return v;
+        return enrichECVectorWithFriendly(v, prestigeExplanationFor(row, v.ecName));
+      })
+      .filter(Boolean);
     // When the caller wants friendly labels, also ship a locale-aware legend
     // so the frontend can key off `friendlyLegendI18n[tier]` without
     // maintaining its own Korean copy.
@@ -5703,7 +5789,7 @@ app.get("/api/ec/strength/:ecName", studentLimiter, requireStudentAuth, (req, re
         uploaded_at: a.uploaded_at,
       }));
     const baseVector = toStrengthPublicShape(row);
-    const explanation = getPrestigeExplanation(ragStmts, req.params.ecName);
+    const explanation = prestigeExplanationFor(row, req.params.ecName);
     const enriched = enrichECVectorWithFriendly(baseVector, explanation);
     res.json({
       ok: true,
@@ -5736,7 +5822,7 @@ app.get("/api/ec/strength/:ecName/prestige", studentLimiter, requireStudentAuth,
         recomputeUrl: null,
       });
     }
-    const explanation = getPrestigeExplanation(ragStmts, req.params.ecName);
+    const explanation = prestigeExplanationFor(row, req.params.ecName);
     if (!explanation) {
       const currentSource = row.prestige_source || "legacy";
       // Pull locale-specific short/summary from i18n when available, else
@@ -5882,11 +5968,12 @@ app.get("/api/ec/spike", studentLimiter, requireStudentAuth, async (req, res) =>
   try {
     const locale = resolveLocale(req);
     const rows = ragStmts.strength.getByStudent.all(req.studentId) || [];
+    const rowByName = new Map(rows.map((r) => [r.ec_name, r]));
     const vectors = rows
       .map(toStrengthPublicShape)
       .filter(Boolean)
       .map((v) => {
-        const explanation = getPrestigeExplanation(ragStmts, v.ecName);
+        const explanation = prestigeExplanationFor(rowByName.get(v.ecName), v.ecName);
         const enriched = enrichECVectorWithFriendly(v, explanation);
         // Composite ranking score from fields already on the row. Tier is the
         // dominant signal (it already folds in dedication/achievement/

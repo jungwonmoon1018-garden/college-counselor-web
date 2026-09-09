@@ -20,6 +20,7 @@ import {
   normalizeActivityName,
   searchCompetitionCatalog,
   findBestCompetitionCatalogPrestige,
+  findCatalogMatchInText,
   isReputableSourceUrl,
   REPUTABLE_DOMAINS,
   OFFICIAL_COMPETITION_SOURCES,
@@ -235,7 +236,7 @@ test("unknown competition stays deterministic and never fetches", async () => {
   assert.equal(fetched, false);
   assert.equal(result.source, "unavailable");
   assert.equal(result.score, 0);
-  assert.match(result.rationale, /No reviewed benchmark or official catalog/i);
+  assert.match(result.rationale, /Nothing in the reviewed benchmarks or the official competition catalog/);
 });
 
 test("legacy model-research cache rows are ignored", async () => {
@@ -261,4 +262,94 @@ test("missing activityName or stmts returns invalid_input source", async () => {
   assert.equal(r1.source, "invalid_input");
   const r2 = await researchCompetitionPrestige({ activityName: "Foo", stmts: null });
   assert.equal(r2.source, "invalid_input");
+});
+
+// ─── The whole record: description, awards, role, attachments ──────────
+
+test("a competition named only in the description is read at the level the description states", async () => {
+  const { stmts } = freshStmts();
+  const r = await researchCompetitionPrestige({
+    activityName: "Math Team",
+    stmts,
+    evidence: { description: "Qualified for AIME with a 108 on the AMC 12; weekly problem sessions", role: "Member" },
+  });
+  assert.equal(r.source, "catalog");
+  assert.equal(r.catalogMatch.activityId, "math_olympiad");
+  assert.equal(r.level, "AIME qualifier");
+  assert.equal(r.matchedIn, "description");
+  assert.equal(r.score, 0.72);
+  assert.match(r.rationale, /read at the "AIME qualifier" level from your description/);
+  assert.match(r.rationale, /The next level in this catalog, "USAJMO\/USAMO qualifier", reads at 0\.92/);
+  assert.ok(r.sourcesCited.length > 0 && r.sourcesCited.every(isReputableSourceUrl));
+});
+
+test("the name wins over the description, and the level comes from everything the student wrote", async () => {
+  const { stmts } = freshStmts();
+  const r = await researchCompetitionPrestige({
+    activityName: "USACO",
+    stmts,
+    evidence: "Promoted to the Gold division in December",
+  });
+  assert.equal(r.source, "catalog");
+  assert.equal(r.catalogMatch.activityId, "usaco");
+  assert.equal(r.matchedIn, "name");
+  assert.equal(r.level, "USACO Gold");
+  assert.equal(r.score, 0.65);
+  assert.match(r.rationale, /from the activity's name/);
+});
+
+test("a changed description is a different read: the cache key carries the evidence, and an unmatched activity is told what to write", async () => {
+  const { stmts } = freshStmts();
+  const first = await researchCompetitionPrestige({ activityName: "Science Club", stmts, evidence: { description: "Weekly meetings and demos" } });
+  assert.equal(first.source, "unavailable");
+  assert.equal(first.score, 0);
+  assert.match(first.rationale, /matches "Science Club" or its description/);
+  assert.match(first.rationale, /name it and the level you reached in the activity description/);
+
+  const second = await researchCompetitionPrestige({ activityName: "Science Club", stmts, evidence: { description: "Regeneron ISEF finalist in 2026 for a water-quality sensor" } });
+  assert.equal(second.source, "catalog");
+  assert.equal(second.cached, false);
+  assert.equal(second.catalogMatch.activityId, "regeneron_isef");
+  assert.equal(second.level, "ISEF finalist");
+  assert.equal(second.matchedIn, "description");
+
+  const again = await researchCompetitionPrestige({ activityName: "Science Club", stmts, evidence: { description: "Regeneron ISEF finalist in 2026 for a water-quality sensor" } });
+  assert.equal(again.cached, true);
+  assert.equal(again.level, "ISEF finalist");
+  assert.equal(again.matchedIn, "description");
+
+  assert.notEqual(computePrestigeCacheKey("Science Club", null, "a"), computePrestigeCacheKey("Science Club", null, "b"));
+  assert.equal(computePrestigeCacheKey("Science Club", null), computePrestigeCacheKey("science  club", ""));
+});
+
+test("a benchmark read cites the organizer and says where the level was found", async () => {
+  const { stmts } = freshStmts();
+  const r = await researchCompetitionPrestige({
+    activityName: "Math Team",
+    stmts,
+    benchmarkHit: {
+      activity_id: "math_olympiad",
+      activity_name: "Math Olympiad (AMC/AIME/USAMO/IMO)",
+      level: "AIME qualifier",
+      prestige_score: 0.72,
+      next: { level: "USAMO qualifier", prestige_score: 0.92 },
+      matchedIn: "description",
+    },
+    evidence: { description: "Qualified for AIME" },
+  });
+  assert.equal(r.source, "benchmark");
+  assert.equal(r.score, 0.72);
+  assert.match(r.rationale, /^Matched the seeded Math Olympiad \(AMC\/AIME\/USAMO\/IMO\) benchmark at the "AIME qualifier" level from your description\./);
+  assert.match(r.rationale, /AIME qualification is a selective national math achievement/);
+  assert.match(r.rationale, /The next level, "USAMO qualifier", reads at 0\.92\./);
+  assert.ok(r.sourcesCited.some((u) => u.includes("maa.org")));
+  assert.equal(r.catalogMatch.activityId, "math_olympiad");
+  assert.equal(r.level, "AIME qualifier");
+});
+
+test("catalog names and level words match whole words only", () => {
+  assert.equal(findCatalogMatchInText("A kimono exhibit and a limo ride"), null);
+  const hit = findCatalogMatchInText("Placed at the state science olympiad tournament");
+  assert.equal(hit.entry.id, "science_olympiad");
+  assert.equal(hit.alias, "science olympiad");
 });

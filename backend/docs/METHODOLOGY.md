@@ -35,6 +35,21 @@ provenance. It is not an acceptance probability. Student overrides remain
 visible and survive recomputation. Limited data lowers confidence instead of
 being filled with model guesses.
 
+The priorities matrix under the fit card reads the whole record against each
+value a school states or each admission factor it declares in section C7 of
+its Common Data Set: GPA, class rank, every test score with its sections and
+AP exam results placed against the enrolled class, courses by type, and each
+activity with the qualities its own description shows (leadership, character,
+talent, commitment, impact). A priority the profile cannot show, such as an
+essay or recommendations, is labeled as such rather than counted as a gap.
+
+An activity's prestige is read deterministically from its name, its
+150-character description, listed awards, role and attachment text against
+the seeded competition benchmarks and the organizers' official catalog. No web
+research runs. The rationale names the competition and level matched, where it
+was found, the next level and what it is worth, and — when nothing matches —
+what to write so the next read can pick it up.
+
 ## Sources
 
 The supported source classes are:

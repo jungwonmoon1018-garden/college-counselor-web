@@ -337,6 +337,22 @@ async function resolveOfficialSite({ collegeName, hintUrl, scorecardKey, fetchIm
   return { displayName, homepage, hintUrl: safeHint, unitId, fetchImpl };
 }
 
+// A page that cannot be read — the host does not resolve, the safety check
+// refuses it, the fetch itself fails — is a page not read, the same as one
+// that answers with an error. Letting the failure escape here made the
+// values lookup answer "research failed" for such a school instead of
+// falling back to the admission priorities in its Common Data Set, which
+// is exactly the case that fallback exists for. The safety check still
+// runs and still refuses; nothing is fetched from a refused host.
+async function readPage(url, fetchImpl) {
+  try {
+    return await fetchOfficialPage(url, { fetchImpl });
+  } catch (err) {
+    console.warn(`[COLLEGE-RESEARCH] page not read (${url}): ${err?.message || err}`);
+    return null;
+  }
+}
+
 async function gatherPages({ homepage, hintUrl, keywordRe, fetchImpl }) {
   const pages = [];
   const tried = new Set();
@@ -344,14 +360,14 @@ async function gatherPages({ homepage, hintUrl, keywordRe, fetchImpl }) {
     const key = String(url || "").replace(/\/+$/, "");
     if (!key || tried.has(key) || pages.length >= MAX_PAGES) return;
     tried.add(key);
-    const page = await fetchOfficialPage(url, { fetchImpl });
+    const page = await readPage(url, fetchImpl);
     if (page) pages.push(page);
   };
 
   if (hintUrl) await tryFetch(hintUrl);
   let homepageHtml = null;
   if (homepage && pages.length < MAX_PAGES) {
-    const page = await fetchOfficialPage(homepage, { fetchImpl });
+    const page = await readPage(homepage, fetchImpl);
     if (page) { pages.push(page); homepageHtml = page.html; }
   }
   if (homepageHtml) {
@@ -555,9 +571,13 @@ export function buildValuesFromCds(record, now = new Date()) {
   if (!c7) return null;
   const tiers = [["very_important", "Very Important"], ["important", "Important"]];
   const values = [];
+  // Up to ten factors: a selective school rates eight or nine of the
+  // nineteen "Very Important", and the priorities matrix under the fit card
+  // reads the student's record against each of them, so cutting the list at
+  // six dropped "Character / Personal Qualities" and "Talent / Ability".
   for (const [tier, label] of tiers) {
     for (const [factor, weight] of Object.entries(c7)) {
-      if (weight !== tier || values.length >= 6) continue;
+      if (weight !== tier || values.length >= 10) continue;
       values.push({
         theme: C7_FACTOR_LABELS[factor] || factor,
         summary: `${label} in ${record.school}'s admission decisions, per its Common Data Set (section C7${record.yearLabel ? `, ${record.yearLabel}` : ""}).`,

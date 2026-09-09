@@ -60,6 +60,7 @@ export const STRENGTH_FACTORS = Object.freeze([
 export const PRESTIGE_SOURCES = Object.freeze({
   RESEARCH: "research",
   BENCHMARK: "benchmark",
+  CATALOG: "catalog",
   LEGACY: "legacy",
   OVERRIDE: "override",
   UNAVAILABLE: "unavailable",
@@ -454,14 +455,34 @@ export async function vectorizeECStrength({
   //   b) reviewed benchmark/catalog rows in ec_prestige_cache,
   //   c) the packaged official-source competition catalog.
   //
-  // When no adapter/stmts are available, prestige defaults to 0 with
-  // source="unavailable" so tier labels still compute.
-  const benchmarkHit = resolveBenchmarkHit({ combined, competition });
+  // The read uses the whole activity record — the name, the 150-character
+  // description, listed awards, the role and any attachment text — so a
+  // "Math Team" whose description says "AIME qualifier" is read at that
+  // level, and the rationale says where the level was found. The component
+  // cache is keyed on the combined text, so editing the description
+  // re-reads it. When no stmts are available the catalog is still consulted
+  // (without a cache); prestige then defaults to 0 with source="unavailable"
+  // only when nothing matches, so tier labels still compute.
+  const evidenceFields = [
+    ["name", ec.name],
+    ["description", description ?? ec.description],
+    ["awards", Array.isArray(ec.awards) ? ec.awards.join(" ") : ec.awards],
+    ["role", ec.role],
+    ["attachment", fileText],
+  ].map(([field, raw]) => ({ field, text: normalizeText(raw || "") })).filter((f) => f.text);
+  const benchmarkHit = resolveBenchmarkHit({ combined, competition, fields: evidenceFields });
+  const prestigeEvidence = {
+    description: description ?? ec.description ?? null,
+    awards: ec.awards ?? null,
+    role: ec.role ?? null,
+    fileText: fileText || null,
+  };
   const prestigeResult = await computeWithCache({
     factor: "prestige",
     ragStmts,
     inputs: {
       activityName: ecNameForCache,
+      combinedHash,
       benchmarkLevel: benchmarkHit?.level || null,
       benchmarkScore: benchmarkHit?.prestige_score ?? null,
       provider: prestigeAdapter?.provider || (llmClient?.prestige ? "llmClient" : null),
@@ -477,6 +498,7 @@ export async function vectorizeECStrength({
             activityName: ec.name || ec.role || "",
             levelHint: benchmarkHit?.level || null,
             benchmarkHit,
+            evidence: prestigeEvidence,
           });
           if (r && Number.isFinite(r.score)) {
             score = clamp01(Number(r.score));
@@ -486,14 +508,15 @@ export async function vectorizeECStrength({
         } catch {
           // Fall through to 0/unavailable.
         }
-      } else if (ragStmts && ec.name) {
+      } else if (ec.name) {
         try {
           const r = await researchCompetitionPrestige({
             activityName: ec.name,
             levelHint: benchmarkHit?.level || null,
             benchmarkHit,
-            stmts: ragStmts,
+            stmts: ragStmts || {},
             adapter: prestigeAdapter,
+            evidence: prestigeEvidence,
           });
           if (r && Number.isFinite(r.score)) {
             score = clamp01(Number(r.score));
@@ -514,8 +537,11 @@ export async function vectorizeECStrength({
               sourcesCited: details.sourcesCited || [],
               cached: Boolean(details.cached),
               catalogMatch: details.catalogMatch || null,
+              matchedIn: details.matchedIn || null,
+              level: details.level || details.catalogMatch?.level || null,
+              nextLevel: details.nextLevel || null,
             }
-          : { source, rationale: null, sourcesCited: [], cached: false },
+          : { source, rationale: null, sourcesCited: [], cached: false, catalogMatch: null, matchedIn: null, level: null, nextLevel: null },
         provider: prestigeAdapter?.provider || null,
         model: prestigeAdapter?.model || null,
       };
@@ -701,7 +727,7 @@ export async function vectorizeECStrength({
  * level matches, returns null and the prestige path falls through to web
  * research.
  */
-function resolveBenchmarkHit({ combined, competition }) {
+function resolveBenchmarkHit({ combined, competition, fields = [] }) {
   if (!competition) return null;
 
   // Map competition.activityId → the matching baseline row and pick the
@@ -717,13 +743,30 @@ function resolveBenchmarkHit({ combined, competition }) {
   );
   const q = row.qualifier_levels[idx];
   if (!q || typeof q.prestige_score !== "number") return null;
+  const next = row.qualifier_levels[idx + 1] || null;
+
+  // Where the level was read: the first field (name, description, awards,
+  // role, attachment) that yields the same detection on its own. A level
+  // assembled from two fields — "AIME" in the name and "qualified" in the
+  // description — has no single source and stays unattributed.
+  let matchedIn = null;
+  for (const field of fields) {
+    const detected = field?.text ? detectCompetitiveActivity(field.text) : null;
+    if (detected && detected.activityId === competition.activityId && detected.levelIndex === competition.levelIndex) {
+      matchedIn = field.field;
+      break;
+    }
+  }
 
   return {
     activity_id: row.activity_id,
+    activity_name: row.activity_name || null,
     level: q.level,
     selectivity: q.selectivity,
     admissions_weight: q.admissions_weight,
     prestige_score: q.prestige_score,
+    next: next && typeof next.prestige_score === "number" ? { level: next.level, prestige_score: next.prestige_score } : null,
+    matchedIn,
   };
 }
 

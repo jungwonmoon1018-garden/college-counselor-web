@@ -73,3 +73,49 @@ describe("CalibratedFitCard", () => {
     expect(screen.queryByTestId("profile-comparison")).not.toBeInTheDocument();
   });
 });
+
+// The priorities matrix under the card: what in the record speaks to each
+// declared admission factor, with scores placed against the school and
+// activities carrying the qualities their descriptions show.
+describe("CalibratedFitCard priorities matrix", () => {
+  afterEach(() => cleanup());
+
+  it("lists the record behind each priority and labels what the profile cannot show", () => {
+    const collegeValues = {
+      displayName: "Stanford University",
+      fallback: "cds_admission_factors",
+      values: [
+        { theme: "Academic GPA", summary: "Very Important in Stanford University's admission decisions." },
+        { theme: "Standardized Test Scores", summary: "Considered." },
+        { theme: "Character / Personal Qualities", summary: "Very Important." },
+        { theme: "Application Essay", summary: "Very Important." },
+        { theme: "Level of Applicant's Interest", summary: "Important." },
+      ],
+      fit: {
+        overall: 100,
+        perValueCoverage: [
+          { theme: "Academic GPA", hits: 1, evidence: [{ kind: "gpa", label: "GPA 3.9", tone: "fair", position: "within", detail: { average: 3.94, weighted: false } }] },
+          { theme: "Standardized Test Scores", hits: 0, evidence: [{ kind: "test", label: "SAT 1400", tone: "weak", position: "below", detail: { band: { low: 1510, high: 1570 } }, advice: "withhold" }] },
+          { theme: "Character / Personal Qualities", hits: 2, evidence: [
+            { kind: "activity", label: "Food Bank (Volunteer)", tone: "strong", position: null, traits: ["character"] },
+            { kind: "activity", label: "Robotics Club (Captain)", tone: "fair", position: null, traits: ["leadership"] },
+          ] },
+          { theme: "Application Essay", hits: 0, evidence: [], unreadable: true, reason: "essay" },
+          { theme: "Level of Applicant's Interest", hits: 0, evidence: [], unreadable: true, reason: "interest" },
+        ],
+      },
+    };
+    render(<CalibratedFitCard collegeValues={collegeValues} positioning={null} loading={false} />);
+    const matrix = screen.getByTestId("fit-matrix");
+    expect(matrix).toHaveTextContent("Admission priorities (CDS)");
+    expect(matrix).toHaveTextContent("Academic GPA ✓ 1 match");
+    expect(matrix).toHaveTextContent("GPA 3.9 · inside the middle 50% · average 3.94");
+    expect(matrix).toHaveTextContent("Standardized Test Scores on file, but below range here");
+    expect(matrix).toHaveTextContent("SAT 1400 · below the 25th percentile · middle 50% 1510–1570 · consider withholding");
+    expect(matrix).toHaveTextContent("Character / Personal Qualities ✓ 2 matches");
+    expect(matrix).toHaveTextContent("Food Bank (Volunteer) · character");
+    expect(matrix).toHaveTextContent("Robotics Club (Captain) · leadership");
+    expect(matrix).toHaveTextContent("Application Essay not read from your profile");
+    expect(matrix).toHaveTextContent("demonstrated interest");
+  });
+});

@@ -4,8 +4,11 @@ import { t } from "../i18n.js";
 
 // ═══════════════════════════════════════════════════════════════════════
 // PrestigeCard — fetches /api/ec/strength/:ecName/prestige and renders the
-// score, source-shape, and cited URLs. Backend already localizes the
-// rationale + source labels through friendlyLegendI18n; we render verbatim.
+// score, the level that was read and where it was found (the activity's
+// name, its 150-character description, listed awards, an attachment), the
+// source label, the rationale, and the organizer's cited pages. The backend
+// localizes the source label and the friendly message; the rationale is
+// rendered verbatim.
 // ═══════════════════════════════════════════════════════════════════════
 
 export default function PrestigeCard({ ecName, locale = "en-US" }) {
@@ -19,7 +22,11 @@ export default function PrestigeCard({ ecName, locale = "en-US" }) {
       try {
         const r = await ecApi.prestige(ecName);
         if (alive) setData(r);
-      } catch { /* surface as no-data */ }
+      } catch (err) {
+        // A known activity without a cached rationale answers 404 with a
+        // friendly message; surface it instead of a bare "no data".
+        if (alive && err?.body?.friendlyMessage) setData({ error: err.body.error || "no_cached_rationale", friendlyMessage: err.body.friendlyMessage });
+      }
       finally { if (alive) setLoaded(true); }
     })();
     return () => { alive = false; };
@@ -38,9 +45,11 @@ export default function PrestigeCard({ ecName, locale = "en-US" }) {
 
   const score = Number(data.score ?? 0);
   const scoreColor = score >= 0.8 ? "#68d391" : score >= 0.6 ? "#fbd38d" : score >= 0.4 ? "#f6ad55" : "#a0aec0";
+  const source = data.friendly || data.sourceLabel || null;
+  const level = data.level && data.level !== "default" ? data.level : (data.catalogMatch?.level && data.catalogMatch.level !== "default" ? data.catalogMatch.level : null);
 
   return (
-    <div style={{
+    <div data-testid="prestige-card" style={{
       padding: "12px 14px",
       borderRadius: 10,
       background: "rgba(255,255,255,0.02)",
@@ -56,15 +65,26 @@ export default function PrestigeCard({ ecName, locale = "en-US" }) {
         <span style={{ fontSize: 13, color: scoreColor, fontWeight: 700 }}>
           {t(locale, "prestige.score")} {score.toFixed(2)}
         </span>
-        {data.sourceLabel?.short && (
+        {source?.short && (
           <span style={{ fontSize: 10, color: "#8a8a9a", padding: "2px 6px", borderRadius: 6, background: "rgba(255,255,255,0.04)" }}>
-            {data.sourceLabel.short}
+            {source.short}
           </span>
         )}
       </div>
+      {level && (
+        <div style={{ fontSize: 12, color: "#cbd5e0" }}>
+          <span style={{ color: "#8a8a9a" }}>{t(locale, "prestige.level")}: </span>{level}
+          {data.catalogMatch?.activityName && <span style={{ color: "#8a8a9a" }}> · {data.catalogMatch.activityName}</span>}
+        </div>
+      )}
       {data.rationale && (
         <div style={{ fontSize: 12, color: "#cbd5e0", lineHeight: 1.5 }}>
           {data.rationale}
+        </div>
+      )}
+      {source?.summary && (
+        <div style={{ fontSize: 11, color: "#8a8a9a", lineHeight: 1.5 }}>
+          {source.summary}
         </div>
       )}
       {Array.isArray(data.sourcesCited) && data.sourcesCited.length > 0 && (

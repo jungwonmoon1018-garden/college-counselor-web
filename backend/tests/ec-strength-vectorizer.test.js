@@ -610,3 +610,36 @@ test("vectorizeECStrength caches all six subvector components in the RAG DB", as
   assert.equal(second.reasoning.prestige.component_cache_hit, true);
   assert.equal(second.reasoning.narrative_fit.component_cache_hit, true);
 });
+
+test("the prestige read follows the description and says where the level was found", async () => {
+  const { ragStmts } = freshRagDb();
+  const base = { name: "Math Team", role: "Member", hoursPerWeek: 3, weeksPerYear: 30, yearsOfParticipation: 2 };
+
+  const plain = await vectorizeECStrength({ ec: { ...base, description: "Weekly problem sets with friends." }, ragStmts });
+  assert.equal(plain.prestige_source, "unavailable");
+  assert.equal(plain.factors.prestige, 0);
+  assert.match(plain.reasoning.prestige.rationale, /matches "Math Team" or its description/);
+
+  // The same activity with the level named in its 150-character description
+  // is a new read (the component cache is keyed on the text), at that level.
+  const qualified = await vectorizeECStrength({ ec: { ...base, description: "Qualified for AIME after a 108 on the AMC 12." }, ragStmts });
+  assert.equal(qualified.prestige_source, "benchmark");
+  assert.equal(qualified.factors.prestige, 0.72);
+  assert.equal(qualified.reasoning.prestige.level, "AIME qualifier");
+  assert.equal(qualified.reasoning.prestige.matchedIn, "description");
+  assert.equal(qualified.reasoning.prestige.component_cache_hit, false);
+  assert.match(qualified.reasoning.prestige.rationale, /from your description/);
+  assert.ok(qualified.reasoning.prestige.sourcesCited.length > 0);
+  assert.deepEqual(qualified.reasoning.prestige.nextLevel, { level: "USAMO qualifier", score: 0.92 });
+});
+
+test("without a database the catalog is still consulted and an unmatched activity keeps an actionable rationale", async () => {
+  const usaco = await vectorizeECStrength({ ec: { name: "USACO", role: "Competitor", description: "Reached the Gold division.", hoursPerWeek: 4, weeksPerYear: 30, yearsOfParticipation: 1 } });
+  assert.equal(usaco.prestige_source, "catalog");
+  assert.equal(usaco.factors.prestige, 0.65);
+  assert.equal(usaco.reasoning.prestige.level, "USACO Gold");
+
+  const club = await vectorizeECStrength({ ec: { name: "Generic Club", hoursPerWeek: 2, weeksPerYear: 30, yearsOfParticipation: 1 } });
+  assert.equal(club.prestige_source, "unavailable");
+  assert.match(club.reasoning.prestige.rationale, /Nothing in the reviewed benchmarks/);
+});

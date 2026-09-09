@@ -283,10 +283,99 @@ export function normalizeActivityName(name) {
     .trim();
 }
 
-export function computePrestigeCacheKey(activityName, levelHint) {
+// The cache key carries a digest of the evidence beyond the name (the
+// description, awards, role, attachment text) whenever there is any: a
+// "Math Team" whose description now says "AIME qualifier" is a different
+// read from the same "Math Team" without it, and the shared cache must not
+// hand one student's read to another whose activity shares only the name.
+export function computePrestigeCacheKey(activityName, levelHint, evidenceDigestValue = null) {
   const normalized = normalizeActivityName(activityName);
   const level = String(levelHint || "").toLowerCase().trim();
-  return crypto.createHash("sha256").update(`${normalized}|${level}`).digest("hex");
+  const parts = [normalized, level];
+  if (evidenceDigestValue) parts.push(String(evidenceDigestValue));
+  return crypto.createHash("sha256").update(parts.join("|")).digest("hex");
+}
+
+// ─── Evidence beyond the name ─────────────────────────────────────────
+// What the student wrote about the activity besides naming it: the Common
+// App-style description (150 characters), listed awards, the role, and the
+// text of an uploaded certificate or letter. Each field is kept separate so
+// the rationale can say where a competition or level was found.
+const EVIDENCE_FIELDS = [
+  ["description", (e) => e.description],
+  ["awards", (e) => (Array.isArray(e.awards) ? e.awards.join(" ") : e.awards)],
+  ["role", (e) => e.role],
+  ["attachment", (e) => e.fileText ?? e.attachmentText],
+];
+
+export function normalizeEvidence(evidence) {
+  if (!evidence) return [];
+  if (typeof evidence === "string") {
+    const text = normalizeActivityName(evidence);
+    return text ? [{ field: "description", text }] : [];
+  }
+  const out = [];
+  for (const [field, pick] of EVIDENCE_FIELDS) {
+    const text = normalizeActivityName(pick(evidence));
+    if (text) out.push({ field, text });
+  }
+  return out;
+}
+
+export function evidenceDigest(fields) {
+  if (!Array.isArray(fields) || fields.length === 0) return null;
+  const joined = fields.map((f) => `${f.field}=${f.text}`).join("\n");
+  return crypto.createHash("sha256").update(joined).digest("hex").slice(0, 16);
+}
+
+const MATCHED_IN_TEXT = Object.freeze({
+  name: "from the activity's name",
+  description: "from your description",
+  awards: "from your listed awards",
+  role: "from your role",
+  attachment: "from an uploaded document",
+});
+
+export function describeMatchedIn(matchedIn) {
+  return MATCHED_IN_TEXT[matchedIn] || "";
+}
+
+function escapeRe(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Whole-word match inside normalized text (lowercase, alphanumerics and
+// single spaces), so "imo" never fires inside "kimono" and "act" never
+// inside "activities".
+function wordRe(term) {
+  return new RegExp(`(?:^|\\s)${escapeRe(term)}(?:\\s|$)`);
+}
+
+export function catalogEntryById(activityId) {
+  return OFFICIAL_COMPETITION_SOURCES.find((entry) => entry.id === activityId) || null;
+}
+
+// The first competition named in a piece of free text (the earliest alias
+// or catalog name that appears as whole words; a longer alias wins a tie at
+// the same position). Returns null when nothing in the catalog is named.
+export function findCatalogMatchInText(text) {
+  const norm = normalizeActivityName(text);
+  if (!norm) return null;
+  let best = null;
+  for (const entry of OFFICIAL_COMPETITION_SOURCES) {
+    const names = [[entry.name, 0.9], ...(entry.aliases || []).map((a) => [a, 0.8])];
+    for (const [raw, confidence] of names) {
+      const alias = normalizeActivityName(raw);
+      if (!alias || alias.length < 3) continue;
+      const m = wordRe(alias).exec(norm);
+      if (!m) continue;
+      const at = m.index + (m[0].startsWith(" ") ? 1 : 0);
+      if (!best || at < best.at || (at === best.at && alias.length > best.alias.length)) {
+        best = { entry, alias, confidence, at };
+      }
+    }
+  }
+  return best ? { entry: best.entry, alias: best.alias, confidence: best.confidence } : null;
 }
 
 export function searchCompetitionCatalog(query, options = {}) {
@@ -383,7 +472,7 @@ function chooseCatalogLevel(entry, normalizedSearchText) {
   );
   for (const level of levels) {
     const matches = Array.isArray(level.match) ? level.match : [];
-    if (matches.some((m) => normalizedSearchText.includes(normalizeActivityName(m)))) {
+    if (matches.some((m) => wordRe(normalizeActivityName(m)).test(normalizedSearchText))) {
       return level;
     }
   }
@@ -392,6 +481,97 @@ function chooseCatalogLevel(entry, normalizedSearchText) {
     prestigeScore: entry.defaultPrestigeScore || 0,
     rationale: "Matched the official competition catalog; no specific level was detected.",
   };
+}
+
+// The level above the one read, in the catalog's own order, so the rationale
+// can say what the next rung is worth.
+function nextCatalogLevel(entry, level) {
+  const levels = [...(entry.levels || [])].sort((a, b) => Number(a.prestigeScore || 0) - Number(b.prestigeScore || 0));
+  const current = Number(level?.prestigeScore ?? entry.defaultPrestigeScore ?? 0);
+  const next = levels.find((l) => Number(l.prestigeScore || 0) > current + 1e-9);
+  return next ? { level: next.level, score: round2(next.prestigeScore) } : null;
+}
+
+// The catalog read for an activity: the name first (a student who names
+// the activity after the competition has told us what it is), then the
+// description, awards, role and attachment text in that order. The level is
+// read from everything the student wrote about the activity when the name
+// matched, and from the name plus the field that matched otherwise, so a
+// second competition mentioned in an attachment cannot lend its level.
+function findCatalogHit(activityName, fields, levelHint) {
+  let entry = null;
+  let matchedIn = null;
+  let alias = null;
+  let confidence = 0;
+  const [byName] = searchCompetitionCatalog(activityName, { levelHint, limit: 1 });
+  if (byName && byName.confidence >= 0.55) {
+    entry = catalogEntryById(byName.activityId);
+    matchedIn = "name";
+    confidence = byName.confidence;
+    alias = findCatalogMatchInText(activityName)?.alias || null;
+  }
+  let levelText = normalizeActivityName([activityName, levelHint, ...fields.map((f) => f.text)].filter(Boolean).join(" "));
+  if (!entry) {
+    for (const field of fields) {
+      const found = findCatalogMatchInText(field.text);
+      if (!found) continue;
+      entry = found.entry;
+      alias = found.alias;
+      confidence = found.confidence;
+      matchedIn = field.field;
+      levelText = normalizeActivityName([activityName, levelHint, field.text].filter(Boolean).join(" "));
+      break;
+    }
+  }
+  if (!entry) return null;
+  const level = chooseCatalogLevel(entry, levelText);
+  return {
+    entry,
+    alias,
+    matchedIn,
+    confidence: round2(confidence),
+    level: level.level,
+    score: round2(level.prestigeScore),
+    levelRationale: level.rationale,
+    isDefault: level.level === "default",
+    nextLevel: nextCatalogLevel(entry, level),
+    sourcesCited: entry.officialSources.map((s) => s.url),
+  };
+}
+
+// ─── Rationale prose ──────────────────────────────────────────────────
+// The student reads these on the prestige card, so they name what was
+// matched, where it was found, what the level means, and what would move
+// the read — never a table name or an enum.
+function catalogRationale(hit) {
+  const where = describeMatchedIn(hit.matchedIn);
+  const named = hit.alias && hit.alias !== normalizeActivityName(hit.entry.name) ? ` ("${hit.alias}")` : "";
+  if (hit.isDefault) {
+    const example = hit.entry.levels?.[1]?.level || hit.entry.levels?.[0]?.level || "the level you reached";
+    return `${hit.entry.name} was recognized ${where}${named}, but no level was stated, so the read stays at the participation baseline (${hit.score.toFixed(2)}). Name the level you reached in the activity description (for example "${example}") to raise it.`;
+  }
+  let text = `${hit.entry.name}: read at the "${hit.level}" level ${where}${named}. ${hit.levelRationale}`;
+  if (hit.nextLevel) text += ` The next level in this catalog, "${hit.nextLevel.level}", reads at ${hit.nextLevel.score.toFixed(2)}.`;
+  return text;
+}
+
+function benchmarkRationale({ benchmarkHit, entry, catalogLevel }) {
+  const where = describeMatchedIn(benchmarkHit.matchedIn);
+  const program = benchmarkHit.activity_name || (entry ? entry.name : null) || "competition";
+  let text = `Matched the seeded ${program} benchmark at the "${benchmarkHit.level || "participant"}" level${where ? ` ${where}` : ""}.`;
+  if (catalogLevel?.rationale) text += ` ${catalogLevel.rationale}`;
+  if (benchmarkHit.next?.level) text += ` The next level, "${benchmarkHit.next.level}", reads at ${round2(benchmarkHit.next.prestige_score).toFixed(2)}.`;
+  return text;
+}
+
+export function unavailableRationale(activityName, fields = []) {
+  const scope = fields.length ? `"${activityName}" or its description` : `"${activityName}"`;
+  return `Nothing in the reviewed benchmarks or the official competition catalog matches ${scope}. If this is a competition or a selective program, name it and the level you reached in the activity description (for example "AIME qualifier" or "USACO Gold") and it will be read on the next save. Prestige is one factor of six; an activity that is not a competition can still lead an application.`;
+}
+
+function catalogEntryForBenchmark(benchmarkHit) {
+  return catalogEntryById(benchmarkHit.activity_id)
+    || (benchmarkHit.activity_name ? findCatalogMatchInText(benchmarkHit.activity_name)?.entry || null : null);
 }
 
 function tokenSet(text) {
@@ -437,45 +617,54 @@ function round2(n) {
 }
 
 /**
- * Research or fetch the prestige score for a named extracurricular.
+ * The prestige read for a named extracurricular, from the whole activity
+ * record: the name, and the description, awards, role and attachment text
+ * the student supplied.
  *
  * @param {object} params
  * @param {string} params.activityName — raw EC name as the student wrote it.
  * @param {string} [params.levelHint]   — e.g. "national", "regional", "state", "district".
  * @param {object} [params.benchmarkHit] — optional prior match against
  *   baseline_ec_competitive. Pass the qualifier_level object (with
- *   prestige_score) or null. Takes precedence over web research.
+ *   prestige_score, and optionally activity_id / activity_name / next /
+ *   matchedIn) or null. Takes precedence over the catalog.
  * @param {object} params.stmts          — RAG stmts (needs getPrestigeCache
- *   + upsertPrestigeCache).
- * @param {object} [params.adapter]      — {provider, apiKey, baseUrl, model}
- *   resolved by caller (typically buildDefaultLLMClient). Web research uses
- *   OpenRouter's web plugin, so if provider is not "openrouter" (or no key),
- *   the research path short-circuits to "unavailable".
- * @param {object} [params.options]      — { fetchImpl, timeoutMs, now }
+ *   + upsertPrestigeCache); an empty object disables the cache.
+ * @param {object|string} [params.evidence] — { description, awards, role,
+ *   fileText } (or the description alone). Searched when the name matches
+ *   nothing, and always used to read the level; part of the cache key.
  * @returns {Promise<{score:number, source:string, rationale?:string,
- *   sourcesCited?:string[], provider?:string, model?:string, cached:boolean}>}
+ *   sourcesCited?:string[], catalogMatch?:object, matchedIn?:string,
+ *   level?:string, nextLevel?:object, cached:boolean}>}
  */
 export async function researchCompetitionPrestige({
   activityName,
   levelHint = null,
   benchmarkHit = null,
   stmts,
+  evidence = null,
 }) {
   if (!activityName || !stmts) {
     return { score: 0, source: "invalid_input", cached: false };
   }
 
-  const cacheKey = computePrestigeCacheKey(activityName, levelHint);
+  const fields = normalizeEvidence(evidence);
+  const cacheKey = computePrestigeCacheKey(activityName, levelHint, evidenceDigest(fields));
 
   // 1. Cache lookup with TTL.
   try {
     const cached = stmts.getPrestigeCache?.get(cacheKey);
     if (cached && ["benchmark", "catalog"].includes(cached.source) && !isExpired(cached.created_at)) {
+      const stored = safeJSON(cached.result_json) || {};
       return {
         score: Number(cached.score) || 0,
         source: cached.source,
         rationale: cached.rationale || null,
         sourcesCited: safeJSON(cached.sources_json) || [],
+        catalogMatch: stored.catalogMatch || null,
+        matchedIn: stored.matchedIn || null,
+        level: stored.level || null,
+        nextLevel: stored.nextLevel || null,
         provider: null,
         model: null,
         cached: true,
@@ -485,69 +674,16 @@ export async function researchCompetitionPrestige({
     // Non-fatal — fall through.
   }
 
-  // 2. Benchmark-hit short-circuit — no web search needed.
-  if (benchmarkHit && typeof benchmarkHit.prestige_score === "number") {
-    const score = clamp01(benchmarkHit.prestige_score);
-    const rationale = `Seeded from baseline_ec_competitive qualifier "${benchmarkHit.level || ""}".`;
-    const result = {
-      score,
-      source: "benchmark",
-      rationale,
-      sourcesCited: [],
-      provider: null,
-      model: null,
-      cached: false,
-    };
+  const remember = (result) => {
     try {
       stmts.upsertPrestigeCache?.run(
         cacheKey,
         activityName,
-        levelHint || null,
-        score,
-        rationale,
-        JSON.stringify([]),
-        "benchmark",
-        null,
-        null,
-        JSON.stringify({ score, rationale }),
-      );
-    } catch {
-      // Non-fatal.
-    }
-    return result;
-  }
-
-  // 3. Official catalog short-circuit. This covers known competitions that
-  // are not in the seeded baseline table yet and still writes a shared RAG
-  // cache row for future all-at-once reuse.
-  const catalogHit = findBestCompetitionCatalogPrestige(activityName, levelHint);
-  if (catalogHit) {
-    const score = clamp01(catalogHit.score);
-    const rationale = catalogHit.rationale || "Matched official competition catalog.";
-    const result = {
-      score,
-      source: "catalog",
-      rationale,
-      sourcesCited: catalogHit.sourcesCited || [],
-      provider: null,
-      model: null,
-      cached: false,
-      catalogMatch: {
-        activityId: catalogHit.activityId,
-        activityName: catalogHit.activityName,
-        level: catalogHit.level,
-        confidence: catalogHit.confidence,
-      },
-    };
-    try {
-      stmts.upsertPrestigeCache?.run(
-        cacheKey,
-        activityName,
-        levelHint || catalogHit.level || null,
-        score,
-        rationale,
-        JSON.stringify(result.sourcesCited),
-        "catalog",
+        levelHint || result.level || null,
+        result.score,
+        result.rationale,
+        JSON.stringify(result.sourcesCited || []),
+        result.source,
         null,
         null,
         JSON.stringify(result),
@@ -555,14 +691,74 @@ export async function researchCompetitionPrestige({
     } catch {
       // Non-fatal.
     }
+  };
+
+  // 2. Benchmark-hit short-circuit. The organizer's official pages come from
+  // the catalog entry for the same competition, so a benchmark read cites
+  // sources too.
+  if (benchmarkHit && typeof benchmarkHit.prestige_score === "number") {
+    const entry = catalogEntryForBenchmark(benchmarkHit);
+    const wanted = normalizeActivityName(benchmarkHit.level || "");
+    const catalogLevel = entry && wanted
+      ? (entry.levels || []).find((l) => normalizeActivityName(l.level) === wanted) || null
+      : null;
+    const result = {
+      score: clamp01(benchmarkHit.prestige_score),
+      source: "benchmark",
+      rationale: benchmarkRationale({ benchmarkHit, entry, catalogLevel }),
+      sourcesCited: entry ? entry.officialSources.map((s) => s.url) : [],
+      catalogMatch: entry
+        ? { activityId: entry.id, activityName: entry.name, level: benchmarkHit.level || null, confidence: 1 }
+        : null,
+      matchedIn: benchmarkHit.matchedIn || null,
+      level: benchmarkHit.level || null,
+      nextLevel: benchmarkHit.next?.level
+        ? { level: benchmarkHit.next.level, score: round2(benchmarkHit.next.prestige_score) }
+        : null,
+      provider: null,
+      model: null,
+      cached: false,
+    };
+    remember(result);
+    return result;
+  }
+
+  // 3. Official catalog: the name, then the description, awards, role and
+  // attachments. Covers known competitions that are not in the seeded
+  // baseline table and writes a shared RAG cache row for reuse.
+  const hit = findCatalogHit(activityName, fields, levelHint);
+  if (hit) {
+    const result = {
+      score: hit.score,
+      source: "catalog",
+      rationale: catalogRationale(hit),
+      sourcesCited: hit.sourcesCited,
+      catalogMatch: {
+        activityId: hit.entry.id,
+        activityName: hit.entry.name,
+        level: hit.level,
+        confidence: hit.confidence,
+      },
+      matchedIn: hit.matchedIn,
+      level: hit.level,
+      nextLevel: hit.nextLevel,
+      provider: null,
+      model: null,
+      cached: false,
+    };
+    remember(result);
     return result;
   }
 
   return {
     score: 0,
     source: "unavailable",
-    rationale: "No reviewed benchmark or official catalog match is available.",
+    rationale: unavailableRationale(activityName, fields),
     sourcesCited: [],
+    catalogMatch: null,
+    matchedIn: null,
+    level: null,
+    nextLevel: null,
     provider: null,
     model: null,
     cached: false,

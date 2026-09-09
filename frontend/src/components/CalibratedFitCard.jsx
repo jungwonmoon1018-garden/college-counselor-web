@@ -150,6 +150,38 @@ function fill(template, values) {
   return String(template).replace(/\{(\w+)\}/g, (_, key) => (values[key] != null ? String(values[key]) : ""));
 }
 
+// The priorities matrix under the card: for each value or declared
+// admission factor, what in the student's record speaks to it — a score
+// placed against the enrolled class, a course, an activity with the
+// qualities its description shows — and, for an essay, recommendations or
+// family background, that the profile cannot show it.
+const EVIDENCE_TONE = { strong: "#68d391", fair: "#63b3ed", weak: "#f6ad55", info: "#8a8a9a" };
+
+function coverageLabel(coverage, locale) {
+  if (coverage.hits > 0) return coverage.hits === 1 ? t(locale, "fit.hits_one") : fill(t(locale, "fit.hits_many"), { n: coverage.hits });
+  if (coverage.unreadable) return t(locale, "fit.not_readable");
+  if ((coverage.evidence || []).length > 0) return t(locale, "fit.below_range");
+  return t(locale, "fit.no_match");
+}
+
+function coverageColor(coverage) {
+  if (coverage.hits > 0) return "#68d391";
+  if (coverage.unreadable) return "#8a8a9a";
+  return (coverage.evidence || []).length > 0 ? "#f6ad55" : "#666";
+}
+
+function evidenceText(e, locale) {
+  const parts = [e.label];
+  if (e.position) parts.push(t(locale, `fit.pos_${e.position}`));
+  const d = e.detail || {};
+  if (d.band) parts.push(`${t(locale, "fit.cmp_band")} ${d.band.low}–${d.band.high}`);
+  if (d.average != null) parts.push(`${t(locale, "fit.cmp_average")} ${d.average}${d.weighted ? ` (${t(locale, "fit.cmp_weighted")})` : ""}`);
+  if (d.topTenthPct != null) parts.push(fill(t(locale, "fit.cmp_rank_school"), { tenth: d.topTenthPct }));
+  if (e.advice === "withhold") parts.push(t(locale, "fit.withhold_short"));
+  if (Array.isArray(e.traits) && e.traits.length) parts.push(e.traits.map((trait) => t(locale, `fit.trait_${trait}`)).join(", "));
+  return parts.join(" · ");
+}
+
 function ProfileComparison({ pc, locale }) {
   const rows = [];
   const tests = pc.tests;
@@ -333,19 +365,30 @@ export default function CalibratedFitCard({ collegeValues, positioning, loading,
           {collegeValues.note}
         </div>
       )}
-      <div style={{ fontSize: 10, color: "#6a6a7a", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>{collegeValues.fallback === "cds_admission_factors" ? "Admission priorities (CDS)" : "Core values"}</div>
-      {(collegeValues.values || []).map((v) => {
-        const coverage = collegeValues.fit?.perValueCoverage?.find((p) => p.theme === v.theme);
-        return (
-          <div key={v.theme} style={{ marginBottom: 8, paddingBottom: 8, borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#ddd" }}>
-              {v.theme} {coverage && <span style={{ fontSize: 9, color: coverage.hits > 0 ? "#68d391" : "#666", marginLeft: 6 }}>{coverage.hits > 0 ? `✓ ${coverage.hits} match${coverage.hits > 1 ? "es" : ""}` : "no profile match"}</span>}
+      <div data-testid="fit-matrix">
+        <div style={{ fontSize: 10, color: "#6a6a7a", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>{collegeValues.fallback === "cds_admission_factors" ? "Admission priorities (CDS)" : "Core values"}</div>
+        {(collegeValues.values || []).map((v) => {
+          const coverage = collegeValues.fit?.perValueCoverage?.find((p) => p.theme === v.theme);
+          return (
+            <div key={v.theme} style={{ marginBottom: 8, paddingBottom: 8, borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "#ddd" }}>
+                {v.theme} {coverage && <span style={{ fontSize: 9, color: coverageColor(coverage), marginLeft: 6 }}>{coverageLabel(coverage, locale)}</span>}
+              </div>
+              {v.summary && <div style={{ fontSize: 10, color: "#888", marginTop: 2 }}>{v.summary}</div>}
+              {v.evidence && <div style={{ fontSize: 9, color: "#666", fontStyle: "italic", marginTop: 3 }}>{"“"}{v.evidence}{"”"}</div>}
+              {(coverage?.evidence || []).slice(0, 4).map((e, i) => (
+                <div key={i} style={{ fontSize: 9, lineHeight: 1.5, color: "#9a9aa8", display: "flex", gap: 5, marginTop: 1 }}>
+                  <span style={{ color: EVIDENCE_TONE[e.tone] || "#8a8a9a", flexShrink: 0 }}>●</span>
+                  <span>{evidenceText(e, locale)}</span>
+                </div>
+              ))}
+              {coverage?.reason === "interest" && (
+                <div style={{ fontSize: 9, color: "#fbd38d", marginTop: 3, lineHeight: 1.5 }}>{t(locale, "fit.interest_note")}</div>
+              )}
             </div>
-            {v.summary && <div style={{ fontSize: 10, color: "#888", marginTop: 2 }}>{v.summary}</div>}
-            {v.evidence && <div style={{ fontSize: 9, color: "#666", fontStyle: "italic", marginTop: 3 }}>{"“"}{v.evidence}{"”"}</div>}
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
       {collegeValues.cached && <div style={{ fontSize: 9, color: "#555", marginTop: 4 }}>Cached {new Date(collegeValues.extractedAt).toLocaleDateString()}</div>}
     </div>
   );

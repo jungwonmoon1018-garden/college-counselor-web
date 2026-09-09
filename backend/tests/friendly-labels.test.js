@@ -37,7 +37,7 @@ test("every tier in TIERS has a friendly rendering", () => {
 
 test("every prestige_source enum value has a friendly rendering", () => {
   // These must match ec-strength-vectorizer.js PRESTIGE_SOURCES.
-  for (const src of ["research", "benchmark", "legacy", "override", "unavailable", "research_failed"]) {
+  for (const src of ["research", "benchmark", "catalog", "legacy", "override", "unavailable", "research_failed"]) {
     const f = renderFriendlyPrestigeSource(src);
     assert.ok(f.short, `prestige source ${src} missing .short`);
     assert.ok(f.summary, `prestige source ${src} missing .summary`);
@@ -113,7 +113,7 @@ test("enrichECVectorWithFriendly attaches tier + prestigeSource + factors", () =
   const enriched = enrichECVectorWithFriendly(baseVector, explanation);
   assert.ok(enriched.friendly, "friendly missing");
   assert.equal(enriched.friendly.tier.short, "Strong");
-  assert.equal(enriched.friendly.prestigeSource.short, "Matched");
+  assert.equal(enriched.friendly.prestigeSource.short, "Benchmark match");
   assert.ok(enriched.friendly.factors.narrative_fit, "narrative_fit friendly missing");
   assert.deepEqual(enriched.prestigeExplanation, explanation);
   // Original vector unmutated.

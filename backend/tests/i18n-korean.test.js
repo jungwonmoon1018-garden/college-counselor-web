@@ -101,6 +101,7 @@ const KO_REQUIRED_KEYS = [
   // Friendly labels — prestige sources
   "friendly.prestige.research.short", "friendly.prestige.research.summary",
   "friendly.prestige.benchmark.short", "friendly.prestige.benchmark.summary",
+  "friendly.prestige.catalog.short", "friendly.prestige.catalog.summary",
   "friendly.prestige.legacy.short", "friendly.prestige.legacy.summary",
   "friendly.prestige.override.short", "friendly.prestige.override.summary",
   "friendly.prestige.unavailable.short", "friendly.prestige.unavailable.summary",
@@ -274,7 +275,7 @@ test("localizeFriendlyLabels('ko') emits Hangul for all tiers/sources/factors", 
     assert.match(ko.tiers[k].short, HANGUL, `tier ${k}.short not Hangul: ${ko.tiers[k].short}`);
     assert.match(ko.tiers[k].summary, HANGUL, `tier ${k}.summary not Hangul`);
   }
-  const sourceKeys = ["research", "benchmark", "legacy", "override", "unavailable", "research_failed"];
+  const sourceKeys = ["research", "benchmark", "catalog", "legacy", "override", "unavailable", "research_failed"];
   for (const k of sourceKeys) {
     assert.match(ko.prestigeSources[k].short, HANGUL);
   }
