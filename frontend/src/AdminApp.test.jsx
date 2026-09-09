@@ -33,7 +33,11 @@ describe("AdminApp", () => {
     ));
     expect(await screen.findByText("web-recovery")).toBeVisible();
     expect(await screen.findByText("Student access stays closed until all three secrets are configured.")).toBeVisible();
-  });
+  // Typing three long strings through userEvent takes a couple of seconds
+  // in jsdom, and vitest 4.1.11 queues each test's steps behind the other
+  // files' (its revived lifecycle concurrency limit), so the whole-suite
+  // run crossed the 5 s default while the file alone stayed under 3 s.
+  }, 20_000);
 
   it("shows the models the catalog scout found, grouped by price band, with a manual check and dismiss", async () => {
     const ok = (body) => ({ ok:true, json:async()=>body });
@@ -96,5 +100,5 @@ describe("AdminApp", () => {
       "/api/admin/models/candidates",
       expect.objectContaining({ method:"POST", body:JSON.stringify({ modelId:"google/gemini-3.8-flash", status:"dismissed" }) }),
     ));
-  });
+  }, 20_000);
 });
