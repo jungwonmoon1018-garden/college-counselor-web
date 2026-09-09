@@ -8,9 +8,10 @@ changed recently and why, what was verified live, and what is open.
 
 ## Where things stand (2026-09-09, evening)
 
-- **Deployed:** `main` at `ba07b4e` (this session's two commits, `4eae5cc`
-  and `ba07b4e`, on top of the morning's `333cfc3`/`db4cb5f`; then the
-  handoff commit), live at https://college-counselor-web.onrender.com.
+- **Deployed:** `main` at `cd15135` (this session's commits `4eae5cc`,
+  `ba07b4e`, the handoff `4236c9e`, and `cd15135`, on top of the morning's
+  `333cfc3`/`db4cb5f`; then the handoff commit), live at
+  https://college-counselor-web.onrender.com.
   Every push to `main` runs CI (backend lint, syntax, tests, `npm audit
   --audit-level=high`; frontend tests and build) and Render redeploys
   after it passes; each deploy restarts the process (a few seconds of
@@ -21,6 +22,28 @@ changed recently and why, what was verified live, and what is open.
   (34 s when the machine is healthy); `npm run lint` 0 errors, 70
   warnings (CI cap 500); frontend `npx vitest run` 10 files, 34 tests;
   `npm run build` clean.
+- **Dependencies:** `npm audit` reports 0 vulnerabilities in both
+  packages (backend: `qs` overridden to 6.16 under express 4; frontend:
+  vitest 4.1.11). `npm outdated` still lists updates inside the declared
+  ranges that were deliberately not taken: backend dotenv 17.4.2, eslint
+  9.39.5, helmet 8.3.0, mammoth 1.12.2, pdfjs-dist 6.3.289 (the CDS parser
+  depends on pdfjs text positions — re-run `tests/cds-extras.test.js` and
+  a spot re-parse before taking it); frontend @testing-library/react
+  16.3.3, user-event 14.6.7, @vitejs/plugin-react 6.1.1, vite 8.2.2. Major
+  jumps available (not taken): better-sqlite3 13, eslint 10, express 5,
+  express-rate-limit 8, pdf-parse 2, tesseract.js 7, @napi-rs/canvas 1,
+  react 19, jsdom 29, jest-dom 7. `npm fund`: 57 backend and 25 frontend
+  packages seek funding — express (cors, http-errors, multer), eslint and
+  its tree, dotenv, @napi-rs/canvas, express-rate-limit, pdf-parse, uuid,
+  feross's buffer packages, isaacs's glob; vite (lightningcss, postcss,
+  picomatch, tinyglobby, oxc types), vitest, parse5/entities, csstools.
+- **Node on this machine:** every `npm install` here warns `EBADENGINE`
+  because the packages declare Node `>=22.13.0 <23.0.0` (what CI's
+  `.node-version` 22.22.0 and Render's `NODE_VERSION` run) and this
+  machine runs Node 25.9 with no version manager installed. The tests
+  pass on 25; the warning is the machine's, not the project's. To silence
+  it, run Node 22 locally (fnm/nvm read `.node-version`) — widening the
+  engines range was not done, since nothing tests the project on 25.
 - **Working tree:** clean apart from the repository's phantom CRLF-only
   diffs (never stage them) and two untracked files not made by any session
   (`backend/kor.traineddata`, a Tesseract Korean model; `AGENTS.md`, a copy
@@ -46,6 +69,28 @@ factor with its "✓ N matches" / "no profile match" — produced by
 `backend/college-values.js computeFit`; the "character profiles" are the
 six-factor read of each activity (`ec-vectorizer.js vectorizeEC`, whose
 sixth factor is community and character) and the stored strength vectors.
+
+**Both audits clean, and the admin tests get the time they take
+(2026-09-09)** — `cd15135`. The user asked for "a package fund and fixes
+using the npm logs". The npm debug logs on this machine held nothing from
+the project but the `EBADENGINE` warning above (the one older log is a
+peer-dependency report from an unrelated global install), so the fixes
+came from what `npm audit` still reported. Backend: two moderate
+advisories in qs 6.15.3 (an array-limit bypass through bracket-key comma
+parsing; a denial of service through an attacker-controlled `isBuffer`);
+express 4.22.2 pins qs `~6.15.1` and npm offered only express 5, but
+body-parser 1.20.8 already ships qs 6.16.0, a minor within the API
+express 4 calls, so `backend/package.json` carries `"qs": "^6.16.0"` in
+its `overrides` (beside xmldom, tmp, uuid) and the lockfile dedupes to one
+qs 6.16.0; the full suite passes. Frontend: `npm audit fix` took vitest
+4.1.10 → 4.1.11 for the @vitest/mocker redirect-mock path traversal
+(devDependencies only, the bundle hash unchanged). That patch revives
+vitest's global concurrency limit for the test lifecycle, so in a
+whole-suite run each test's steps queue behind the other files': the
+AdminApp bootstrap test, which types three long strings through
+userEvent and passes in under three seconds alone, crossed the 5 s
+default on every full run. Both AdminApp tests now carry a 20 s limit, as
+the dashboard tests already do.
 
 **Backend lockfile takes the multer, xmldom and js-yaml advisory fixes
 (2026-09-09)** — `ba07b4e`. CI's audit gate failed on `4eae5cc` for
@@ -241,6 +286,13 @@ deleted afterwards.
   Stanford's stored CDS by the values route itself — and
   `fit.characterProfile` had the three activities' traits (Robotics
   leadership 0.98, Math Team major focus 0.9, Food Bank character 0.45).
+- **After `cd15135` (backend-only deploy; CI green, restart blip 502 at
+  10:46:39 → 200 at 10:46:43 UTC on 2026-09-09; bundle unchanged):** a
+  throwaway account's query-string routes through the overridden qs all
+  answered 200 — `/api/ec/strength?friendly=1`, the same with
+  `&locale=ko`, an array-and-nested key (`friendly[0]=1,2&a[b][c]=1`, the
+  shape the advisory was about) and `/api/students/profile?locale=en-US`;
+  the account was deleted (200).
 - **Earlier today (after `9dbafe0`, `b7e7bba`, `52a833c`):** the profile
   round-trip kept sections and class rank; Stanford's fit read returned
   `profileComparison` (SAT "within" 1510–1580 with both sections against
@@ -280,11 +332,14 @@ deleted afterwards.
   an AIME qualifier read `impact` 0.48 and appeared as fair evidence under
   "Innovation And Discovery"); add `impact_and_scope` to the damping map
   if that reads as a stretch.
-- **qs moderate advisories** under express 4 need express 5; the audit
-  gate (`--audit-level=high`) ignores them. New high advisories can fail
-  CI on a push that did not touch dependencies — check `gh run view
-  <id> --log-failed` before suspecting the code, run `npm audit fix` in
-  `backend/`, and commit the lockfile.
+- **The qs override** (`"qs": "^6.16.0"` in `backend/package.json`) can
+  come out once express 4 itself moves past qs 6.15 or the app moves to
+  express 5; until then `npm ls qs` should show one 6.16.x. New advisories
+  can fail CI's `npm audit --audit-level=high` on a push that did not
+  touch dependencies — check `gh run view <id> --log-failed` before
+  suspecting the code, run `npm audit fix` in the package, rerun its
+  tests (a patch can change runner behaviour: vitest 4.1.11 did), and
+  commit the lockfile.
 - **Old positioning cache rows** keyed without a student remain in the
   scorecard query cache until pruned; unreachable under the new key.
 - **Rows regenerated by the parser** are unvalidated extras (the validator
@@ -384,3 +439,7 @@ minutes after CI goes green.
 - jsdom has no `scrollIntoView`; `frontend/src/test-setup.js` shims it.
   The chat screen's sidebar is in the DOM even when closed, so its editors
   are reachable from a signed-in vitest without toggling it.
+- A UI test that passes when its file runs alone but times out at 5 s in
+  the full `npx vitest run` is queueing behind the other files (vitest
+  4.1.11's lifecycle concurrency limit), not hanging: give it the time it
+  takes (`it(name, fn, 20_000)`), as the AdminApp and dashboard tests do.
