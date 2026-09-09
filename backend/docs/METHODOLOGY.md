@@ -50,6 +50,14 @@ research runs. The rationale names the competition and level matched, where it
 was found, the next level and what it is worth, and — when nothing matches —
 what to write so the next read can pick it up.
 
+A file the student attaches in chat — a certificate, an award letter, a
+project write-up — is filed as evidence for the activity it names, matched
+deterministically from the activity name's words in the student's message, the
+file name and the file text; a file that names no activity, or two, stays
+unlinked. The text is stored sealed at rest like the chat history and read by
+the activity's strength vector (achievement, prestige, narrative fit). Older
+chat uploads are read in on request.
+
 ## Sources
 
 The supported source classes are:

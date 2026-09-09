@@ -53,6 +53,7 @@ import { OPENROUTER_TARGETS, OPENROUTER_STATUS, OPENROUTER_CATALOG, refreshOpenR
 import { randomExemplarGroup, exemplarsPromptBlock } from "./crimson-ec-exemplars.js";
 import { buildMethodology } from "./methodology.js";
 import * as chatHistory from "./chat-history.js";
+import { filesFromInlinedBlocks, harvestEvidence, harvestStudentChatRecords, parseAttachedFilesPreface } from "./ec-chat-evidence.js";
 import { callLLM as adapterCallLLM, validateKey as adapterValidateKey, isReasonableModelId as adapterIsReasonableModelId, registerDynamicOpenRouterModels as adapterRegisterDynamicModels } from "./llm-adapters/index.js";
 import { screenInput, screenOutput, restorePII, redactProviderText } from "./content-moderation.js";
 import { grantConsent, hasActiveConsent, validateRequiredConsents, getOnboardingConsentRequirements } from "./consent.js";
@@ -2061,7 +2062,10 @@ function messageText(message) {
 // Replace base64 document/image blocks with their extracted text so a
 // text-only provider sees the whole file. Scanned PDFs fall back to bounded
 // OCR. Errors become a visible note rather than a silent omission.
-async function attachmentBlockToText(block) {
+// `collector`, when given, receives { index, mime, text } for every block
+// whose text was read, so the turn can also file the document as EC
+// evidence (see queueChatEvidence) without extracting it twice.
+async function attachmentBlockToText(block, collector = null, index = -1) {
   const kind = block.type === "image" ? "image" : "document";
   const mime = String(block.source?.media_type || "").toLowerCase();
   try {
@@ -2075,6 +2079,7 @@ async function attachmentBlockToText(block) {
     }
     const text = String(extraction?.text || "").trim();
     if (!text) return `[Attached ${kind}: no readable text was found — if it is a scan or photo, a clearer copy may work.]`;
+    if (Array.isArray(collector)) collector.push({ index, mime, text });
     const cut = /truncated/.test(String(extraction?.warning || ""));
     return `[Attached ${kind} — full extracted text, ${text.length} characters${cut ? "; the source was longer than the extraction limit, so the end is not included" : ""}]\n${text}\n[End of attached ${kind}]`;
   } catch (err) {
@@ -2082,14 +2087,16 @@ async function attachmentBlockToText(block) {
   }
 }
 
-async function inlineAttachmentBlocks(messages) {
+async function inlineAttachmentBlocks(messages, collector = null) {
   let inlined = 0;
-  for (const message of Array.isArray(messages) ? messages : []) {
+  const list = Array.isArray(messages) ? messages : [];
+  for (let index = 0; index < list.length; index += 1) {
+    const message = list[index];
     if (!Array.isArray(message?.content)) continue;
     const next = [];
     for (const block of message.content) {
       if ((block?.type === "document" || block?.type === "image") && block.source?.type === "base64" && typeof block.source.data === "string") {
-        next.push({ type: "text", text: await attachmentBlockToText(block) });
+        next.push({ type: "text", text: await attachmentBlockToText(block, collector, index) });
         inlined += 1;
       } else {
         next.push(block);
@@ -2098,6 +2105,52 @@ async function inlineAttachmentBlocks(messages) {
     message.content = next;
   }
   return inlined;
+}
+
+// A file attached in chat is EC evidence too. Read the files of one turn
+// into the activity each concerns (a deterministic name match; a file that
+// names no activity stays unlinked) and, when anything was linked, refresh
+// the strength vectors so the evidence shows at once. Fire-and-forget: a
+// chat turn never waits for it, and a failure is logged, not surfaced.
+function queueChatEvidence(studentId, files, messageText, { threadId = null, messageId = null, source = "chat" } = {}) {
+  if (!studentId || !Array.isArray(files) || files.length === 0) return;
+  setImmediate(async () => {
+    try {
+      const profile = assembleProfileForGeneration(studentId);
+      const result = harvestEvidence(ragStmts.strength, studentId, files, {
+        activities: profile?.activities || [],
+        messageText,
+        seal: chatHistory.sealText,
+        threadId,
+        messageId,
+      });
+      if (result.linked.length) {
+        console.log(`[EC evidence] ${source}: linked ${result.linked.map((l) => `${l.name} → ${l.ecName}`).join(", ")}`);
+        await recomputeStrengthForStudent(studentId);
+      }
+    } catch (err) {
+      console.warn("[EC evidence] chat harvest failed:", err?.message);
+    }
+  });
+}
+
+// One strength recompute for a student from the stored snapshot, narrative
+// and attachments — what the sync does, callable after evidence lands.
+async function recomputeStrengthForStudent(studentId) {
+  const snap = ragStmts.getLatestSnapshot.get(studentId);
+  if (!snap) return null;
+  const active = getActiveNarrative(ragStmts.narrative, studentId);
+  return recomputeStudentECStrengthVectors(ragStmts.strength, studentId, {
+    activities: safeParseJSON(snap.activities_json, []),
+    narrative: active?.narrativeText || null,
+    narrativeThemes: active?.themes || [],
+    narrativeHash: active?.hash || null,
+    narrativeId: active?.id || null,
+    majorInterest: snap.major_interest || null,
+    llmClient: buildDefaultLLMClient(ragStmts.narrativeFitCache),
+    prestigeAdapter: resolvePrestigeAdapter(studentId),
+    ragStmts,
+  });
 }
 
 function llmResponseText(response) {
@@ -2396,8 +2449,16 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
     // the model as "[non-text block omitted]" — the student's transcript was
     // simply absent, and the model narrated a truncated file. Extract the text
     // here (OCR for scans) and hand the model the full document.
-    const attachmentsInlined = await inlineAttachmentBlocks(payload.messages);
+    const inlinedTexts = [];
+    const attachmentsInlined = await inlineAttachmentBlocks(payload.messages, inlinedTexts);
     markStage("attachments");
+    // The document or image the student attached on THIS turn is filed as EC
+    // evidence for the activity it names; earlier turns' files were filed
+    // when they were sent, and the text hash keeps a re-send from doubling.
+    if (attachmentsInlined > 0) {
+      const lastIndex = payload.messages.length - 1;
+      queueChatEvidence(studentId, filesFromInlinedBlocks(userText, inlinedTexts.filter((b) => b.index === lastIndex)), questionText, { source: "chat turn" });
+    }
 
     const redacted = redactPayloadForModel({
       system: payload.system || "",
@@ -3420,6 +3481,12 @@ app.post("/api/students/threads/:id/messages", studentLimiter, requireStudentAut
       safeModelContent,
     );
     if (!r.ok) return res.status(400).json({ error: r.error });
+    // Text-extracted uploads travel in the model-facing copy as an
+    // "[Attached files — …]" block; each file is filed as EC evidence for the
+    // activity it names.
+    if (role === "user" && safeModelContent) {
+      queueChatEvidence(req.studentId, parseAttachedFilesPreface(safeModelContent), safeContent, { threadId: req.params.id, source: "persisted turn" });
+    }
     if (crisisRelated) {
       chatHistory.renameThread(
         ragStmts,
@@ -5787,6 +5854,9 @@ app.get("/api/ec/strength/:ecName", studentLimiter, requireStudentAuth, (req, re
         extracted_chars: a.extracted_chars,
         status: a.extraction_status,
         uploaded_at: a.uploaded_at,
+        // Where the evidence came from: a file attached in chat, or a
+        // direct upload.
+        origin: String(a.storage_path || "").startsWith("chat://") ? "chat" : "upload",
       }));
     const baseVector = toStrengthPublicShape(row);
     const explanation = prestigeExplanationFor(row, req.params.ecName);
@@ -5865,6 +5935,33 @@ app.get("/api/ec/strength/:ecName/prestige", studentLimiter, requireStudentAuth,
   } catch (err) {
     console.error("[EC prestige] get rationale error:", err.message);
     res.status(500).json({ error: "Fetch failed" });
+  }
+});
+
+// POST /api/ec/evidence/from-chat — read the files attached in past chat
+// turns into the activities they concern: the backfill for records stored
+// before chat uploads counted as EC evidence, and the student's own "read
+// my uploads" button. Returns what was linked, what named no activity, what
+// was already stored, and the uploads whose text is not in their chat
+// record (a PDF or image sent before this build kept only its name) so the
+// student can attach them again. Recomputes the strength vectors when
+// anything was linked, so the reply reflects the new evidence.
+app.post("/api/ec/evidence/from-chat", studentLimiter, requireStudentAuth, async (req, res) => {
+  try {
+    const profile = assembleProfileForGeneration(req.studentId);
+    const summary = harvestStudentChatRecords(ragStmts, req.studentId, {
+      activities: profile?.activities || [],
+      seal: chatHistory.sealText,
+    });
+    let recomputed = false;
+    if (summary.linked.length) {
+      await recomputeStrengthForStudent(req.studentId);
+      recomputed = true;
+    }
+    res.json({ ok: true, ...summary, recomputed });
+  } catch (err) {
+    console.error("[EC evidence] backfill error:", err.message);
+    res.status(500).json({ error: "Could not read the chat uploads" });
   }
 });
 

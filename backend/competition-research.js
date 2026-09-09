@@ -525,10 +525,19 @@ function findCatalogHit(activityName, fields, levelHint) {
   }
   if (!entry) return null;
   const level = chooseCatalogLevel(entry, levelText);
+  // Where the level words were found — the competition can be recognized
+  // from the name while the level ("Gold division") sits in an uploaded
+  // certificate, and the rationale should say so.
+  const levelFields = [{ field: "name", text: normalizeActivityName(activityName) }, ...fields];
+  const levelMatchedIn = level.level === "default"
+    ? null
+    : (levelFields.find((f) => (level.match || []).some((m) => wordRe(normalizeActivityName(m)).test(f.text)))?.field || null);
   return {
     entry,
+    activityName,
     alias,
     matchedIn,
+    levelMatchedIn,
     confidence: round2(confidence),
     level: level.level,
     score: round2(level.prestigeScore),
@@ -545,12 +554,19 @@ function findCatalogHit(activityName, fields, levelHint) {
 // the read — never a table name or an enum.
 function catalogRationale(hit) {
   const where = describeMatchedIn(hit.matchedIn);
-  const named = hit.alias && hit.alias !== normalizeActivityName(hit.entry.name) ? ` ("${hit.alias}")` : "";
+  // Quote the words that matched unless they are the whole activity name
+  // or the catalog name itself — repeating "USACO" after "the activity's
+  // name" tells the student nothing.
+  const redundant = new Set([normalizeActivityName(hit.entry.name), normalizeActivityName(hit.activityName)]);
+  const named = hit.alias && !redundant.has(hit.alias) ? ` ("${hit.alias}")` : "";
   if (hit.isDefault) {
     const example = hit.entry.levels?.[1]?.level || hit.entry.levels?.[0]?.level || "the level you reached";
     return `${hit.entry.name} was recognized ${where}${named}, but no level was stated, so the read stays at the participation baseline (${hit.score.toFixed(2)}). Name the level you reached in the activity description (for example "${example}") to raise it.`;
   }
-  let text = `${hit.entry.name}: read at the "${hit.level}" level ${where}${named}. ${hit.levelRationale}`;
+  const levelWhere = hit.levelMatchedIn && hit.levelMatchedIn !== hit.matchedIn ? describeMatchedIn(hit.levelMatchedIn) : "";
+  let text = levelWhere
+    ? `${hit.entry.name}: recognized ${where}${named}, read at the "${hit.level}" level ${levelWhere}. ${hit.levelRationale}`
+    : `${hit.entry.name}: read at the "${hit.level}" level ${where}${named}. ${hit.levelRationale}`;
   if (hit.nextLevel) text += ` The next level in this catalog, "${hit.nextLevel.level}", reads at ${hit.nextLevel.score.toFixed(2)}.`;
   return text;
 }
@@ -740,6 +756,7 @@ export async function researchCompetitionPrestige({
         confidence: hit.confidence,
       },
       matchedIn: hit.matchedIn,
+      levelMatchedIn: hit.levelMatchedIn,
       level: hit.level,
       nextLevel: hit.nextLevel,
       provider: null,

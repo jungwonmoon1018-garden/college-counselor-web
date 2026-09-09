@@ -42,6 +42,8 @@ import {
   computePrestigeCacheKey,
 } from "./competition-research.js";
 
+import { openText } from "./chat-history.js";
+
 import { COMPETITIVE_ACTIVITY_BENCHMARKS } from "./baseline-data.js";
 
 // ─── Constants / shape ──────────────────────────────────────
@@ -1164,12 +1166,22 @@ function truncate(text, max) {
   return s.slice(0, max);
 }
 
+// Attachment text read from a chat record is sealed at rest like the chat
+// history; a direct upload's text is stored as extracted. Either reads
+// here, and a row that cannot be opened contributes nothing rather than
+// breaking the recompute.
+function attachmentText(row) {
+  const stored = String(row?.extracted_text || "");
+  if (!stored) return "";
+  try { return String(openText(stored, "") || ""); } catch { return ""; }
+}
+
 function concatAttachmentText(rows, cap) {
   if (!Array.isArray(rows) || rows.length === 0) return "";
   const chunks = [];
   let total = 0;
   for (const r of rows) {
-    const t = String(r?.extracted_text || "");
+    const t = attachmentText(r);
     if (!t) continue;
     if (total + t.length > cap) {
       chunks.push(t.slice(0, cap - total));

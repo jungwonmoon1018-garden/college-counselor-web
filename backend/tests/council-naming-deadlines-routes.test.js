@@ -1201,3 +1201,114 @@ test("the priorities matrix and the prestige rationale read the whole record: sc
   assert.ok(talent.evidence.some((e) => e.label.startsWith("Math Team") && e.traits.includes("talent")), JSON.stringify(talent));
   assert.equal(values.data.fit.characterProfile.length, 2);
 });
+
+test("files attached in chat become EC evidence: a persisted upload lifts the activity's prestige, a document block is filed on the turn, and the backfill links an older record", async () => {
+  const token = await registerStudent("chat-evidence");
+  for (const consentType of ["data_processing", "ai_interaction", "cross_border_transfer"]) {
+    const consent = await request("POST", "/api/consent/grant", { token, body: { consentType, grantedBy: "student" } });
+    assert.equal(consent.status, 200, JSON.stringify(consent.data));
+  }
+  const preface = (name, text, question) => [
+    "[Attached files — read carefully and reference in your answer; 1 text file(s)]",
+    "", `═══ FILE: ${name} (1 KB) ═══`, "```", text, "```", "[End of attached files]", "", question,
+  ].join("\n");
+
+  // A letter uploaded before the activities exist: nothing to link it to
+  // yet, so it waits in the chat record for the backfill.
+  const threadId = await createThread(token, "Uploads");
+  const early = await request("POST", `/api/students/threads/${threadId}/messages`, {
+    token,
+    body: {
+      role: "user",
+      content: "Here is my volunteer letter.",
+      attachmentName: "food-bank-letter.txt",
+      modelContent: preface("food-bank-letter.txt", "To whom it may concern: this confirms 120 volunteer hours at the County Food Bank during 2025-26, including training new volunteers.", "Here is my volunteer letter."),
+    },
+  });
+  assert.equal(early.status, 200, JSON.stringify(early.data));
+
+  const synced = await request("POST", "/api/students/sync", {
+    token,
+    body: {
+      profile: { gpa: { unweighted: 3.7 }, courses: [], testScores: [], apScores: [] },
+      activities: [
+        { name: "USACO", role: "Competitor", category: "computer_tech", description: "Weekly practice contests", hoursPerWeek: 4, weeksPerYear: 30 },
+        { name: "Food Bank", role: "Volunteer", category: "community_service", description: "Weekly shifts", hoursPerWeek: 3, weeksPerYear: 40 },
+      ],
+      majorInterest: "Computer Science",
+      goals: [],
+    },
+  });
+  assert.equal(synced.status, 200, JSON.stringify(synced.data));
+
+  const strengthWhere = async (predicate, label) => {
+    for (let attempt = 0; attempt < 150; attempt++) {
+      const r = await request("GET", "/api/ec/strength?friendly=1", { token });
+      if (r.status === 200 && predicate(r.data)) return r.data;
+      await delay(200);
+    }
+    assert.fail(`${label}\n${serverOutput.slice(-2500)}`);
+  };
+  // Without evidence, USACO is recognized from its name at the participation baseline.
+  const before = await strengthWhere((d) => d.count === 2, "strength vectors were not computed");
+  assert.equal(before.vectors.find((v) => v.ecName === "USACO").factors.prestige, 0.25);
+
+  // A certificate persisted as a text-extracted upload is filed on the
+  // persisted turn: the level comes from the document.
+  const cert = await request("POST", `/api/students/threads/${threadId}/messages`, {
+    token,
+    body: {
+      role: "user",
+      content: "My USACO certificate.",
+      attachmentName: "usaco-gold.txt",
+      modelContent: preface("usaco-gold.txt", "USACO 2026 January Contest. Gold Division — promoted to Gold.", "My USACO certificate."),
+    },
+  });
+  assert.equal(cert.status, 200, JSON.stringify(cert.data));
+  await strengthWhere((d) => d.vectors.find((v) => v.ecName === "USACO")?.factors.prestige === 0.65, "the USACO certificate did not reach the strength read");
+  const usaco = await request("GET", `/api/ec/strength/${encodeURIComponent("USACO")}`, { token });
+  assert.equal(usaco.status, 200, JSON.stringify(usaco.data));
+  assert.deepEqual(usaco.data.attachments.map((a) => [a.filename, a.origin, a.status]), [["usaco-gold.txt", "chat", "ok"]]);
+  const prestige = await request("GET", `/api/ec/strength/${encodeURIComponent("USACO")}/prestige`, { token });
+  assert.equal(prestige.status, 200, JSON.stringify(prestige.data));
+  assert.equal(prestige.data.level, "USACO Gold");
+  assert.equal(prestige.data.matchedIn, "name");
+  assert.match(prestige.data.rationale, /recognized from the activity's name, read at the "USACO Gold" level from an uploaded document/);
+
+  // A document block on a chat turn (a PDF or image in the product; plain
+  // text here) is filed from the turn itself, named by the client's
+  // priming sentence and matched by the student's question.
+  const award = Buffer.from("County Food Bank — Volunteer of the Year award, 2026, for 120 hours of service.").toString("base64");
+  const turn = await request("POST", "/api/chat", {
+    token,
+    body: {
+      system: "You are the EXTRACURRICULAR specialist for students ages 14-18.",
+      messages: [{
+        role: "user",
+        content: [
+          { type: "document", source: { type: "base64", media_type: "text/plain", data: award } },
+          { type: "text", text: `The student uploaded "food-bank-award.txt". If it is a school records document (report card, transcript, score report), extract every course and grade; otherwise answer their question about it substantively. What does this award show about my Food Bank work? MOCKREPLY:${b64("It shows sustained service.")}:` },
+        ],
+      }],
+      request_id: "chat-evidence-1",
+    },
+  });
+  assert.equal(turn.status, 200, `${JSON.stringify(turn.data)}\n${serverOutput.slice(-2000)}`);
+  assert.equal(turn.data._meta.attachmentsInlined, 1);
+  for (let attempt = 0; attempt < 150; attempt++) {
+    const r = await request("GET", `/api/ec/strength/${encodeURIComponent("Food Bank")}`, { token });
+    if (r.status === 200 && r.data.attachments.some((a) => a.filename === "food-bank-award.txt")) break;
+    await delay(200);
+    if (attempt === 149) assert.fail(`the award from the chat turn was not filed\n${serverOutput.slice(-2500)}`);
+  }
+
+  // The backfill links the letter sent before the activities existed, skips
+  // what is already stored, and recomputes.
+  const backfill = await request("POST", "/api/ec/evidence/from-chat", { token, body: {} });
+  assert.equal(backfill.status, 200, JSON.stringify(backfill.data));
+  assert.deepEqual(backfill.data.linked.map((l) => [l.name, l.ecName]), [["food-bank-letter.txt", "Food Bank"]]);
+  assert.ok(backfill.data.skipped.some((s) => s.name === "usaco-gold.txt"), JSON.stringify(backfill.data));
+  assert.equal(backfill.data.recomputed, true);
+  const foodBank = await request("GET", `/api/ec/strength/${encodeURIComponent("Food Bank")}`, { token });
+  assert.deepEqual(foodBank.data.attachments.map((a) => a.filename).sort(), ["food-bank-award.txt", "food-bank-letter.txt"]);
+});

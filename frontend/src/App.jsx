@@ -4,6 +4,7 @@ import DriftBanner from "./components/DriftBanner.jsx";
 import CandidateRanker from "./components/CandidateRanker.jsx";
 import DeadlineTracker from "./components/DeadlineTracker.jsx";
 import PrestigeCard from "./components/PrestigeCard.jsx";
+import EcEvidence, { ChatEvidenceSync } from "./components/EcEvidence.jsx";
 import SpikeFinder from "./components/SpikeFinder.jsx";
 import CalibratedFitCard from "./components/CalibratedFitCard.jsx";
 import CourseSequencer from "./components/CourseSequencer.jsx";
@@ -3382,6 +3383,9 @@ export default function App() {
   // (the prestige rationale can be long, multiple open turns the sidebar
   // into a wall of text).
   const [expandedEC, setExpandedEC] = useState(null);
+  // Bumped when chat uploads are read into activities, so an expanded EC's
+  // prestige card and evidence list fetch again.
+  const [evidenceVersion, setEvidenceVersion] = useState(0);
   // Switch locale + persist + reload-not-needed (components subscribe).
   const setLocale = useCallback((next) => {
     setLocaleState(next);
@@ -5765,6 +5769,10 @@ export default function App() {
           )}
 
           <div style={{ fontSize:11,fontWeight:600,color:"#6a6a7a",textTransform:"uppercase",letterSpacing:"0.06em",margin:"16px 0 6px" }}>ECs ({activities.length})</div>
+          {/* Files attached in chat (certificates, letters, write-ups) are
+              filed to the activity they name as they arrive; this reads the
+              older ones in and says what was linked. */}
+          {activities.length > 0 && <ChatEvidenceSync onLinked={() => setEvidenceVersion((v) => v + 1)} />}
           {activities.length > 0 ? (showAllECs ? activities : activities.slice(0,4)).map((a,i)=>(
             <div key={i} style={{ fontSize:12,padding:"5px 0",borderBottom:"1px solid rgba(255,255,255,0.03)" }}>
               {/* Click row to expand prestige rationale (Round 2 F5).      */}
@@ -5784,7 +5792,8 @@ export default function App() {
               </div>
               {expandedEC === i && (
                 <div style={{ marginTop:8 }}>
-                  <PrestigeCard ecName={a.name} locale={locale} />
+                  <PrestigeCard key={evidenceVersion} ecName={a.name} locale={locale} />
+                  <EcEvidence ecName={a.name} refreshKey={evidenceVersion} />
                 </div>
               )}
             </div>

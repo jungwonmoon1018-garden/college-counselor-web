@@ -170,6 +170,14 @@ export const ec = {
   async prestige(ecName) {
     return ccFetch(`/api/ec/strength/${encodeURIComponent(ecName)}/prestige`, { method: "GET" });
   },
+  // One activity's vector with the files linked to it as evidence.
+  async evidence(ecName) {
+    return ccFetch(`/api/ec/strength/${encodeURIComponent(ecName)}`, { method: "GET" });
+  },
+  // Read every file attached in past chat turns into the activity it names.
+  async readChatUploads() {
+    return ccFetch("/api/ec/evidence/from-chat", { method: "POST", body: {}, timeoutMs: 120_000 });
+  },
   // Spike Finder — which 2-3 ECs should lead the application + wellbeing read.
   async spike(targetSchools) {
     const qs = (Array.isArray(targetSchools) && targetSchools.length)
