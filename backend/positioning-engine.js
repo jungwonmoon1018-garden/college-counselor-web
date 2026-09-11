@@ -1,5 +1,6 @@
 import { clamp01, matchMajorBucket } from "./ec-vectorizer.js";
 import { normalizeClassRank, sectionEntries } from "./test-catalog.js";
+import { readCourseRigor } from "./course-rigor.js";
 
 export const C7_RATING_VALUES = Object.freeze({
   very_important: 1,
@@ -229,15 +230,14 @@ export function buildStudentModel(snapshot, strengthRows = [], narrative = null,
     const name = normalizeCourseName(course);
     return keywords.some((kw) => name.includes(kw));
   });
-  const rigorousCourseCount = courses.filter((course) => {
-    const level = String(course?.type || course?.level || "").toLowerCase();
-    return ["ap", "ib", "a-level", "alevel", "dual_enrollment", "dual enrollment", "de"].includes(level);
-  }).length;
-  const seniorRigorCount = courses.filter((course) => {
-    const year = String(course?.year || course?.gradeLevel || "").toLowerCase();
-    const level = String(course?.type || course?.level || "").toLowerCase();
-    return /(12|senior)/.test(year) && ["ap", "ib", "a-level", "alevel", "dual_enrollment", "dual enrollment", "de"].includes(level);
-  }).length;
+  // Course rigor: every college-level course by its type or its name, plus
+  // the AP exams no listed course names, each AP weighted by its exam
+  // score (course-rigor.js). Before this only courses typed AP/IB/dual
+  // counted, so AP work recorded as exam results — or courses named "AP …"
+  // but left typed regular — was no rigor at all.
+  const rigor = readCourseRigor(courses, apScores);
+  const rigorousCourseCount = rigor.collegeLevelCourses + rigor.apExamsWithoutCourse;
+  const seniorRigorCount = rigor.seniorCollegeLevel;
 
   const majorRelevantGpa = avg(relevantCourses.map((course) => gradeToPoints(course.grade)));
   const academicAwardsCount = activities.filter((a) => /(award|winner|finalist|olympiad|medal|honor|scholar)/i.test(`${a.name || ""} ${a.description || ""}`)).length;
@@ -267,6 +267,8 @@ export function buildStudentModel(snapshot, strengthRows = [], narrative = null,
     rankPercentile,
     courses,
     relevantCourses,
+    rigor,
+    rigorUnits: rigor.units,
     rigorousCourseCount,
     seniorRigorCount,
     majorRelevantGpa,
@@ -552,12 +554,45 @@ export function compareApExams(student) {
   return { ...ap, score: round1(Math.min(100, score)) };
 }
 
+// Course rigor against the load the school's admitted average implies. The
+// expectation follows that average on the 4.0 scale (a 3.9 average asks
+// for about seven college-level courses; a weighted 4.21 would otherwise
+// demand ten AP courses), never fewer than four. The load is the weighted
+// read from course-rigor.js — AP, IB, dual-enrollment and A-Level courses
+// by type or name, AP exams no course names, each AP lifted or lowered by
+// its exam score — plus half a unit per senior-year college-level course.
+// Meeting the expectation reads "above" (the load is there), sixty percent
+// of it "within", less "below".
+export function compareCourseRigor(student, averageGpa = null) {
+  const rigor = student?.rigor || readCourseRigor(student?.courses || [], []);
+  const targetGpa = Math.min(4, averageGpa ?? 3.75);
+  const expectation = Math.max(4, Math.round((targetGpa - 3.2) * 10));
+  const units = Number(student?.rigorUnits ?? rigor.units ?? 0) + Number(student?.seniorRigorCount || 0) * 0.5;
+  const ratio = units / Math.max(1, expectation);
+  const position = ratio >= 1 ? "above" : ratio >= 0.6 ? "within" : "below";
+  return {
+    apTaken: rigor.apTaken,
+    apCourses: rigor.apCourses,
+    apExamsWithoutCourse: rigor.apExamsWithoutCourse,
+    apScored: rigor.apScored,
+    ib: rigor.ib,
+    dualEnrollment: rigor.dualEnrollment,
+    aLevel: rigor.aLevel,
+    honors: rigor.honors,
+    units: round1(units),
+    expectation,
+    position,
+    score: round1(clamp01(ratio) * 100),
+  };
+}
+
 export function scoreAcademicReadiness(student, college, cdsResult) {
   const c7 = cdsResult?.parsed?.c7 || {};
   const tests = compareTestsToSchool(student, college, cdsResult);
   const gpaRead = compareGpaToSchool(student, college, cdsResult);
   const rankRead = compareRankToSchool(student, cdsResult);
   const apRead = compareApExams(student);
+  const rigorRead = compareCourseRigor(student, gpaRead.average);
   const featureWeights = {
     gpa: 0.27 + 0.08 * c7Value(c7, ["academicGpa", "academic_gpa", "gpa"], 0.7),
     rigor: 0.2 + 0.08 * c7Value(c7, ["rigor"], 0.7),
@@ -575,12 +610,8 @@ export function scoreAcademicReadiness(student, college, cdsResult) {
   const totalWeight = Object.values(featureWeights).reduce((a, b) => a + b, 0);
   for (const key of Object.keys(featureWeights)) featureWeights[key] /= totalWeight;
 
-  // The rigor expectation follows the admitted average on the 4.0 scale; a
-  // weighted average (4.21) would otherwise demand ten AP courses.
-  const targetGpa = Math.min(4, gpaRead.average ?? 3.75);
   const gpaScore = gpaRead.score;
-  const rigorExpectation = Math.max(4, Math.round((targetGpa - 3.2) * 10));
-  const rigorScore = clamp01((student.rigorousCourseCount + student.seniorRigorCount * 0.5) / Math.max(1, rigorExpectation)) * 100;
+  const rigorScore = rigorRead.score;
   const majorPrepScore = clamp01(((student.relevantCourses.length / 5) * 0.55) + (((student.majorRelevantGpa ?? student.gpa ?? 3.2) / 4) * 0.45)) * 100;
   const testScore = tests.score;
   const apExamScore = apRead.score ?? 0;
@@ -617,7 +648,7 @@ export function scoreAcademicReadiness(student, college, cdsResult) {
     dynamicWeights: Object.fromEntries(Object.entries(featureWeights).map(([k, v]) => [k, round2(v)])),
     c7Breakdown,
     // The facts behind the blend, for the fit card and the counselor.
-    reads: { tests, gpa: gpaRead, classRank: rankRead, apExams: apRead },
+    reads: { tests, gpa: gpaRead, classRank: rankRead, apExams: apRead, rigor: rigorRead },
   };
 }
 
@@ -832,7 +863,7 @@ export function recommendStrategy(positioningLabel, redFlags, majorCompetitivene
 // and distribution, the class rank against C10, and the AP exam evidence.
 export function buildProfileComparison(reads) {
   if (!reads) return null;
-  const { tests, gpa, classRank, apExams } = reads;
+  const { tests, gpa, classRank, apExams, rigor } = reads;
   const best = tests?.best || null;
   const brief = (c) => ({ test: c.test, score: c.score, convertedFrom: c.convertedFrom, equivalent: c.equivalent, band: c.band, position: c.position });
   return {
@@ -849,6 +880,11 @@ export function buildProfileComparison(reads) {
     gpa: gpa ? { gpa: gpa.gpa, average: gpa.average, averageScale: gpa.averageScale, comparedGpa: gpa.comparedGpa, band: gpa.band, position: gpa.position, placement: gpa.placement, basis: gpa.basis, score: gpa.score } : null,
     classRank: classRank ? { topPercent: classRank.topPercent, bucket: classRank.bucket, school: classRank.school, shareAbove: classRank.shareAbove, basis: classRank.basis, score: classRank.score } : null,
     apExams: apExams ? { count: apExams.count, average: apExams.average, strong: apExams.strong, weak: apExams.weak, relevant: apExams.relevant, relevantAverage: apExams.relevantAverage, score: apExams.score } : null,
+    // The course load behind the rigor component: how many APs were taken
+    // (courses, or exams no course names), how many carry exam scores, the
+    // IB / dual-enrollment / A-Level courses, and the load against what the
+    // admitted average implies.
+    rigor: rigor ? { apTaken: rigor.apTaken, apCourses: rigor.apCourses, apExamsWithoutCourse: rigor.apExamsWithoutCourse, apScored: rigor.apScored, ib: rigor.ib, dualEnrollment: rigor.dualEnrollment, aLevel: rigor.aLevel, honors: rigor.honors, units: rigor.units, expectation: rigor.expectation, position: rigor.position, score: rigor.score } : null,
   };
 }
 

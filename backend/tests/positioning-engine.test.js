@@ -14,6 +14,7 @@ import {
   compareGpaToSchool,
   compareRankToSchool,
   compareApExams,
+  compareCourseRigor,
   actToSat,
   satToAct,
 } from "../positioning-engine.js";
@@ -473,4 +474,65 @@ test("a weighted admitted average (Harvard's 4.21) is compared with the weighted
   const plain = compareGpaToSchool(buildStudentModel({ gpa_unweighted: 3.8, gpa_weighted: 4.3, major_interest: "Biology" }, [], null), { avgGpaAdmitted: 3.9 }, { parsed: {} });
   assert.equal(plain.averageScale, "unweighted");
   assert.equal(plain.comparedGpa, 3.8);
+});
+
+test("course rigor counts AP exams and their scores, and AP courses by name, against the load the admitted average implies", () => {
+  const college = { avgGpaAdmitted: 3.9, sat25: 1400, sat75: 1550 };
+  const cds = { parsed: { c7: {} } };
+  const noRigor = buildStudentModel({ gpa_unweighted: 3.9, major_interest: "Biology", courses: [{ name: "Biology", type: "regular", grade: "A" }] }, [], null);
+  assert.equal(scoreAcademicReadiness(noRigor, college, cds).componentScores.rigorScore, 0);
+
+  // AP exams alone are APs taken; before this they were no course rigor.
+  const examsOnly = buildStudentModel({ gpa_unweighted: 3.9, major_interest: "Biology", apScores: [{ exam: "Biology", score: 5 }, { exam: "Chemistry", score: 4 }, { exam: "Calculus AB", score: 3 }] }, [], null);
+  assert.equal(examsOnly.rigorousCourseCount, 3);
+  const examsRead = compareCourseRigor(examsOnly, 3.9);
+  assert.equal(examsRead.apTaken, 3);
+  assert.equal(examsRead.apExamsWithoutCourse, 3);
+  assert.equal(examsRead.apScored, 3);
+  assert.equal(examsRead.units, 3.3);
+  assert.equal(examsRead.expectation, 7);
+  assert.equal(examsRead.position, "below");
+  assert.ok(scoreAcademicReadiness(examsOnly, college, cds).componentScores.rigorScore > 40);
+
+  // A course named "AP …" but typed regular counts, and its exam score
+  // lifts it; a senior-year college-level course adds half a unit.
+  const named = buildStudentModel({
+    gpa_unweighted: 3.9, major_interest: "Biology",
+    courses: [{ name: "AP Biology", type: "regular", grade: "A", year: "11" }, { name: "AP Chemistry", type: "regular", grade: "A", year: "12" }],
+    apScores: [{ exam: "Biology", score: 5 }],
+  }, [], null);
+  assert.equal(named.rigorousCourseCount, 2);
+  assert.equal(named.seniorRigorCount, 1);
+  const namedRead = compareCourseRigor(named, 3.9);
+  assert.equal(namedRead.apCourses, 2);
+  assert.equal(namedRead.apExamsWithoutCourse, 0);
+  assert.equal(namedRead.apScored, 1);
+  assert.equal(namedRead.units, 2.7);
+
+  // Scores move the read: five 5s outscore five unscored APs, which
+  // outscore five 1s; the load that meets the expectation reads "above".
+  const subjects = ["Biology", "Chemistry", "Physics 1", "Calculus AB", "English Language"];
+  const five = (score) => buildStudentModel({
+    gpa_unweighted: 3.9, major_interest: "Biology",
+    courses: subjects.map((n) => ({ name: `AP ${n}`, type: "ap", grade: "A", year: "11" })),
+    apScores: score ? subjects.map((n) => ({ exam: n, score })) : [],
+  }, [], null);
+  const fives = compareCourseRigor(five(5), 3.9);
+  const unscored = compareCourseRigor(five(null), 3.9);
+  const ones = compareCourseRigor(five(1), 3.9);
+  assert.ok(fives.score > unscored.score && unscored.score > ones.score, JSON.stringify({ fives, unscored, ones }));
+  assert.equal(fives.position, "within");
+  assert.equal(ones.position, "below");
+  const seven = buildStudentModel({ gpa_unweighted: 3.9, major_interest: "Biology", courses: [...subjects, "US History", "Statistics"].map((n) => ({ name: `AP ${n}`, type: "ap", grade: "A" })) }, [], null);
+  assert.equal(compareCourseRigor(seven, 3.9).position, "above");
+  assert.equal(compareCourseRigor(seven, 3.9).score, 100);
+
+  // The positioning result carries the load for the card.
+  const read = buildPositioningForTarget(named, college, cds, { major: "Biology" });
+  const pc = read.profileComparison.rigor;
+  assert.equal(pc.apTaken, 2);
+  assert.equal(pc.apScored, 1);
+  assert.equal(pc.expectation, 7);
+  assert.equal(pc.position, "below");
+  assert.equal(read.featureBreakdown.courseRigor, pc.score);
 });

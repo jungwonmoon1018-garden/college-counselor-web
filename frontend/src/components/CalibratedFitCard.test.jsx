@@ -119,3 +119,36 @@ describe("CalibratedFitCard priorities matrix", () => {
     expect(matrix).toHaveTextContent("demonstrated interest");
   });
 });
+
+// The course load behind the rigor read, and the language the card speaks:
+// the app's locale, never the one the server guessed from the browser.
+describe("CalibratedFitCard course rigor and locale", () => {
+  afterEach(() => cleanup());
+
+  it("shows the course load behind the rigor read, in the comparison block and the matrix", () => {
+    const rigor = { apTaken: 6, apCourses: 5, apExamsWithoutCourse: 1, apScored: 4, ib: 0, dualEnrollment: 2, aLevel: 0, honors: 1, units: 8.6, expectation: 7, position: "above", score: 100 };
+    const collegeValues = {
+      displayName: "S",
+      values: [{ theme: "Rigor of Secondary School Record", summary: "Very Important." }],
+      fit: { overall: 100, perValueCoverage: [
+        { theme: "Rigor of Secondary School Record", hits: 1, evidence: [
+          { kind: "rigor", label: "Course rigor: 2 AP (2 with exam scores)", tone: "weak", position: "below", detail: { units: 2.3, apTaken: 2, apScored: 2, expectation: 7 } },
+        ] },
+      ] },
+    };
+    render(<CalibratedFitCard collegeValues={collegeValues} positioning={{ ...positioning, profileComparison: { ...positioning.profileComparison, rigor } }} loading={false} />);
+    expect(screen.getByTestId("profile-comparison")).toHaveTextContent("Course rigor: 6 AP (4 with exam scores), 2 dual enrollment, 1 honors · about 7 college-level courses expected here · at or above that load");
+    expect(screen.getByTestId("fit-matrix")).toHaveTextContent("Course rigor: 2 AP (2 with exam scores) · about 7 college-level courses expected here · below it");
+  });
+
+  it("renders in the app's locale, not the one the server guessed from the browser", () => {
+    const body = { displayName: "S", values: [], locale: "ko" };
+    render(<CalibratedFitCard collegeValues={body} positioning={positioning} loading={false} locale="en-US" />);
+    expect(screen.getByTestId("profile-comparison")).toHaveTextContent("How your record compares");
+    expect(screen.getByTestId("profile-comparison")).not.toHaveTextContent("내 기록과의 비교");
+    cleanup();
+    // Without the prop the body's locale still applies.
+    render(<CalibratedFitCard collegeValues={body} positioning={positioning} loading={false} />);
+    expect(screen.getByTestId("profile-comparison")).toHaveTextContent("내 기록과의 비교");
+  });
+});

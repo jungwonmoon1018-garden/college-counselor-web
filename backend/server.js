@@ -204,6 +204,7 @@ import {
   buildPositioningForTarget,
   buildProfileComparison,
   compareApExams,
+  compareCourseRigor,
   compareGpaToSchool,
   compareRankToSchool,
   compareTestsToSchool,
@@ -1196,11 +1197,13 @@ function profileComparisonForSchool(studentId, schoolName) {
       activities_json: snap.activities_json,
       major_interest: snap.major_interest,
     }, strengthRows, getActiveNarrative(ragStmts.narrative, studentId));
+    const gpa = compareGpaToSchool(student, college, cds);
     return buildProfileComparison({
       tests: compareTestsToSchool(student, college, cds),
-      gpa: compareGpaToSchool(student, college, cds),
+      gpa,
       classRank: compareRankToSchool(student, cds),
       apExams: compareApExams(student),
+      rigor: compareCourseRigor(student, gpa.average),
     });
   } catch (err) {
     console.warn("[COLLEGE-VALUES] profile comparison skipped:", err?.message);

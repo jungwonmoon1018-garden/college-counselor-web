@@ -3202,9 +3202,18 @@ export default function App() {
     } catch (err) { console.warn("[CHAT] search failed:", err?.message); }
   }, []);
 
+  // locale drives both static frontend strings AND the locale param sent to
+  // the backend (so server-side friendlyMessage / friendlyLegendI18n come
+  // back in the right language). Persisted to localStorage so reloads stick.
+  // Declared here, ahead of the fit lookups that send it.
+  const [locale, setLocaleState] = useState(detectLocale());
+
   // ─── College values + fit ───
   // Look up a college's published core values and compute how the
-  // student's profile maps onto them.
+  // student's profile maps onto them. Both calls carry the app's locale:
+  // without the header the server localized from the browser's
+  // Accept-Language, and a Korean-locale browser showing the app in
+  // English got Korean placement words on the fit card.
   const lookupCollege = useCallback(async (collegeName, hintUrl) => {
     const token = window.__CC_SESSION_TOKEN__;
     if (!token || !collegeName) return;
@@ -3214,7 +3223,7 @@ export default function App() {
     try {
       const r = await fetch("/api/colleges/values", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, "X-CollegeApp-Locale": locale },
         body: JSON.stringify({ collegeName, hintUrl }),
       });
       const body = await r.json();
@@ -3234,7 +3243,7 @@ export default function App() {
       const major = (data?.majorInterest || data?.profile?.majorInterest || null);
       const pr = await fetch("/api/positioning/targets", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, "X-CollegeApp-Locale": locale },
         body: JSON.stringify({ targets: [{ schoolName: collegeName }], ...(major ? { major } : {}) }),
       });
       const pbody = await pr.json().catch(() => ({}));
@@ -3248,7 +3257,7 @@ export default function App() {
     } finally {
       setCollegePositioningLoading(false);
     }
-  }, [data]);
+  }, [data, locale]);
 
   // Double-check the fit read against the live web: College Scorecard, the
   // school's own admissions pages (deterministic parse), and a second,
@@ -3334,10 +3343,7 @@ export default function App() {
   // Auto-collapses again on send via setChatFiles([]) clearing state.
   const [chatFilesExpanded, setChatFilesExpanded] = useState(false);
   // ─── Round 1-5 frontend wiring ───
-  // locale drives both static frontend strings AND the locale param sent to
-  // the backend (so server-side friendlyMessage / friendlyLegendI18n come
-  // back in the right language). Persisted to localStorage so reloads stick.
-  const [locale, setLocaleState] = useState(detectLocale());
+  // (`locale` is declared above the college-fit lookups, which send it.)
   const conveneStrategyCouncil = useCallback(async (question, decisionType, signal) => {
     const payload = createCouncilPayload(question, decisionType);
     setAgentStatus({
@@ -5585,6 +5591,7 @@ export default function App() {
               collegeValues={collegeValues}
               positioning={collegePositioning}
               loading={collegePositioningLoading}
+              locale={locale}
               isTarget={targetSchools.some(s => s.toLowerCase() === String(collegeValues.displayName||"").toLowerCase())}
               onAddTarget={() => addTargetSchool(collegeValues.displayName)}
               verification={collegeVerification}

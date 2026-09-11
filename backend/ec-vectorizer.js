@@ -1,5 +1,7 @@
 ﻿// EC VECTORIZER - deterministic EC heuristics + planner helpers
 
+import { courseLevel } from "./course-rigor.js";
+
 export const EC_FACTORS = Object.freeze([
   "impact_and_scope",
   "leadership_and_initiative",
@@ -359,7 +361,7 @@ export function scoreAcademicStrength(academics = {}, targetColleges = []) {
   );
   const apCourses = Array.isArray(academics.apCourses)
     ? academics.apCourses
-    : (academics.courses || []).filter((c) => c.type === "ap" || c.level === "AP");
+    : (academics.courses || []).filter((c) => courseLevel(c) === "ap");
   const apScores = Array.isArray(academics.apScores) ? academics.apScores : [];
 
   if (!targetColleges || targetColleges.length === 0) {
@@ -994,7 +996,7 @@ export function vectorizeDirectionality({
   const gpaUw = Number(academics.gpaUnweighted ?? academics.gpa?.unweighted ?? 0);
   const apCourses = Array.isArray(academics.apCourses)
     ? academics.apCourses
-    : (academics.courses || []).filter((c) => c.type === "ap" || c.level === "AP");
+    : (academics.courses || []).filter((c) => courseLevel(c) === "ap");
 
   // ??? Factor 1: Academic Momentum (GPA trend + position) ???
   // Momentum = GPA position + trend adjustment. Trend adjustment applies

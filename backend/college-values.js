@@ -30,6 +30,7 @@
 import { vectorizeEC } from "./ec-vectorizer.js";
 import { projectStrengthToLegacyVector } from "./ec-strength-vectorizer.js";
 import { formatClassRank, formatSections, normalizeClassRank, testLabel } from "./test-catalog.js";
+import { courseLevel, describeCourseRigor, LEVEL_LABELS, readCourseRigor } from "./course-rigor.js";
 
 // ─── Fit scoring (rule-based, deterministic) ───────────────────────────
 // We compute a fit score for each (item, value) pair using:
@@ -39,14 +40,17 @@ import { formatClassRank, formatSections, normalizeClassRank, testLabel } from "
 //   4. Trait signal (an activity's leadership / character / talent read)
 //   5. Academic signal (GPA, rank, tests, AP exams against the priority)
 
+// Keyed by the level course-rigor.js reads from a course's type or its
+// name, so "AP Calculus BC" left typed regular still speaks to rigor.
 const TYPE_VALUE_HINTS = {
   ap:               ["intellectual rigor", "academic depth", "challenge", "intellectual curiosity", "rigor", "advanced placement"],
   ib:               ["interdisciplinary", "global perspective", "international", "intellectual rigor", "rigor"],
   honors:           ["intellectual rigor", "academic depth", "challenge", "rigor"],
   dual_enrollment:  ["college readiness", "academic ambition", "intellectual curiosity", "rigor"],
+  a_level:          ["intellectual rigor", "academic depth", "challenge", "rigor", "international"],
 };
 
-const TYPE_LABELS = { ap: "AP", ib: "IB", honors: "Honors", dual_enrollment: "Dual enrollment" };
+const TYPE_LABELS = LEVEL_LABELS;
 
 // Per-category value-theme hints. Used by the rule-based fit-scorer to
 // boost (theme × category) pairs that have an obvious alignment. The
@@ -149,10 +153,11 @@ const PROXY_TRAIT_DAMPING = { community_and_character: 0.6 };
 
 // ─── Academic evidence ────────────────────────────────────────────────
 const ACADEMIC_VALUE_HINTS = {
-  gpa:  ["gpa", "grade", "academic record", "academic excellence", "academic achievement", "academic performance", "academic success", "scholastic", "academic strength"],
-  rank: ["class rank", "rank in class", "class standing"],
-  test: ["standardized test", "test score", "sat", "act", "testing"],
-  ap:   ["advanced placement", "ap exam", "ap score", "college-level", "rigor", "academic depth", "challenge", "intellectual rigor"],
+  gpa:   ["gpa", "grade", "academic record", "academic excellence", "academic achievement", "academic performance", "academic success", "scholastic", "academic strength"],
+  rank:  ["class rank", "rank in class", "class standing"],
+  test:  ["standardized test", "test score", "sat", "act", "testing"],
+  ap:    ["advanced placement", "ap exam", "ap score", "college-level", "rigor", "academic depth", "challenge", "intellectual rigor"],
+  rigor: ["rigor", "advanced placement", "college-level", "course load", "courseload", "course selection", "curriculum", "academic depth", "challenge", "honors"],
 };
 
 // Priorities the profile cannot show. The matrix labels these instead of
@@ -237,6 +242,21 @@ function activityTone(character) {
 // read for the school is supplied, its place against the enrolled class.
 function academicEvidence(profile, comparison) {
   const items = [];
+
+  // The course load as one line — how many APs were taken (courses, or
+  // exams no course names) and how many carry exam scores, with the IB,
+  // dual-enrollment, A-Level and honors courses — placed against the load
+  // the school's admitted average implies when the College Fit read is
+  // supplied. Before this, rigor was evidenced only course by course, and
+  // an AP recorded as an exam result alone was not course rigor.
+  const rigor = readCourseRigor(profile?.courses, profile?.apScores);
+  if (rigor.items.length || rigor.honors) {
+    const read = comparison?.rigor || null;
+    const position = read?.position || null;
+    const tone = position ? positionTone(position) : (rigor.units >= 5 ? "strong" : rigor.units >= 2 ? "fair" : "weak");
+    const detail = { units: rigor.units, apTaken: rigor.apTaken, apScored: rigor.apScored, expectation: read?.expectation ?? null };
+    items.push({ kind: "rigor", hints: ACADEMIC_VALUE_HINTS.rigor, label: `Course rigor: ${describeCourseRigor(rigor)}`, tone, position, detail });
+  }
 
   const gpa = numberOrNull(profile?.gpaUnweighted ?? profile?.gpa?.unweighted);
   const weighted = numberOrNull(profile?.gpaWeighted ?? profile?.gpa?.weighted);
@@ -351,15 +371,16 @@ export function computeFit(values, profile, options = {}) {
   }
 
   const courses = (profile?.courses || []).map(c => {
+    const level = courseLevel(c);
     const itemText = `${c.name || ""} ${c.type || ""}`;
-    const hints = TYPE_VALUE_HINTS[c.type] || [];
+    const hints = TYPE_VALUE_HINTS[level] || [];
     const perValue = list.map(v => ({
       theme: v.theme,
       score: Math.round(scoreItemAgainstValue(itemText, hints, v) * 100) / 100,
     }));
-    const rigorous = Boolean(TYPE_VALUE_HINTS[c.type]);
+    const rigorous = Boolean(TYPE_VALUE_HINTS[level]);
     const topGrade = /^a/i.test(String(c.grade || "").trim());
-    return { name: c.name, type: c.type, perValue, tone: rigorous && topGrade ? "strong" : "fair" };
+    return { name: c.name, type: c.type, level, perValue, tone: rigorous && topGrade ? "strong" : "fair" };
   });
 
   const activities = (profile?.activities || profile?.ecs || []).map(e => {
@@ -390,9 +411,17 @@ export function computeFit(values, profile, options = {}) {
   const perValueCoverage = list.map((v, i) => {
     const text = valueText(v);
     const evidence = [];
+    // Academic reads lead (the course-load line, a score placed against
+    // the class), then the courses behind them, then activities; the
+    // stable sort by tone keeps that order among equals.
+    for (const item of academics) {
+      if (!matchesAnyHint(text, item.hints)) continue;
+      const { hints: _hints, ...rest } = item;
+      evidence.push(rest);
+    }
     for (const c of courses) {
       if (c.perValue[i].score > 0.5) {
-        evidence.push({ kind: "course", label: `${c.name}${TYPE_LABELS[c.type] ? ` (${TYPE_LABELS[c.type]})` : ""}`, tone: c.tone, position: null });
+        evidence.push({ kind: "course", label: `${c.name}${TYPE_LABELS[c.level] ? ` (${TYPE_LABELS[c.level]})` : ""}`, tone: c.tone, position: null });
       }
     }
     for (const a of activities) {
@@ -409,11 +438,6 @@ export function computeFit(values, profile, options = {}) {
         position: null,
         traits: p.traits.map((key) => TRAIT_LABELS[key]),
       });
-    }
-    for (const item of academics) {
-      if (!matchesAnyHint(text, item.hints)) continue;
-      const { hints: _hints, ...rest } = item;
-      evidence.push(rest);
     }
     evidence.sort((x, y) => (TONE_RANK[y.tone] ?? -1) - (TONE_RANK[x.tone] ?? -1));
     const hits = evidence.filter(e => e.tone === "strong" || e.tone === "fair").length;
@@ -434,7 +458,7 @@ export function computeFit(values, profile, options = {}) {
 
   return {
     values: list,
-    courses: courses.map(({ name, type, perValue }) => ({ name, type, perValue })),
+    courses: courses.map(({ name, type, level, perValue }) => ({ name, type, level, perValue })),
     ecs: activities.map(({ name, category, role, perValue }) => ({ name, category, role, perValue })),
     academics: academics.map(({ hints: _hints, ...rest }) => rest),
     characterProfile: activities.map((a) => a.character),

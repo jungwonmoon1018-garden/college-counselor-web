@@ -15,6 +15,10 @@ import { t } from "../i18n.js";
 //                   /api/positioning/targets), or null while loading / when
 //                   unavailable.
 //   loading       — true while the positioning request is in flight.
+//   locale        — the app's locale. It wins over the locale the server
+//                   stamped on the values body: that one falls back to the
+//                   browser's Accept-Language, which put Korean placement
+//                   words on the card of a student using the app in English.
 // ═══════════════════════════════════════════════════════════════════════
 
 // Map the positioning label to a reach/target/safety color band. Higher
@@ -170,10 +174,29 @@ function coverageColor(coverage) {
   return (coverage.evidence || []).length > 0 ? "#f6ad55" : "#666";
 }
 
+// The course load behind the rigor read, in the card's language:
+// "6 AP (4 with exam scores), 1 IB, 2 dual enrollment".
+function rigorLoad(r, locale) {
+  const parts = [];
+  if (r.apTaken) parts.push(fill(t(locale, "fit.rigor_ap"), { n: r.apTaken }) + (r.apScored ? ` (${fill(t(locale, "fit.rigor_ap_scored"), { n: r.apScored })})` : ""));
+  if (r.ib) parts.push(fill(t(locale, "fit.rigor_ib"), { n: r.ib }));
+  if (r.dualEnrollment) parts.push(fill(t(locale, "fit.rigor_dual"), { n: r.dualEnrollment }));
+  if (r.aLevel) parts.push(fill(t(locale, "fit.rigor_alevel"), { n: r.aLevel }));
+  if (r.honors) parts.push(fill(t(locale, "fit.rigor_honors"), { n: r.honors }));
+  return parts.join(", ");
+}
+
 function evidenceText(e, locale) {
   const parts = [e.label];
-  if (e.position) parts.push(t(locale, `fit.pos_${e.position}`));
   const d = e.detail || {};
+  // The course-load line is placed against the load the admitted average
+  // implies, not against a percentile band.
+  if (e.kind === "rigor") {
+    if (d.expectation != null) parts.push(fill(t(locale, "fit.cmp_rigor_expected"), { n: d.expectation }));
+    if (e.position) parts.push(t(locale, `fit.rigor_${e.position}`));
+    return parts.join(" · ");
+  }
+  if (e.position) parts.push(t(locale, `fit.pos_${e.position}`));
   if (d.band) parts.push(`${t(locale, "fit.cmp_band")} ${d.band.low}–${d.band.high}`);
   if (d.average != null) parts.push(`${t(locale, "fit.cmp_average")} ${d.average}${d.weighted ? ` (${t(locale, "fit.cmp_weighted")})` : ""}`);
   if (d.topTenthPct != null) parts.push(fill(t(locale, "fit.cmp_rank_school"), { tenth: d.topTenthPct }));
@@ -210,6 +233,13 @@ function ProfileComparison({ pc, locale }) {
     rows.push({ label: t(locale, "fit.cmp_gpa"), value: `${shownGpa}${parts.length ? ` · ${parts.join(", ")}` : ""}${g.position !== "unknown" ? ` · ${t(locale, `fit.pos_${g.position}`)}` : ""}`, tone: g.position });
     if (g.placement) rows.push({ value: fill(t(locale, "fit.cmp_gpa_placement"), { above: g.placement.shareAbove, band: g.placement.band }), tone: "unknown", sub: true });
   }
+  // The course load behind the rigor component: APs taken (courses, or
+  // exams no course names) with how many carry scores, IB, dual enrollment
+  // and A-Level, against the load the admitted average implies.
+  const cr = pc.rigor;
+  if (cr && (cr.apTaken || cr.ib || cr.dualEnrollment || cr.aLevel)) {
+    rows.push({ label: t(locale, "fit.cmp_rigor"), value: `${rigorLoad(cr, locale)} · ${fill(t(locale, "fit.cmp_rigor_expected"), { n: cr.expectation })} · ${t(locale, `fit.rigor_${cr.position}`)}`, tone: cr.position });
+  }
   const r = pc.classRank;
   if (r && r.topPercent != null) {
     const school = r.school?.topTenthPct != null ? ` · ${fill(t(locale, "fit.cmp_rank_school"), { tenth: r.school.topTenthPct })}` : "";
@@ -235,8 +265,8 @@ function ProfileComparison({ pc, locale }) {
   );
 }
 
-export default function CalibratedFitCard({ collegeValues, positioning, loading, isTarget, onAddTarget, verification, verifying, onVerify }) {
-  const locale = collegeValues?.locale || "en-US";
+export default function CalibratedFitCard({ collegeValues, positioning, loading, isTarget, onAddTarget, verification, verifying, onVerify, locale: appLocale }) {
+  const locale = appLocale || collegeValues?.locale || "en-US";
   const hasPositioning = positioning && positioning.overallPositioningLabel;
 
   return (

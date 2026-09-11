@@ -188,3 +188,32 @@ test("the CDS fallback keeps up to ten declared priorities so character and tale
   assert.ok(values.includes("Character / Personal Qualities"));
   assert.ok(values.includes("Talent / Ability"));
 });
+
+test("the course load is one line of rigor evidence: APs by name or by exam, with their scores, against the load the school implies", () => {
+  // The AP course is typed regular; its name says AP. The Computer Science
+  // A exam names no course, so it is an AP taken all the same.
+  const profile = { ...PROFILE, courses: [{ name: "AP Calculus BC", type: "regular", grade: "A" }, { name: "English 11", type: "regular", grade: "B+" }] };
+  const comparison = { ...COMPARISON, rigor: { apTaken: 2, apCourses: 1, apExamsWithoutCourse: 1, apScored: 2, ib: 0, dualEnrollment: 0, aLevel: 0, honors: 0, units: 2.3, expectation: 7, position: "below", score: 32.9 } };
+  const fit = computeFit(VALUES, profile, { comparison });
+  const rigor = rowFor(fit, "Rigor of Secondary School Record");
+  const load = rigor.evidence.find((e) => e.kind === "rigor");
+  assert.deepEqual(load, {
+    kind: "rigor",
+    label: "Course rigor: 2 AP (2 with exam scores)",
+    tone: "weak",
+    position: "below",
+    detail: { units: 2.3, apTaken: 2, apScored: 2, expectation: 7 },
+  });
+  const course = rigor.evidence.find((e) => e.kind === "course");
+  assert.equal(course.label, "AP Calculus BC (AP)");
+  assert.equal(course.tone, "strong");
+  assert.equal(fit.courses[0].level, "ap");
+  // Without a College Fit read the load stands on its own count.
+  const alone = rowFor(computeFit(VALUES, profile, {}), "Rigor of Secondary School Record").evidence.find((e) => e.kind === "rigor");
+  assert.equal(alone.tone, "fair");
+  assert.equal(alone.position, null);
+  assert.equal(alone.detail.expectation, null);
+  // A record with no college-level work has no load line at all.
+  const none = computeFit(VALUES, { ...profile, courses: [{ name: "English 11", type: "regular" }], apScores: [] }, {});
+  assert.ok(!rowFor(none, "Rigor of Secondary School Record").evidence.some((e) => e.kind === "rigor"));
+});
