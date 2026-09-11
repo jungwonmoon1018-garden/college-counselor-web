@@ -6,21 +6,20 @@ it. Read `CLAUDE.md` first: it is the edit-time harness (invariants, how to
 prove a change, how to land it). This file says where things stand, what
 changed recently and why, what was verified live, and what is open.
 
-## Where things stand (2026-09-09)
+## Where things stand (2026-09-11)
 
-- **Deployed:** `main` at `55db04d` (the last code commit is `b734c6c`),
-  live at https://college-counselor-web.onrender.com. Confirmed by CI run
-  34345063086 (success) and, after the restart blip that follows every
-  green run, `/api/health` 200 with `/` serving `assets/main-CvQF7dpb.js`
-  at 11:23 UTC on 2026-09-09. CI runs backend lint, syntax, tests and
+- **Deployed:** `main` at `fa6c5b1`, live at
+  https://college-counselor-web.onrender.com. Confirmed by CI run
+  34571763935 (success) and `/` serving `assets/main-bsyCx_FV.js` with
+  `/api/health` 200 at 06:54 UTC on 2026-09-11 (the previous bundle was
+  `main-CvQF7dpb.js`). CI runs backend lint, syntax, tests and
   `npm audit --audit-level=high`, then frontend tests and build; Render
   redeploys after it passes, with a few seconds of 502s.
-- **Tests (run after the last code edit, 2026-09-09 ~11:10 UTC):** backend
-  `npm test` 702 tests, 697 pass, 5 skipped, 0 fail (about 40 s on a
-  healthy machine); `npm run lint` 0 errors, 70 warnings (CI cap 500);
-  frontend `npx vitest run` 11 files, 38 tests; `npm run build` clean.
-  `npm audit` reports 0 vulnerabilities in both packages.
-- **Working tree:** 38 phantom CRLF-only diffs (never stage them; a file
+- **Tests (run after the last code edit, 2026-09-11 ~06:50 UTC):** backend
+  `npm test` 708 tests, 703 pass, 5 skipped, 0 fail; `npm run lint` 0
+  errors, 70 warnings (CI cap 500); frontend `npx vitest run` 11 files,
+  40 tests; `npm run build` clean.
+- **Working tree:** 37 phantom CRLF-only diffs (never stage them; a file
   whose committed blob still carries CRLF shows a whole-file diff the first
   time it has to change — `git diff --cached --ignore-cr-at-eol --stat`
   shows the real change) and two untracked files not made by any session
@@ -52,7 +51,48 @@ changed recently and why, what was verified live, and what is open.
 
 ## What changed, newest first
 
-The user's three asks this session, verbatim, in the order they came:
+The user's ask on 2026-09-11, verbatim: "We got some problems such as AP
+scores and the amount of APs taken are not considered as course rigor in
+the college fit machine. Also, college fit section having korean language
+in it is a problem."
+
+**College Fit reads AP exams and their scores as course rigor, and the
+fit card speaks the app's language (2026-09-11)** — `fa6c5b1`. The rigor
+component of the admissibility read counted only courses typed AP, IB or
+dual enrollment: AP work recorded as exam results, or an "AP Calculus BC"
+left typed regular, was no rigor at all, and AP scores only ever fed the
+separate six-percent exam component. New `backend/course-rigor.js` reads
+a course's level from its type or its name (`courseLevel`), counts an AP
+exam whose subject no listed course names as an AP taken, and weighs each
+AP by its exam score (5 → 1.2 units, 4 → 1.1, 3 → 1, 2 → 0.8, 1 → 0.6,
+unscored 1) — `readCourseRigor`. `positioning-engine.js buildStudentModel`
+builds the load from it; `compareCourseRigor(student, averageGpa)` places
+the load (plus half a unit per senior-year college-level course) against
+the expectation the engine already used (about `(average − 3.2) × 10`,
+never under four; meeting it reads "above", sixty percent "within") and
+returns it in `reads.rigor`, so `buildProfileComparison` carries a `rigor`
+block (`apTaken`, `apCourses`, `apExamsWithoutCourse`, `apScored`, `ib`,
+`dualEnrollment`, `aLevel`, `honors`, `units`, `expectation`, `position`,
+`score`); `server.js profileComparisonForSchool` computes the same read
+for the matrix. `college-values.js` adds one "Course rigor: 4 AP (3 with
+exam scores)" academic evidence line (kind `rigor`, hints rigor /
+advanced placement / college-level / course load / curriculum / honors),
+reads course levels by name, and lists academic reads before courses and
+activities (the tone sort still decides among unequal tones). The EC
+vectorizer's AP-course detection uses `courseLevel` too. The Korean text:
+`lookupCollege` in `App.jsx` sent no locale on the values and positioning
+calls, `resolveLocale` fell back to the browser's Accept-Language (Korean
+on this machine), and `CalibratedFitCard` took its language from the
+values body. Both calls now send `X-CollegeApp-Locale`, the `locale`
+state is declared ahead of them, and the card takes `locale` as a prop
+with the body's locale as fallback. The comparison block gets a
+"Course rigor" row and the matrix line renders "about N college-level
+courses expected here · at or above that load / close to it / below it"
+(`fit.cmp_rigor*`, `fit.rigor_*` keys in both languages). Tests:
+`tests/course-rigor.test.js`, additions to `positioning-engine.test.js`,
+`college-values.test.js`, `CalibratedFitCard.test.jsx`.
+
+**Session of 2026-09-09.** The user's three asks, verbatim, in the order they came:
 "can we update eval matrix in college fit section with things created in
 this session and character profiles made through EC in the profiles?
 Also, I think that prestige rationale must be fixed considering the 150
@@ -173,6 +213,20 @@ double-check, profile grounding.
 All checks used throwaway `probe-*@example.test` accounts on production,
 each deleted afterwards (200).
 
+- **After `fa6c5b1` (bundle `main-bsyCx_FV.js`, 06:54 UTC 2026-09-11):**
+  a profile with "AP Calculus BC" (junior) and "AP Chemistry" (senior)
+  both typed regular, and exams Calculus BC 5, Computer Science A 4,
+  Biology 3. `POST /api/positioning/targets` for Stanford answered in
+  0.9 s with `profileComparison.rigor` `{apTaken 4, apCourses 2,
+  apExamsWithoutCourse 2, apScored 3, units 4.8, expectation 7, position
+  "within", score 68.6}` and `featureBreakdown.courseRigor 68.6` (the
+  old read would have been 0). `POST /api/colleges/values` with
+  `Accept-Language: ko-KR` and no app header returned `locale "ko"` (the
+  cause, still the server's fallback); with `X-CollegeApp-Locale: en-US`
+  it returned `en-US`. Stanford's values came from its own site (not C7),
+  and the "Collaborative Innovation" row carried the AP exams line, both
+  courses labeled "(AP)", and "Course rigor: 4 AP (3 with exam scores)"
+  at "within" against 7. Both probe accounts deleted (200).
 - **After `b734c6c` (bundle `main-CvQF7dpb.js`, deployed 11:19 UTC):** a
   letter persisted in a thread before the activities existed waited; after
   the sync USACO read prestige 0.25. A certificate persisted as a
@@ -200,16 +254,36 @@ each deleted afterwards (200).
   and class rank; Stanford's fit read carried `profileComparison`; after
   the adapter fixes eight consecutive chat turns answered (11–18 s for the
   Stanford ACT-sections question).
-- **Not verified:** the fit card's matrix, the prestige card, the evidence
-  list and the sync button in a real browser (vitest covers them); a real
-  PDF or image through the chat picker on production (the probe and the
-  route test send a text/plain document block through the same inlining
-  path); the Korean strings in situ; the C7 fallback path on production
-  (the route test covers it with a refused host); the weighted-average
-  read live (Harvard).
+- **Not verified:** the fit card in a real browser with the Korean
+  Windows locale (vitest pins the locale prop; the API check above pins
+  the header), so the Korean-in-English report should be re-checked by
+  the user in the UI; the "Course rigor" row under a C7 fallback school
+  on production (the unit tests cover the "Rigor of Secondary School
+  Record" row); the fit card's matrix, the prestige card, the evidence
+  list and the sync button in a real browser; a real PDF or image through
+  the chat picker on production; the weighted-average read live
+  (Harvard).
 
 ## Open items and things to watch
 
+- **Rigor units differ by a half-unit between the two reads:** the
+  matrix's `Course rigor` detail carries `readCourseRigor` units (4.3 in
+  the probe) while `compareCourseRigor` adds half a unit per senior-year
+  college-level course (4.8). Only the expectation and position are
+  rendered, so nothing shows; align them by passing `comparison.rigor.units`
+  into the detail if the number is ever displayed.
+- **Honors courses are counted but weigh nothing** in the rigor score
+  (they never did); give them half a unit in `readCourseRigor` if the
+  owner wants them in.
+- **The rigor expectation is a GPA proxy** (the admitted average on the
+  4.0 scale), not a read of the school's own course-count statistics; a
+  CDS carries none.
+- **The server still guesses locale from Accept-Language** when no app
+  header arrives; other plain `fetch` calls in `App.jsx` (the verify
+  call, the cache-clear button) do not send the header. Their bodies are
+  not localized today, but a new localized field on one of them would
+  bring the Korean text back — send `X-CollegeApp-Locale` or use
+  `api.js ccFetch`, which always does.
 - **Chat evidence is keyed by activity name;** renaming an activity
   orphans its evidence (the upload path's existing design;
   `linkAttachmentToEC` exists for a future re-link action). The match is
@@ -264,7 +338,7 @@ each deleted afterwards (200).
 Unit tests for this session's modules and their neighbours:
 
 ```bash
-cd backend && node --test tests/ec-chat-evidence.test.js tests/college-values.test.js tests/competition-research.test.js tests/ec-strength-vectorizer.test.js tests/friendly-labels.test.js tests/i18n-korean.test.js tests/positioning-engine.test.js tests/chat-grounding.test.js
+cd backend && node --test tests/course-rigor.test.js tests/positioning-engine.test.js tests/college-values.test.js tests/ec-vectorizer.test.js tests/ec-chat-evidence.test.js tests/competition-research.test.js tests/chat-grounding.test.js
 ```
 
 Route tests for the whole path (each spawns the server, ~1 min):
@@ -283,7 +357,14 @@ gate: `cd backend && npm run lint && npm audit --audit-level=high`.
 Live probe (Node 22+, a `.mjs` in a scratch folder, `BASE` the site):
 register with grade 11 / CA / example.edu, grant the three consents
 (`POST /api/consent/grant` with `consentType` and `grantedBy: "student"`),
-`POST /api/students/threads`, persist a user message with `attachmentName`
+`POST /api/students/sync` with `profile.courses` named "AP …" but typed
+regular and `profile.apScores` naming subjects no course lists, then
+`POST /api/positioning/targets` `{ targets: [{ schoolName }], major }` and
+read `targets[0].profileComparison.rigor`; `POST /api/colleges/values`
+once with `Accept-Language: ko-KR` and no `X-CollegeApp-Locale` (expect
+`locale "ko"`) and once with the header `en-US` (expect `en-US`, and a
+`fit.perValueCoverage[].evidence` entry of kind `rigor`). For the chat
+evidence path: `POST /api/students/threads`, persist a user message with `attachmentName`
 and a `modelContent` that carries an "[Attached files — …]" block naming
 an activity's level, sync a profile with that activity, poll
 `GET /api/ec/strength?friendly=1` until the count matches, then
@@ -326,3 +407,11 @@ later).
   now a minute. If `npm test` fails only with "Timed out waiting for
   route-test server", time `node -e 1` before suspecting the code.
 - jsdom has no `scrollIntoView`; `frontend/src/test-setup.js` shims it.
+- `grep -rP` with a `\x{AC00}` class fails here ("character value too
+  large") and a recursive grep over `backend/` walks node_modules for
+  minutes; use the Grep tool with a literal `[가-힣]` class instead.
+- Some backend files (`ec-vectorizer.js`) start with a UTF-8 BOM; insert
+  imports after line 1, not before it.
+- `useCallback` dependency arrays evaluate at render, so a state variable
+  must be declared above the callback that lists it (`locale` was moved
+  ahead of `lookupCollege` for this reason).
