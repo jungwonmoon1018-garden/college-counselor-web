@@ -8,17 +8,18 @@ changed recently and why, what was verified live, and what is open.
 
 ## Where things stand (2026-09-11)
 
-- **Deployed:** `main` at `fa6c5b1`, live at
+- **Deployed:** `main` at `6a29565`, live at
   https://college-counselor-web.onrender.com. Confirmed by CI run
-  34571763935 (success) and `/` serving `assets/main-bsyCx_FV.js` with
-  `/api/health` 200 at 06:54 UTC on 2026-09-11 (the previous bundle was
-  `main-CvQF7dpb.js`). CI runs backend lint, syntax, tests and
-  `npm audit --audit-level=high`, then frontend tests and build; Render
-  redeploys after it passes, with a few seconds of 502s.
-- **Tests (run after the last code edit, 2026-09-11 ~06:50 UTC):** backend
+  34601700790 (success) and `/` serving `assets/main-CEBZ2mnd.js` with
+  `/api/health` 200 at 13:00 UTC on 2026-09-11 (earlier the same day:
+  `fa6c5b1`, bundle `main-bsyCx_FV.js`, CI run 34571763935). CI runs
+  backend lint, syntax, tests and `npm audit --audit-level=high`, then
+  frontend tests and build; Render redeploys after it passes, with a few
+  seconds of 502s.
+- **Tests (run after the last code edit, 2026-09-11 ~12:55 UTC):** backend
   `npm test` 708 tests, 703 pass, 5 skipped, 0 fail; `npm run lint` 0
-  errors, 70 warnings (CI cap 500); frontend `npx vitest run` 11 files,
-  40 tests; `npm run build` clean.
+  errors, 70 warnings (CI cap 500); frontend `npx vitest run` 12 files,
+  43 tests; `npm run build` clean.
 - **Working tree:** 37 phantom CRLF-only diffs (never stage them; a file
   whose committed blob still carries CRLF shows a whole-file diff the first
   time it has to change — `git diff --cached --ignore-cr-at-eol --stat`
@@ -51,10 +52,34 @@ changed recently and why, what was verified live, and what is open.
 
 ## What changed, newest first
 
-The user's ask on 2026-09-11, verbatim: "We got some problems such as AP
-scores and the amount of APs taken are not considered as course rigor in
-the college fit machine. Also, college fit section having korean language
-in it is a problem."
+The user's asks on 2026-09-11, verbatim, in order: "We got some problems
+such as AP scores and the amount of APs taken are not considered as
+course rigor in the college fit machine. Also, college fit section having
+korean language in it is a problem." — "Also count honors courses as half
+a unit in rigor and I think that in college fit should call in updated
+parts of the profile when the profile gets updated."
+
+**Honors carry half a unit, and the fit card re-reads the school when the
+profile changes (2026-09-11)** — `6a29565`. `course-rigor.js` weighs an
+honors course at `HONORS_WEIGHT` 0.5 (counted, not college-level, so
+`collegeLevelCourses` and the senior half-unit exclude it); the
+comparison block's "Course rigor" row now shows an honors-only load. The
+card kept the read it was opened with until the student searched the
+school again. New `frontend/src/fit-refresh.js` fingerprints what the fit
+reads (GPA, class rank, courses, AP and test scores, activities, major);
+`lookupCollege` in `App.jsx` records the fingerprint the shown read was
+taken from, and the auto-sync effect calls `refreshCollegeFit(data)` once
+the sync has landed, which re-reads the shown school through
+`lookupCollege(name, undefined, { refresh: true })` only when the
+fingerprint moved (chat memory, notes and documents never trigger it); an
+`evidenceVersion` bump (chat uploads read into activities) re-reads it
+too. A refresh keeps the old card and positioning until the new read
+lands, keeps them on a failed re-read, and stamps the body with
+`refreshedAt`, which the card renders as "Re-read after your profile
+changed · HH:MM" (`fit.refreshed`, both languages). The server needs
+nothing: every sync writes a snapshot and the positioning cache is keyed
+by it, and the values fit is computed per request. Tests:
+`fit-refresh.test.js`, `course-rigor.test.js`, `CalibratedFitCard.test.jsx`.
 
 **College Fit reads AP exams and their scores as course rigor, and the
 fit card speaks the app's language (2026-09-11)** — `fa6c5b1`. The rigor
@@ -213,6 +238,13 @@ double-check, profile grounding.
 All checks used throwaway `probe-*@example.test` accounts on production,
 each deleted afterwards (200).
 
+- **After `6a29565` (bundle `main-CEBZ2mnd.js`, 13:00 UTC 2026-09-11):**
+  the `fa6c5b1` profile below plus "Honors English 11" typed honors and
+  "Honors Precalculus" typed regular. `POST /api/positioning/targets` for
+  Stanford answered in 0.2 s with `profileComparison.rigor` `{honors 2,
+  units 5.8, expectation 7, position "within", score 82.9}` (68.6 without
+  the honors halves); the values call with the app header returned
+  `locale "en-US"`. Account deleted (200).
 - **After `fa6c5b1` (bundle `main-bsyCx_FV.js`, 06:54 UTC 2026-09-11):**
   a profile with "AP Calculus BC" (junior) and "AP Chemistry" (senior)
   both typed regular, and exams Calculus BC 5, Computer Science A 4,
@@ -254,10 +286,15 @@ each deleted afterwards (200).
   and class rank; Stanford's fit read carried `profileComparison`; after
   the adapter fixes eight consecutive chat turns answered (11–18 s for the
   Stanford ACT-sections question).
-- **Not verified:** the fit card in a real browser with the Korean
-  Windows locale (vitest pins the locale prop; the API check above pins
-  the header), so the Korean-in-English report should be re-checked by
-  the user in the UI; the "Course rigor" row under a C7 fallback school
+- **Not verified:** the fit card re-reading a school after a profile
+  edit, in a real browser (it needs a logged-in UI session; vitest pins
+  the fingerprint helper and the card's "Re-read after your profile
+  changed" note, not the effect in `App.jsx`) — the user should edit a
+  course with a school shown and watch the note appear; the fit card in a
+  real browser with the Korean Windows locale (vitest pins the locale
+  prop; the API check above pins the header), so the Korean-in-English
+  report should be re-checked in the UI; the "Course rigor" row under a
+  C7 fallback school
   on production (the unit tests cover the "Rigor of Secondary School
   Record" row); the fit card's matrix, the prestige card, the evidence
   list and the sync button in a real browser; a real PDF or image through
@@ -269,12 +306,17 @@ each deleted afterwards (200).
 - **Rigor units differ by a half-unit between the two reads:** the
   matrix's `Course rigor` detail carries `readCourseRigor` units (4.3 in
   the probe) while `compareCourseRigor` adds half a unit per senior-year
-  college-level course (4.8). Only the expectation and position are
+  college-level course (4.8); honors halves are in both. Only the expectation and position are
   rendered, so nothing shows; align them by passing `comparison.rigor.units`
   into the detail if the number is ever displayed.
-- **Honors courses are counted but weigh nothing** in the rigor score
-  (they never did); give them half a unit in `readCourseRigor` if the
-  owner wants them in.
+- **The fit refresh is wired but not unit-tested end to end:** the
+  fingerprint helper and the card's note are pinned; the effect in
+  `App.jsx` (sync lands → `refreshCollegeFit`) is not, and it runs only
+  while the sync effect runs (chat or survey screen, a saved passphrase).
+  Strength vectors are recomputed after the sync response, so a re-read
+  fired right after a sync can sharpen activity traits from the previous
+  vectors; the lexical read of each description is always current. A
+  second refresh happens when chat evidence is read in.
 - **The rigor expectation is a GPA proxy** (the admitted average on the
   4.0 scale), not a read of the school's own course-count statistics; a
   CDS carries none.
@@ -357,8 +399,9 @@ gate: `cd backend && npm run lint && npm audit --audit-level=high`.
 Live probe (Node 22+, a `.mjs` in a scratch folder, `BASE` the site):
 register with grade 11 / CA / example.edu, grant the three consents
 (`POST /api/consent/grant` with `consentType` and `grantedBy: "student"`),
-`POST /api/students/sync` with `profile.courses` named "AP …" but typed
-regular and `profile.apScores` naming subjects no course lists, then
+`POST /api/students/sync` with `profile.courses` named "AP …" or
+"Honors …" but typed regular and `profile.apScores` naming subjects no
+course lists, then
 `POST /api/positioning/targets` `{ targets: [{ schoolName }], major }` and
 read `targets[0].profileComparison.rigor`; `POST /api/colleges/values`
 once with `Accept-Language: ko-KR` and no `X-CollegeApp-Locale` (expect
