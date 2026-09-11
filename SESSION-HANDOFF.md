@@ -294,21 +294,21 @@ each deleted afterwards (200).
   real browser with the Korean Windows locale (vitest pins the locale
   prop; the API check above pins the header), so the Korean-in-English
   report should be re-checked in the UI; the "Course rigor" row under a
-  C7 fallback school
-  on production (the unit tests cover the "Rigor of Secondary School
-  Record" row); the fit card's matrix, the prestige card, the evidence
-  list and the sync button in a real browser; a real PDF or image through
-  the chat picker on production; the weighted-average read live
-  (Harvard).
+  C7 fallback school on production (the unit tests cover the "Rigor of
+  Secondary School Record" row); the fit card's matrix, the prestige
+  card, the evidence list and the sync button in a real browser; a real
+  PDF or image through the chat picker on production; the
+  weighted-average read live (Harvard).
 
 ## Open items and things to watch
 
 - **Rigor units differ by a half-unit between the two reads:** the
   matrix's `Course rigor` detail carries `readCourseRigor` units (4.3 in
   the probe) while `compareCourseRigor` adds half a unit per senior-year
-  college-level course (4.8); honors halves are in both. Only the expectation and position are
-  rendered, so nothing shows; align them by passing `comparison.rigor.units`
-  into the detail if the number is ever displayed.
+  college-level course (4.8); honors halves are in both. Only the
+  expectation and position are rendered, so nothing shows; align them by
+  passing `comparison.rigor.units` into the detail if the number is ever
+  displayed.
 - **The fit refresh is wired but not unit-tested end to end:** the
   fingerprint helper and the card's note are pinned; the effect in
   `App.jsx` (sync lands → `refreshCollegeFit`) is not, and it runs only
