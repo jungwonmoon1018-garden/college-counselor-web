@@ -254,7 +254,9 @@ function academicEvidence(profile, comparison) {
     const read = comparison?.rigor || null;
     const position = read?.position || null;
     const tone = position ? positionTone(position) : (rigor.units >= 5 ? "strong" : rigor.units >= 2 ? "fair" : "weak");
-    const detail = { units: rigor.units, apTaken: rigor.apTaken, apScored: rigor.apScored, expectation: read?.expectation ?? null };
+    // The same units the comparison block shows (both come from
+    // course-rigor.js; the College Fit read's copy wins when supplied).
+    const detail = { units: read?.units ?? rigor.units, apTaken: rigor.apTaken, apScored: rigor.apScored, expectation: read?.expectation ?? null };
     items.push({ kind: "rigor", hints: ACADEMIC_VALUE_HINTS.rigor, label: `Course rigor: ${describeCourseRigor(rigor)}`, tone, position, detail });
   }
 

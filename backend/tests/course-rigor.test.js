@@ -50,8 +50,9 @@ test("the load counts college-level courses by type or name, AP exams no course 
   assert.equal(rigor.honors, 1);
   assert.equal(rigor.collegeLevelCourses, 3);
   assert.equal(rigor.seniorCollegeLevel, 2);
-  // 5 → 1.2, 3 → 1.0, dual enrollment 1, honors 0.5, 4 → 1.1, 2 → 0.8.
-  assert.equal(rigor.units, 5.6);
+  // 5 → 1.2, 3 → 1.0, dual enrollment 1, honors 0.5, 4 → 1.1, 2 → 0.8,
+  // plus half a unit for each of the two senior-year college-level courses.
+  assert.equal(rigor.units, 6.6);
   assert.deepEqual(rigor.items.map((i) => [i.name, i.level, i.source, i.examScore, i.weight]), [
     ["AP Calculus BC", "ap", "course", 5, 1.2],
     ["Physics C", "ap", "course", 3, 1],

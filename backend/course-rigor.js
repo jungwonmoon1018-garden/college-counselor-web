@@ -2,7 +2,9 @@
 // looks at the transcript: the positioning engine's rigor component, the
 // "How your record compares" block, and the priorities matrix. AP, IB,
 // dual-enrollment and A-Level courses carry a unit each (an AP more or
-// less by its exam score), honors courses half a unit.
+// less by its exam score), honors courses half a unit, and a college-level
+// course taken in senior year half a unit more; `units` is that one total
+// wherever it is shown.
 //
 // Two things used to go unread. A course's level was taken only from its
 // `type` field, so "AP Calculus BC" entered as a regular course (a
@@ -44,6 +46,8 @@ export const AP_SCORE_WEIGHT = Object.freeze({ 5: 1.2, 4: 1.1, 3: 1, 2: 0.8, 1: 
 // college-level work, so it carries half a unit (the owner's call,
 // 2026-09-11; before that honors were counted and weighed nothing).
 export const HONORS_WEIGHT = 0.5;
+// Half a unit more for each college-level course taken in senior year.
+export const SENIOR_YEAR_CREDIT = 0.5;
 
 const COLLEGE_LEVEL = new Set(["ap", "ib", "dual_enrollment", "a_level"]);
 
@@ -102,7 +106,9 @@ function examScore(entry) {
  * @param {Array} courses — profile course rows ({ name, type, grade, year }).
  * @param {Array} apScores — profile AP exam rows ({ exam|subject|name, score }).
  * @returns {{
- *   units: number,                // weighted load (honors at half a unit)
+ *   units: number,                // weighted load: honors at half a unit,
+ *                                 // plus half a unit per senior-year
+ *                                 // college-level course
  *   apTaken: number,              // AP courses + AP exams no course names
  *   apCourses: number, apExamsWithoutCourse: number, apScored: number,
  *   ib: number, dualEnrollment: number, aLevel: number, honors: number,
@@ -158,7 +164,12 @@ export function readCourseRigor(courses, apScores) {
       weight: exam.score != null ? AP_SCORE_WEIGHT[exam.score] : 1,
     });
   }
-  const units = Math.round(items.reduce((sum, item) => sum + item.weight, 0) * 100) / 100;
+  // One number for every reader: the weighted items plus half a unit per
+  // senior-year college-level course (keeping rigor up in the final year
+  // is what the positioning engine always credited). The matrix and the
+  // comparison block used to differ by exactly that half-unit.
+  const seniorCredit = seniorCollegeLevel * SENIOR_YEAR_CREDIT;
+  const units = Math.round((items.reduce((sum, item) => sum + item.weight, 0) + seniorCredit) * 100) / 100;
   return {
     units,
     apTaken: counts.ap + apExamsWithoutCourse,

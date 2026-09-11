@@ -560,15 +560,17 @@ export function compareApExams(student) {
 // demand ten AP courses), never fewer than four. The load is the weighted
 // read from course-rigor.js — AP, IB, dual-enrollment and A-Level courses
 // by type or name, AP exams no course names, each AP lifted or lowered by
-// its exam score, honors at half a unit — plus half a unit per
-// senior-year college-level course.
+// its exam score, honors at half a unit, half a unit more per senior-year
+// college-level course — the one `units` figure the matrix shows too.
 // Meeting the expectation reads "above" (the load is there), sixty percent
 // of it "within", less "below".
 export function compareCourseRigor(student, averageGpa = null) {
   const rigor = student?.rigor || readCourseRigor(student?.courses || [], []);
   const targetGpa = Math.min(4, averageGpa ?? 3.75);
   const expectation = Math.max(4, Math.round((targetGpa - 3.2) * 10));
-  const units = Number(student?.rigorUnits ?? rigor.units ?? 0) + Number(student?.seniorRigorCount || 0) * 0.5;
+  // `units` already carries the senior-year credit (course-rigor.js), so
+  // the matrix's detail and this read show the same number.
+  const units = Number(student?.rigorUnits ?? rigor.units ?? 0);
   const ratio = units / Math.max(1, expectation);
   const position = ratio >= 1 ? "above" : ratio >= 0.6 ? "within" : "below";
   return {

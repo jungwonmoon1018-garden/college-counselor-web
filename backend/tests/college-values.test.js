@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 
 import { computeFit } from "../college-values.js";
 import { buildValuesFromCds } from "../college-research.js";
+import { buildStudentModel, compareCourseRigor } from "../positioning-engine.js";
 
 function priority(theme) {
   return { theme, summary: `Very Important in Wide U's admission decisions, per its Common Data Set (section C7).` };
@@ -209,6 +210,14 @@ test("the course load is one line of rigor evidence: APs by name or by exam, wit
   assert.equal(course.tone, "strong");
   assert.equal(fit.courses[0].level, "ap");
   // Without a College Fit read the load stands on its own count.
+  // The matrix's units are the comparison read's units: one number, with
+  // the senior-year credit and the honors halves in both.
+  const senior = { ...profile, courses: [...profile.courses, { name: "AP Physics C", type: "ap", grade: "A", year: "12" }, { name: "Honors Spanish 4", type: "honors", grade: "A", year: "12" }] };
+  const read = compareCourseRigor(buildStudentModel({ ...senior, gpaUnweighted: 3.9, majorInterest: "Engineering" }, [], null), 3.94);
+  assert.equal(read.units, 4.3); // 1.2 + 1.1 + (1 + 0.5 senior) + 0.5 honors
+  const aligned = rowFor(computeFit(VALUES, senior, { comparison: { ...COMPARISON, rigor: read } }), "Rigor of Secondary School Record").evidence.find((e) => e.kind === "rigor");
+  assert.equal(aligned.detail.units, read.units);
+  assert.equal(rowFor(computeFit(VALUES, senior, {}), "Rigor of Secondary School Record").evidence.find((e) => e.kind === "rigor").detail.units, read.units);
   const alone = rowFor(computeFit(VALUES, profile, {}), "Rigor of Secondary School Record").evidence.find((e) => e.kind === "rigor");
   assert.equal(alone.tone, "fair");
   assert.equal(alone.position, null);
