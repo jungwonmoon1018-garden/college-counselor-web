@@ -8,16 +8,21 @@ changed recently and why, what was verified live, and what is open.
 
 ## Where things stand (2026-09-11)
 
-- **Deployed:** `main` at `6a29565`, live at
+- **Deployed:** `main` at `95f5116`, live at
   https://college-counselor-web.onrender.com. Confirmed by CI run
-  34601700790 (success) and `/` serving `assets/main-CEBZ2mnd.js` with
-  `/api/health` 200 at 13:00 UTC on 2026-09-11 (earlier the same day:
-  `fa6c5b1`, bundle `main-bsyCx_FV.js`, CI run 34571763935). CI runs
+  34603951260 (success) and the backend-only redeploy blip (`/api/health`
+  non-200, then 200 at 13:24 UTC on 2026-09-11), then by behavior (the
+  probe below). Earlier the same day: `651f7ac` (backend-only, CI run
+  34602871341, blip 13:12 UTC), `6a29565` (bundle `main-CEBZ2mnd.js`, CI
+  run 34601700790), `fa6c5b1` (bundle `main-bsyCx_FV.js`, CI run
+  34571763935). `/` still serves `assets/main-CEBZ2mnd.js`. CI runs
   backend lint, syntax, tests and `npm audit --audit-level=high`, then
   frontend tests and build; Render redeploys after it passes, with a few
   seconds of 502s.
-- **Tests (run after the last code edit, 2026-09-11 ~12:55 UTC):** backend
-  `npm test` 708 tests, 703 pass, 5 skipped, 0 fail; `npm run lint` 0
+- **Tests:** backend `npm test` 708 tests, 703 pass, 5 skipped, 0 fail
+  (run locally after `651f7ac`'s edits; CI ran it green for `95f5116`,
+  whose one-line hint change was covered locally by the college-values,
+  course-rigor and positioning-engine files, 34 tests); `npm run lint` 0
   errors, 70 warnings (CI cap 500); frontend `npx vitest run` 12 files,
   43 tests; `npm run build` clean.
 - **Working tree:** 37 phantom CRLF-only diffs (never stage them; a file
@@ -57,7 +62,48 @@ such as AP scores and the amount of APs taken are not considered as
 course rigor in the college fit machine. Also, college fit section having
 korean language in it is a problem." — "Also count honors courses as half
 a unit in rigor and I think that in college fit should call in updated
-parts of the profile when the profile gets updated."
+parts of the profile when the profile gets updated." — "Also align the
+rigor units between the matrix and the comparison read" — "Also, the
+suggest ECs for me getting blocked by the rules engine."
+
+**The course-load line speaks to intellectual curiosity (2026-09-11)** —
+`95f5116`. Under a school's quoted values each AP course evidenced
+"intellectual curiosity" through `TYPE_VALUE_HINTS` while the one-line
+load did not, so Stanford's re-extracted values (no theme names rigor,
+challenge or curriculum) listed the AP courses and nothing about the
+load. `ACADEMIC_VALUE_HINTS.rigor` now carries "intellectual curiosity".
+
+**"Suggest ECs for me": no block found (2026-09-11, no code change).**
+The chip (`App.jsx`, the quick-action row under the composer) puts
+"Suggest ECs for me" in the composer; on send the client's quick-query
+handler ignores it (every pattern is anchored to whole profile lookups),
+the quick keyword router sends it straight to the EC specialist
+(`EC_KW` matches "ECs"; the essay-keyword test does not fire, so the
+small-model gatekeeper never runs), and the specialist call reaches
+`/api/chat` wrapped in the `<student_message>` envelope. Server-side, that
+exact wrapped text passes `screenInput`, classifies as coaching /
+`ec_strategy`, is not a lookup, and `enforceGates` allows it with the
+coaching label only. Two live probes on 2026-09-11 (throwaway accounts,
+the client's EC system prompt and envelope verbatim) answered 200 in
+27 s with a profile and 20 s without one: full coaching replies,
+`profileFidelity null`, no fidelity footnote, no block. The Strategy
+Council runs only when the student picks a decision type, and the EC
+ideas generator (`/api/ec/ideas/generate`) has no deterministic filter.
+The one deterministic "engine" the code names is the quick-query handler
+(`maybeHandleQuickQuery`), which answers "my ecs" / "my activities" with
+the saved list and nothing else. What the student actually saw is not
+known; see the open item.
+
+**The rigor units are one number everywhere (2026-09-11)** — `651f7ac`.
+The matrix's "Course rigor" detail carried `readCourseRigor` units while
+`compareCourseRigor` added half a unit per senior-year college-level
+course on top (4.3 against 4.8 for the same record). The senior credit
+now lives in `course-rigor.js` (`SENIOR_YEAR_CREDIT` 0.5, applied inside
+`readCourseRigor`), the engine uses `units` as is, and the matrix detail
+takes the College Fit read's copy when one is supplied. No score moved:
+the engine's load was already that sum. `college-values.test.js` builds
+the comparison from the engine and checks the two agree with and without
+the read.
 
 **Honors carry half a unit, and the fit card re-reads the school when the
 profile changes (2026-09-11)** — `6a29565`. `course-rigor.js` weighs an
@@ -238,6 +284,17 @@ double-check, profile grounding.
 All checks used throwaway `probe-*@example.test` accounts on production,
 each deleted afterwards (200).
 
+- **After `95f5116` (backend-only; blip 13:24 UTC 2026-09-11):** a grade-12
+  profile with "AP Calculus BC" typed regular (exam 5), "AP Physics C"
+  typed ap in senior year, "Honors Spanish 4", and an unmatched Computer
+  Science A exam (4). Positioning for Stanford reported `rigor.units 4.3`
+  (1.2 + 1 + 0.5 senior + 0.5 honors + 1.1), `expectation 7`, "within",
+  score 61.4; the values matrix carried "Course rigor: 3 AP (2 with exam
+  scores), 1 honors" under Stanford's "Intellectual Curiosity" theme with
+  `detail.units 4.3` — the same number. The same probe after `651f7ac`
+  (blip 13:12 UTC) showed the positioning units at 4.3 but no load line,
+  because Stanford's re-extracted values carry no rigor hint; `95f5116`
+  fixed that. Accounts deleted (200).
 - **After `6a29565` (bundle `main-CEBZ2mnd.js`, 13:00 UTC 2026-09-11):**
   the `fa6c5b1` profile below plus "Honors English 11" typed honors and
   "Honors Precalculus" typed regular. `POST /api/positioning/targets` for
@@ -295,20 +352,35 @@ each deleted afterwards (200).
   prop; the API check above pins the header), so the Korean-in-English
   report should be re-checked in the UI; the "Course rigor" row under a
   C7 fallback school on production (the unit tests cover the "Rigor of
-  Secondary School Record" row); the fit card's matrix, the prestige
+  Secondary School Record" row; live it was seen under a quoted value);
+  what the student sees when "Suggest ECs for me" is "blocked" (the API
+  path answered twice; the browser path was not exercised); the fit
+  card's matrix, the prestige
   card, the evidence list and the sync button in a real browser; a real
   PDF or image through the chat picker on production; the
   weighted-average read live (Harvard).
 
 ## Open items and things to watch
 
-- **Rigor units differ by a half-unit between the two reads:** the
-  matrix's `Course rigor` detail carries `readCourseRigor` units (4.3 in
-  the probe) while `compareCourseRigor` adds half a unit per senior-year
-  college-level course (4.8); honors halves are in both. Only the
-  expectation and position are rendered, so nothing shows; align them by
-  passing `comparison.rigor.units` into the detail if the number is ever
-  displayed.
+- **"Suggest ECs for me" reported as blocked, not reproduced.** Every
+  deterministic layer passes it and two production turns answered in
+  full (see the change log). Things that could still produce a block or
+  a blank in a real session, none confirmed: a burst of sends inside ten
+  seconds (the client's burst guard says "Three messages in 10 seconds —
+  give it a beat"); a month's AI budget spent (402, shown as "Something
+  went wrong while answering that"); a model reply made only of pseudo
+  tool-call text, which the output screen strips to an empty answer (the
+  client then runs the validator on an empty draft and shows only the
+  "could not be fully verified" note); a specialist refusal phrased
+  "outside my role", which the refusal-recovery pattern does not match
+  (it catches "outside my scope/domain" and "unrelated to your goals").
+  The next step is the exact text the student saw and the entry in the
+  counselor's audit log for that turn (`input_blocked`,
+  `off_topic_blocked`, `essay_blocked`, `validation_failed`, or nothing).
+- **The rigor units figure is not rendered anywhere yet:** both reads
+  carry the same `units` now, but the card shows only the load
+  description, the expectation and the position. Showing the number
+  ("4.3 of about 7") is a one-line change in `CalibratedFitCard.jsx`.
 - **The fit refresh is wired but not unit-tested end to end:** the
   fingerprint helper and the card's note are pinned; the effect in
   `App.jsx` (sync lands → `refreshCollegeFit`) is not, and it runs only
