@@ -157,7 +157,9 @@ const ACADEMIC_VALUE_HINTS = {
   rank:  ["class rank", "rank in class", "class standing"],
   test:  ["standardized test", "test score", "sat", "act", "testing"],
   ap:    ["advanced placement", "ap exam", "ap score", "college-level", "rigor", "academic depth", "challenge", "intellectual rigor"],
-  rigor: ["rigor", "advanced placement", "college-level", "course load", "courseload", "course selection", "curriculum", "academic depth", "challenge", "honors"],
+  // "intellectual curiosity" is here because each AP course already
+  // speaks to it (TYPE_VALUE_HINTS); the load as a whole should too.
+  rigor: ["rigor", "advanced placement", "college-level", "course load", "courseload", "course selection", "curriculum", "academic depth", "challenge", "honors", "intellectual curiosity"],
 };
 
 // Priorities the profile cannot show. The matrix labels these instead of
