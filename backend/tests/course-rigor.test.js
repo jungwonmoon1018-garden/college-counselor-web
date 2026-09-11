@@ -50,15 +50,23 @@ test("the load counts college-level courses by type or name, AP exams no course 
   assert.equal(rigor.honors, 1);
   assert.equal(rigor.collegeLevelCourses, 3);
   assert.equal(rigor.seniorCollegeLevel, 2);
-  // 5 → 1.2, 3 → 1.0, dual enrollment 1, 4 → 1.1, 2 → 0.8.
-  assert.equal(rigor.units, 5.1);
+  // 5 → 1.2, 3 → 1.0, dual enrollment 1, honors 0.5, 4 → 1.1, 2 → 0.8.
+  assert.equal(rigor.units, 5.6);
   assert.deepEqual(rigor.items.map((i) => [i.name, i.level, i.source, i.examScore, i.weight]), [
     ["AP Calculus BC", "ap", "course", 5, 1.2],
     ["Physics C", "ap", "course", 3, 1],
     ["Multivariable Calculus", "dual_enrollment", "course", null, 1],
+    ["Honors English 10", "honors", "course", null, 0.5],
     ["Computer Science A", "ap", "exam", 4, 1.1],
     ["Calculus AB", "ap", "exam", 2, 0.8],
   ]);
+  // Honors alone is a load of half a unit each, never college-level.
+  const honorsOnly = readCourseRigor([{ name: "Honors Biology", type: "honors" }, { name: "Honors Geometry", type: "regular" }], []);
+  assert.equal(honorsOnly.honors, 2);
+  assert.equal(honorsOnly.units, 1);
+  assert.equal(honorsOnly.collegeLevelCourses, 0);
+  assert.equal(honorsOnly.apTaken, 0);
+  assert.equal(describeCourseRigor(honorsOnly), "2 honors");
   assert.equal(describeCourseRigor(rigor), "4 AP (4 with exam scores), 1 dual enrollment, 1 honors");
 });
 

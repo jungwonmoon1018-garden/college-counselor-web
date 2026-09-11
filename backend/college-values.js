@@ -250,7 +250,7 @@ function academicEvidence(profile, comparison) {
   // supplied. Before this, rigor was evidenced only course by course, and
   // an AP recorded as an exam result alone was not course rigor.
   const rigor = readCourseRigor(profile?.courses, profile?.apScores);
-  if (rigor.items.length || rigor.honors) {
+  if (rigor.items.length) {
     const read = comparison?.rigor || null;
     const position = read?.position || null;
     const tone = position ? positionTone(position) : (rigor.units >= 5 ? "strong" : rigor.units >= 2 ? "fair" : "weak");

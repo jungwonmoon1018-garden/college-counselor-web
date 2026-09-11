@@ -560,7 +560,8 @@ export function compareApExams(student) {
 // demand ten AP courses), never fewer than four. The load is the weighted
 // read from course-rigor.js — AP, IB, dual-enrollment and A-Level courses
 // by type or name, AP exams no course names, each AP lifted or lowered by
-// its exam score — plus half a unit per senior-year college-level course.
+// its exam score, honors at half a unit — plus half a unit per
+// senior-year college-level course.
 // Meeting the expectation reads "above" (the load is there), sixty percent
 // of it "within", less "below".
 export function compareCourseRigor(student, averageGpa = null) {

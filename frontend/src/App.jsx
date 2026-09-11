@@ -14,6 +14,7 @@ import { looksLikeTranscript, mergeImportedCourses, currentYearKey } from "./tra
 import DisclosurePanel from "./components/DisclosurePanel.jsx";
 import MethodologyPanel from "./MethodologyPanel.jsx";
 import { detectLocale, t as tt } from "./i18n.js";
+import { fitProfileFingerprint, fitReadIsStale } from "./fit-refresh.js";
 import { serverDateToISO, formatServerDate } from "./dates.js";
 import {
   TEST_ORDER, TEST_SCORE_LIMITS, testLabel, sectionDefs, formatSections, validateTestEntry,
@@ -2934,6 +2935,12 @@ export default function App() {
   const [threadSearchQ, setThreadSearchQ] = useState("");
   const [threadSearchResults, setThreadSearchResults] = useState([]);
   const [collegeValues, setCollegeValues] = useState(null); // { displayName, values, fit, ... }
+  // The record the shown fit read was computed from (fit-refresh.js), and
+  // refs the sync effect reads without re-running on every lookup.
+  const fitFingerprintRef = useRef("");
+  const collegeValuesRef = useRef(null);
+  collegeValuesRef.current = collegeValues;
+  const lookupCollegeRef = useRef(null);
   const [collegeValuesLoading, setCollegeValuesLoading] = useState(false);
   const [collegeValuesQuery, setCollegeValuesQuery] = useState("");
   const [collegeValuesHint, setCollegeValuesHint] = useState(""); // optional official page URL
@@ -3214,11 +3221,15 @@ export default function App() {
   // without the header the server localized from the browser's
   // Accept-Language, and a Korean-locale browser showing the app in
   // English got Korean placement words on the fit card.
-  const lookupCollege = useCallback(async (collegeName, hintUrl) => {
+  // `refresh` re-reads the school already shown after the profile changed:
+  // the old card stays up until the new read lands, a failed re-read keeps
+  // it, and the body is stamped so the card can say it was re-read.
+  const lookupCollege = useCallback(async (collegeName, hintUrl, { refresh = false } = {}) => {
     const token = window.__CC_SESSION_TOKEN__;
     if (!token || !collegeName) return;
+    fitFingerprintRef.current = fitProfileFingerprint(data);
     setCollegeValuesLoading(true);
-    setCollegePositioning(null);
+    if (!refresh) setCollegePositioning(null);
     setCollegeVerification(null);
     try {
       const r = await fetch("/api/colleges/values", {
@@ -3227,10 +3238,10 @@ export default function App() {
         body: JSON.stringify({ collegeName, hintUrl }),
       });
       const body = await r.json();
-      if (r.ok) setCollegeValues(body);
-      else setCollegeValues({ error: body.error || `HTTP ${r.status}` });
+      if (r.ok) setCollegeValues(refresh ? { ...body, refreshedAt: new Date().toISOString() } : body);
+      else if (!refresh) setCollegeValues({ error: body.error || `HTTP ${r.status}` });
     } catch (err) {
-      setCollegeValues({ error: err.message || "lookup failed" });
+      if (!refresh) setCollegeValues({ error: err.message || "lookup failed" });
     } finally {
       setCollegeValuesLoading(false);
     }
@@ -3249,15 +3260,24 @@ export default function App() {
       const pbody = await pr.json().catch(() => ({}));
       if (pr.ok && Array.isArray(pbody.targets) && pbody.targets.length > 0) {
         setCollegePositioning(pbody.targets[0]);
-      } else {
+      } else if (!refresh) {
         setCollegePositioning(null);
       }
     } catch {
-      setCollegePositioning(null);
+      if (!refresh) setCollegePositioning(null);
     } finally {
       setCollegePositioningLoading(false);
     }
   }, [data, locale]);
+  lookupCollegeRef.current = lookupCollege;
+
+  // Re-read the shown school when the record it was read from has moved.
+  const refreshCollegeFit = useCallback((nextData) => {
+    const shown = collegeValuesRef.current;
+    if (!shown?.displayName || shown.error) return;
+    if (nextData && !fitReadIsStale(fitFingerprintRef.current, nextData)) return;
+    lookupCollegeRef.current?.(shown.displayName, undefined, { refresh: true });
+  }, []);
 
   // Double-check the fit read against the live web: College Scorecard, the
   // school's own admissions pages (deterministic parse), and a second,
@@ -3400,6 +3420,11 @@ export default function App() {
   useEffect(() => {
     document.documentElement.lang = locale === "ko" ? "ko" : "en";
   }, [locale]);
+  // Chat uploads read into activities change the strength vectors the
+  // matrix sharpens its activity reads with; re-read the shown school.
+  useEffect(() => {
+    if (evidenceVersion > 0) refreshCollegeFit(null);
+  }, [evidenceVersion, refreshCollegeFit]);
 
   useEffect(() => {
     if (!activePanel) return undefined;
@@ -3863,11 +3888,15 @@ export default function App() {
           setSyncNote("");
           setOfflineMode(false); // a sync landed — backend is reachable again
           setTimeout(() => setSyncStatus((s) => (s === "ok" ? "idle" : s)), 2000);
+          // 3. The College Fit card follows the record: once the sync has
+          //    landed (the server reads the profile it holds), re-read the
+          //    shown school if a course, score, activity or major changed.
+          refreshCollegeFit(data);
         } catch (err) { console.warn("RAG sync failed (non-blocking):", err?.message); setSyncNote(""); setSyncStatus("failed"); }
       }
     }, 1000);
     return () => clearTimeout(t);
-  }, [data, screen, user, passphrase, authedFetch]);
+  }, [data, screen, user, passphrase, authedFetch, refreshCollegeFit]);
 
   // ─── Admissions-calendar refresh ───
   // Pull today + cycle calendar + per-target-school deadlines whenever the

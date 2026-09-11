@@ -141,6 +141,13 @@ describe("CalibratedFitCard course rigor and locale", () => {
     expect(screen.getByTestId("fit-matrix")).toHaveTextContent("Course rigor: 2 AP (2 with exam scores) · about 7 college-level courses expected here · below it");
   });
 
+  it("says when the read was re-taken after the profile changed, and lists honors in the load", () => {
+    const rigor = { apTaken: 0, apCourses: 0, apExamsWithoutCourse: 0, apScored: 0, ib: 0, dualEnrollment: 0, aLevel: 0, honors: 3, units: 1.5, expectation: 4, position: "below", score: 37.5 };
+    render(<CalibratedFitCard collegeValues={{ displayName: "S", values: [], refreshedAt: "2026-09-11T07:30:00Z" }} positioning={{ ...positioning, profileComparison: { ...positioning.profileComparison, rigor } }} loading={false} />);
+    expect(screen.getByTestId("fit-refreshed")).toHaveTextContent("Re-read after your profile changed");
+    expect(screen.getByTestId("profile-comparison")).toHaveTextContent("Course rigor: 3 honors · about 4 college-level courses expected here · below it");
+  });
+
   it("renders in the app's locale, not the one the server guessed from the browser", () => {
     const body = { displayName: "S", values: [], locale: "ko" };
     render(<CalibratedFitCard collegeValues={body} positioning={positioning} loading={false} locale="en-US" />);

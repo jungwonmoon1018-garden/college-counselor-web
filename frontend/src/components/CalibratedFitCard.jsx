@@ -237,7 +237,7 @@ function ProfileComparison({ pc, locale }) {
   // exams no course names) with how many carry scores, IB, dual enrollment
   // and A-Level, against the load the admitted average implies.
   const cr = pc.rigor;
-  if (cr && (cr.apTaken || cr.ib || cr.dualEnrollment || cr.aLevel)) {
+  if (cr && (cr.apTaken || cr.ib || cr.dualEnrollment || cr.aLevel || cr.honors)) {
     rows.push({ label: t(locale, "fit.cmp_rigor"), value: `${rigorLoad(cr, locale)} · ${fill(t(locale, "fit.cmp_rigor_expected"), { n: cr.expectation })} · ${t(locale, `fit.rigor_${cr.position}`)}`, tone: cr.position });
   }
   const r = pc.classRank;
@@ -420,6 +420,11 @@ export default function CalibratedFitCard({ collegeValues, positioning, loading,
         })}
       </div>
       {collegeValues.cached && <div style={{ fontSize: 9, color: "#555", marginTop: 4 }}>Cached {new Date(collegeValues.extractedAt).toLocaleDateString()}</div>}
+      {collegeValues.refreshedAt && (
+        <div data-testid="fit-refreshed" style={{ fontSize: 9, color: "#6a8ab5", marginTop: 4 }}>
+          {t(locale, "fit.refreshed")} · {new Date(collegeValues.refreshedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,8 @@
 // Course rigor, read the same way everywhere the College Fit machinery
 // looks at the transcript: the positioning engine's rigor component, the
-// "How your record compares" block, and the priorities matrix.
+// "How your record compares" block, and the priorities matrix. AP, IB,
+// dual-enrollment and A-Level courses carry a unit each (an AP more or
+// less by its exam score), honors courses half a unit.
 //
 // Two things used to go unread. A course's level was taken only from its
 // `type` field, so "AP Calculus BC" entered as a regular course (a
@@ -38,6 +40,10 @@ export const LEVEL_LABELS = Object.freeze({
 // without an exam result (in progress, or not yet reported) counts as one
 // course taken.
 export const AP_SCORE_WEIGHT = Object.freeze({ 5: 1.2, 4: 1.1, 3: 1, 2: 0.8, 1: 0.6 });
+// An honors course is harder than the standard section but not
+// college-level work, so it carries half a unit (the owner's call,
+// 2026-09-11; before that honors were counted and weighed nothing).
+export const HONORS_WEIGHT = 0.5;
 
 const COLLEGE_LEVEL = new Set(["ap", "ib", "dual_enrollment", "a_level"]);
 
@@ -96,7 +102,7 @@ function examScore(entry) {
  * @param {Array} courses — profile course rows ({ name, type, grade, year }).
  * @param {Array} apScores — profile AP exam rows ({ exam|subject|name, score }).
  * @returns {{
- *   units: number,                // weighted college-level load
+ *   units: number,                // weighted load (honors at half a unit)
  *   apTaken: number,              // AP courses + AP exams no course names
  *   apCourses: number, apExamsWithoutCourse: number, apScored: number,
  *   ib: number, dualEnrollment: number, aLevel: number, honors: number,
@@ -118,7 +124,10 @@ export function readCourseRigor(courses, apScores) {
     const level = courseLevel(course);
     if (!level) continue;
     counts[level] += 1;
-    if (!COLLEGE_LEVEL.has(level)) continue;
+    if (level === "honors") {
+      items.push({ name: String(course?.name || "").trim(), level, source: "course", examScore: null, weight: HONORS_WEIGHT });
+      continue;
+    }
     const year = String(course?.year || course?.gradeLevel || "").toLowerCase();
     if (/(12|senior)/.test(year)) seniorCollegeLevel += 1;
     let score = null;
