@@ -6,25 +6,21 @@ it. Read `CLAUDE.md` first: it is the edit-time harness (invariants, how to
 prove a change, how to land it). This file says where things stand, what
 changed recently and why, what was verified live, and what is open.
 
-## Where things stand (2026-09-11)
+## Where things stand (2026-09-13)
 
-- **Deployed:** `main` at `95f5116`, live at
+- **Deployed:** `main` at `58b28fb`, live at
   https://college-counselor-web.onrender.com. Confirmed by CI run
-  34603951260 (success) and the backend-only redeploy blip (`/api/health`
-  non-200, then 200 at 13:24 UTC on 2026-09-11), then by behavior (the
-  probe below). Earlier the same day: `651f7ac` (backend-only, CI run
-  34602871341, blip 13:12 UTC), `6a29565` (bundle `main-CEBZ2mnd.js`, CI
-  run 34601700790), `fa6c5b1` (bundle `main-bsyCx_FV.js`, CI run
-  34571763935). `/` still serves `assets/main-CEBZ2mnd.js`. CI runs
+  34760878050 (success) and `/` serving `assets/main-B9Hm9u2i.js` with
+  `/api/health` 200 at 13:50 UTC on 2026-09-13 (the 2026-09-11 builds:
+  `95f5116` CI run 34603951260, `651f7ac` CI run 34602871341, `6a29565`
+  bundle `main-CEBZ2mnd.js`, `fa6c5b1` bundle `main-bsyCx_FV.js`). CI runs
   backend lint, syntax, tests and `npm audit --audit-level=high`, then
   frontend tests and build; Render redeploys after it passes, with a few
   seconds of 502s.
-- **Tests:** backend `npm test` 708 tests, 703 pass, 5 skipped, 0 fail
-  (run locally after `651f7ac`'s edits; CI ran it green for `95f5116`,
-  whose one-line hint change was covered locally by the college-values,
-  course-rigor and positioning-engine files, 34 tests); `npm run lint` 0
-  errors, 70 warnings (CI cap 500); frontend `npx vitest run` 12 files,
-  43 tests; `npm run build` clean.
+- **Tests (run after the last code edit, 2026-09-13 ~13:47 UTC):** backend
+  `npm test` 714 tests, 710 pass, 4 skipped, 0 fail (the PDF extraction
+  test runs again); `npm run lint` 0 errors, 70 warnings (CI cap 500);
+  frontend `npx vitest run` 13 files, 45 tests; `npm run build` clean.
 - **Working tree:** 37 phantom CRLF-only diffs (never stage them; a file
   whose committed blob still carries CRLF shows a whole-file diff the first
   time it has to change — `git diff --cached --ignore-cr-at-eol --stat`
@@ -56,6 +52,57 @@ changed recently and why, what was verified live, and what is open.
   declaration was kept because nothing tests the project on 25.
 
 ## What changed, newest first
+
+The user's ask on 2026-09-13, verbatim: "The chat file uploads do not
+work. Also, check for additional UI defects by playing with it. Use
+claude in chrome to do that."
+
+**Chat PDF uploads, attachment-turn classification, and four live UI
+defects (2026-09-13)** — `58b28fb`. Driving the deployed app in the
+user's Chrome (signed in by the user; a text, a PDF and a PNG attached
+through the 📎 picker): the TXT and the PNG (OCR) were read and answered,
+the PDF came back "Uploaded file could not be safely processed" (HTTP
+422, code `pdf_parse_failed`). Reproduced from the API with three PDFs:
+a 662-byte hand-written PDF and the repo's `tests/fixtures/hello.pdf`
+fail, a 370 KB Common Data Set PDF passes even as a cache-missing copy;
+locally on Node 25 all three parse, and under Node 22.22.0 (`npx -y
+node@22.22.0`) the two small ones fail with "bad XRef entry" — pdf-parse's
+bundled 2020 pdf.js on a classic cross-reference table (the shape every
+small export has; Word/Acrobat PDFs carry xref streams). The repository's
+PDF test recorded exactly this and was skipped. `file-extractors.js
+extractPDF` now reads the text layer with pdfjs-dist (the build the CDS
+parser and the OCR fallback already run in production), passes the
+standard-font directory, joins lines as pdf-parse did, and keeps
+pdf-parse as the second reader; the PDF test runs again and a
+classic-xref PDF built inline is extracted from a pooled Buffer as the
+upload route decodes it. Second finding, on every attachment turn: the
+reply carried "Limitations … Next actions: StudentAid.gov" — the
+regulated decoration. The client's `sanitizeInput` strips every "[" and
+"]" before sending, so the "[Attached files — …]" and "[Context appendix
+— …]" sentinels arrive bracketless and the server's strip patterns (which
+required the brackets) matched nothing: the document text and the
+calendar's "FAFSA opens …" were classified, and `attachmentTurn` was
+false so the fidelity check ran on document turns. New
+`backend/chat-envelope.js` (`stripClientEnvelope`, `hasAttachmentPreface`)
+matches the sentinels with or without brackets; `sanitizeInput` leaves
+its own sentinel lines intact (`SENTINEL_LINE_RE`); tests
+`chat-envelope.test.js` and the route test "file preface lost its
+brackets". Found while playing: (1) the drift banner showed "Every
+activity's narrative_fit was scored … You're up to date." as a warning
+with a Review button on every visit — `/api/narrative/drift` never sent
+the `status` the banner keys off (`all_fresh` hides it); added in both
+branches, the message says "narrative fit", `DriftBanner.test.jsx` pins
+it; (2) the Course plan's verified line and the model's target-school
+block wrote "admit ~0.0923%" (the validated CDS record holds a fraction)
+— `admitRatePercentOf` in `getSchoolPriorities`; (3) the course ladder
+called Calculus AB a gap for a student whose Calculus BC existed only as
+an AP exam result — `coursesWithApExams` in `course-sequence-catalog.js`
+adds AP exams as AP courses before the diff. Not changed: the Spike
+Finder read a first-author review as tier "Foundational" with lead score
+0.80 and achievement/prestige 0.00 (a strength-vector read, not a
+rendering fault), and the Course plan shows "concept mastery developing
+(0.43)" beside an AP subject the student scored 5 on (the concept vector
+comes from chat prompts, not the exam).
 
 The user's asks on 2026-09-11, verbatim, in order: "We got some problems
 such as AP scores and the amount of APs taken are not considered as
@@ -282,8 +329,24 @@ double-check, profile grounding.
 ## Verified live, and not
 
 All checks used throwaway `probe-*@example.test` accounts on production,
-each deleted afterwards (200).
+each deleted afterwards (200), except the browser session of 2026-09-13,
+which the user signed into with their own account in their own Chrome;
+nothing from that account is recorded here.
 
+- **After `58b28fb` (bundle `main-B9Hm9u2i.js`, 13:50 UTC 2026-09-13):**
+  from the API, the 662-byte classic-xref PDF that answered 422 before
+  extracted with its text (200); `/api/narrative/drift` carried
+  `status "no_active_narrative"` for a fresh account; a bracketless
+  file preface plus a bracketless context appendix naming FAFSA classified
+  as `coaching` with `attachmentTurn true` and no regulated limitation or
+  action. In the user's Chrome tab (still on the previous bundle, which
+  strips the brackets), the same PDF attached through the 📎 picker with
+  a 200 from the extractor and a chip, and "What does this PDF say?"
+  was answered from the PDF's text (the AIME qualifier line) with no
+  "Limitations / Next actions" block; the account's own drift status
+  read `all_fresh`. Before the fix in the same tab: TXT and PNG attached
+  and were answered (the PNG through OCR), the PDF failed with 422, and
+  both answered turns carried "Limitations … Next actions: StudentAid.gov".
 - **After `95f5116` (backend-only; blip 13:24 UTC 2026-09-11):** a grade-12
   profile with "AP Calculus BC" typed regular (exam 5), "AP Physics C"
   typed ap in senior year, "Honors Spanish 4", and an unmatched Computer
@@ -362,6 +425,29 @@ each deleted afterwards (200).
 
 ## Open items and things to watch
 
+- **pdfjs returns only text inside the page box.** The probe PDF's one
+  line runs past the 612-point page width and came back cut at "…and
+  qu"; pdf-parse returned the whole string. Real documents wrap, the
+  `hello.pdf` fixture and the CDS PDFs extract in full, and the inline
+  test uses a line that fits. If a student's PDF ever reads as cut off,
+  the second reader (pdf-parse) is still there to fall back to
+  explicitly.
+- **Spike Finder reads look inconsistent to a student:** a first-author
+  systematic review showed tier "Foundational" beside "Lead score 0.80"
+  with achievement 0.00 and prestige 0.00. The vector is honest (no award,
+  no catalog competition) but the tier word and the lead score pull in
+  opposite directions; consider deriving the tier label from the lead
+  score on that card, or explaining what "Foundational" means there.
+- **Course plan shows "concept mastery developing (0.43)" beside AP
+  subjects the student scored 5 on.** The concept vector is built from
+  chat prompts (`ap-concept-vectorizer.js`), not the exam; a 5 should at
+  least cap the read at "solid", or the card should say what the number
+  measures.
+- **Tool panels open inline in the chat column** (Course plan, Spike
+  Finder, story editor) with a ✕ but no keyboard close; Escape did not
+  close the story editor.
+- **The Chrome tab reports a 108×50 viewport when the window is
+  minimized**, and screenshots time out then; DOM reads keep working.
 - **"Suggest ECs for me" reported as blocked, not reproduced.** Every
   deterministic layer passes it and two production turns answered in
   full (see the change log). Things that could still produce a block or
