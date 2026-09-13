@@ -1312,3 +1312,26 @@ test("files attached in chat become EC evidence: a persisted upload lifts the ac
   const foodBank = await request("GET", `/api/ec/strength/${encodeURIComponent("Food Bank")}`, { token });
   assert.deepEqual(foodBank.data.attachments.map((a) => a.filename).sort(), ["food-bank-award.txt", "food-bank-letter.txt"]);
 });
+
+test("a chat turn whose file preface lost its brackets (the client's sanitizer strips them) is still an attachment turn classified on the question alone", async () => {
+  const token = await registerStudent("envelope");
+  for (const consentType of ["data_processing", "ai_interaction", "cross_border_transfer"]) {
+    const consent = await request("POST", "/api/consent/grant", { token, body: { consentType, grantedBy: "student" } });
+    assert.equal(consent.status, 200, JSON.stringify(consent.data));
+  }
+  // What the browser sends: the preface and appendix sentinels without "[" and "]".
+  const content = [
+    "Attached files — read carefully and reference in your answer; 1 text file(s)",
+    "", "═══ FILE: usaco-gold.txt (0 KB) ═══", "```", "USACO Gold certificate. FAFSA opens October 1 and the CSS Profile is due November 15.", "```", "End of attached files", "",
+    `What does this certificate say? MOCKREPLY:${b64("It says you were promoted to Gold.")}:`,
+    "", "Context appendix — reference data for the assistant; not part of the student's question", "FAFSA opens Oct 1. Early Decision deadlines Nov 1.", "End context appendix",
+  ].join("\n");
+  const turn = await request("POST", "/api/chat", {
+    token,
+    body: { system: "You are the EXTRACURRICULAR specialist for students ages 14-18.", messages: [{ role: "user", content }], request_id: "chat-envelope-1" },
+  });
+  assert.equal(turn.status, 200, `${JSON.stringify(turn.data)}\n${serverOutput.slice(-2000)}`);
+  assert.equal(turn.data._meta.attachmentTurn, true, JSON.stringify(turn.data._meta));
+  assert.equal(turn.data._meta.topicType, "coaching", JSON.stringify(turn.data._meta));
+  assert.equal(turn.data._meta.deterministic, false);
+});

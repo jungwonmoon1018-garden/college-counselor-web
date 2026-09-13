@@ -199,6 +199,7 @@ import {
   upsertStrategicFocus,
 } from "./admissions-intelligence.js";
 import { loadIpedsGrowthFile } from "./admissions-intelligence-loader.js";
+import { hasAttachmentPreface, stripClientEnvelope } from "./chat-envelope.js";
 import {
   buildStudentModel,
   buildPositioningForTarget,
@@ -212,6 +213,7 @@ import {
 import {
   getCourseSequence,
   diffCoursesAgainstSequence,
+  coursesWithApExams,
 } from "./course-sequence-catalog.js";
 import { loadOrchestrationCatalog, buildOrchestration, isReasonableModelId, redactPayloadForModel, buildSystemPrompt } from "./orchestration-engine.js";
 import { t, resolveLocale, localizeFriendlyLabels } from "./i18n.js";
@@ -1525,6 +1527,15 @@ function resolveTargetSchools(studentId, requested) {
 // fallback when there's no validated record. Async (dynamic CDS import,
 // matching the bundle's pattern).
 const C7_PRIORITY_WEIGHTS = Object.freeze({ very_important: 1.0, important: 0.7, considered: 0.35, not_considered: 0.0 });
+// An admit rate as a percent with one decimal, from a fraction (0.0923) or
+// a percent (9.23); null when there is none.
+function admitRatePercentOf(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const pct = n <= 1 ? n * 100 : n;
+  return Math.round(pct * 10) / 10;
+}
+
 async function getSchoolPriorities(schoolNames) {
   if (!Array.isArray(schoolNames) || !schoolNames.length) return [];
   let loadValidatedRecord;
@@ -1543,7 +1554,10 @@ async function getSchoolPriorities(schoolNames) {
     out.push({
       school: rec.school || name,
       hasData: true,
-      admitRate: rec.overallAdmitRate ?? null,
+      // A percent, whatever scale the record used: the validated record
+      // holds a fraction (0.0923), and "(admit ~0.0923%)" reached both the
+      // course-plan card and the model's target-school block.
+      admitRate: admitRatePercentOf(rec.overallAdmitRate),
       topFactors: factors.filter((f) => f.weight >= 0.7).map((f) => f.factor),
       rigorWeight: C7_PRIORITY_WEIGHTS[rec.c7?.rigor] ?? null,
       c7: rec.c7 || null,
@@ -2284,11 +2298,9 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
     // The single-file upload priming sentence ("If it is a school records
     // document … essay draft, resume, award, notes …") is the client's, not
     // the student's; classified as-is it filed every upload under "essay".
-    const questionText = userText
-      .replace(/\[context appendix[\s\S]*?(\[end context appendix\]|$)/gi, "")
-      .replace(/\[Attached files —[\s\S]*?(\[End of attached files\]|$)/gi, "")
-      .replace(/The student uploaded "[^"]*"\.[\s\S]*?answer their question about it substantively\.\s*/i, "")
-      .trim() || userText;
+    // The client's sanitizer drops the sentinels' brackets before sending;
+    // chat-envelope.js matches them with or without.
+    const questionText = stripClientEnvelope(userText);
     // JSON-only utility calls (the client's gatekeeper classifier, output
     // validator, and upload screener) don't counsel the student: they get no
     // profile, no theme guard, and — decided here — no regulated-topic
@@ -2446,7 +2458,7 @@ app.post("/api/chat", apiLimiter, requireStudentAuth, async (req, res) => {
     // Whether this turn carries an attachment (a text preface built by the
     // client, or a document/image block). Decided BEFORE the blocks are
     // inlined below.
-    const attachmentTurn = /\[Attached files —|The student uploaded "/i.test(userText)
+    const attachmentTurn = hasAttachmentPreface(userText)
       || payload.messages.some((m) => Array.isArray(m?.content) && m.content.some((b) => b?.type === "document" || b?.type === "image"));
     // The provider adapter is text-only, so a PDF or image block used to reach
     // the model as "[non-text block omitted]" — the student's transcript was
@@ -5029,6 +5041,11 @@ app.get("/api/narrative/drift", studentLimiter, requireStudentAuth, (req, res) =
     if (!active) {
       return res.json({
         ok: true,
+        // The banner keys its display off `status`: it stays hidden on
+        // "all_fresh" and offers the write-story path on
+        // "no_active_narrative". Without the field it rendered the
+        // "you're up to date" message as a warning on every visit.
+        status: "no_active_narrative",
         hasActive: false,
         activeNarrativeId: null,
         activeHash: null,
@@ -5065,6 +5082,7 @@ app.get("/api/narrative/drift", studentLimiter, requireStudentAuth, (req, res) =
         : t("drift.many_stale", locale, { count: staleCount });
     res.json({
       ok: true,
+      status: staleCount === 0 ? "all_fresh" : staleCount === 1 ? "one_stale" : "many_stale",
       hasActive: true,
       activeNarrativeId: active.id,
       activeHash: active.hash,
@@ -6910,7 +6928,8 @@ app.get("/api/courses/recommendations", studentLimiter, requireStudentAuth, asyn
     }, strengthRows, narrative);
 
     const bucket = studentModel.majorBucket;
-    const diff = diffCoursesAgainstSequence(studentModel.courses, bucket);
+    // AP exam results count as AP courses taken (course-sequence-catalog.js).
+    const diff = diffCoursesAgainstSequence(coursesWithApExams(studentModel.courses, safeParseJSON(snap.ap_scores_json, [])), bucket);
 
     // Pull current AP subject vectors so we can attach concept-level mastery
     // / gap signals to each recommended course. A "thin" subject vector on a

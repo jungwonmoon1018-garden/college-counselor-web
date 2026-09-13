@@ -5,6 +5,7 @@ import {
   GENERIC_SEQUENCE,
   getCourseSequence,
   diffCoursesAgainstSequence,
+  coursesWithApExams,
 } from "../course-sequence-catalog.js";
 
 test("COURSE_SEQUENCES catalog integrity", async (t) => {
@@ -82,4 +83,19 @@ test("diffCoursesAgainstSequence", async (t) => {
     const diff = diffCoursesAgainstSequence([{ name: "ap calc ab" }], "mathematics");
     assert.ok(diff.have.some((c) => c.id === "calc_ab"));
   });
+});
+
+test("coursesWithApExams counts AP exam results as AP courses taken, without doubling a listed course", () => {
+  const courses = [{ name: "AP Biology", type: "ap", grade: "A" }, { name: "Chemistry", type: "honors", grade: "A" }];
+  const apScores = [{ exam: "Biology", score: 5 }, { exam: "Calculus BC", score: 5 }, { exam: "AP Statistics", score: 4 }, { exam: "", score: 3 }];
+  const list = coursesWithApExams(courses, apScores);
+  assert.deepEqual(list.map((c) => c.name), ["AP Biology", "Chemistry", "AP Calculus BC", "AP Statistics"]);
+  assert.equal(list[2].fromExam, true);
+  assert.equal(list[2].examScore, 5);
+  // The biology ladder no longer reports Calculus AB as a gap for a
+  // student whose Calculus BC exists only as an exam result.
+  const diff = diffCoursesAgainstSequence(list, "biology");
+  assert.ok(diff.have.some((ref) => ref.id === "calc_ab"), JSON.stringify(diff.have.map((r) => r.id)));
+  assert.ok(!diff.missing.some((ref) => ref.id === "calc_ab"));
+  assert.deepEqual(coursesWithApExams(null, null), []);
 });

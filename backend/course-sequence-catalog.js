@@ -208,6 +208,29 @@ function courseNameOf(course) {
 }
 
 /**
+ * The transcript with the AP exams the student has taken added as AP
+ * courses. A student who recorded "AP Calculus BC: 5" but never entered
+ * the course was told Calculus AB was a gap; the exam is proof the course
+ * (or its self-study) happened. An exam whose subject a listed course
+ * already names is not added twice.
+ */
+export function coursesWithApExams(courses, apScores) {
+  const list = Array.isArray(courses) ? courses.filter(Boolean) : [];
+  const taken = new Set(list.map(courseNameOf));
+  const out = [...list];
+  for (const entry of Array.isArray(apScores) ? apScores : []) {
+    const subject = String(entry?.exam || entry?.subject || entry?.name || "").trim();
+    if (!subject) continue;
+    const name = /^ap\b/i.test(subject) ? subject : `AP ${subject}`;
+    const key = courseNameOf({ name });
+    if (taken.has(key) || taken.has(courseNameOf({ name: subject }))) continue;
+    taken.add(key);
+    out.push({ name, type: "ap", grade: null, fromExam: true, examScore: Number(entry?.score) || null });
+  }
+  return out;
+}
+
+/**
  * Diff a student's transcript against the reference ladder for a bucket.
  * Pure function — no DB, no LLM. Returns:
  *   {

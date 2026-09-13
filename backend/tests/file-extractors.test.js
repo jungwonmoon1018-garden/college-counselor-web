@@ -41,17 +41,45 @@ test("extractPlainText strips BOM", async () => {
 });
 
 // ─── PDF ───
-// pdf-parse ships a webpack-bundled pdf.js v1.10.100 (2020-vintage) that
-// has a known incompatibility with Node ≥ 20's built-in --test runner:
-// every PDF parse hits a spurious "bad XRef entry" error. Outside the test
-// runner (server runtime, standalone node invocation) extraction works
-// correctly, so we gate the happy-path test behind RUN_PDF_TESTS=1 and
-// verify the code path manually when running the server.
-test("extractPDF pulls text from a valid PDF", { skip: !process.env.RUN_PDF_TESTS }, async () => {
+// The text layer is read with pdfjs-dist. pdf-parse's bundled 2020 pdf.js
+// fails with "bad XRef entry" under Node 20+ on a PDF with a classic
+// cross-reference table (this fixture, and every small PDF a student
+// exports), which is why this test used to be skipped and why production
+// answered "could not be safely processed" to those uploads.
+test("extractPDF pulls text from a valid PDF", async () => {
   const pdfBuf = fs.readFileSync(path.join(FIXTURES, "hello.pdf"));
   const out = await extractPDF(pdfBuf);
-  assert.ok(out.text.includes("Hello"));
+  assert.ok(out.text.includes("Hello"), JSON.stringify(out));
   assert.ok(typeof out.pageCount === "number");
+});
+
+// A one-page PDF written by hand with a classic xref table and a
+// non-embedded standard font — the shape a script or a tiny export
+// produces — and handed over as a small (pooled) Buffer, as the upload
+// route decodes it.
+function classicXrefPdf(line) {
+  const stream = `BT /F1 18 Tf 50 700 Td (${line}) Tj ET`;
+  const objs = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+    `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+  ];
+  let pdf = "%PDF-1.4\n";
+  const offsets = [];
+  objs.forEach((o, i) => { offsets.push(pdf.length); pdf += `${i + 1} 0 obj\n${o}\nendobj\n`; });
+  const xref = pdf.length;
+  pdf += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n` + offsets.map((o) => `${String(o).padStart(10, "0")} 00000 n \n`).join("");
+  pdf += `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  return Buffer.from(Buffer.from(pdf, "latin1").toString("base64"), "base64");
+}
+
+test("extractPDF reads a small classic-xref PDF the way the upload route receives it", async () => {
+  const out = await extractText(classicXrefPdf("Math Team - AIME Qualifier 2026. Scored 108 on the AMC 12A."), "application/pdf");
+  assert.match(out.text, /AIME Qualifier 2026/);
+  assert.equal(out.pageCount, 1);
+  assert.equal(out.kind, "pdf");
 });
 
 test("extractPDF throws ExtractionError on garbage input", async () => {

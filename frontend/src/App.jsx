@@ -1327,11 +1327,17 @@ function getDocumentTypeFromMimeType(mimeType) {
 // hard cap of 500 characters silently truncated every uploaded transcript or
 // essay, and the model — seeing a file cut off mid-line — reported it as
 // truncated and filled in the rest. Only the classifier inputs pass a small cap.
+const SENTINEL_LINE_RE = /^\s*\[(?:Attached files —|End of attached files\]|Context appendix —|End context appendix\]|Note: [^\]]*skipped)/i;
 function sanitizeInput(text, maxChars = 200_000) {
   if (!text) return "";
   // Normalize unicode homoglyphs (smart quotes, zero-width chars, lookalikes)
   let s = text.replace(/[\u200B-\u200F\u2028-\u202F\uFEFF]/g, ""); // zero-width / invisible chars
-  s = s.replace(/[\[\]{}<>]/g, "");
+  // Brackets go, except on the sentinel lines this client builds around
+  // the question ("[Attached files \u2014 \u2026]", "[End of attached files]",
+  // "[Context appendix \u2014 \u2026]", "[End context appendix]", "[Note: \u2026 skipped]"):
+  // the server strips those blocks before classifying, and with the
+  // brackets gone it classified the whole document and the calendar.
+  s = s.split("\n").map((line) => (SENTINEL_LINE_RE.test(line) ? line : line.replace(/[\[\]{}<>]/g, ""))).join("\n");
   // Broad pattern: catch "ignore/disregard/forget/override previous/prior/above/all instructions/prompts/rules"
   s = s.replace(/(ignore|disregard|forget|override|bypass|skip|drop)\s*(all\s*)?(previous|prior|above|earlier|system|original|initial)?\s*(instructions?|prompts?|rules?|directives?|guidelines?|constraints?)/gi, "[removed]");
   // Catch "you are now" / "act as" / "new instructions" prompt takeover attempts

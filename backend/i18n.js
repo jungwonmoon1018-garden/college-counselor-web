@@ -238,7 +238,7 @@ export const STRINGS = {
 
     // ─── Drift (F10) ───
     "drift.no_active_narrative": "No saved story yet \u2014 open Edit your story and save one to unlock drift detection.",
-    "drift.all_fresh": "Every activity's narrative_fit was scored against your current narrative. You're up to date.",
+    "drift.all_fresh": "Every activity's narrative fit was scored against your current narrative. You're up to date.",
     "drift.one_stale": "1 activity still reflects an older version of your story. One-click recompute from the Activities page.",
     "drift.many_stale": "{count} activities still reflect an older version of your story. Recompute them so your fit scores line up with what you just wrote.",
 

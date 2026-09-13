@@ -10,6 +10,8 @@
 // ═══════════════════════════════════════════════════════════════════════
 
 import { createRequire } from "node:module";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { inflateRawSync } from "node:zlib";
 import { createHash } from "node:crypto";
 const require = createRequire(import.meta.url);
@@ -209,8 +211,72 @@ async function loadPdfParse() {
   return _pdfParseRef;
 }
 
+// The text layer, read with pdfjs-dist (the build the CDS parser and the
+// OCR path already run in production). pdf-parse's bundled 2020 pdf.js
+// fails with "bad XRef entry" under Node 20+ on any PDF that carries a
+// classic cross-reference table — which is every small PDF a student
+// exports or a script writes — while PDFs with cross-reference streams
+// (Word, Acrobat) still parse; on production every chat PDF upload of
+// the first kind came back "could not be safely processed". Lines are
+// joined the way pdf-parse joined them (same baseline → same line), pages
+// separated by a blank line.
+let _standardFontDataUrl = null;
+function standardFontDataUrl() {
+  if (_standardFontDataUrl != null) return _standardFontDataUrl || undefined;
+  try {
+    // The 14 standard fonts a PDF may reference without embedding; pdfjs
+    // warns on every page that uses one when this is not supplied.
+    const dir = path.join(path.dirname(require.resolve("pdfjs-dist/package.json")), "standard_fonts") + path.sep;
+    _standardFontDataUrl = pathToFileURL(dir).href;
+  } catch {
+    _standardFontDataUrl = "";
+  }
+  return _standardFontDataUrl || undefined;
+}
+
+async function extractPdfTextLayer(buf) {
+  const pdfjsLib = await loadPdfJs();
+  const loadingTask = pdfjsLib.getDocument({
+    data: new Uint8Array(buf),
+    useSystemFonts: false,
+    isEvalSupported: false,
+    disableFontFace: true,
+    standardFontDataUrl: standardFontDataUrl(),
+  });
+  let pdf = null;
+  try {
+    pdf = await loadingTask.promise;
+    const pageCount = Number(pdf.numPages || 0) || 0;
+    const pages = [];
+    for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
+      const page = await pdf.getPage(pageNumber);
+      const content = await page.getTextContent();
+      let text = "";
+      let lastY = null;
+      for (const item of content.items || []) {
+        if (typeof item?.str !== "string") continue;
+        const y = Array.isArray(item.transform) ? item.transform[5] : null;
+        text += lastY != null && y !== lastY ? `\n${item.str}` : item.str;
+        lastY = y;
+      }
+      pages.push(text);
+      page.cleanup?.();
+    }
+    return { text: pages.map((p) => `\n\n${p}`).join(""), pageCount: pageCount || null, warning: null };
+  } finally {
+    try { if (pdf) await (pdf.destroy?.() ?? pdf.loadingTask?.destroy?.()); } catch { /* best-effort */ }
+  }
+}
+
 export async function extractPDF(input) {
   const buf = asBuffer(input);
+  let firstError = null;
+  try {
+    return await extractPdfTextLayer(buf);
+  } catch (err) {
+    firstError = err;
+  }
+  // pdf-parse stays as the second reader for a file pdfjs rejects.
   try {
     const pdfParse = await loadPdfParse();
     const result = await pdfParse(buf);
@@ -220,7 +286,8 @@ export async function extractPDF(input) {
       warning: null,
     };
   } catch (err) {
-    throw new ExtractionError("pdf_parse_failed", `PDF extraction failed: ${err.message}`, err);
+    const cause = firstError || err;
+    throw new ExtractionError("pdf_parse_failed", `PDF extraction failed: ${cause.message}`, cause);
   }
 }
 
