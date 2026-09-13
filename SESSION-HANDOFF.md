@@ -371,7 +371,14 @@ nothing from that account is recorded here.
   tier `tier_4_foundational` (dedication and fit under the floors on that
   thin record — the rule, not a fault); `/api/ec/spike` (engine `llm`,
   10 s) returned rank scores 0.271 and 0.219, on the 0–1 scale. Account
-  deleted (200).
+  deleted (200). Then, at the user's request, their own tab reloaded onto
+  `main-BGY9a-V4.js` and was signed in by the user: the drift banner was
+  gone; the Course plan read "AP exam 5 · concepts solid (chat read
+  0.43)" on AP Biology, Chemistry and Statistics, listed Calculus AB
+  under "On your transcript" (from the Calculus BC exam) with no gap
+  section, and "admit ~9.2%" / "admit ~8%" on the verified lines; the
+  Spike Finder's cards read "Developing · Lead score 0.54" for the review
+  and "Foundational" at 0.30 and 0.21 for the next two.
 - **After `0caa68e` (bundle `main-BGY9a-V4.js`, 14:16 UTC 2026-09-13), in
   the user's own tab (previous bundle, server current):** a
   `POST /api/ec/strength/recompute` from the page recomputed 6 activities;
@@ -498,7 +505,11 @@ nothing from that account is recorded here.
   The user's own account was recomputed on 2026-09-13 from the page.
 - **The Spike Finder panel fetches on mount and when the target-school
   list changes,** so a recompute made while it is open shows only after
-  ✕ and reopen (or a reload).
+  ✕ and reopen (or a reload). Each open also fires the request twice —
+  once bare, once with `targetSchools` once the list arrives — and each
+  call runs the model re-rank, so the busy dot outlives the first render
+  and every open costs two re-ranks; fetch once the targets are known, or
+  skip the bare call when a target list exists.
 - **Tool panels open inline in the chat column** (Course plan, Spike
   Finder, story editor) with a ✕ but no keyboard close; Escape did not
   close the story editor.
