@@ -8,12 +8,13 @@ changed recently and why, what was verified live, and what is open.
 
 ## Where things stand (2026-09-13)
 
-- **Deployed:** `main` at `0caa68e`, live at
-  https://college-counselor-web.onrender.com. Confirmed by CI run
-  34762088537 (success) and `/` serving `assets/main-BGY9a-V4.js` with
-  `/api/health` 200 at 14:16 UTC on 2026-09-13 (earlier that day
-  `58b28fb`, CI run 34760878050, bundle `main-B9Hm9u2i.js`; the
-  2026-09-11 builds:
+- **Deployed:** `main` at `4b1a047` (the last code commit is `3c5f10b`,
+  backend-only), live at https://college-counselor-web.onrender.com.
+  Confirmed by CI run 34762384550 (success) and the redeploy blip
+  (`/api/health` 502 from 14:21:55, 200 again at 14:22:19 UTC on
+  2026-09-13); `/` serves `assets/main-BGY9a-V4.js` from `0caa68e` (CI run
+  34762088537). Earlier that day `58b28fb`, CI run 34760878050, bundle
+  `main-B9Hm9u2i.js`; the 2026-09-11 builds:
   `95f5116` CI run 34603951260, `651f7ac` CI run 34602871341, `6a29565`
   bundle `main-CEBZ2mnd.js`, `fa6c5b1` bundle `main-bsyCx_FV.js`). CI runs
   backend lint, syntax, tests and `npm audit --audit-level=high`, then
@@ -363,6 +364,14 @@ each deleted afterwards (200), except the browser session of 2026-09-13,
 which the user signed into with their own account in their own Chrome;
 nothing from that account is recorded here.
 
+- **After `3c5f10b` (backend-only; blip 14:22 UTC 2026-09-13):** a fresh
+  account with a first-author review ("manuscript posted as a preprint on
+  bioRxiv", 4 h/week, one year, no saved story) and a math team:
+  `/api/ec/strength` read the review at achievement 0.47, prestige 0,
+  tier `tier_4_foundational` (dedication and fit under the floors on that
+  thin record — the rule, not a fault); `/api/ec/spike` (engine `llm`,
+  10 s) returned rank scores 0.271 and 0.219, on the 0–1 scale. Account
+  deleted (200).
 - **After `0caa68e` (bundle `main-BGY9a-V4.js`, 14:16 UTC 2026-09-13), in
   the user's own tab (previous bundle, server current):** a
   `POST /api/ec/strength/recompute` from the page recomputed 6 activities;
