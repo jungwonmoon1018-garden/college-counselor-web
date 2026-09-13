@@ -69,6 +69,17 @@ export const PRESTIGE_SOURCES = Object.freeze({
   RESEARCH_FAILED: "research_failed",
 });
 
+// Research and creative output read by the achievement factor. Matched
+// against the normalized description, awards and attachment text.
+const RESEARCH_OUTPUT = Object.freeze({
+  published: ["published", "publication", "peer-reviewed", "peer reviewed", "journal article", "in press", "patent", "doi.org"],
+  shared: ["preprint", "arxiv", "biorxiv", "medrxiv", "manuscript", "systematic review", "meta-analysis", "meta analysis", "poster", "presented at", "conference", "symposium", "white paper", "technical report"],
+  authorship: ["first author", "first-author", "lead author", "co-author", "coauthor", "corresponding author"],
+});
+// Bumped when the achievement rule changes, so cached factor scores from
+// the previous rule are not served (the cache is keyed on its inputs).
+const ACHIEVEMENT_RULES_VERSION = 2;
+
 export const TIERS = Object.freeze({
   TIER_1: "tier_1_distinctive",
   TIER_2: "tier_2_strong",
@@ -366,6 +377,7 @@ export async function vectorizeECStrength({
       combinedHash,
       competition,
       awardsCount: Array.isArray(ec.awards) ? ec.awards.length : 0,
+      rules: ACHIEVEMENT_RULES_VERSION,
     },
     compute: async () => {
       const notes = [];
@@ -384,6 +396,22 @@ export async function vectorizeECStrength({
           notes.push(
             `Competition: ${competition.activityId} level ${competition.levelIndex} (score ${round2(compScore)})`,
           );
+        }
+      }
+
+      // Research and creative output is achievement even when no contest
+      // recognized it: a publication, preprint, manuscript, poster, talk
+      // or patent is an outcome. A first-author systematic review read
+      // 0.00 here, which held the activity at "Foundational" whatever
+      // else it carried.
+      const published = countHits(combined, RESEARCH_OUTPUT.published) > 0;
+      const shared = published || countHits(combined, RESEARCH_OUTPUT.shared) > 0;
+      const authored = countHits(combined, RESEARCH_OUTPUT.authorship) > 0;
+      if (shared) {
+        const outputScore = (published ? 0.5 : 0.35) + (authored ? 0.12 : 0);
+        if (outputScore > score) {
+          score = outputScore;
+          notes.push(`${published ? "Published work" : "Shared research output"}${authored ? " (author credit)" : ""}`);
         }
       }
 
@@ -885,14 +913,22 @@ export function computeTierLabel(v) {
   }
 
   const countAbove = (thr) => arr.filter((x) => x >= thr).length;
+  // Prestige comes from the competition catalog, so research, a job, a
+  // founded project or a portfolio score 0 there for good. Tiers 2 and 3
+  // therefore take achievement in prestige's place for their floors (a
+  // first-author review with leadership 0.71 and fit 1.0 used to stay
+  // "Foundational" on prestige alone); tier 1 still needs prestige.
+  const floors = [ded, ach, lea, spike, fit];
+  const standing = Math.max(pre, ach);
 
-  // tier_2: at least 3 of 5 ≥ 0.60 AND all ≥ 0.40 AND prestige ≥ 0.40.
-  if (countAbove(0.6) >= 3 && arr.every((x) => x >= 0.35) && pre >= 0.35 && spike >= 0.35) {
+  // tier_2: at least 3 of 6 ≥ 0.60, the non-prestige factors ≥ 0.35, and
+  // prestige or achievement ≥ 0.35.
+  if (countAbove(0.6) >= 3 && floors.every((x) => x >= 0.35) && standing >= 0.35 && spike >= 0.35) {
     return TIERS.TIER_2;
   }
 
-  // tier_3: at least 2 of 5 ≥ 0.50 AND no factor < 0.20.
-  if (countAbove(0.5) >= 2 && arr.every((x) => x >= 0.2) && Math.max(spike, fit, ach) >= 0.45) {
+  // tier_3: at least 2 of 6 ≥ 0.50 AND no non-prestige factor < 0.20.
+  if (countAbove(0.5) >= 2 && floors.every((x) => x >= 0.2) && Math.max(spike, fit, ach) >= 0.45) {
     return TIERS.TIER_3;
   }
 
@@ -1220,7 +1256,13 @@ export function toPublicShape(row) {
       major_spike: row.major_spike ?? 0,
       narrative_fit: row.narrative_fit,
     },
-    tierLabel: row.tier_label,
+    // The tier is derived from the stored factors at read time, so a
+    // change to the tier rule shows at once instead of waiting for the
+    // next recompute to rewrite `tier_label`.
+    tierLabel: computeTierLabel({
+      dedication: row.dedication, achievement: row.achievement, leadership: row.leadership,
+      prestige: row.prestige ?? 0, major_spike: row.major_spike ?? 0, narrative_fit: row.narrative_fit,
+    }) || row.tier_label,
     prestigeSource: row.prestige_source || "legacy",
     lifetimeHours: row.lifetime_hours,
     hoursPerWeek: row.hours_per_week,

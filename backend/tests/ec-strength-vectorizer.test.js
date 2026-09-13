@@ -335,13 +335,31 @@ test("tier_2_strong fires when three ≥ 0.6, all ≥ 0.4, and prestige ≥ 0.4"
   );
 });
 
-test("tier_2 does NOT fire when prestige < 0.4 (floor)", () => {
-  // Three factors ≥ 0.6, but prestige is 0.2 — drops to tier_3 at best.
+test("tier_2 does NOT fire when neither prestige nor achievement reaches the floor", () => {
+  // Three factors ≥ 0.6, but prestige 0.2 and achievement 0.3 — tier_3 at best.
   const tier = computeTierLabel({
-    dedication: 0.65, achievement: 0.7, leadership: 0.6,
-    prestige: 0.2, narrative_fit: 0.45,
+    dedication: 0.65, achievement: 0.3, leadership: 0.6,
+    prestige: 0.2, narrative_fit: 0.65,
   });
   assert.notEqual(tier, TIERS.TIER_2);
+});
+
+test("achievement stands in for catalog prestige: research with no competition can read Strong or Developing", () => {
+  // Prestige comes from the competition catalog, so a first-author review
+  // scores 0 there; it used to be "Foundational" on that alone.
+  assert.equal(
+    computeTierLabel({ dedication: 0.65, achievement: 0.7, leadership: 0.6, prestige: 0.2, narrative_fit: 0.45 }),
+    TIERS.TIER_2,
+  );
+  assert.equal(
+    computeTierLabel({ dedication: 0.24, achievement: 0.62, leadership: 0.71, prestige: 0, major_spike: 0.8, narrative_fit: 1.0 }),
+    TIERS.TIER_3,
+  );
+  // With no achievement either, prestige 0 still reads Foundational.
+  assert.equal(
+    computeTierLabel({ dedication: 0.24, achievement: 0, leadership: 0.71, prestige: 0, major_spike: 0.8, narrative_fit: 1.0 }),
+    TIERS.TIER_4,
+  );
 });
 
 test("tier_3_developing fires when two ≥ 0.5 and all ≥ 0.2", () => {
@@ -642,4 +660,25 @@ test("without a database the catalog is still consulted and an unmatched activit
   const club = await vectorizeECStrength({ ec: { name: "Generic Club", hoursPerWeek: 2, weeksPerYear: 30, yearsOfParticipation: 1 } });
   assert.equal(club.prestige_source, "unavailable");
   assert.match(club.reasoning.prestige.rationale, /Nothing in the reviewed benchmarks/);
+});
+
+test("research output is achievement: a first-author systematic review no longer reads 0", async () => {
+  const review = await vectorizeECStrength({
+    ec: {
+      name: "BBB nanoparticle research review",
+      role: "First author",
+      description: "First-author systematic review of blood-brain barrier nanoparticle papers; built a 0-0.5-1 rubric, posted the manuscript as a preprint on bioRxiv.",
+      hoursPerWeek: 4, weeksPerYear: 30, yearsOfParticipation: 1,
+    },
+  });
+  assert.ok(review.factors.achievement >= 0.45, `expected >= 0.45, got ${review.factors.achievement}`);
+  assert.ok(review.factors.achievement < 0.7, `a preprint is not an international award: ${review.factors.achievement}`);
+  const published = await vectorizeECStrength({
+    ec: { name: "Journal paper", description: "Co-author on a peer-reviewed journal article published in 2026.", hoursPerWeek: 3, weeksPerYear: 30, yearsOfParticipation: 1 },
+  });
+  assert.ok(published.factors.achievement >= 0.6, `published + author credit: ${published.factors.achievement}`);
+  const club = await vectorizeECStrength({
+    ec: { name: "Chess club", description: "Weekly games with friends after school.", hoursPerWeek: 2, weeksPerYear: 30, yearsOfParticipation: 1 },
+  });
+  assert.ok(club.factors.achievement < 0.2, `no output, no achievement: ${club.factors.achievement}`);
 });

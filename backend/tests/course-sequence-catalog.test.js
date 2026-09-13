@@ -6,6 +6,8 @@ import {
   getCourseSequence,
   diffCoursesAgainstSequence,
   coursesWithApExams,
+  apExamScoresBySubject,
+  conceptSignalFor,
 } from "../course-sequence-catalog.js";
 
 test("COURSE_SEQUENCES catalog integrity", async (t) => {
@@ -98,4 +100,33 @@ test("coursesWithApExams counts AP exam results as AP courses taken, without dou
   assert.ok(diff.have.some((ref) => ref.id === "calc_ab"), JSON.stringify(diff.have.map((r) => r.id)));
   assert.ok(!diff.missing.some((ref) => ref.id === "calc_ab"));
   assert.deepEqual(coursesWithApExams(null, null), []);
+});
+
+test("apExamScoresBySubject maps exam names to catalog subjects, keeping the best score", () => {
+  const map = apExamScoresBySubject([
+    { exam: "Calculus BC", score: 5 }, { exam: "Biology", score: 4 }, { exam: "AP Biology", score: 3 },
+    { exam: "Physics C: Mechanics", score: 5 }, { exam: "Computer Science A", score: 4 }, { exam: "Underwater Basket Weaving", score: 5 }, { exam: "Statistics", score: "pending" },
+  ]);
+  assert.equal(map.get("AP_CALCULUS_BC"), 5);
+  assert.equal(map.get("AP_BIOLOGY"), 4);
+  assert.equal(map.get("AP_PHYSICS_C_MECHANICS"), 5);
+  assert.equal(map.get("AP_COMPUTER_SCIENCE_A"), 4);
+  assert.equal(map.has("AP_STATISTICS"), false);
+  assert.equal(map.size, 4);
+});
+
+test("conceptSignalFor lets an AP exam score outrank the chat-derived concept read", () => {
+  // A 5 is solid whatever the chat read said; the read is still carried.
+  assert.deepEqual(conceptSignalFor({ apSubject: "AP_BIOLOGY", subjectVector: 0.43, examScore: 5 }),
+    { apSubject: "AP_BIOLOGY", subjectVector: 0.43, examScore: 5, basis: "exam", status: "solid" });
+  assert.equal(conceptSignalFor({ apSubject: "AP_BIOLOGY", examScore: 4 }).status, "solid");
+  // A 3 needs the chat read to agree; a 2 is developing.
+  assert.equal(conceptSignalFor({ apSubject: "AP_BIOLOGY", subjectVector: 0.6, examScore: 3 }).status, "solid");
+  assert.equal(conceptSignalFor({ apSubject: "AP_BIOLOGY", subjectVector: 0.3, examScore: 3 }).status, "developing");
+  assert.equal(conceptSignalFor({ apSubject: "AP_BIOLOGY", examScore: 2 }).status, "developing");
+  // No exam: the chat read decides as before; neither: not yet demonstrated.
+  assert.deepEqual(conceptSignalFor({ apSubject: "AP_BIOLOGY", subjectVector: 0.43 }), { apSubject: "AP_BIOLOGY", subjectVector: 0.43, basis: "chat", status: "developing" });
+  assert.equal(conceptSignalFor({ apSubject: "AP_BIOLOGY", subjectVector: 0.7 }).status, "solid");
+  assert.deepEqual(conceptSignalFor({ apSubject: "AP_BIOLOGY" }), { apSubject: "AP_BIOLOGY", status: "not_yet_demonstrated" });
+  assert.equal(conceptSignalFor({ apSubject: null }), null);
 });

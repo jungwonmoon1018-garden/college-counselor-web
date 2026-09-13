@@ -203,8 +203,62 @@ export function getCourseSequence(bucket) {
   return { bucket: bucket || null, isGeneric: !bucket || !COURSE_SEQUENCES[bucket], ...seq };
 }
 
+import { detectAPSubject } from "./ap-concept-catalog.js";
+
 function courseNameOf(course) {
   return String(course?.name || course?.title || course || "").toLowerCase();
+}
+
+/**
+ * AP exam scores by catalog subject id ("AP_CALCULUS_BC" → 5), read from
+ * the profile's exam names with the concept catalog's subject detector.
+ * The highest score wins when a subject was taken twice.
+ */
+export function apExamScoresBySubject(apScores) {
+  const out = new Map();
+  for (const entry of Array.isArray(apScores) ? apScores : []) {
+    const name = String(entry?.exam || entry?.subject || entry?.name || "").trim();
+    const score = Number(entry?.score);
+    if (!name || !Number.isFinite(score) || score < 1 || score > 5) continue;
+    // "Physics C: Mechanics" — the detector's patterns cross whitespace only.
+    const plain = name.replace(/[:\-–—/]+/g, " ").replace(/\s+/g, " ").trim();
+    const ids = detectAPSubject(/^ap\b/i.test(plain) ? plain : `AP ${plain}`) || [];
+    // "Calculus BC" also matches the AB pattern's "calc" alternatives in
+    // some catalogs; keep the most specific (longest) id when several fire.
+    const id = ids.slice().sort((a, b) => b.length - a.length)[0];
+    if (!id) continue;
+    if (!out.has(id) || out.get(id) < score) out.set(id, score);
+  }
+  return out;
+}
+
+/**
+ * The concept signal shown beside a ladder course. The AP concept vector
+ * is read from what the student wrote in chat, so it says nothing about a
+ * subject the student never discussed; an AP exam score is the College
+ * Board's own read of the same concepts and outranks it: a 4 or 5 is
+ * "solid" whatever the chat read says, a 3 is solid only when the chat
+ * read agrees, a 1 or 2 is "developing". Without an exam the chat read
+ * decides as before, and with neither the signal is
+ * "not_yet_demonstrated". Before this, "concept mastery developing (0.43)"
+ * sat beside a subject the student had scored 5 on.
+ */
+export function conceptSignalFor({ apSubject, subjectVector = null, examScore = null, threshold = 0.45 }) {
+  if (!apSubject) return null;
+  const vector = Number.isFinite(Number(subjectVector)) && subjectVector != null ? Math.round(Number(subjectVector) * 100) / 100 : null;
+  const exam = Number.isFinite(Number(examScore)) && examScore != null ? Number(examScore) : null;
+  const signal = { apSubject };
+  if (vector != null) signal.subjectVector = vector;
+  if (exam != null) signal.examScore = exam;
+  if (exam != null) {
+    signal.basis = "exam";
+    signal.status = exam >= 4 ? "solid" : exam === 3 ? (vector != null && vector >= threshold ? "solid" : "developing") : "developing";
+    return signal;
+  }
+  if (vector == null) return { ...signal, status: "not_yet_demonstrated" };
+  signal.basis = "chat";
+  signal.status = vector < threshold ? "developing" : "solid";
+  return signal;
 }
 
 /**

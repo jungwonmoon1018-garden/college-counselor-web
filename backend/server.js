@@ -214,6 +214,8 @@ import {
   getCourseSequence,
   diffCoursesAgainstSequence,
   coursesWithApExams,
+  apExamScoresBySubject,
+  conceptSignalFor,
 } from "./course-sequence-catalog.js";
 import { loadOrchestrationCatalog, buildOrchestration, isReasonableModelId, redactPayloadForModel, buildSystemPrompt } from "./orchestration-engine.js";
 import { t, resolveLocale, localizeFriendlyLabels } from "./i18n.js";
@@ -6943,21 +6945,20 @@ app.get("/api/courses/recommendations", studentLimiter, requireStudentAuth, asyn
       console.warn("[courses/recommendations] AP vectors fetch failed:", err.message);
     }
 
+    // The AP exam score, when the student has one for the subject,
+    // outranks the chat-derived concept vector (course-sequence-catalog.js
+    // conceptSignalFor).
+    const examBySubject = apExamScoresBySubject(safeParseJSON(snap.ap_scores_json, []));
     const attachConceptSignal = (ref) => {
       if (!ref.apSubject) return { ...ref };
       const vec = subjectVectorById.get(ref.apSubject);
-      if (!vec || vec.subject_vector == null) {
-        return { ...ref, conceptSignal: { apSubject: ref.apSubject, status: "not_yet_demonstrated" } };
-      }
-      const mastery = Number(vec.subject_vector);
-      return {
-        ...ref,
-        conceptSignal: {
-          apSubject: ref.apSubject,
-          subjectVector: Math.round(mastery * 100) / 100,
-          status: mastery < COURSE_CONCEPT_GAP_THRESHOLD ? "developing" : "solid",
-        },
-      };
+      const conceptSignal = conceptSignalFor({
+        apSubject: ref.apSubject,
+        subjectVector: vec && vec.subject_vector != null ? Number(vec.subject_vector) : null,
+        examScore: examBySubject.has(ref.apSubject) ? examBySubject.get(ref.apSubject) : null,
+        threshold: COURSE_CONCEPT_GAP_THRESHOLD,
+      });
+      return { ...ref, conceptSignal };
     };
 
     // ── Three trust lanes ──

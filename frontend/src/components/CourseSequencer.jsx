@@ -20,15 +20,20 @@ const LEVEL_COLORS = {
   recommended: "#f6ad55",
 };
 
+// The concept read beside a ladder course. With an AP exam on file the
+// exam leads ("AP exam 5 · concepts solid"); the chat-derived read, when
+// there is one, follows in parentheses so a 0.43 never contradicts a 5.
 function ConceptTag({ signal }) {
-  if (!signal) return null;
-  if (signal.status === "developing") {
-    return <span style={{ fontSize: 10, color: "#f6ad55", marginLeft: 8 }}>concept mastery developing ({Number(signal.subjectVector).toFixed(2)})</span>;
-  }
-  if (signal.status === "solid") {
-    return <span style={{ fontSize: 10, color: "#68d391", marginLeft: 8 }}>concepts solid ({Number(signal.subjectVector).toFixed(2)})</span>;
-  }
-  return null;
+  if (!signal || (signal.status !== "developing" && signal.status !== "solid")) return null;
+  const solid = signal.status === "solid";
+  const color = solid ? "#68d391" : "#f6ad55";
+  const hasExam = signal.examScore != null;
+  const hasRead = signal.subjectVector != null;
+  const read = hasRead ? `${hasExam ? "chat read" : ""} ${Number(signal.subjectVector).toFixed(2)}`.trim() : "";
+  const text = hasExam
+    ? `AP exam ${signal.examScore} · ${solid ? "concepts solid" : "concepts developing"}${read ? ` (${read})` : ""}`
+    : `${solid ? "concepts solid" : "concept mastery developing"}${read ? ` (${read})` : ""}`;
+  return <span style={{ fontSize: 10, color, marginLeft: 8 }}>{text}</span>;
 }
 
 function CourseRow({ c, dim }) {
