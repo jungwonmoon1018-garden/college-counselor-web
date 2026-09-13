@@ -8,22 +8,23 @@ changed recently and why, what was verified live, and what is open.
 
 ## Where things stand (2026-09-13)
 
-- **Deployed:** `main` at `4b1a047` (the last code commit is `3c5f10b`,
-  backend-only), live at https://college-counselor-web.onrender.com.
-  Confirmed by CI run 34762384550 (success) and the redeploy blip
-  (`/api/health` 502 from 14:21:55, 200 again at 14:22:19 UTC on
-  2026-09-13); `/` serves `assets/main-BGY9a-V4.js` from `0caa68e` (CI run
-  34762088537). Earlier that day `58b28fb`, CI run 34760878050, bundle
-  `main-B9Hm9u2i.js`; the 2026-09-11 builds:
+- **Deployed:** `main` at `9ec5edc`, live at
+  https://college-counselor-web.onrender.com. Confirmed by CI run
+  34763205856 (success) and `/` serving `assets/main-Bj7IFpMZ.js` with
+  `/api/health` 200 at 14:39 UTC on 2026-09-13. Earlier that day:
+  `3c5f10b` (backend-only, CI run 34762384550, blip 14:22 UTC), `0caa68e`
+  (bundle `main-BGY9a-V4.js`, CI run 34762088537), `58b28fb` (bundle
+  `main-B9Hm9u2i.js`, CI run 34760878050); the 2026-09-11 builds:
   `95f5116` CI run 34603951260, `651f7ac` CI run 34602871341, `6a29565`
   bundle `main-CEBZ2mnd.js`, `fa6c5b1` bundle `main-bsyCx_FV.js`). CI runs
   backend lint, syntax, tests and `npm audit --audit-level=high`, then
   frontend tests and build; Render redeploys after it passes, with a few
   seconds of 502s.
-- **Tests (run after the last code edit, 2026-09-13 ~14:05 UTC):** backend
-  `npm test` 718 tests, 714 pass, 4 skipped, 0 fail; `npm run lint` 0
-  errors, 70 warnings (CI cap 500); frontend `npx vitest run` 14 files,
-  46 tests; `npm run build` clean.
+- **Tests (run after the last code edit, 2026-09-13 ~14:33 UTC):** backend
+  `npm test` 718 tests, 714 pass, 4 skipped, 0 fail (last full run after
+  `3c5f10b`'s edits; `9ec5edc` touched the frontend only, and CI ran both
+  suites green); `npm run lint` 0 errors, 70 warnings (CI cap 500);
+  frontend `npx vitest run` 15 files, 47 tests; `npm run build` clean.
 - **Working tree:** 37 phantom CRLF-only diffs (never stage them; a file
   whose committed blob still carries CRLF shows a whole-file diff the first
   time it has to change — `git diff --cached --ignore-cr-at-eol --stat`
@@ -59,7 +60,26 @@ changed recently and why, what was verified live, and what is open.
 The user's asks on 2026-09-13, verbatim, in order: "The chat file uploads
 do not work. Also, check for additional UI defects by playing with it.
 Use claude in chrome to do that." — "Also fix the Spike Finder tier label
-and the concept mastery display."
+and the concept mastery display." — "Reload the tab and check Spike
+Finder and Course plan" — "Fix the double fetch in Spike Finder too".
+
+**Spike Finder fetches once per open, and a tool button brings its open
+card into view (2026-09-13)** — `9ec5edc`. Opening Spike Finder cost two
+model re-ranks: the parent's target-school list loads from localStorage
+after sign-in, so a panel mounted before it arrived fetched bare and
+again with the list, while the server had already resolved the saved
+schools for the bare call (`resolveTargetSchools`) and reported them as
+`targetSchools`. `SpikeFinder.jsx` keeps `tunedForRef` (the list the last
+read was tuned for, as the server reported it), skips the refetch when
+the list that arrives is that one, aborts a superseded request (the
+`api.js spike` helper takes a `signal`), and refetches when the list
+differs. Separately, each click on a tool's button appended another card
+and each card fetched — three clicks were three Spike Finder panels and
+three re-ranks; `openTool` in `App.jsx` now scrolls an open card of that
+tool into view (the card wrapper carries `id={m.id}`) instead of adding
+one, reading the open cards through `messagesRef`. `SpikeFinder.test.jsx`
+pins the single fetch and the refetch on a changed list; the tool-button
+behaviour has no test (it lives in `App.jsx`).
 
 **Research output is achievement, the tier no longer needs contest
 prestige, and an AP exam score leads the concept read (2026-09-13)** —
@@ -364,6 +384,14 @@ each deleted afterwards (200), except the browser session of 2026-09-13,
 which the user signed into with their own account in their own Chrome;
 nothing from that account is recorded here.
 
+- **After `9ec5edc` (bundle `main-Bj7IFpMZ.js`, 14:39 UTC 2026-09-13), in
+  the user's own tab, reloaded and signed in by the user:** the network
+  log was cleared, the Spike Finder button was clicked twice three
+  seconds apart, and the tab held one Spike Finder card and one request
+  to `/api/ec/spike`, carrying the five target schools, with no bare call;
+  it answered in 25 s (the three-panel session saw 94 s and 120 s) and
+  the cards read "Developing · Lead score 0.54" and "Foundational" at
+  0.30 and 0.21.
 - **After `3c5f10b` (backend-only; blip 14:22 UTC 2026-09-13):** a fresh
   account with a first-author review ("manuscript posted as a preprint on
   bioRxiv", 4 h/week, one year, no saved story) and a math team:
@@ -505,11 +533,13 @@ nothing from that account is recorded here.
   The user's own account was recomputed on 2026-09-13 from the page.
 - **The Spike Finder panel fetches on mount and when the target-school
   list changes,** so a recompute made while it is open shows only after
-  ✕ and reopen (or a reload). Each open also fires the request twice —
-  once bare, once with `targetSchools` once the list arrives — and each
-  call runs the model re-rank, so the busy dot outlives the first render
-  and every open costs two re-ranks; fetch once the targets are known, or
-  skip the bare call when a target list exists.
+  ✕ and reopen (or a reload). The spike route's model re-rank took 94 s
+  and 120 s (the client's cap) on the user's account with five targets and
+  three panels open at once; with one panel per open (`9ec5edc`) that
+  should ease, but the re-rank's own latency was not looked into.
+  `CourseSequencer` and `CandidateRanker` still refetch on every
+  target-list change, including the first load after sign-in; the same
+  `tunedForRef` pattern would apply if their calls turn out to cost.
 - **Tool panels open inline in the chat column** (Course plan, Spike
   Finder, story editor) with a ✕ but no keyboard close; Escape did not
   close the story editor.
