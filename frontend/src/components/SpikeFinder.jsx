@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ec as ecApi, NoNarrativeError } from "../api.js";
 import { t } from "../i18n.js";
 import FactorVector5 from "./FactorVector5.jsx";
@@ -72,13 +72,25 @@ export default function SpikeFinder({ locale = "en-US", onWriteNarrative, target
   const [showSupporting, setShowSupporting] = useState(false);
 
   const targetsKey = (targetSchools || []).join("|");
+  // The read the last fetch was tuned for, as the server reports it. The
+  // parent's target list loads after sign-in, so a panel mounted before it
+  // arrived fetched bare and then again with the list — two model re-ranks
+  // for one open, and a busy dot that outlived the first render. The
+  // server resolves the saved schools itself when none are sent, so when
+  // its answer already names the list that just arrived, nothing is
+  // fetched again; a list that differs (the student edited targets) is.
+  const tunedForRef = useRef(null);
   useEffect(() => {
+    if (tunedForRef.current != null && tunedForRef.current === targetsKey) return undefined;
     let alive = true;
+    const ctrl = new AbortController();
     (async () => {
       setBusy(true); setErr(""); setNoNarrative("");
       try {
-        const r = await ecApi.spike(targetSchools);
-        if (alive) setData(r);
+        const r = await ecApi.spike(targetSchools, { signal: ctrl.signal });
+        if (!alive) return;
+        tunedForRef.current = Array.isArray(r?.targetSchools) ? r.targetSchools.join("|") : targetsKey;
+        setData(r);
       } catch (e) {
         if (!alive) return;
         if (e instanceof NoNarrativeError) setNoNarrative(e.friendlyMessage);
@@ -87,7 +99,9 @@ export default function SpikeFinder({ locale = "en-US", onWriteNarrative, target
         if (alive) setBusy(false);
       }
     })();
-    return () => { alive = false; };
+    // A superseded request stops being waited for (the abort reaches the
+    // fetch; the server finishes its own work either way).
+    return () => { alive = false; ctrl.abort(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetsKey]);
 

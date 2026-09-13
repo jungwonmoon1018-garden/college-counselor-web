@@ -179,11 +179,11 @@ export const ec = {
     return ccFetch("/api/ec/evidence/from-chat", { method: "POST", body: {}, timeoutMs: 120_000 });
   },
   // Spike Finder — which 2-3 ECs should lead the application + wellbeing read.
-  async spike(targetSchools) {
+  async spike(targetSchools, { signal } = {}) {
     const qs = (Array.isArray(targetSchools) && targetSchools.length)
       ? `?targetSchools=${encodeURIComponent(targetSchools.join(","))}`
       : "";
-    return ccFetch(`/api/ec/spike${qs}`, { method: "GET", timeoutMs: 120_000 });
+    return ccFetch(`/api/ec/spike${qs}`, { method: "GET", timeoutMs: 120_000, signal });
   },
   // Auto-generate grounded EC ideas from the student's full profile,
   // optionally tailored to specific target universities.

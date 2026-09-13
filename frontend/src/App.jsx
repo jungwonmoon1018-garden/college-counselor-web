@@ -3349,7 +3349,18 @@ export default function App() {
   // the model) and persistTurn() never stores them (no backend round-trip).
   // Switching threads clears them, which is the intended ephemeral behavior.
   const toolSeq = useRef(0);
+  // The open tool cards, for openTool: a second click on a tool's button
+  // used to append a second card, and each card fetched (Spike Finder's
+  // fetch is a model re-rank), so three clicks meant three panels and
+  // three re-ranks. An open card is brought into view instead.
+  const messagesRef = useRef(messages);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
   const openTool = useCallback((toolName) => {
+    const existing = (messagesRef.current || []).find((m) => m?.role === "tool" && m.tool === toolName && m.id);
+    if (existing) {
+      setTimeout(() => { try { document.getElementById(existing.id)?.scrollIntoView?.({ behavior: "smooth", block: "start" }); } catch { /* ignore */ } }, 0);
+      return;
+    }
     toolSeq.current += 1;
     const id = `tool-${toolName}-${toolSeq.current}`;
     setMessages(prev => [...prev, { role: "tool", tool: toolName, id }]);
@@ -5977,7 +5988,7 @@ export default function App() {
                 transcript_import: "transcript.title",
               }[m.tool] || "chat.modal.close";
               return (
-                <div key={m.id||i} style={{marginBottom:14}}>
+                <div key={m.id||i} id={m.id||undefined} style={{marginBottom:14}}>
                   <div style={{
                     background:"#101522", border:"1px solid rgba(255,255,255,0.08)",
                     borderRadius:14, padding:18, position:"relative",
