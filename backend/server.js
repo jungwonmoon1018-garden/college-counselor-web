@@ -6102,7 +6102,9 @@ app.get("/api/ec/spike", studentLimiter, requireStudentAuth, async (req, res) =>
         const tierWeight = SPIKE_TIER_WEIGHT[v.tierLabel] ?? 1;
         const spike = Number(v.factors?.major_spike ?? 0);
         const fit = Number(v.factors?.narrative_fit ?? 0);
-        const rankScore = tierWeight * 0.5 + spike * 0.35 + fit * 0.15;
+        // Scaled to 0–1 (the tier weight alone runs to 4, so the raw
+        // composite topped out at 2.5 and the card showed "Lead score 1.34").
+        const rankScore = (tierWeight * 0.5 + spike * 0.35 + fit * 0.15) / (4 * 0.5 + 0.35 + 0.15);
         return { ...enriched, rankScore: Math.round(rankScore * 1000) / 1000 };
       })
       .sort((a, b) => b.rankScore - a.rankScore);
