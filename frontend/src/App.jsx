@@ -3920,22 +3920,33 @@ export default function App() {
   // target-schools list changes (or on entering chat). "Redone for every edit
   // to target schools." Best-effort; failures leave today-only awareness.
   const calTargetsKey = targetSchools.join("|");
+  // The list the last calendar read was tuned for, as the server reports
+  // it. The target list loads from storage after sign-in, so the first
+  // read went out bare and a second followed when the list arrived; the
+  // server resolves the saved schools itself when none are sent, so when
+  // its answer already names the list, nothing is fetched again.
+  const calendarTunedForRef = useRef(null);
   useEffect(() => {
     if (screen !== S.CHAT || !user) return;
+    if (calendarTunedForRef.current != null && calendarTunedForRef.current === calTargetsKey) return;
     let alive = true;
+    const ctrl = new AbortController();
     (async () => {
       try {
         const r = await authedFetch("/api/calendar/context", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ targetSchools }),
+          signal: ctrl.signal,
         });
         if (!r.ok) return;
         const body = await r.json();
-        if (alive) setCalendarCtx(body);
-      } catch (err) { console.warn("[CALENDAR] fetch failed:", err?.message); }
+        if (!alive) return;
+        calendarTunedForRef.current = Array.isArray(body?.targetSchools) ? body.targetSchools.join("|") : calTargetsKey;
+        setCalendarCtx(body);
+      } catch (err) { if (alive) console.warn("[CALENDAR] fetch failed:", err?.message); }
     })();
-    return () => { alive = false; };
+    return () => { alive = false; ctrl.abort(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [calTargetsKey, screen, user?.email]);
 

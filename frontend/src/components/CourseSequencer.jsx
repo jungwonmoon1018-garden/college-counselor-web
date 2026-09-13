@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { courses as coursesApi } from "../api.js";
 import { t } from "../i18n.js";
 
@@ -58,20 +58,30 @@ export default function CourseSequencer({ locale = "en-US", targetSchools = [] }
   const [err, setErr] = useState("");
 
   const targetsKey = (targetSchools || []).join("|");
+  // One fetch per open. The parent's target list loads after sign-in, so a
+  // panel mounted before it arrived fetched bare and again with the list;
+  // the server resolves the saved schools itself when none are sent and
+  // reports them, so when its answer already names the list that just
+  // arrived nothing is fetched again (a list that differs is).
+  const tunedForRef = useRef(null);
   useEffect(() => {
+    if (tunedForRef.current != null && tunedForRef.current === targetsKey) return undefined;
     let alive = true;
+    const ctrl = new AbortController();
     (async () => {
       setBusy(true); setErr("");
       try {
-        const r = await coursesApi.recommendations(undefined, targetSchools);
-        if (alive) setData(r);
+        const r = await coursesApi.recommendations(undefined, targetSchools, { signal: ctrl.signal });
+        if (!alive) return;
+        tunedForRef.current = Array.isArray(r?.targetSchools) ? r.targetSchools.join("|") : targetsKey;
+        setData(r);
       } catch (e) {
         if (alive) setErr(e.body?.error || e.message || "Failed to load course plan.");
       } finally {
         if (alive) setBusy(false);
       }
     })();
-    return () => { alive = false; };
+    return () => { alive = false; ctrl.abort(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetsKey]);
 

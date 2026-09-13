@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import CourseSequencer from "./CourseSequencer.jsx";
 
 // The concept read beside a ladder course: with an AP exam on file the
@@ -16,6 +16,35 @@ function stubRecommendations(body) {
   });
   return () => { globalThis.fetch = original; };
 }
+
+describe("CourseSequencer fetches once per open", () => {
+  let restore = null;
+  afterEach(() => { cleanup(); if (restore) restore(); restore = null; });
+
+  it("does not refetch when the target list that arrives is the one the server already tuned for", async () => {
+    const calls = [];
+    const original = globalThis.fetch;
+    globalThis.fetch = vi.fn(async (input) => {
+      const url = String(typeof input === "string" ? input : input?.url);
+      if (!url.includes("/api/courses/recommendations")) throw new Error(`unexpected fetch ${url}`);
+      calls.push(url);
+      const q = new URL(url, "http://x").searchParams.get("targetSchools");
+      const targetSchools = q ? q.split(",") : ["NYU", "Rice"];
+      const body = { ok: true, targetSchools, lanes: { inference: { bucket: "biology", majorLabel: "Biology", label: "Inferred.", have: [{ id: "bio", name: "AP Biology", level: "core", why: "Core." }], missing: [] }, coaching: { label: "Coaching.", next: [] }, verified: [] } };
+      return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
+    });
+    restore = () => { globalThis.fetch = original; };
+    const { rerender } = render(<CourseSequencer locale="en-US" targetSchools={[]} />);
+    expect(await screen.findByText("AP Biology")).toBeInTheDocument();
+    expect(calls).toHaveLength(1);
+    rerender(<CourseSequencer locale="en-US" targetSchools={["NYU", "Rice"]} />);
+    await new Promise((r) => setTimeout(r, 30));
+    expect(calls).toHaveLength(1);
+    rerender(<CourseSequencer locale="en-US" targetSchools={["NYU"]} />);
+    await waitFor(() => expect(calls).toHaveLength(2));
+    expect(calls[1]).toContain("targetSchools=NYU");
+  });
+});
 
 describe("CourseSequencer concept tags", () => {
   let restore = null;

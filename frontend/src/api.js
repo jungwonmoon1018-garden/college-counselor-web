@@ -217,12 +217,12 @@ export const calendar = {
 
 // ─── Course-sequence recommender (major-aligned) ─────────────────────────
 export const courses = {
-  async recommendations(major, targetSchools) {
+  async recommendations(major, targetSchools, { signal } = {}) {
     const params = new URLSearchParams();
     if (major) params.set("major", major);
     if (Array.isArray(targetSchools) && targetSchools.length) params.set("targetSchools", targetSchools.join(","));
     const qs = params.toString();
-    return ccFetch(`/api/courses/recommendations${qs ? `?${qs}` : ""}`, { method: "GET" });
+    return ccFetch(`/api/courses/recommendations${qs ? `?${qs}` : ""}`, { method: "GET", signal });
   },
 };
 
