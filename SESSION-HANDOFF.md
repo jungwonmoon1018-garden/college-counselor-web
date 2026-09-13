@@ -8,19 +8,21 @@ changed recently and why, what was verified live, and what is open.
 
 ## Where things stand (2026-09-13)
 
-- **Deployed:** `main` at `58b28fb`, live at
+- **Deployed:** `main` at `0caa68e`, live at
   https://college-counselor-web.onrender.com. Confirmed by CI run
-  34760878050 (success) and `/` serving `assets/main-B9Hm9u2i.js` with
-  `/api/health` 200 at 13:50 UTC on 2026-09-13 (the 2026-09-11 builds:
+  34762088537 (success) and `/` serving `assets/main-BGY9a-V4.js` with
+  `/api/health` 200 at 14:16 UTC on 2026-09-13 (earlier that day
+  `58b28fb`, CI run 34760878050, bundle `main-B9Hm9u2i.js`; the
+  2026-09-11 builds:
   `95f5116` CI run 34603951260, `651f7ac` CI run 34602871341, `6a29565`
   bundle `main-CEBZ2mnd.js`, `fa6c5b1` bundle `main-bsyCx_FV.js`). CI runs
   backend lint, syntax, tests and `npm audit --audit-level=high`, then
   frontend tests and build; Render redeploys after it passes, with a few
   seconds of 502s.
-- **Tests (run after the last code edit, 2026-09-13 ~13:47 UTC):** backend
-  `npm test` 714 tests, 710 pass, 4 skipped, 0 fail (the PDF extraction
-  test runs again); `npm run lint` 0 errors, 70 warnings (CI cap 500);
-  frontend `npx vitest run` 13 files, 45 tests; `npm run build` clean.
+- **Tests (run after the last code edit, 2026-09-13 ~14:05 UTC):** backend
+  `npm test` 718 tests, 714 pass, 4 skipped, 0 fail; `npm run lint` 0
+  errors, 70 warnings (CI cap 500); frontend `npx vitest run` 14 files,
+  46 tests; `npm run build` clean.
 - **Working tree:** 37 phantom CRLF-only diffs (never stage them; a file
   whose committed blob still carries CRLF shows a whole-file diff the first
   time it has to change — `git diff --cached --ignore-cr-at-eol --stat`
@@ -53,9 +55,37 @@ changed recently and why, what was verified live, and what is open.
 
 ## What changed, newest first
 
-The user's ask on 2026-09-13, verbatim: "The chat file uploads do not
-work. Also, check for additional UI defects by playing with it. Use
-claude in chrome to do that."
+The user's asks on 2026-09-13, verbatim, in order: "The chat file uploads
+do not work. Also, check for additional UI defects by playing with it.
+Use claude in chrome to do that." — "Also fix the Spike Finder tier label
+and the concept mastery display."
+
+**Research output is achievement, the tier no longer needs contest
+prestige, and an AP exam score leads the concept read (2026-09-13)** —
+`0caa68e`. The Spike Finder's "Foundational" beside a 0.80 lead score
+came from two rules. The achievement factor
+(`ec-strength-vectorizer.js`) read only awards, competitions, reach and
+listed prizes, so a publication, preprint, manuscript, poster or talk
+scored 0; `RESEARCH_OUTPUT` now scores published work 0.5, shared output
+0.35, author credit +0.12, and `ACHIEVEMENT_RULES_VERSION` (2) is part of
+the factor-cache inputs so scores cached under the old rule are not
+served. `computeTierLabel` required catalog prestige for tiers 2 and 3,
+and prestige comes from the competition catalog, so research, a job, a
+founded project or a portfolio could never leave Foundational; tiers 2
+and 3 now take `max(prestige, achievement)` for that floor (tier 1 still
+needs prestige), and `toPublicShape` derives `tierLabel` from the stored
+factors at read time so the rule applies without a recompute (the
+achievement change itself lands at the next recompute or sync). The
+course plan's "concept mastery developing (0.43)" beside an AP 5:
+`conceptSignalFor` and `apExamScoresBySubject` in
+`course-sequence-catalog.js` let the exam outrank the chat-derived
+concept vector (4–5 solid; 3 solid only when the chat read agrees; 1–2
+developing; exam names normalized past "Physics C: Mechanics"'s colon),
+the route passes `snap.ap_scores_json`, and `CourseSequencer.jsx` renders
+"AP exam 5 · concepts solid (chat read 0.43)". Tests: additions to
+`ec-strength-vectorizer.test.js` (the tier-2 prestige-floor test now
+needs achievement low too) and `course-sequence-catalog.test.js`, new
+`CourseSequencer.test.jsx`.
 
 **Chat PDF uploads, attachment-turn classification, and four live UI
 defects (2026-09-13)** — `58b28fb`. Driving the deployed app in the
@@ -333,6 +363,19 @@ each deleted afterwards (200), except the browser session of 2026-09-13,
 which the user signed into with their own account in their own Chrome;
 nothing from that account is recorded here.
 
+- **After `0caa68e` (bundle `main-BGY9a-V4.js`, 14:16 UTC 2026-09-13), in
+  the user's own tab (previous bundle, server current):** a
+  `POST /api/ec/strength/recompute` from the page recomputed 6 activities;
+  `GET /api/ec/spike` then read the first-author review at achievement
+  0.47, tier `tier_3_developing` (it was 0.00 and `tier_4_foundational`),
+  with prestige still 0. The Course plan, reopened, showed "concepts solid
+  (0.43)" beside AP Biology and AP Chemistry (exam 5s; the old bundle's
+  wording — the new "AP exam 5 · concepts solid (chat read 0.43)" is
+  pinned by `CourseSequencer.test.jsx`) and "admit ~9.2%" / "admit ~8%"
+  on the verified lines. The Spike Finder panel showed its earlier data
+  until closed with ✕ and reopened (it fetches on mount); reopened, the
+  review's card read "Developing" with the lead score, which was 1.34 on
+  the unscaled composite — scaled to 0–1 in `3c5f10b`.
 - **After `58b28fb` (bundle `main-B9Hm9u2i.js`, 13:50 UTC 2026-09-13):**
   from the API, the 662-byte classic-xref PDF that answered 422 before
   extracted with its text (200); `/api/narrative/drift` carried
@@ -432,17 +475,21 @@ nothing from that account is recorded here.
   test uses a line that fits. If a student's PDF ever reads as cut off,
   the second reader (pdf-parse) is still there to fall back to
   explicitly.
-- **Spike Finder reads look inconsistent to a student:** a first-author
-  systematic review showed tier "Foundational" beside "Lead score 0.80"
-  with achievement 0.00 and prestige 0.00. The vector is honest (no award,
-  no catalog competition) but the tier word and the lead score pull in
-  opposite directions; consider deriving the tier label from the lead
-  score on that card, or explaining what "Foundational" means there.
-- **Course plan shows "concept mastery developing (0.43)" beside AP
-  subjects the student scored 5 on.** The concept vector is built from
-  chat prompts (`ap-concept-vectorizer.js`), not the exam; a 5 should at
-  least cap the read at "solid", or the card should say what the number
-  measures.
+- **Tier floors still require leadership ≥ 0.2 for "Developing".** With
+  `0caa68e` the first-author review reads Developing, but a solo
+  competition entry (National History Day at achievement 0.55, prestige
+  0.3, leadership 0) stays Foundational because `computeTierLabel`'s
+  floors cover dedication, achievement, leadership, major spike and
+  narrative fit. If solo work should be able to read Developing, drop
+  leadership from `floors` in `ec-strength-vectorizer.js` and add a test.
+- **Strength rows recompute only on sync or the recompute route.** The
+  new achievement rule (versioned into the factor cache) reaches a
+  student's rows at their next profile save or `POST
+  /api/ec/strength/recompute`; the tier rule applies at read time already.
+  The user's own account was recomputed on 2026-09-13 from the page.
+- **The Spike Finder panel fetches on mount and when the target-school
+  list changes,** so a recompute made while it is open shows only after
+  ✕ and reopen (or a reload).
 - **Tool panels open inline in the chat column** (Course plan, Spike
   Finder, story editor) with a ✕ but no keyboard close; Escape did not
   close the story editor.
