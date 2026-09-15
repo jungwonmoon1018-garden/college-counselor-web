@@ -1,0 +1,310 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "suny-at-albany",
+  "school": "SUNY at Albany",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.691,
+  "yieldRate": 0.1262,
+  "enrolledSAT": {
+    "p25": 1160,
+    "p75": 1310
+  },
+  "enrolledACT": {
+    "p25": 24,
+    "p75": 30
+  },
+  "enrolledGPA": {
+    "p25": 3.25,
+    "p75": 4,
+    "avg": 3.7
+  },
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "considered",
+    "recommendations": "considered",
+    "interview": "considered",
+    "ec": "considered",
+    "talent_ability": "considered",
+    "character": "very_important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 32438,
+    "admitted": 22414,
+    "enrolled": 2828
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 14374,
+        "admitted": 9577,
+        "admitRate": 0.6663
+      },
+      "women": {
+        "applied": 18064,
+        "admitted": 12837,
+        "admitRate": 0.7106
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1pbDA_iRgJAQoG1PF7_ANrr2m-wKcxyIC",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 580,
+        "p50": 630,
+        "p75": 670
+      },
+      "math": {
+        "p25": 570,
+        "p50": 610,
+        "p75": 650
+      }
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 9
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 54.5
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 31.2
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 5
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 13.8
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 52.5
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 28.6
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 4.8
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0.3
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0.3
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 10.7
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 46.5
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 36.6
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 4.1
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 2.1
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 33.3
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 47.6
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 14.3
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 4.8
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 0
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ]
+    },
+    "classRank": {
+      "topTenthPct": 8.1,
+      "topQuarterPct": 12.8,
+      "topHalfPct": 85.5,
+      "submittedPct": 57.2
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 31.8
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 13.2
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 20
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 13.9
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 15.6
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 5.4
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0.1
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.7,
+      "submittedPct": 100
+    },
+    "applicationFeeUsd": 50,
+    "dates": {
+      "eaClosing": {
+        "mmdd": "11-15",
+        "raw": "November 15"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 14572
+    },
+    "enrollment": {
+      "undergraduates": 12666
+    },
+    "graduation": {
+      "sixYearPct": 63.9,
+      "cohort": 2017
+    },
+    "transfer": {
+      "applied": 4236,
+      "admitted": 2293,
+      "enrolled": 1252
+    },
+    "studentLife": {
+      "outOfStatePct": 6.3,
+      "onCampusPct": 88.6
+    }
+  },
+  "ingestedAt": "2026-09-15 17:12:27",
+  "updatedAt": "2026-09-15 17:12:27",
+  "validation": {
+    "school": "SUNY at Albany",
+    "slug": "suny-at-albany",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 202 - 2025 A1 Address Information A1 Name of College/University: University at Albany - SUNY A1 Mailing Address: 1400 Washington Avenue A1 City/ · University at Albany - SUNY A1"
+  }
+}

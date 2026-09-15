@@ -1,0 +1,350 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "mount-holyoke-college",
+  "school": "Mount Holyoke College",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.3603,
+  "yieldRate": 0.2719,
+  "enrolledSAT": {
+    "p25": 1410,
+    "p75": 1510
+  },
+  "enrolledACT": {
+    "p25": 32,
+    "p75": 35
+  },
+  "enrolledGPA": {
+    "p25": 3.5,
+    "p75": 4,
+    "avg": 3.89
+  },
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "important",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "very_important",
+    "recommendations": "very_important",
+    "interview": "important",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "important",
+    "work_experience": "important",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 5226,
+    "admitted": 1883,
+    "enrolled": 512
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "women": {
+        "applied": 5226,
+        "admitted": 1883,
+        "admitRate": 0.3603
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1zsl-tIQenh5GI5u0qspsNbS9VFZumvMr",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 710,
+        "p50": 740,
+        "p75": 760
+      },
+      "math": {
+        "p25": 670,
+        "p50": 720,
+        "p75": 770
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 34,
+        "p50": 35,
+        "p75": 36
+      },
+      "math": {
+        "p25": 26,
+        "p50": 30,
+        "p75": 34
+      },
+      "reading": {
+        "p25": 33,
+        "p50": 35,
+        "p75": 36
+      },
+      "science": {
+        "p25": 29,
+        "p50": 30,
+        "p75": 35
+      }
+    },
+    "submitting": {
+      "satPct": 13,
+      "actPct": 2
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 76.8
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 20.3
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 2.9
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 84.1
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 14.5
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 1.5
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 65.2
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 26.1
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 8.7
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 81.8
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 18.2
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 81.8
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 18.2
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 54.6
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 36.4
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 9.1
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 81.8
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 18.2
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 72.7
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 18.2
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 9.1
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 44,
+      "topQuarterPct": 82,
+      "topHalfPct": 95,
+      "submittedPct": 34
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 34
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 32.4
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 22
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 8.2
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 2.7
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 0.4
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0.2
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.89,
+      "submittedPct": 87.9
+    },
+    "earlyDecision": {
+      "applications": 483,
+      "admitted": 223,
+      "admitRate": 0.4617
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-15",
+        "raw": "1/15"
+      },
+      "edClosing": {
+        "mmdd": "11-15",
+        "raw": "11/15"
+      },
+      "edNotification": "1/1",
+      "edIIClosing": {
+        "mmdd": "01-01",
+        "raw": "1/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 61559
+    },
+    "enrollment": {
+      "undergraduates": 2178
+    },
+    "graduation": {
+      "sixYearPct": 84.4,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 792,
+      "accepted": 322,
+      "admitted": 12
+    },
+    "transfer": {
+      "applied": 247,
+      "admitted": 61,
+      "enrolled": 15
+    },
+    "studentLife": {
+      "outOfStatePct": 76.3,
+      "onCampusPct": 99.4
+    },
+    "costs": {
+      "tuitionUsd": 67782,
+      "requiredFeesUsd": 238,
+      "foodAndHousingUsd": 20373,
+      "academicYear": "2025-2026"
+    }
+  },
+  "ingestedAt": "2026-09-15 17:10:39",
+  "updatedAt": "2026-09-15 17:10:39",
+  "validation": {
+    "school": "Mount Holyoke College",
+    "slug": "mount-holyoke-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Name: Kathleen Van Winkle Title: Data Analyst Office: Office of Institutional Research · Mount Holyoke College"
+  }
+}

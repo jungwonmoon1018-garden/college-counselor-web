@@ -1,0 +1,66 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "vassar-college",
+  "school": "Vassar College",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.2093,
+  "yieldRate": 0.2974,
+  "enrolledSAT": {
+    "p25": 1460,
+    "p75": 1520
+  },
+  "enrolledACT": {
+    "p25": 33,
+    "p75": 34
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "important",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "very_important",
+    "recommendations": "very_important",
+    "interview": "considered",
+    "ec": "very_important",
+    "talent_ability": "very_important",
+    "character": "very_important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "considered",
+    "volunteer_work": "important",
+    "work_experience": "important",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 11118,
+    "admitted": 2327,
+    "enrolled": 692
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://offices.vassar.edu/institutional-research/wp-content/uploads/sites/23/2026/03/Vassar_College_CDS_2025-2026.pdf",
+  "sourceKind": "pdf_merged",
+  "parserVersion": 6,
+  "parserNotes": [
+    "merged_form_fields"
+  ],
+  "extras": null,
+  "ingestedAt": "2026-09-15 17:16:33",
+  "updatedAt": "2026-09-15 17:16:33",
+  "validation": {
+    "school": "Vassar College",
+    "slug": "vassar-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

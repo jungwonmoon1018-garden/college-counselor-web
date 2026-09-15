@@ -1,0 +1,66 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-washington-seattle-campus",
+  "school": "University of Washington (Seattle Campus)",
+  "year": 2023,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.3915,
+  "yieldRate": 0.2656,
+  "enrolledSAT": {
+    "p25": 1333,
+    "p75": 1500
+  },
+  "enrolledACT": {
+    "p25": 28,
+    "p75": 33
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "not_considered",
+    "gpa": "very_important",
+    "test_scores": "not_considered",
+    "application_essay": "very_important",
+    "recommendations": "not_considered",
+    "interview": "not_considered",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "considered",
+    "first_generation": "important",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "important",
+    "work_experience": "important",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 69166,
+    "admitted": 27076,
+    "enrolled": 7191
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1PyXz0wOoGw86bFaA37RKvhGboKIkyMtx",
+  "sourceKind": "pdf_merged",
+  "parserVersion": 6,
+  "parserNotes": [
+    "merged_form_fields"
+  ],
+  "extras": null,
+  "ingestedAt": "2026-09-15 17:16:15",
+  "updatedAt": "2026-09-15 17:16:15",
+  "validation": {
+    "school": "University of Washington (Seattle Campus)",
+    "slug": "university-of-washington-seattle-campus",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

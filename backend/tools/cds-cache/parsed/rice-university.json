@@ -1,4 +1,6 @@
 {
+  "source": "cds",
+  "extractionMethod": "pdfjs",
   "slug": "rice-university",
   "school": "Rice University",
   "year": 2025,
@@ -47,7 +49,7 @@
   "priorities": [],
   "sourceUrl": "https://ideas.rice.edu/wp-content/uploads/2026/07/CDS_2025-26_WEBSITE.pdf",
   "sourceKind": "pdf_text",
-  "parserVersion": 5,
+  "parserVersion": 6,
   "parserNotes": [],
   "extras": {
     "satSections": {
@@ -160,14 +162,44 @@
     },
     "aid": {
       "averagePackageFirstYearUsd": 75643
+    },
+    "enrollment": {
+      "undergraduates": 4807
+    },
+    "retention": {
+      "firstYearPct": 96.8
+    },
+    "graduation": {
+      "sixYearPct": 95.3,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "accepted": 2204,
+      "admitted": 66
+    },
+    "transfer": {
+      "applied": 1675,
+      "admitted": 125,
+      "enrolled": 74
+    },
+    "studentLife": {
+      "outOfStatePct": 59,
+      "onCampusPct": 99
+    },
+    "costs": {
+      "tuitionUsd": 71170,
+      "requiredFeesUsd": 984,
+      "foodAndHousingUsd": 20530
     }
   },
-  "ingestedAt": "2026-09-15 14:05:17",
-  "updatedAt": "2026-09-15 14:05:17",
+  "ingestedAt": "2026-09-15 17:11:25",
+  "updatedAt": "2026-09-15 17:11:25",
   "validation": {
+    "school": "Rice University",
+    "slug": "rice-university",
     "status": "consistent",
     "discrepancies": [],
     "overrides": {},
-    "validatedAt": "2026-09-15 14:05:17"
+    "scopeFromPDF": "Rice University Common Data Set 2025 - 2026 A1 Address Information Name of College/University: William Marsh Rice University Street Address Line 1: 6100 Main St · William Marsh Rice University"
   }
 }

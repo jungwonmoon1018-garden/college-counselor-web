@@ -918,6 +918,12 @@ test("strategy questions about deadlines and admit rates reach the model instead
 // the server holds no admissions statistics. The baseline is seeded from the
 // bundled profile list in CI and from a full IPEDS import on a developer
 // machine, so the choice is made against the test database itself.
+// Schools with a parsed Common Data Set on disk hold verified data now (the
+// whole index was refreshed on 2026-09-16), so the lookup tests need a
+// school with neither baseline statistics nor a CDS record.
+const CDS_SLUGS = new Set(fs.readdirSync(path.join(PROJECT_ROOT, "tools", "cds-cache", "parsed")).filter((f) => f.endsWith(".json")).map((f) => f.slice(0, -5)));
+const hasCdsRecord = (name) => CDS_SLUGS.has(String(name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""));
+
 function schoolWithoutStats() {
   const db = new Database(path.join(testDataDir, "operational.db"), { readonly: true });
   try {
@@ -931,9 +937,10 @@ function schoolWithoutStats() {
       ["ASU", "Arizona State University"],
     ]) {
       const row = stats.get(canonical);
-      if (!row || (row.acceptance_rate == null && row.sat_25 == null)) return { mention: alias, canonical };
+      if ((!row || (row.acceptance_rate == null && row.sat_25 == null)) && !hasCdsRecord(canonical)) return { mention: alias, canonical };
     }
-    const row = db.prepare("SELECT name FROM baseline_colleges WHERE acceptance_rate IS NULL AND sat_25 IS NULL AND name LIKE '% %' AND name NOT LIKE '%-%' AND length(name) >= 10 ORDER BY name LIMIT 1").get();
+    const rows = db.prepare("SELECT name FROM baseline_colleges WHERE acceptance_rate IS NULL AND sat_25 IS NULL AND name LIKE '% %' AND name NOT LIKE '%-%' AND length(name) >= 10 ORDER BY name LIMIT 200").all();
+    const row = rows.find((r) => !hasCdsRecord(r.name));
     return row ? { mention: row.name, canonical: row.name } : null;
   } finally {
     db.close();

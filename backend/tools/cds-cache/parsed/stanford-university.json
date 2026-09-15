@@ -1,4 +1,6 @@
 {
+  "source": "cds",
+  "extractionMethod": "pdfjs",
   "slug": "stanford-university",
   "school": "Stanford University",
   "year": 2025,
@@ -51,7 +53,7 @@
   "priorities": [],
   "sourceUrl": "https://drive.google.com/uc?export=download&id=1GIPKgVj1d86dkmLkHI_mZVCk_iY6kiCp",
   "sourceKind": "pdf_text",
-  "parserVersion": 5,
+  "parserVersion": 6,
   "parserNotes": [],
   "extras": {
     "satSections": {
@@ -269,14 +271,45 @@
     },
     "aid": {
       "averagePackageFirstYearUsd": 77279
+    },
+    "enrollment": {
+      "undergraduates": 7346
+    },
+    "retention": {
+      "firstYearPct": 97.5
+    },
+    "graduation": {
+      "sixYearPct": 91.6,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "accepted": 573,
+      "admitted": 57
+    },
+    "transfer": {
+      "applied": 4532,
+      "admitted": 102,
+      "enrolled": 89
+    },
+    "studentLife": {
+      "outOfStatePct": 56,
+      "onCampusPct": 100
+    },
+    "costs": {
+      "tuitionUsd": 67731,
+      "requiredFeesUsd": 843,
+      "foodAndHousingUsd": 22944,
+      "academicYear": "2026-2027"
     }
   },
-  "ingestedAt": "2026-09-15 14:05:44",
-  "updatedAt": "2026-09-15 14:05:44",
+  "ingestedAt": "2026-09-15 17:12:15",
+  "updatedAt": "2026-09-15 17:12:15",
   "validation": {
+    "school": "Stanford University",
+    "slug": "stanford-university",
     "status": "consistent",
     "discrepancies": [],
     "overrides": {},
-    "validatedAt": "2026-09-15 14:05:44"
+    "scopeFromPDF": "Stanford University Common Data Set 20 2 5 - 202 6 Stanford University Common Data Set 20 2 5 – 202 6 Table of Contents Section Page A. · Stanford University"
   }
 }

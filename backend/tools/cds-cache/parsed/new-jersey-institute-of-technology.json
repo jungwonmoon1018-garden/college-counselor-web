@@ -1,0 +1,153 @@
+{
+  "source": "cds",
+  "extractionMethod": "xlsx",
+  "slug": "new-jersey-institute-of-technology",
+  "school": "New Jersey Institute of Technology",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.6507,
+  "yieldRate": 0.1719,
+  "enrolledSAT": {
+    "p25": 1235,
+    "p75": 1460
+  },
+  "enrolledACT": {
+    "p25": 28,
+    "p75": 31
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.73
+  },
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "not_considered",
+    "class_rank": "very_important",
+    "gpa": "not_considered",
+    "test_scores": "considered",
+    "application_essay": "considered",
+    "recommendations": "considered",
+    "interview": "considered",
+    "ec": "considered",
+    "talent_ability": "considered",
+    "character": "considered",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 15607,
+    "admitted": 10156,
+    "enrolled": 1746
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 10080,
+        "admitted": 6301,
+        "admitRate": 0.6251
+      },
+      "women": {
+        "applied": 5527,
+        "admitted": 3855,
+        "admitRate": 0.6975
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://docs.google.com/spreadsheets/d/19O4PmOrv0UMPPORiooeagG3dClqgH7bX/export?format=xlsx",
+  "sourceKind": "xlsx",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 610,
+        "p50": 650,
+        "p75": 710
+      },
+      "math": {
+        "p25": 630,
+        "p50": 680,
+        "p75": 760
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 26,
+        "p50": 31,
+        "p75": 35
+      },
+      "math": {
+        "p25": 27,
+        "p50": 32,
+        "p75": 35
+      },
+      "science": {
+        "p25": 27,
+        "p50": 32,
+        "p75": 35
+      }
+    },
+    "gpa": {
+      "average": 3.73
+    },
+    "applicationFeeUsd": 75,
+    "enrollment": {
+      "undergraduates": 10200
+    },
+    "graduation": {
+      "sixYearPct": 72.8,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 3621,
+      "accepted": 2520,
+      "admitted": 827
+    },
+    "transfer": {
+      "applied": 2319,
+      "admitted": 1503,
+      "enrolled": 716
+    },
+    "studentLife": {
+      "outOfStatePct": 7.9,
+      "onCampusPct": 38
+    },
+    "aid": {
+      "needMetPct": 58.2
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 152,
+        "10-19": 419,
+        "20-29": 661,
+        "30-39": 366,
+        "40-49": 113,
+        "50-99": 63,
+        "100+": 9,
+        "total": 1783
+      },
+      "under20Pct": 32
+    }
+  },
+  "ingestedAt": "2026-09-15 17:10:42",
+  "updatedAt": "2026-09-15 17:10:42",
+  "validation": {
+    "school": "New Jersey Institute of Technology",
+    "slug": "new-jersey-institute-of-technology",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

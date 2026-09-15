@@ -1,4 +1,6 @@
 {
+  "source": "cds",
+  "extractionMethod": "pdfjs",
   "slug": "emory-university",
   "school": "Emory University",
   "year": 2025,
@@ -51,7 +53,7 @@
   "priorities": [],
   "sourceUrl": "https://provost.emory.edu/planning-administration/_includes/documents/sections/institutional-data/emory-common-date-set-2025-2026.pdf",
   "sourceKind": "pdf_text",
-  "parserVersion": 5,
+  "parserVersion": 6,
   "parserNotes": [],
   "extras": {
     "satSections": {
@@ -202,14 +204,45 @@
     },
     "aid": {
       "averagePackageFirstYearUsd": 68253
+    },
+    "enrollment": {
+      "undergraduates": 7320
+    },
+    "retention": {
+      "firstYearPct": 95
+    },
+    "graduation": {
+      "sixYearPct": 91,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 7608,
+      "accepted": 6422,
+      "admitted": 274
+    },
+    "transfer": {
+      "applied": 2399,
+      "admitted": 544,
+      "enrolled": 173
+    },
+    "studentLife": {
+      "outOfStatePct": 84,
+      "onCampusPct": 98
+    },
+    "costs": {
+      "tuitionUsd": 70300,
+      "requiredFeesUsd": 1148,
+      "foodAndHousingUsd": 22406
     }
   },
-  "ingestedAt": "2026-09-15 14:04:44",
-  "updatedAt": "2026-09-15 14:04:44",
+  "ingestedAt": "2026-09-15 17:08:23",
+  "updatedAt": "2026-09-15 17:08:23",
   "validation": {
+    "school": "Emory University",
+    "slug": "emory-university",
     "status": "consistent",
     "discrepancies": [],
     "overrides": {},
-    "validatedAt": "2026-09-15 14:04:44"
+    "scopeFromPDF": null
   }
 }

@@ -1,0 +1,146 @@
+{
+  "source": "cds",
+  "extractionMethod": "xlsx",
+  "slug": "indiana-university-purdue-university-indianapolis",
+  "school": "Indiana University-Purdue University-Indianapolis",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.7637,
+  "yieldRate": null,
+  "enrolledSAT": {
+    "p25": 1040,
+    "p75": 1220
+  },
+  "enrolledACT": {
+    "p25": 21,
+    "p75": 29
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.46
+  },
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "not_considered",
+    "class_rank": "considered",
+    "gpa": "not_considered",
+    "test_scores": "considered",
+    "application_essay": "considered",
+    "recommendations": "considered",
+    "interview": "considered",
+    "ec": "considered",
+    "talent_ability": "considered",
+    "character": "considered",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 15642,
+    "admitted": 11946
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://docs.google.com/spreadsheets/d/19v0i0fhrU9zux6EhhMcL8IpqrQcvIRv3/export?format=xlsx",
+  "sourceKind": "xlsx",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 520,
+        "p50": 570,
+        "p75": 630
+      },
+      "math": {
+        "p25": 510,
+        "p50": 560,
+        "p75": 610
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 21,
+        "p50": 25,
+        "p75": 30
+      },
+      "math": {
+        "p25": 20,
+        "p50": 25,
+        "p75": 29
+      },
+      "reading": {
+        "p25": 22,
+        "p50": 27,
+        "p75": 31
+      },
+      "science": {
+        "p25": 20,
+        "p50": 24,
+        "p75": 29
+      }
+    },
+    "gpa": {
+      "average": 3.46
+    },
+    "applicationFeeUsd": 65,
+    "retention": {
+      "firstYearPct": 72.2
+    },
+    "graduation": {
+      "sixYearPct": 54.5,
+      "cohort": 2018
+    },
+    "transfer": {
+      "applied": 2628,
+      "admitted": 1753,
+      "enrolled": 1011
+    },
+    "studentLife": {
+      "outOfStatePct": 5.5,
+      "onCampusPct": 32.2
+    },
+    "costs": {
+      "tuitionInStateUsd": 9518,
+      "tuitionOutOfStateUsd": 33647,
+      "requiredFeesUsd": 1244,
+      "foodAndHousingUsd": 13308,
+      "academicYear": "2025-2026"
+    },
+    "aid": {
+      "needMetPct": 68.4
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 464,
+        "10-19": 636,
+        "20-29": 473,
+        "30-39": 158,
+        "40-49": 101,
+        "50-99": 99,
+        "100+": 25,
+        "total": 1956
+      },
+      "under20Pct": 56.2
+    }
+  },
+  "ingestedAt": "2026-09-15 17:09:29",
+  "updatedAt": "2026-09-15 17:09:29",
+  "validation": {
+    "school": "Indiana University-Purdue University-Indianapolis",
+    "slug": "indiana-university-purdue-university-indianapolis",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

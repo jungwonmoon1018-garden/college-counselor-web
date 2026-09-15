@@ -1,0 +1,96 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-missouri-st-louis",
+  "school": "University of Missouri-St. Louis",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.8825,
+  "yieldRate": 0.085,
+  "enrolledSAT": {
+    "p25": 1005,
+    "p75": 1245
+  },
+  "enrolledACT": {
+    "p25": 21,
+    "p75": 29
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.41
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 6171,
+    "admitted": 5446,
+    "enrolled": 463
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.umsl.edu/~ir/common-data-set/pdf-archive/cds_2025_rv.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "math": {
+        "p25": 480,
+        "p50": 530,
+        "p75": 610
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 20,
+        "p50": 24,
+        "p75": 29
+      },
+      "math": {
+        "p25": 20,
+        "p50": 25,
+        "p75": 27
+      },
+      "reading": {
+        "p25": 21,
+        "p50": 26,
+        "p75": 34
+      },
+      "science": {
+        "p25": 20,
+        "p50": 25,
+        "p75": 30
+      }
+    },
+    "gpa": {
+      "average": 3.41
+    },
+    "applicationFeeUsd": 50,
+    "dates": {
+      "edNotification": "Month/Day"
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 21429
+    },
+    "enrollment": {
+      "undergraduates": 12798
+    },
+    "studentLife": {
+      "outOfStatePct": 25.3,
+      "onCampusPct": 2
+    }
+  },
+  "ingestedAt": "2026-09-15 17:17:18",
+  "updatedAt": "2026-09-15 17:17:18",
+  "validation": {
+    "school": "University of Missouri-St. Louis",
+    "slug": "university-of-missouri-st-louis",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

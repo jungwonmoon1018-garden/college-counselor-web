@@ -1,0 +1,147 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "st-mary-s-college-of-maryland",
+  "school": "St. Mary's College of Maryland",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.7255,
+  "yieldRate": 0.1589,
+  "enrolledSAT": {
+    "p25": 1110,
+    "p75": 1320
+  },
+  "enrolledACT": {
+    "p25": 23,
+    "p75": 31
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.49
+  },
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "important",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "very_important",
+    "recommendations": "very_important",
+    "interview": "considered",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "important",
+    "first_generation": "considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "important",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 3504,
+    "admitted": 2542,
+    "enrolled": 404
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 1302,
+        "admitted": 904,
+        "admitRate": 0.6943
+      },
+      "women": {
+        "applied": 2195,
+        "admitted": 1633,
+        "admitRate": 0.744
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.smcm.edu/app/uploads/sites/60/2026/05/CDS_25-26.pdf",
+  "sourceKind": "pdf_merged",
+  "parserVersion": 6,
+  "parserNotes": [
+    "merged_form_fields"
+  ],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 590,
+        "p50": 640,
+        "p75": 700
+      },
+      "math": {
+        "p25": 520,
+        "p50": 590,
+        "p75": 630
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 24,
+        "p50": 28,
+        "p75": 33
+      },
+      "math": {
+        "p25": 21,
+        "p50": 24,
+        "p75": 26
+      },
+      "reading": {
+        "p25": 28,
+        "p50": 34,
+        "p75": 35
+      },
+      "science": {
+        "p25": 23,
+        "p50": 25,
+        "p75": 30
+      }
+    },
+    "gpa": {
+      "average": 3.49
+    },
+    "applicationFeeUsd": 50,
+    "earlyDecision": {
+      "applications": 78,
+      "admitted": 78,
+      "admitRate": 1
+    },
+    "dates": {
+      "edNotification": "12 1"
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 23401
+    },
+    "waitlist": {
+      "offered": 364,
+      "accepted": 28,
+      "admitted": 13
+    },
+    "transfer": {
+      "applied": 236,
+      "admitted": 149,
+      "enrolled": 81
+    },
+    "studentLife": {
+      "outOfStatePct": 13,
+      "onCampusPct": 93
+    }
+  },
+  "ingestedAt": "2026-09-15 17:12:25",
+  "updatedAt": "2026-09-15 17:12:25",
+  "validation": {
+    "school": "St. Mary's College of Maryland",
+    "slug": "st-mary-s-college-of-maryland",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

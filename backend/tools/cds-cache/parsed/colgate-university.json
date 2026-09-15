@@ -1,0 +1,66 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "colgate-university",
+  "school": "Colgate University",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.175,
+  "yieldRate": 0.2683,
+  "enrolledSAT": {
+    "p25": 1450,
+    "p75": 1510
+  },
+  "enrolledACT": {
+    "p25": 33,
+    "p75": 35
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "very_important",
+    "gpa": "very_important",
+    "test_scores": "important",
+    "application_essay": "important",
+    "recommendations": "important",
+    "interview": "not_considered",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 17310,
+    "admitted": 3030,
+    "enrolled": 813
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.colgate.edu/sites/default/files/2026-07/CDS-PDF-2025-2026.pdf",
+  "sourceKind": "pdf_merged",
+  "parserVersion": 6,
+  "parserNotes": [
+    "merged_form_fields"
+  ],
+  "extras": null,
+  "ingestedAt": "2026-09-15 17:07:20",
+  "updatedAt": "2026-09-15 17:07:20",
+  "validation": {
+    "school": "Colgate University",
+    "slug": "colgate-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

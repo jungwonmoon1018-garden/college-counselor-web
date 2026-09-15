@@ -1,0 +1,307 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "lehigh-university",
+  "school": "Lehigh University",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.2896,
+  "yieldRate": 0.2741,
+  "enrolledSAT": {
+    "p25": 1380,
+    "p75": 1480
+  },
+  "enrolledACT": {
+    "p25": 31,
+    "p75": 34
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {},
+  "b1": {
+    "applied": 19342,
+    "admitted": 5601,
+    "enrolled": 1535
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://data.lehigh.edu/sites/data.lehigh.edu/files/1302026-CDS-2025-2026-FINAL.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 680,
+        "p50": 710,
+        "p75": 740
+      },
+      "math": {
+        "p25": 690,
+        "p50": 720,
+        "p75": 760
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 31,
+        "p50": 34,
+        "p75": 35
+      },
+      "math": {
+        "p25": 29,
+        "p50": 31,
+        "p75": 33
+      },
+      "reading": {
+        "p25": 32,
+        "p50": 34,
+        "p75": 35
+      },
+      "science": {
+        "p25": 30,
+        "p50": 32,
+        "p75": 34
+      }
+    },
+    "submitting": {
+      "satPct": 33,
+      "actPct": 10.3
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 68.6
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 31
+        },
+        {
+          "low": 1000,
+          "high": 1299,
+          "pct": 0.4
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 0
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 63.1
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 35.5
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 1.2
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0.2
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 72.8
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 25.3
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 1.8
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0.2
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 96.2
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 3.8
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 82.3
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 17.7
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 68.4
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 31.7
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 95.6
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 3.8
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 0.6
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 84.2
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 15.2
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 0.6
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 60,
+      "topQuarterPct": 86.8,
+      "topHalfPct": 98.3,
+      "submittedPct": 23.1
+    },
+    "applicationFeeUsd": 75,
+    "earlyDecision": {
+      "applications": 2040,
+      "admitted": 966,
+      "admitRate": 0.4735
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-01",
+        "raw": "1/1"
+      },
+      "edClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      },
+      "edNotification": "12/5",
+      "edIIClosing": {
+        "mmdd": "01-01",
+        "raw": "1/1"
+      }
+    },
+    "enrollment": {
+      "undergraduates": 5986
+    },
+    "retention": {
+      "firstYearPct": 94.3
+    },
+    "graduation": {
+      "sixYearPct": 85.2,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 4083,
+      "accepted": 1988,
+      "admitted": 80
+    },
+    "transfer": {
+      "applied": 804,
+      "admitted": 195,
+      "enrolled": 60
+    },
+    "studentLife": {
+      "outOfStatePct": 75.8,
+      "onCampusPct": 97.3
+    }
+  },
+  "ingestedAt": "2026-09-15 17:09:55",
+  "updatedAt": "2026-09-15 17:09:55",
+  "validation": {
+    "school": "Lehigh University",
+    "slug": "lehigh-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2025-2026 Welcome to the 2025-2026 Common Data Set collection! The Common Data Set (CDS) initiative is a collaborative effort among data provide · Lehigh University"
+  }
+}

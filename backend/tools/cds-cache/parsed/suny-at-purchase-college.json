@@ -1,0 +1,61 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "suny-at-purchase-college",
+  "school": "SUNY at Purchase College",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.7405,
+  "yieldRate": 0.1291,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.39
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 7845,
+    "admitted": 5809,
+    "enrolled": 750
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=10GKLizwEpsBZPyzyFr-kOLQIHKT1VFn6",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "actSections": {
+      "english": {
+        "p25": 25,
+        "p75": 31
+      }
+    },
+    "classRank": {
+      "submittedPct": 0
+    },
+    "gpa": {
+      "average": 3.39,
+      "submittedPct": 98.7
+    },
+    "applicationFeeUsd": 50,
+    "dates": {
+      "edNotification": "C2103  First-Time, First-Year Admission Admission Policies Early DecisionUndergraduates First-time, first-year All All All MM-DD"
+    }
+  },
+  "ingestedAt": "2026-09-15 17:12:26",
+  "updatedAt": "2026-09-15 17:12:26",
+  "validation": {
+    "school": "SUNY at Purchase College",
+    "slug": "suny-at-purchase-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

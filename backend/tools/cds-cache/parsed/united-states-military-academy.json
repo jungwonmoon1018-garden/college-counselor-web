@@ -1,0 +1,66 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "united-states-military-academy",
+  "school": "United States Military Academy",
+  "year": 2023,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.1245,
+  "yieldRate": 0.779,
+  "enrolledSAT": {
+    "p25": 1210,
+    "p75": 1420
+  },
+  "enrolledACT": {
+    "p25": 27,
+    "p75": 33
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "very_important",
+    "application_essay": "important",
+    "recommendations": "important",
+    "interview": "very_important",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "very_important",
+    "first_generation": "not_considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "important"
+  },
+  "b1": {
+    "applied": 12320,
+    "admitted": 1534,
+    "enrolled": 1195
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=174sqXbb9g2TngG1snmzJAMzIpxxxq7Xj",
+  "sourceKind": "pdf_merged",
+  "parserVersion": 6,
+  "parserNotes": [
+    "merged_form_fields"
+  ],
+  "extras": null,
+  "ingestedAt": "2026-09-15 17:13:23",
+  "updatedAt": "2026-09-15 17:13:23",
+  "validation": {
+    "school": "United States Military Academy",
+    "slug": "united-states-military-academy",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

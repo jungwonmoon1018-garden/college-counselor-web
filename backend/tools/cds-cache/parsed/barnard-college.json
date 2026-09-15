@@ -1,0 +1,108 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "barnard-college",
+  "school": "Barnard College",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.0884,
+  "yieldRate": 0.6864,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": {
+    "p25": 3.75,
+    "p75": 4,
+    "avg": 4.13
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 11836,
+    "admitted": 1046,
+    "enrolled": 718
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "women": {
+        "applied": 11836,
+        "admitted": 1046,
+        "admitRate": 0.0884
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=14vhVmc0XznYoJKVISzkYaaGwIxY2uLZA",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "actSections": {
+      "english": {
+        "p25": 25,
+        "p75": 33
+      },
+      "math": {
+        "p25": 25,
+        "p75": 29
+      },
+      "reading": {
+        "p25": 25,
+        "p75": 34
+      },
+      "science": {
+        "p25": 25,
+        "p75": 31
+      }
+    },
+    "submitting": {
+      "satPct": 35,
+      "actPct": 15
+    },
+    "classRank": {
+      "topTenthPct": 90,
+      "topQuarterPct": 100,
+      "topHalfPct": 100,
+      "submittedPct": 30
+    },
+    "gpa": {
+      "average": 4.13,
+      "submittedPct": 79
+    },
+    "applicationFeeUsd": 75,
+    "earlyDecision": {
+      "applications": 1694,
+      "admitted": 434,
+      "admitRate": 0.2562
+    },
+    "dates": {
+      "edNotification": "C2103  15-Dec"
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 69370
+    },
+    "enrollment": {
+      "undergraduates": 3269
+    },
+    "waitlist": {
+      "offered": 2055,
+      "accepted": 1567,
+      "admitted": 148
+    },
+    "studentLife": {
+      "outOfStatePct": 76,
+      "onCampusPct": 96
+    }
+  },
+  "ingestedAt": "2026-09-15 17:06:01",
+  "updatedAt": "2026-09-15 17:06:01",
+  "validation": {
+    "school": "Barnard College",
+    "slug": "barnard-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Barnard College Response \"Y\" or \"N\" Response URL Response Text"
+  }
+}

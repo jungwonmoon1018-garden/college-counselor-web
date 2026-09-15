@@ -1,0 +1,66 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "lake-forest-college",
+  "school": "Lake Forest College",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.5363,
+  "yieldRate": 0.132,
+  "enrolledSAT": {
+    "p25": 1200,
+    "p75": 1370
+  },
+  "enrolledACT": {
+    "p25": 27,
+    "p75": 30
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "important",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "very_important",
+    "recommendations": "considered",
+    "interview": "very_important",
+    "ec": "very_important",
+    "talent_ability": "very_important",
+    "character": "very_important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 5411,
+    "admitted": 2902,
+    "enrolled": 383
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.lakeforest.edu/Public/Administration/Institutional%20Research/2025-26%20CDS_Lake%20Forest%20College.pdf",
+  "sourceKind": "pdf_merged",
+  "parserVersion": 6,
+  "parserNotes": [
+    "merged_form_fields"
+  ],
+  "extras": null,
+  "ingestedAt": "2026-09-15 17:10:00",
+  "updatedAt": "2026-09-15 17:10:00",
+  "validation": {
+    "school": "Lake Forest College",
+    "slug": "lake-forest-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

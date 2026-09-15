@@ -1,0 +1,277 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "united-states-naval-academy",
+  "school": "United States Naval Academy",
+  "year": 2022,
+  "yearLabel": "2022-23",
+  "tier": null,
+  "overallAdmitRate": 0.1075,
+  "yieldRate": 0.8518,
+  "enrolledSAT": null,
+  "enrolledACT": {
+    "p25": 25,
+    "p75": 32
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "very_important",
+    "gpa": "very_important",
+    "test_scores": "important",
+    "application_essay": "very_important",
+    "recommendations": "very_important",
+    "interview": "very_important",
+    "ec": "very_important",
+    "talent_ability": "very_important",
+    "character": "considered",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "considered",
+    "racial_ethnic_status": "considered",
+    "volunteer_work": "considered",
+    "work_experience": "very_important",
+    "level_of_interest": "very_important"
+  },
+  "b1": {
+    "applied": 12927,
+    "admitted": 1390,
+    "enrolled": 1184
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 9345,
+        "admitted": 991,
+        "admitRate": 0.106
+      },
+      "women": {
+        "applied": 3582,
+        "admitted": 399,
+        "admitRate": 0.1114
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1z3EQMANKwYEdCbgiHUR_9SILupOYMlDO",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "math": {
+        "p25": 600,
+        "p50": 660,
+        "p75": 720
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 24,
+        "p50": 29,
+        "p75": 34
+      },
+      "math": {
+        "p25": 25,
+        "p50": 28,
+        "p75": 31
+      }
+    },
+    "submitting": {
+      "satPct": 71,
+      "actPct": 46
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 27.8
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 49.3
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 21.3
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 1.6
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 30.9
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 47.1
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 20.4
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 1.6
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 33.5
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 45.7
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 19.3
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 1.5
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 44.8
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 36.6
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 17.5
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 1.1
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 48.3
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 30.2
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 18.5
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 2.8
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0.2
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 34.7
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 47.6
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 15.5
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 2.2
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 62,
+      "topQuarterPct": 84,
+      "topHalfPct": 97
+    },
+    "gpa": {
+      "submittedPct": 0
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-31",
+        "raw": "1/31"
+      }
+    },
+    "enrollment": {
+      "undergraduates": 4450
+    },
+    "graduation": {
+      "sixYearPct": 90,
+      "cohort": 2016
+    },
+    "waitlist": {
+      "offered": 233,
+      "accepted": 169,
+      "admitted": 61
+    },
+    "transfer": {
+      "applied": 0,
+      "admitted": 0,
+      "enrolled": 0
+    },
+    "studentLife": {
+      "outOfStatePct": 24,
+      "onCampusPct": 0
+    }
+  },
+  "ingestedAt": "2026-09-15 17:13:21",
+  "updatedAt": "2026-09-15 17:13:21",
+  "validation": {
+    "school": "United States Naval Academy",
+    "slug": "united-states-naval-academy",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

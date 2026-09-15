@@ -1,0 +1,66 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "howard-university",
+  "school": "Howard University",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.4219,
+  "yieldRate": 0.1584,
+  "enrolledSAT": {
+    "p25": 1050,
+    "p75": 1270
+  },
+  "enrolledACT": {
+    "p25": 20,
+    "p75": 26
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "very_important",
+    "application_essay": "considered",
+    "recommendations": "considered",
+    "interview": "not_considered",
+    "ec": "considered",
+    "talent_ability": "considered",
+    "character": "important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 37270,
+    "admitted": 15724,
+    "enrolled": 2490
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://ira.howard.edu/sites/ira.howard.edu/files/2026-06/CDS%20PDF%202526_06.25.26.pdf",
+  "sourceKind": "pdf_merged",
+  "parserVersion": 6,
+  "parserNotes": [
+    "merged_form_fields"
+  ],
+  "extras": null,
+  "ingestedAt": "2026-09-15 17:09:46",
+  "updatedAt": "2026-09-15 17:09:46",
+  "validation": {
+    "school": "Howard University",
+    "slug": "howard-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

@@ -1,4 +1,6 @@
 {
+  "source": "cds",
+  "extractionMethod": "pdfjs",
   "slug": "princeton-university",
   "school": "Princeton University",
   "year": 2025,
@@ -51,7 +53,7 @@
   "priorities": [],
   "sourceUrl": "https://ir.princeton.edu/sites/g/files/toruqf2041/files/documents/CDS_2526_Princeton_v2.pdf",
   "sourceKind": "pdf_text",
-  "parserVersion": 5,
+  "parserVersion": 6,
   "parserNotes": [],
   "extras": {
     "satSections": {
@@ -262,14 +264,45 @@
     },
     "aid": {
       "averagePackageFirstYearUsd": 79320
+    },
+    "enrollment": {
+      "undergraduates": 5916
+    },
+    "retention": {
+      "firstYearPct": 99
+    },
+    "graduation": {
+      "sixYearPct": 97,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 1370,
+      "accepted": 1086,
+      "admitted": 36
+    },
+    "transfer": {
+      "applied": 2274,
+      "admitted": 42,
+      "enrolled": 32
+    },
+    "studentLife": {
+      "outOfStatePct": 84,
+      "onCampusPct": 100
+    },
+    "costs": {
+      "tuitionUsd": 68140,
+      "requiredFeesUsd": 314,
+      "foodAndHousingUsd": 22120
     }
   },
-  "ingestedAt": "2026-09-15 14:16:58",
-  "updatedAt": "2026-09-15 14:16:58",
+  "ingestedAt": "2026-09-15 17:11:09",
+  "updatedAt": "2026-09-15 17:11:09",
   "validation": {
+    "school": "Princeton University",
+    "slug": "princeton-university",
     "status": "consistent",
     "discrepancies": [],
     "overrides": {},
-    "validatedAt": "2026-09-15 14:16:58"
+    "scopeFromPDF": "Common Data Set 2025-2026 A0 Respondent Information (Not for Publication) First Name: La Reina Last Name: Bates Title: Institutional Research Analyst Office: Of · Princeton University"
   }
 }

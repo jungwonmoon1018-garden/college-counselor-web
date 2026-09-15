@@ -1,0 +1,424 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-alabama-at-birmingham",
+  "school": "University of Alabama at Birmingham",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.942,
+  "yieldRate": 0.2405,
+  "enrolledSAT": {
+    "p25": 1250,
+    "p75": 1420
+  },
+  "enrolledACT": {
+    "p25": 23,
+    "p75": 30
+  },
+  "enrolledGPA": {
+    "p25": 3.5,
+    "p75": 4,
+    "avg": 3.82
+  },
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "not_considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "not_considered",
+    "recommendations": "not_considered",
+    "interview": "not_considered",
+    "ec": "not_considered",
+    "talent_ability": "not_considered",
+    "character": "not_considered",
+    "first_generation": "not_considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "not_considered",
+    "work_experience": "not_considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 11119,
+    "admitted": 10474,
+    "enrolled": 2519
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.uab.edu/institutionaleffectiveness/images/documents/cds/CDS-2025-26.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 620,
+        "p50": 670,
+        "p75": 720
+      },
+      "math": {
+        "p25": 600,
+        "p50": 660,
+        "p75": 730
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 23,
+        "p50": 27,
+        "p75": 32
+      },
+      "math": {
+        "p25": 20,
+        "p50": 25,
+        "p75": 27
+      },
+      "reading": {
+        "p25": 24,
+        "p50": 29,
+        "p75": 33
+      },
+      "science": {
+        "p25": 23,
+        "p50": 25,
+        "p75": 29
+      }
+    },
+    "submitting": {
+      "satPct": 5,
+      "actPct": 47
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 35
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 50
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 15
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 0
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 40
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 44
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 13
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 2
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 1
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 38.5
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 44.4
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 15.4
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 1.7
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 28
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 44
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 27
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 1
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 0
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 35
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 35
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 28
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 2
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 15.4
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 42.3
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 32
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 10.3
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 47
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 31
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 21
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 1
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 19,
+      "topQuarterPct": 35,
+      "topHalfPct": 45,
+      "submittedPct": 1
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 45.2
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 17.8
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 13.3
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 9.8
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 7
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 6.7
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0.2
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.82,
+      "submittedPct": 99.7
+    },
+    "applicationFeeUsd": 40,
+    "aid": {
+      "averagePackageFirstYearUsd": 10694
+    },
+    "enrollment": {
+      "undergraduates": 12100
+    },
+    "retention": {
+      "firstYearPct": 80
+    },
+    "graduation": {
+      "sixYearPct": 66,
+      "cohort": 2019
+    },
+    "transfer": {
+      "applied": 2217,
+      "admitted": 1859,
+      "enrolled": 1138
+    },
+    "studentLife": {
+      "outOfStatePct": 17,
+      "onCampusPct": 81
+    },
+    "costs": {
+      "tuitionInStateUsd": 11970,
+      "tuitionOutOfStateUsd": 29820,
+      "requiredFeesUsd": 500,
+      "foodAndHousingUsd": 14720
+    }
+  },
+  "ingestedAt": "2026-09-15 17:13:32",
+  "updatedAt": "2026-09-15 17:13:32",
+  "validation": {
+    "school": "University of Alabama at Birmingham",
+    "slug": "university-of-alabama-at-birmingham",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2025-2026 The University of Alabama at Birmingham A0 Respondent Information (Not for Publication) First Name: Last Name: Title: Office: Institut · The University of Alabama at Birmingham"
+  }
+}

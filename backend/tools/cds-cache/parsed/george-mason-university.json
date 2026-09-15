@@ -1,0 +1,66 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "george-mason-university",
+  "school": "George Mason University",
+  "year": 2023,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.8748,
+  "yieldRate": 0.2022,
+  "enrolledSAT": {
+    "p25": 1170,
+    "p75": 1350
+  },
+  "enrolledACT": {
+    "p25": 25,
+    "p75": 30
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "not_considered",
+    "gpa": "important",
+    "test_scores": "considered",
+    "application_essay": "considered",
+    "recommendations": "considered",
+    "interview": "not_considered",
+    "ec": "considered",
+    "talent_ability": "important",
+    "character": "considered",
+    "first_generation": "not_considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 25233,
+    "admitted": 22074,
+    "enrolled": 4464
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1Tqkqg-EwnGfBky0TDuoILMPR319va5A9",
+  "sourceKind": "pdf_merged",
+  "parserVersion": 6,
+  "parserNotes": [
+    "merged_form_fields"
+  ],
+  "extras": null,
+  "ingestedAt": "2026-09-15 17:08:54",
+  "updatedAt": "2026-09-15 17:08:54",
+  "validation": {
+    "school": "George Mason University",
+    "slug": "george-mason-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

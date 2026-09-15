@@ -1,4 +1,6 @@
 {
+  "source": "cds",
+  "extractionMethod": "pdfjs",
   "slug": "carnegie-mellon-university",
   "school": "Carnegie Mellon University",
   "year": 2025,
@@ -51,7 +53,7 @@
   "priorities": [],
   "sourceUrl": "https://www.cmu.edu/ira/CDS/pdf/cds_2025_26/cds_2025_full_pdf.pdf",
   "sourceKind": "pdf_text",
-  "parserVersion": 5,
+  "parserVersion": 6,
   "parserNotes": [],
   "extras": {
     "satSections": {
@@ -196,14 +198,24 @@
         "mmdd": "02-15",
         "raw": "February 15"
       }
+    },
+    "waitlist": {
+      "admitted": 36
+    },
+    "transfer": {
+      "applied": 1610,
+      "admitted": 136,
+      "enrolled": 62
     }
   },
-  "ingestedAt": "2026-09-15 14:16:54",
-  "updatedAt": "2026-09-15 14:16:54",
+  "ingestedAt": "2026-09-15 17:06:53",
+  "updatedAt": "2026-09-15 17:06:53",
   "validation": {
+    "school": "Carnegie Mellon University",
+    "slug": "carnegie-mellon-university",
     "status": "consistent",
     "discrepancies": [],
     "overrides": {},
-    "validatedAt": "2026-09-15 14:16:54"
+    "scopeFromPDF": null
   }
 }

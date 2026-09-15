@@ -1,0 +1,125 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "illinois-wesleyan-university",
+  "school": "Illinois Wesleyan University",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.3931,
+  "yieldRate": 0.1227,
+  "enrolledSAT": {
+    "p25": 1120,
+    "p75": 1320
+  },
+  "enrolledACT": {
+    "p25": 25,
+    "p75": 30
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.82
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 9558,
+    "admitted": 3757,
+    "enrolled": 461
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 4671,
+        "admitted": 1496,
+        "admitRate": 0.3203
+      },
+      "women": {
+        "applied": 4857,
+        "admitted": 2241,
+        "admitRate": 0.4614
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1n2smyitAMGAXYMiFVJFa6IWE9kXfelqr",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 550,
+        "p50": 610,
+        "p75": 670
+      },
+      "math": {
+        "p25": 570,
+        "p50": 630,
+        "p75": 670
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 24,
+        "p50": 28,
+        "p75": 30
+      },
+      "math": {
+        "p25": 25,
+        "p50": 27,
+        "p75": 29
+      }
+    },
+    "submitting": {
+      "satPct": 21,
+      "actPct": 10
+    },
+    "gpa": {
+      "average": 3.82,
+      "submittedPct": 98
+    },
+    "dates": {
+      "eaClosing": {
+        "mmdd": "11-15",
+        "raw": "11/15"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 51231
+    },
+    "enrollment": {
+      "undergraduates": 1582
+    },
+    "graduation": {
+      "sixYearPct": 74.7,
+      "cohort": 2018
+    },
+    "transfer": {
+      "applied": 262,
+      "admitted": 96,
+      "enrolled": 37
+    },
+    "studentLife": {
+      "outOfStatePct": 16,
+      "onCampusPct": 98
+    },
+    "costs": {
+      "tuitionUsd": 59226,
+      "requiredFeesUsd": 204,
+      "academicYear": "2025-2026"
+    }
+  },
+  "ingestedAt": "2026-09-15 17:09:29",
+  "updatedAt": "2026-09-15 17:09:29",
+  "validation": {
+    "school": "Illinois Wesleyan University",
+    "slug": "illinois-wesleyan-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Name: Michael D. Thompson Title: Associate Vice President for Institutional Office: Of · Illinois Wesleyan University"
+  }
+}

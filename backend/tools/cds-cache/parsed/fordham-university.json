@@ -1,0 +1,347 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "fordham-university",
+  "school": "Fordham University",
+  "year": 2022,
+  "yearLabel": "2022-23",
+  "tier": null,
+  "overallAdmitRate": 0.5413,
+  "yieldRate": 0.1015,
+  "enrolledSAT": {
+    "p25": 1330,
+    "p75": 1460
+  },
+  "enrolledACT": {
+    "p25": 30,
+    "p75": 33
+  },
+  "enrolledGPA": {
+    "p25": 3.5,
+    "p75": 3.75,
+    "avg": 3.71
+  },
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "important",
+    "interview": "not_considered",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "considered",
+    "volunteer_work": "important",
+    "work_experience": "important",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 94406,
+    "admitted": 51100,
+    "enrolled": 5188
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 17530,
+        "admitted": 8471,
+        "admitRate": 0.4832
+      },
+      "women": {
+        "applied": 47203,
+        "admitted": 25550,
+        "admitRate": 0.5413
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1DAOghMNWOvsk9Y9IRwhmerxzU_gpHNvR",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 660,
+        "p50": 690,
+        "p75": 730
+      },
+      "math": {
+        "p25": 660,
+        "p50": 710,
+        "p75": 750
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 31,
+        "p50": 34,
+        "p75": 35
+      },
+      "math": {
+        "p25": 26,
+        "p50": 29,
+        "p75": 32
+      }
+    },
+    "submitting": {
+      "satPct": 27.4,
+      "actPct": 10.4
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 52.3
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 45.4
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 2.3
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 0.1
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 48.2
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 47.3
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 4.4
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0.1
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 55.8
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 40.3
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 3.6
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0.3
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 82.2
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 17.4
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 0.4
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 83
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 16.6
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 0.4
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 46.7
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 47.4
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 5.9
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 37,
+      "topQuarterPct": 75.4,
+      "topHalfPct": 96.4,
+      "submittedPct": 21.5
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 20
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 31.9
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 30.4
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 10
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 5.5
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 2
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0.2
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.71,
+      "submittedPct": 99.5
+    },
+    "applicationFeeUsd": 70,
+    "earlyDecision": {
+      "applications": 338,
+      "admitted": 228,
+      "admitRate": 0.6746
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-03",
+        "raw": "January 3"
+      },
+      "edNotification": "20-Dec"
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 41525
+    },
+    "enrollment": {
+      "undergraduates": 10098
+    },
+    "graduation": {
+      "sixYearPct": 83.4,
+      "cohort": 2016
+    },
+    "waitlist": {
+      "offered": 10496,
+      "accepted": 2893,
+      "admitted": 229
+    },
+    "transfer": {
+      "applied": 1598,
+      "admitted": 799,
+      "enrolled": 281
+    },
+    "studentLife": {
+      "outOfStatePct": 63,
+      "onCampusPct": 75
+    },
+    "costs": {
+      "tuitionUsd": 60335,
+      "requiredFeesUsd": 1657,
+      "foodAndHousingUsd": 23075,
+      "academicYear": "2023-2024"
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 164,
+        "10-19": 938,
+        "20-29": 358,
+        "30-39": 643,
+        "40-49": 13,
+        "50-99": 12,
+        "100+": 4,
+        "total": 2132
+      },
+      "under20Pct": 51.7
+    }
+  },
+  "ingestedAt": "2026-09-15 17:08:36",
+  "updatedAt": "2026-09-15 17:08:36",
+  "validation": {
+    "school": "Fordham University",
+    "slug": "fordham-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2022-2023 A. · Fordham University"
+  }
+}

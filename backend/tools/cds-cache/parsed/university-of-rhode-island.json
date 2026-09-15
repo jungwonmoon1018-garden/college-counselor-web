@@ -1,0 +1,66 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-rhode-island",
+  "school": "University of Rhode Island",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.7456,
+  "yieldRate": 0.1641,
+  "enrolledSAT": {
+    "p25": 1090,
+    "p75": 1310
+  },
+  "enrolledACT": {
+    "p25": 24.5,
+    "p75": 31
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "very_important",
+    "recommendations": "very_important",
+    "interview": "not_considered",
+    "ec": "important",
+    "talent_ability": "considered",
+    "character": "considered",
+    "first_generation": "considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "important",
+    "work_experience": "important",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 28021,
+    "admitted": 20892,
+    "enrolled": 3429
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://web.uri.edu/ir/wp-content/uploads/sites/276/CDS-PDF-2025-2026_fillablePDF.pdf",
+  "sourceKind": "pdf_merged",
+  "parserVersion": 6,
+  "parserNotes": [
+    "merged_form_fields"
+  ],
+  "extras": null,
+  "ingestedAt": "2026-09-15 17:15:49",
+  "updatedAt": "2026-09-15 17:15:49",
+  "validation": {
+    "school": "University of Rhode Island",
+    "slug": "university-of-rhode-island",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

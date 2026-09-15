@@ -1,0 +1,66 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "wake-forest-university",
+  "school": "Wake Forest University",
+  "year": 2023,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.2167,
+  "yieldRate": 0.3608,
+  "enrolledSAT": {
+    "p25": 1420,
+    "p75": 1500
+  },
+  "enrolledACT": {
+    "p25": 32,
+    "p75": 34
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "very_important",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "very_important",
+    "recommendations": "important",
+    "interview": "important",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "very_important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 18727,
+    "admitted": 4058,
+    "enrolled": 1464
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1kAPUzBRf-egu4NIKQw_n4wl-7UJY_dRQ",
+  "sourceKind": "pdf_merged",
+  "parserVersion": 6,
+  "parserNotes": [
+    "merged_form_fields"
+  ],
+  "extras": null,
+  "ingestedAt": "2026-09-15 17:16:46",
+  "updatedAt": "2026-09-15 17:16:46",
+  "validation": {
+    "school": "Wake Forest University",
+    "slug": "wake-forest-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

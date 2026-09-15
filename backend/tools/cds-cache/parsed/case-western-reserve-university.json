@@ -1,0 +1,356 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "case-western-reserve-university",
+  "school": "Case Western Reserve University",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.3778,
+  "yieldRate": 0.1156,
+  "enrolledSAT": {
+    "p25": 1450,
+    "p75": 1530
+  },
+  "enrolledACT": {
+    "p25": 32,
+    "p75": 35
+  },
+  "enrolledGPA": {
+    "p25": 3.5,
+    "p75": 3.75,
+    "avg": 3.78
+  },
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "very_important",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "important",
+    "interview": "important",
+    "ec": "very_important",
+    "talent_ability": "important",
+    "character": "important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "important",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 37082,
+    "admitted": 14010,
+    "enrolled": 1619
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 19086,
+        "admitted": 7172,
+        "admitRate": 0.3758
+      },
+      "women": {
+        "applied": 17983,
+        "admitted": 6833,
+        "admitRate": 0.38
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1f_RKOyi-tvUNi1NNhTcppmW2vC4ypNOl",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 700,
+        "p50": 740,
+        "p75": 760
+      },
+      "math": {
+        "p25": 740,
+        "p50": 770,
+        "p75": 790
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 33,
+        "p50": 35,
+        "p75": 35
+      },
+      "math": {
+        "p25": 31,
+        "p50": 34,
+        "p75": 35
+      },
+      "science": {
+        "p25": 31,
+        "p50": 34,
+        "p75": 35
+      }
+    },
+    "submitting": {
+      "satPct": 46,
+      "actPct": 23
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 92.9
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 6.7
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 0.4
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 80.8
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 18.8
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 0.4
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 93.6
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 6
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 0.4
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 95.5
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 3.7
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 0.8
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 91.1
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 8.6
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 0.4
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 81
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 19
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 92.6
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 7.1
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 0.4
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 90.3
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 8.9
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 0.7
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 74.5,
+      "topQuarterPct": 94.4,
+      "topHalfPct": 99.7,
+      "submittedPct": 17.7
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 17.9
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 46.8
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 24.3
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 9.3
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 1.4
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 0.2
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0.1
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.78,
+      "submittedPct": 91.2
+    },
+    "applicationFeeUsd": 75,
+    "earlyDecision": {
+      "applications": 804,
+      "admitted": 298,
+      "admitRate": 0.3706
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-15",
+        "raw": "1/15"
+      },
+      "edClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      },
+      "edNotification": "12/5",
+      "eaClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 58416
+    },
+    "enrollment": {
+      "undergraduates": 6528
+    },
+    "waitlist": {
+      "offered": 9805,
+      "accepted": 4478,
+      "admitted": 1282
+    },
+    "transfer": {
+      "applied": 713,
+      "admitted": 171,
+      "enrolled": 41
+    },
+    "studentLife": {
+      "outOfStatePct": 85.6,
+      "onCampusPct": 95.7
+    },
+    "costs": {
+      "tuitionUsd": 68660,
+      "requiredFeesUsd": 1340,
+      "foodAndHousingUsd": 19514
+    }
+  },
+  "ingestedAt": "2026-09-15 17:06:57",
+  "updatedAt": "2026-09-15 17:06:57",
+  "validation": {
+    "school": "Case Western Reserve University",
+    "slug": "case-western-reserve-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Name: Edward Bolden Title: Director, Institutional Research Office: Office of Institutional Researc · Case Western Reserve University"
+  }
+}

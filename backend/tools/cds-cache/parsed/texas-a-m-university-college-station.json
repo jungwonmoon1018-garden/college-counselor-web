@@ -1,0 +1,63 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "texas-a-m-university-college-station",
+  "school": "Texas A & M University-College Station",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.5166,
+  "yieldRate": 0.3848,
+  "enrolledSAT": {
+    "p25": 1160,
+    "p75": 1390
+  },
+  "enrolledACT": {
+    "p25": 24,
+    "p75": 32
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "very_important",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "considered",
+    "interview": "not_considered",
+    "ec": "very_important",
+    "talent_ability": "very_important",
+    "character": "considered",
+    "first_generation": "important",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "important",
+    "state_residency": "important",
+    "religious_affiliation": "not_considered"
+  },
+  "b1": {
+    "applied": 62967,
+    "admitted": 32531,
+    "enrolled": 12519
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://abpa.tamu.edu/_files/_documents/common-data/cds-pdf-2025-2026.pdf",
+  "sourceKind": "pdf_merged",
+  "parserVersion": 6,
+  "parserNotes": [
+    "merged_form_fields"
+  ],
+  "extras": null,
+  "ingestedAt": "2026-09-15 17:12:59",
+  "updatedAt": "2026-09-15 17:12:59",
+  "validation": {
+    "school": "Texas A & M University-College Station",
+    "slug": "texas-a-m-university-college-station",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

@@ -1,0 +1,127 @@
+{
+  "source": "cds",
+  "extractionMethod": "xlsx",
+  "slug": "california-state-university-fullerton",
+  "school": "California State University, Fullerton",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.9052,
+  "yieldRate": 0.142,
+  "enrolledSAT": {
+    "p25": 860,
+    "p75": 1070
+  },
+  "enrolledACT": {
+    "p25": 25,
+    "p75": 30
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 53559,
+    "admitted": 48482,
+    "enrolled": 6886
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 22405,
+        "admitted": 19884,
+        "admitRate": 0.8875
+      },
+      "women": {
+        "applied": 31033,
+        "admitted": 28492,
+        "admitRate": 0.9181
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://docs.google.com/spreadsheets/d/1zg-f6N2sMBcTDZKbvxEsACFfVkutyzAK/export?format=xlsx",
+  "sourceKind": "xlsx",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 450,
+        "p50": 490,
+        "p75": 550
+      },
+      "math": {
+        "p25": 410,
+        "p50": 470,
+        "p75": 530
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 19,
+        "p50": 22,
+        "p75": 33
+      },
+      "math": {
+        "p25": 26,
+        "p75": 29
+      },
+      "science": {
+        "p25": 22,
+        "p50": 25,
+        "p75": 26
+      }
+    },
+    "applicationFeeUsd": 70,
+    "enrollment": {
+      "undergraduates": 38597
+    },
+    "graduation": {
+      "sixYearPct": 71.8,
+      "cohort": 2018
+    },
+    "transfer": {
+      "applied": 22039,
+      "admitted": 17163,
+      "enrolled": 5003
+    },
+    "studentLife": {
+      "outOfStatePct": 0.8,
+      "onCampusPct": 19.1
+    },
+    "costs": {
+      "tuitionInStateUsd": 6450,
+      "tuitionOutOfStateUsd": 17010,
+      "requiredFeesUsd": 1428,
+      "foodAndHousingUsd": 19842,
+      "academicYear": "2025-2026"
+    },
+    "aid": {
+      "needMetPct": 90
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 203,
+        "10-19": 613,
+        "20-29": 1116,
+        "30-39": 1095,
+        "40-49": 483,
+        "50-99": 143,
+        "100+": 72,
+        "total": 3725
+      },
+      "under20Pct": 21.9
+    }
+  },
+  "ingestedAt": "2026-09-15 17:06:48",
+  "updatedAt": "2026-09-15 17:06:48",
+  "validation": {
+    "school": "California State University, Fullerton",
+    "slug": "california-state-university-fullerton",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

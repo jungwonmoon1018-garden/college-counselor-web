@@ -1,0 +1,178 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "truman-state-university",
+  "school": "Truman State University",
+  "year": 2019,
+  "yearLabel": "2019-20",
+  "tier": null,
+  "overallAdmitRate": 0.6261,
+  "yieldRate": 0.3132,
+  "enrolledSAT": {
+    "p25": 1150,
+    "p75": 1350
+  },
+  "enrolledACT": {
+    "p25": 24,
+    "p75": 31
+  },
+  "enrolledGPA": {
+    "p25": 3.75,
+    "p75": 4,
+    "avg": 3.82
+  },
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "not_considered",
+    "class_rank": "very_important",
+    "gpa": "very_important",
+    "test_scores": "very_important",
+    "application_essay": "important",
+    "recommendations": "considered",
+    "interview": "not_considered",
+    "ec": "considered",
+    "talent_ability": "considered",
+    "character": "considered",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 4595,
+    "admitted": 2877,
+    "enrolled": 901
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 1945,
+        "admitted": 1142,
+        "admitRate": 0.5871
+      },
+      "women": {
+        "applied": 2650,
+        "admitted": 1735,
+        "admitRate": 0.6547
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=14CeXIZQNBA8-cjuUITU_oX6_avn0hlAT",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "math": {
+        "p25": 570,
+        "p75": 670
+      }
+    },
+    "submitting": {
+      "satPct": 10.2,
+      "actPct": 91.6
+    },
+    "classRank": {
+      "topTenthPct": 56.9,
+      "topQuarterPct": 82.3,
+      "topHalfPct": 97.3,
+      "submittedPct": 94.2
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 73
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 14.9
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 7
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 3.7
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 1.5
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 0
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.82
+    },
+    "earlyDecision": {
+      "applications": 21,
+      "admitted": 21,
+      "admitRate": 1
+    },
+    "dates": {
+      "edNotification": "C21",
+      "aidPriority": {
+        "mmdd": "02-01",
+        "raw": "H9 2/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 12911
+    },
+    "enrollment": {
+      "undergraduates": 4939
+    },
+    "retention": {
+      "firstYearPct": 83.5
+    },
+    "graduation": {
+      "sixYearPct": 75.4,
+      "cohort": 2012
+    },
+    "studentLife": {
+      "outOfStatePct": 16,
+      "onCampusPct": 97
+    }
+  },
+  "ingestedAt": "2026-09-15 17:13:07",
+  "updatedAt": "2026-09-15 17:13:07",
+  "validation": {
+    "school": "Truman State University",
+    "slug": "truman-state-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

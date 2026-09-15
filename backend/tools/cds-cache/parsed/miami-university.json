@@ -1,0 +1,163 @@
+{
+  "source": "cds",
+  "extractionMethod": "xlsx",
+  "slug": "miami-university",
+  "school": "Miami University",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.754,
+  "yieldRate": 0.1405,
+  "enrolledSAT": {
+    "p25": 1240,
+    "p75": 1378
+  },
+  "enrolledACT": {
+    "p25": 25,
+    "p75": 30
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.82
+  },
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "not_considered",
+    "class_rank": "not_considered",
+    "gpa": "not_considered",
+    "test_scores": "not_considered",
+    "application_essay": "not_considered",
+    "recommendations": "not_considered",
+    "interview": "considered",
+    "ec": "considered",
+    "talent_ability": "not_considered",
+    "character": "not_considered",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 39580,
+    "admitted": 29843,
+    "enrolled": 4192
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 18051,
+        "admitted": 13382,
+        "admitRate": 0.7413
+      },
+      "women": {
+        "applied": 21529,
+        "admitted": 16461,
+        "admitRate": 0.7646
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://docs.google.com/spreadsheets/d/1fclf9GHXWaj_Qj363oXiUyz2IOQIxntM/export?format=xlsx",
+  "sourceKind": "xlsx",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 610,
+        "p50": 650,
+        "p75": 690
+      },
+      "math": {
+        "p25": 610,
+        "p50": 660,
+        "p75": 700
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 24,
+        "p50": 28,
+        "p75": 32
+      },
+      "math": {
+        "p25": 25,
+        "p50": 27,
+        "p75": 30
+      }
+    },
+    "gpa": {
+      "average": 3.82
+    },
+    "applicationFeeUsd": 50,
+    "earlyDecision": {
+      "applications": 521,
+      "admitted": 438,
+      "admitRate": 0.8407
+    },
+    "dates": {
+      "edNotification": "2025-12-15"
+    },
+    "enrollment": {
+      "undergraduates": 16816
+    },
+    "graduation": {
+      "sixYearPct": 79.8,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 5144,
+      "accepted": 632,
+      "admitted": 236
+    },
+    "transfer": {
+      "applied": 1426,
+      "admitted": 696,
+      "enrolled": 398
+    },
+    "studentLife": {
+      "outOfStatePct": 35,
+      "onCampusPct": 96
+    },
+    "costs": {
+      "tuitionInStateUsd": 17191,
+      "tuitionOutOfStateUsd": 40713,
+      "requiredFeesUsd": 1328,
+      "foodAndHousingUsd": 17154,
+      "academicYear": "2025-2026"
+    },
+    "aid": {
+      "needMetPct": 56.1
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 141,
+        "10-19": 551,
+        "20-29": 958,
+        "30-39": 563,
+        "40-49": 130,
+        "50-99": 174,
+        "100+": 63,
+        "total": 2580
+      },
+      "under20Pct": 26.8
+    }
+  },
+  "ingestedAt": "2026-09-15 17:10:23",
+  "updatedAt": "2026-09-15 17:10:23",
+  "validation": {
+    "school": "Miami University",
+    "slug": "miami-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

@@ -1,4 +1,6 @@
 {
+  "source": "cds",
+  "extractionMethod": "pdfjs",
   "slug": "new-york-university",
   "school": "New York University",
   "year": 2024,
@@ -31,7 +33,7 @@
   "priorities": [],
   "sourceUrl": "https://www.nyu.edu/content/dam/nyu/institutionalResearch/documents/cds-2025-2026/CDS%202025-2026%20FINAL%20(no%20G).pdf",
   "sourceKind": "pdf_text",
-  "parserVersion": 5,
+  "parserVersion": 6,
   "parserNotes": [],
   "extras": {
     "satSections": {
@@ -169,14 +171,39 @@
     },
     "aid": {
       "averagePackageFirstYearUsd": 72963
+    },
+    "enrollment": {
+      "undergraduates": 29471
+    },
+    "retention": {
+      "firstYearPct": 96.1
+    },
+    "graduation": {
+      "sixYearPct": 87.9,
+      "cohort": 2019
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 644,
+        "10-19": 2103,
+        "20-29": 968,
+        "30-39": 388,
+        "40-49": 220,
+        "50-99": 375,
+        "100+": 178,
+        "total": 4876
+      },
+      "under20Pct": 56.3
     }
   },
-  "ingestedAt": "2026-09-15 14:05:21",
-  "updatedAt": "2026-09-15 14:05:21",
+  "ingestedAt": "2026-09-15 17:10:47",
+  "updatedAt": "2026-09-15 17:10:47",
   "validation": {
+    "school": "New York University",
+    "slug": "new-york-university",
     "status": "consistent",
     "discrepancies": [],
     "overrides": {},
-    "validatedAt": "2026-09-15 14:05:21"
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) First Name: Last Name: Title: Office: Office of Institutional Research Mailing Address · New York University"
   }
 }

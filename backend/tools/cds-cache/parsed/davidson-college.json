@@ -1,0 +1,65 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "davidson-college",
+  "school": "Davidson College",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.1262,
+  "yieldRate": 0.4712,
+  "enrolledSAT": {
+    "p25": 1410,
+    "p75": 1500
+  },
+  "enrolledACT": {
+    "p25": 32,
+    "p75": 34
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "considered",
+    "gpa": "considered",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "very_important",
+    "interview": "not_considered",
+    "ec": "considered",
+    "talent_ability": "considered",
+    "character": "very_important",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 8932,
+    "admitted": 1127,
+    "enrolled": 531
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.davidson.edu/media/9718/download?attachment",
+  "sourceKind": "pdf_merged",
+  "parserVersion": 6,
+  "parserNotes": [
+    "merged_form_fields"
+  ],
+  "extras": null,
+  "ingestedAt": "2026-09-15 17:08:00",
+  "updatedAt": "2026-09-15 17:08:00",
+  "validation": {
+    "school": "Davidson College",
+    "slug": "davidson-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

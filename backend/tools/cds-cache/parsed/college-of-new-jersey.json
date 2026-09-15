@@ -1,0 +1,312 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "college-of-new-jersey",
+  "school": "College of New Jersey",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.6235,
+  "yieldRate": 0.1964,
+  "enrolledSAT": {
+    "p25": 1140,
+    "p75": 1320
+  },
+  "enrolledACT": {
+    "p25": 26,
+    "p75": 31
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "very_important",
+    "gpa": "considered",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "important",
+    "interview": "not_considered",
+    "ec": "very_important",
+    "talent_ability": "important",
+    "character": "important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "important",
+    "state_residency": "important",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "very_important",
+    "work_experience": "considered",
+    "level_of_interest": "important"
+  },
+  "b1": {
+    "applied": 12766,
+    "admitted": 7959,
+    "enrolled": 1563
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 5684,
+        "admitted": 3378,
+        "admitRate": 0.5943
+      },
+      "women": {
+        "applied": 7082,
+        "admitted": 4581,
+        "admitRate": 0.6469
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1XaZFpI1Y5fyEwqtCaRpohM63rKb1Jd8W",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "math": {
+        "p25": 570,
+        "p50": 620,
+        "p75": 670
+      }
+    },
+    "actSections": {
+      "math": {
+        "p25": 24,
+        "p75": 27
+      }
+    },
+    "submitting": {
+      "satPct": 39,
+      "actPct": 3
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 11
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 53
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 32
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 4
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 15.7
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 46.3
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 32.5
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 5.2
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0.3
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 13.7
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 45.8
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 34.1
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 5.4
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 1
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 32.6
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 54.4
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 6.5
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 4.4
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 2.2
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ],
+      "actSections": {
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 23.9
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 54.4
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 15.2
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 6.5
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 25,
+      "topQuarterPct": 57,
+      "topHalfPct": 92,
+      "submittedPct": 46
+    },
+    "gpa": {
+      "submittedPct": 0
+    },
+    "applicationFeeUsd": 65,
+    "earlyDecision": {
+      "applications": 418,
+      "admitted": 313,
+      "admitRate": 0.7488
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "02-01",
+        "raw": "2/1"
+      },
+      "edClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      },
+      "edNotification": "12/1"
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 16045
+    },
+    "enrollment": {
+      "undergraduates": 7435
+    },
+    "graduation": {
+      "sixYearPct": 86,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 696,
+      "accepted": 2,
+      "admitted": 1
+    },
+    "transfer": {
+      "applied": 1060,
+      "admitted": 718,
+      "enrolled": 334
+    },
+    "studentLife": {
+      "outOfStatePct": 5,
+      "onCampusPct": 83
+    }
+  },
+  "ingestedAt": "2026-09-15 17:07:23",
+  "updatedAt": "2026-09-15 17:07:23",
+  "validation": {
+    "school": "College of New Jersey",
+    "slug": "college-of-new-jersey",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Name: Jennifer Sizoo Title: Research Analyst Office: Institutional Research and Analyt · The College of New Jersey"
+  }
+}

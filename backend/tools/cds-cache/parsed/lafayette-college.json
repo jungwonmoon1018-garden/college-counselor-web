@@ -1,0 +1,483 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "lafayette-college",
+  "school": "Lafayette College",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.3116,
+  "yieldRate": 0.2116,
+  "enrolledSAT": {
+    "p25": 1360,
+    "p75": 1490
+  },
+  "enrolledACT": {
+    "p25": 31,
+    "p75": 33
+  },
+  "enrolledGPA": {
+    "p25": 3.25,
+    "p75": 3.75,
+    "avg": 3.56
+  },
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "important",
+    "gpa": "very_important",
+    "test_scores": "important",
+    "application_essay": "important",
+    "recommendations": "important",
+    "interview": "important",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "important"
+  },
+  "b1": {
+    "applied": 10556,
+    "admitted": 3289,
+    "enrolled": 696
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://oir.lafayette.edu/wp-content/uploads/sites/196/2026/01/CDS2025-2026.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 680,
+        "p50": 720,
+        "p75": 740
+      },
+      "math": {
+        "p25": 660,
+        "p50": 710,
+        "p75": 760
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 30,
+        "p50": 34,
+        "p75": 35
+      },
+      "math": {
+        "p25": 28,
+        "p75": 30
+      },
+      "reading": {
+        "p25": 33,
+        "p50": 35,
+        "p75": 36
+      },
+      "science": {
+        "p25": 30,
+        "p50": 32,
+        "p75": 34
+      }
+    },
+    "submitting": {
+      "satPct": 27,
+      "actPct": 9
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 60.8
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 38.2
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 1.1
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 0
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 66.1
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 31.2
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 2.7
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 60.8
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 36.6
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 2.2
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0.5
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 81.7
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 18.3
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 0
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 0
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 0
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 81.7
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 16.7
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 1.7
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 55
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 43.3
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 1.7
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 95
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 5
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 0
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 83.3
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 16.7
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 0
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 53,
+      "topQuarterPct": 81,
+      "topHalfPct": 98,
+      "submittedPct": 22
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 12.5
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 24.6
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 26.4
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 16.8
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 12.5
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 6.8
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0.4
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.56,
+      "submittedPct": 99.1
+    },
+    "applicationFeeUsd": 65,
+    "earlyDecision": {
+      "applications": 937,
+      "admitted": 356,
+      "admitRate": 0.3799
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-15",
+        "raw": "1/15"
+      },
+      "edClosing": {
+        "mmdd": "11-15",
+        "raw": "11/15"
+      },
+      "edNotification": "12/15",
+      "edIIClosing": {
+        "mmdd": "02-01",
+        "raw": "2/1"
+      },
+      "aidPriority": {
+        "mmdd": "01-15",
+        "raw": "x 1/15"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 63336
+    },
+    "enrollment": {
+      "undergraduates": 2675
+    },
+    "retention": {
+      "firstYearPct": 91
+    },
+    "graduation": {
+      "sixYearPct": 85,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 2660,
+      "accepted": 1316,
+      "admitted": 171
+    },
+    "transfer": {
+      "applied": 233,
+      "admitted": 53,
+      "enrolled": 26
+    },
+    "studentLife": {
+      "outOfStatePct": 85,
+      "onCampusPct": 99
+    },
+    "costs": {
+      "tuitionUsd": 70486,
+      "requiredFeesUsd": 1110,
+      "foodAndHousingUsd": 20896
+    }
+  },
+  "ingestedAt": "2026-09-15 17:09:51",
+  "updatedAt": "2026-09-15 17:09:51",
+  "validation": {
+    "school": "Lafayette College",
+    "slug": "lafayette-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2025-2026 A1 Address Information Name of College/University: Lafayette College Street Address Line 1: 730 High St. Street Address Line 2: Street · Lafayette College"
+  }
+}

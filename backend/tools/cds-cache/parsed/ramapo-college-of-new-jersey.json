@@ -1,0 +1,119 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "ramapo-college-of-new-jersey",
+  "school": "Ramapo College of New Jersey",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.7064,
+  "yieldRate": 0.17,
+  "enrolledSAT": {
+    "p25": 1140,
+    "p75": 1270
+  },
+  "enrolledACT": {
+    "p25": 22,
+    "p75": 30
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.52
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 8976,
+    "admitted": 6341,
+    "enrolled": 1078
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 3468,
+        "admitted": 2422,
+        "admitRate": 0.6984
+      },
+      "women": {
+        "applied": 5508,
+        "admitted": 3919,
+        "admitRate": 0.7115
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1IVhYs7ZLtvCi5Yvj1SJMB8mbozXWb3-Z",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 570,
+        "p50": 620,
+        "p75": 650
+      },
+      "math": {
+        "p25": 550,
+        "p50": 590,
+        "p75": 650
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 22,
+        "p50": 24,
+        "p75": 28
+      },
+      "math": {
+        "p25": 18,
+        "p50": 24,
+        "p75": 30
+      }
+    },
+    "gpa": {
+      "average": 3.52
+    },
+    "applicationFeeUsd": 65,
+    "earlyDecision": {
+      "applications": 65,
+      "admitted": 65,
+      "admitRate": 1
+    },
+    "dates": {
+      "edNotification": "12 5"
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 10043
+    },
+    "enrollment": {
+      "undergraduates": 5444
+    },
+    "waitlist": {
+      "offered": 1383,
+      "accepted": 220,
+      "admitted": 88
+    },
+    "transfer": {
+      "applied": 1100,
+      "admitted": 741,
+      "enrolled": 388
+    },
+    "studentLife": {
+      "outOfStatePct": 5,
+      "onCampusPct": 51.2
+    }
+  },
+  "ingestedAt": "2026-09-15 17:11:18",
+  "updatedAt": "2026-09-15 17:11:18",
+  "validation": {
+    "school": "Ramapo College of New Jersey",
+    "slug": "ramapo-college-of-new-jersey",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

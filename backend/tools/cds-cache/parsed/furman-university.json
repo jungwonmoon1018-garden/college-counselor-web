@@ -1,0 +1,66 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "furman-university",
+  "school": "Furman University",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.4869,
+  "yieldRate": 0.1218,
+  "enrolledSAT": {
+    "p25": 1280,
+    "p75": 1410
+  },
+  "enrolledACT": {
+    "p25": 29,
+    "p75": 33
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "considered",
+    "interview": "considered",
+    "ec": "important",
+    "talent_ability": "considered",
+    "character": "important",
+    "first_generation": "considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 9309,
+    "admitted": 4533,
+    "enrolled": 552
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.furman.edu/offices-services/institutional-research/wp-content/uploads/sites/166/2026/06/CDS-PDF-2025-2026.pdf",
+  "sourceKind": "pdf_merged",
+  "parserVersion": 6,
+  "parserNotes": [
+    "merged_form_fields"
+  ],
+  "extras": null,
+  "ingestedAt": "2026-09-15 17:08:52",
+  "updatedAt": "2026-09-15 17:08:52",
+  "validation": {
+    "school": "Furman University",
+    "slug": "furman-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

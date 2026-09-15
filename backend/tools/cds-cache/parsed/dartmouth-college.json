@@ -1,4 +1,6 @@
 {
+  "source": "cds",
+  "extractionMethod": "pdfjs",
   "slug": "dartmouth-college",
   "school": "Dartmouth College",
   "year": 2025,
@@ -47,7 +49,7 @@
   "priorities": [],
   "sourceUrl": "https://www.dartmouth.edu/oir/pdfs/cds_2025-26.pdf",
   "sourceKind": "pdf_text",
-  "parserVersion": 5,
+  "parserVersion": 6,
   "parserNotes": [],
   "extras": {
     "satSections": {
@@ -210,14 +212,43 @@
     },
     "aid": {
       "averagePackageFirstYearUsd": 73208
+    },
+    "enrollment": {
+      "undergraduates": 4715
+    },
+    "retention": {
+      "firstYearPct": 98
+    },
+    "graduation": {
+      "sixYearPct": 95,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 2497
+    },
+    "transfer": {
+      "applied": 689,
+      "admitted": 68,
+      "enrolled": 40
+    },
+    "studentLife": {
+      "outOfStatePct": 97,
+      "onCampusPct": 100
+    },
+    "costs": {
+      "tuitionUsd": 69207,
+      "requiredFeesUsd": 2318,
+      "foodAndHousingUsd": 20920
     }
   },
-  "ingestedAt": "2026-09-15 14:04:43",
-  "updatedAt": "2026-09-15 14:04:43",
+  "ingestedAt": "2026-09-15 17:07:50",
+  "updatedAt": "2026-09-15 17:07:50",
   "validation": {
+    "school": "Dartmouth College",
+    "slug": "dartmouth-college",
     "status": "consistent",
     "discrepancies": [],
     "overrides": {},
-    "validatedAt": "2026-09-15 14:04:43"
+    "scopeFromPDF": "Common Data Set 2025-2026 A0 Respondent Information (Not for Publication) First Name: Libby Last Name: Barlow Title: Associate Provost for Institutional Researc · Dartmouth College"
   }
 }

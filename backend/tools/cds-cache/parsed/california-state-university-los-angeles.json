@@ -1,0 +1,60 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "california-state-university-los-angeles",
+  "school": "California State University, Los Angeles",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.9124,
+  "yieldRate": 0.0882,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "considered",
+    "class_rank": "not_considered",
+    "gpa": "very_important",
+    "test_scores": "not_considered",
+    "application_essay": "not_considered",
+    "recommendations": "not_considered",
+    "interview": "not_considered",
+    "ec": "not_considered",
+    "talent_ability": "not_considered",
+    "character": "not_considered",
+    "first_generation": "not_considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "not_considered",
+    "work_experience": "not_considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 35898,
+    "admitted": 32752,
+    "enrolled": 2889
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.calstatela.edu/sites/default/files/CDS2526_CalStateLA.pdf",
+  "sourceKind": "pdf_merged",
+  "parserVersion": 6,
+  "parserNotes": [
+    "merged_form_fields"
+  ],
+  "extras": null,
+  "ingestedAt": "2026-09-15 17:06:51",
+  "updatedAt": "2026-09-15 17:06:51",
+  "validation": {
+    "school": "California State University, Los Angeles",
+    "slug": "california-state-university-los-angeles",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

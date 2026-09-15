@@ -1,0 +1,153 @@
+{
+  "source": "cds",
+  "extractionMethod": "xlsx",
+  "slug": "elon-university",
+  "school": "Elon University",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.6635,
+  "yieldRate": 0.1338,
+  "enrolledSAT": {
+    "p25": 1130,
+    "p75": 1320
+  },
+  "enrolledACT": {
+    "p25": 24,
+    "p75": 30
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.85
+  },
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "not_considered",
+    "class_rank": "considered",
+    "gpa": "not_considered",
+    "test_scores": "considered",
+    "application_essay": "not_considered",
+    "recommendations": "not_considered",
+    "interview": "considered",
+    "ec": "not_considered",
+    "talent_ability": "very_important",
+    "character": "considered",
+    "first_generation": "considered",
+    "alumni_relation": "very_important",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "very_important",
+    "work_experience": "very_important",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 18105,
+    "admitted": 12012,
+    "enrolled": 1607
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 6735,
+        "admitted": 4372,
+        "admitRate": 0.6491
+      },
+      "women": {
+        "applied": 11368,
+        "admitted": 7638,
+        "admitRate": 0.6719
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://docs.google.com/spreadsheets/d/1n6Ohmk5B6OiXXih1maoo5WrVydFrBr3c/export?format=xlsx",
+  "sourceKind": "xlsx",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 580,
+        "p50": 630,
+        "p75": 670
+      },
+      "math": {
+        "p25": 540,
+        "p50": 600,
+        "p75": 650
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 24,
+        "p50": 27,
+        "p75": 31
+      },
+      "math": {
+        "p25": 21,
+        "p50": 25,
+        "p75": 28
+      },
+      "science": {
+        "p25": 23,
+        "p50": 26,
+        "p75": 30
+      }
+    },
+    "gpa": {
+      "average": 3.85,
+      "submittedPct": 85.5
+    },
+    "earlyDecision": {
+      "applications": 399,
+      "admitted": 368,
+      "admitRate": 0.9223
+    },
+    "dates": {
+      "edNotification": "2024-12-01"
+    },
+    "enrollment": {
+      "undergraduates": 6452
+    },
+    "graduation": {
+      "sixYearPct": 84,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 3984,
+      "accepted": 815,
+      "admitted": 101
+    },
+    "transfer": {
+      "applied": 429,
+      "admitted": 241,
+      "enrolled": 72
+    },
+    "studentLife": {
+      "outOfStatePct": 78.5,
+      "onCampusPct": 99
+    },
+    "costs": {
+      "tuitionUsd": 46451,
+      "requiredFeesUsd": 507,
+      "academicYear": "2025-2026"
+    },
+    "aid": {
+      "needMetPct": 74
+    }
+  },
+  "ingestedAt": "2026-09-15 17:08:22",
+  "updatedAt": "2026-09-15 17:08:22",
+  "validation": {
+    "school": "Elon University",
+    "slug": "elon-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

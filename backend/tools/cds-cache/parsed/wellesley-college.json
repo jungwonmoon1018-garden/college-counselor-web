@@ -1,0 +1,417 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "wellesley-college",
+  "school": "Wellesley College",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.1405,
+  "yieldRate": 0.4763,
+  "enrolledSAT": {
+    "p25": 1470,
+    "p75": 1550
+  },
+  "enrolledACT": {
+    "p25": 33,
+    "p75": 35
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "important",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "very_important",
+    "interview": "not_considered",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "very_important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 8714,
+    "admitted": 1224,
+    "enrolled": 583
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "women": {
+        "applied": 8714,
+        "admitted": 1224,
+        "admitRate": 0.1405
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1CjYXubW4tfKsKnvHjgpU-kgvN6r3V1Bj",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "math": {
+        "p25": 730,
+        "p50": 770,
+        "p75": 790
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 34,
+        "p50": 35,
+        "p75": 36
+      },
+      "math": {
+        "p25": 29,
+        "p50": 32,
+        "p75": 34
+      },
+      "science": {
+        "p25": 31,
+        "p50": 34,
+        "p75": 35
+      }
+    },
+    "submitting": {
+      "satPct": 43,
+      "actPct": 18
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 92.7
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 4.8
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 2
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 0.4
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 92.3
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 5.7
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 1.6
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0.4
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 89.5
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 7.3
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 2.8
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0.4
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 94.3
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 5.7
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 0
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 0
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 0
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 94.3
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 5.7
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 0
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 74.5
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 22.6
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 1.9
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0.9
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 99.1
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 0.9
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 0
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 87.7
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 11.3
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 0.9
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 90,
+      "topQuarterPct": 99,
+      "topHalfPct": 100,
+      "submittedPct": 23
+    },
+    "gpa": {
+      "submittedPct": 0
+    },
+    "earlyDecision": {
+      "applications": 1033,
+      "admitted": 308,
+      "admitRate": 0.2982
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-08",
+        "raw": "1/8"
+      },
+      "edClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      },
+      "edNotification": "mid-Dec",
+      "edIIClosing": {
+        "mmdd": "01-01",
+        "raw": "1/1"
+      },
+      "aidPriority": {
+        "mmdd": "01-15",
+        "raw": "1/15/2025"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 68625
+    },
+    "enrollment": {
+      "undergraduates": 15
+    },
+    "waitlist": {
+      "offered": 2495,
+      "accepted": 1299,
+      "admitted": 34
+    },
+    "transfer": {
+      "applied": 386,
+      "admitted": 37,
+      "enrolled": 15
+    },
+    "studentLife": {
+      "outOfStatePct": 87,
+      "onCampusPct": 100
+    }
+  },
+  "ingestedAt": "2026-09-15 17:16:36",
+  "updatedAt": "2026-09-15 17:16:36",
+  "validation": {
+    "school": "Wellesley College",
+    "slug": "wellesley-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Name: Rachael Coombes Title: Associate Director of Institutional Research Office: Offi · Wellesley College"
+  }
+}

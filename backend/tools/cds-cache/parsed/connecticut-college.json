@@ -1,0 +1,246 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "connecticut-college",
+  "school": "Connecticut College",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.3918,
+  "yieldRate": 0.1597,
+  "enrolledSAT": {
+    "p25": 1160,
+    "p75": 1370
+  },
+  "enrolledACT": {
+    "p25": 26,
+    "p75": 32
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "important",
+    "interview": "important",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "very_important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "important",
+    "work_experience": "important",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 7338,
+    "admitted": 2875,
+    "enrolled": 459
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.conncoll.edu/media/Common-Data-Set-2025-26.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 610,
+        "p50": 660,
+        "p75": 710
+      },
+      "math": {
+        "p25": 550,
+        "p50": 610,
+        "p75": 670
+      }
+    },
+    "submitting": {
+      "satPct": 52,
+      "actPct": 14
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 16.3
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 54
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 27.2
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 2.5
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 31
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 51
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 15.5
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 2.5
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 14.2
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 45.2
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 32.2
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 8
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0.4
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 43.6
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 40.3
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 16.1
+        }
+      ]
+    },
+    "earlyDecision": {
+      "applications": 546,
+      "admitted": 222,
+      "admitRate": 0.4066
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-15",
+        "raw": "1/15"
+      },
+      "edClosing": {
+        "mmdd": "11-15",
+        "raw": "11/15"
+      },
+      "edNotification": "mid-December",
+      "edIIClosing": {
+        "mmdd": "01-15",
+        "raw": "1/15"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 54336
+    },
+    "enrollment": {
+      "undergraduates": 1953
+    },
+    "retention": {
+      "firstYearPct": 91.1
+    },
+    "graduation": {
+      "sixYearPct": 81.7,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 1269,
+      "accepted": 471,
+      "admitted": 5
+    },
+    "transfer": {
+      "applied": 198,
+      "admitted": 57,
+      "enrolled": 19
+    },
+    "studentLife": {
+      "outOfStatePct": 88,
+      "onCampusPct": 100
+    }
+  },
+  "ingestedAt": "2026-09-15 17:07:40",
+  "updatedAt": "2026-09-15 17:07:40",
+  "validation": {
+    "school": "Connecticut College",
+    "slug": "connecticut-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2025-2026 A0 Respondent Information (Not for Publication) First Name: Last Name: Title: Office: Office of Institutional Research and Planning Ad · Connecticut College"
+  }
+}

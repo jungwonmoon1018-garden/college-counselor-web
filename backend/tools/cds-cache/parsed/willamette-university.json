@@ -1,0 +1,137 @@
+{
+  "source": "cds",
+  "extractionMethod": "xlsx",
+  "slug": "willamette-university",
+  "school": "Willamette University",
+  "year": null,
+  "yearLabel": "2022-23",
+  "tier": null,
+  "overallAdmitRate": 0.806,
+  "yieldRate": 0.1627,
+  "enrolledSAT": {
+    "p25": 1240,
+    "p75": 1420
+  },
+  "enrolledACT": {
+    "p25": 27,
+    "p75": 33
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "not_considered",
+    "class_rank": "not_considered",
+    "gpa": "not_considered",
+    "test_scores": "considered",
+    "application_essay": "not_considered",
+    "recommendations": "very_important",
+    "interview": "very_important",
+    "ec": "considered",
+    "talent_ability": "considered",
+    "character": "considered",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "considered",
+    "racial_ethnic_status": "considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 3995,
+    "admitted": 3220,
+    "enrolled": 524
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 1601,
+        "admitted": 1256,
+        "admitRate": 0.7845
+      },
+      "women": {
+        "applied": 2394,
+        "admitted": 1964,
+        "admitRate": 0.8204
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://docs.google.com/spreadsheets/d/1-PRI-KiM0OLMEFKqbXvqIv9F1r4fyjWr/export?format=xlsx",
+  "sourceKind": "xlsx",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 630,
+        "p50": 680,
+        "p75": 710
+      },
+      "math": {
+        "p25": 600,
+        "p50": 650,
+        "p75": 710
+      }
+    },
+    "earlyDecision": {
+      "applications": 30,
+      "admitted": 23,
+      "admitRate": 0.7667
+    },
+    "dates": {
+      "edNotification": "2023-12-30"
+    },
+    "enrollment": {
+      "undergraduates": 1367
+    },
+    "graduation": {
+      "sixYearPct": 76.3,
+      "cohort": 2016
+    },
+    "transfer": {
+      "applied": 158,
+      "admitted": 83,
+      "enrolled": 38
+    },
+    "studentLife": {
+      "outOfStatePct": 75,
+      "onCampusPct": 95
+    },
+    "costs": {
+      "tuitionUsd": 48000,
+      "requiredFeesUsd": 226,
+      "foodAndHousingUsd": 15380,
+      "academicYear": "2023-2024"
+    },
+    "aid": {
+      "needMetPct": 89
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 59,
+        "10-19": 167,
+        "20-29": 66,
+        "30-39": 7,
+        "40-49": 2,
+        "50-99": 0,
+        "100+": 0,
+        "total": 301
+      },
+      "under20Pct": 75.1
+    }
+  },
+  "ingestedAt": "2026-09-15 17:16:48",
+  "updatedAt": "2026-09-15 17:16:48",
+  "validation": {
+    "school": "Willamette University",
+    "slug": "willamette-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

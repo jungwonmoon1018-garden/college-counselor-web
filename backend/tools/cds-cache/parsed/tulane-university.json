@@ -1,0 +1,488 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "tulane-university",
+  "school": "Tulane University",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.1398,
+  "yieldRate": 0.4032,
+  "enrolledSAT": {
+    "p25": 1410,
+    "p75": 1500
+  },
+  "enrolledACT": {
+    "p25": 31,
+    "p75": 34
+  },
+  "enrolledGPA": {
+    "p25": 3.5,
+    "p75": 3.75,
+    "avg": 3.7
+  },
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "very_important",
+    "gpa": "very_important",
+    "test_scores": "important",
+    "application_essay": "important",
+    "recommendations": "important",
+    "interview": "not_considered",
+    "ec": "very_important",
+    "talent_ability": "considered",
+    "character": "important",
+    "first_generation": "important",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "very_important",
+    "work_experience": "considered",
+    "level_of_interest": "important"
+  },
+  "b1": {
+    "applied": 32609,
+    "admitted": 4559,
+    "enrolled": 1838
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 12289,
+        "admitted": 1830,
+        "admitRate": 0.1489
+      },
+      "women": {
+        "applied": 20314,
+        "admitted": 2728,
+        "admitRate": 0.1343
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1eFKI8ONkOBUJHoYwP7kd2oONKvmq0noX",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 700,
+        "p50": 725,
+        "p75": 750
+      },
+      "math": {
+        "p25": 700,
+        "p50": 740,
+        "p75": 770
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 31,
+        "p50": 34,
+        "p75": 35
+      },
+      "math": {
+        "p25": 27,
+        "p50": 30,
+        "p75": 33
+      },
+      "science": {
+        "p25": 29,
+        "p50": 31,
+        "p75": 34
+      }
+    },
+    "submitting": {
+      "satPct": 13,
+      "actPct": 28
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 87
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 10
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 2.2
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 0.4
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 76.5
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 20.4
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 2.6
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0.4
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 77.8
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 19.1
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 2.2
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0.4
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0.4
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0.4
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 83.8
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 11.3
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 4.6
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 0.4
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 0
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 84
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 10.5
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 4.6
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 1
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 55.9
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 36.6
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 5.7
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 1.8
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 85.8
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 9.5
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 4.2
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0.6
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 70.2
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 24.7
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 4.6
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0.6
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 53,
+      "topQuarterPct": 79,
+      "topHalfPct": 94,
+      "submittedPct": 19.8
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 12.8
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 40.3
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 29
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 11.3
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 4.4
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 1.7
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0.4
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0.1
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.7,
+      "submittedPct": 99.8
+    },
+    "earlyDecision": {
+      "applications": 1946,
+      "admitted": 1156,
+      "admitRate": 0.594
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-15",
+        "raw": "1/15"
+      },
+      "edClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      },
+      "edNotification": "12/15",
+      "edIIClosing": {
+        "mmdd": "01-15",
+        "raw": "1/15"
+      },
+      "eaClosing": {
+        "mmdd": "11-15",
+        "raw": "11/15"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 65722
+    },
+    "enrollment": {
+      "undergraduates": 7283
+    },
+    "graduation": {
+      "sixYearPct": 86.1,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 4192,
+      "accepted": 2290,
+      "admitted": 432
+    },
+    "transfer": {
+      "applied": 849,
+      "admitted": 510,
+      "enrolled": 153
+    },
+    "studentLife": {
+      "outOfStatePct": 85,
+      "onCampusPct": 98
+    },
+    "costs": {
+      "tuitionUsd": 64372,
+      "requiredFeesUsd": 4306,
+      "foodAndHousingUsd": 18868
+    }
+  },
+  "ingestedAt": "2026-09-15 17:13:11",
+  "updatedAt": "2026-09-15 17:13:11",
+  "validation": {
+    "school": "Tulane University",
+    "slug": "tulane-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Name: Shawn Potter Title: Director of Institutional Research Office: Office of Assessm · Tulane University"
+  }
+}

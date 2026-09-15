@@ -1,0 +1,461 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "northern-arizona-university",
+  "school": "Northern Arizona University",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.8961,
+  "yieldRate": 0.1582,
+  "enrolledSAT": {
+    "p25": 1010,
+    "p75": 1280
+  },
+  "enrolledACT": {
+    "p25": 20,
+    "p75": 26
+  },
+  "enrolledGPA": {
+    "p25": 3.25,
+    "p75": 4,
+    "avg": 3.7
+  },
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "important",
+    "class_rank": "not_considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "not_considered",
+    "recommendations": "not_considered",
+    "interview": "not_considered",
+    "ec": "not_considered",
+    "talent_ability": "not_considered",
+    "character": "not_considered",
+    "first_generation": "not_considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "not_considered",
+    "work_experience": "not_considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 35100,
+    "admitted": 31453,
+    "enrolled": 4975
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 12779,
+        "admitted": 11316,
+        "admitRate": 0.8855
+      },
+      "women": {
+        "applied": 22155,
+        "admitted": 19987,
+        "admitRate": 0.9021
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1p4Qb-m3iDJ_2l0gQgYw7sHVbFSf-e2Oe",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "math": {
+        "p25": 490,
+        "p50": 560,
+        "p75": 630
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 19,
+        "p50": 23,
+        "p75": 26
+      },
+      "math": {
+        "p25": 18,
+        "p50": 22,
+        "p75": 26
+      },
+      "reading": {
+        "p25": 20,
+        "p50": 23,
+        "p75": 28
+      },
+      "science": {
+        "p25": 19,
+        "p50": 22,
+        "p75": 25
+      }
+    },
+    "submitting": {
+      "satPct": 4,
+      "actPct": 28
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 6
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 38
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 34
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 19
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 14
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 34
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 34
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 14
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 4
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 3
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 7
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 31
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 35
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 22
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 5
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 9
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 34
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 44
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 13
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 13
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 31
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 39
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 15
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 2
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 8
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 34
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 35
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 23
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 20
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 29
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 37
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 13
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 1
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 8
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 28
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 48
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 15
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 1
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 20,
+      "topQuarterPct": 52,
+      "topHalfPct": 82,
+      "submittedPct": 13
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 30
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 20
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 16
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 13
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 10
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 10
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 1
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 1
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.7,
+      "submittedPct": 92
+    },
+    "applicationFeeUsd": 40,
+    "dates": {
+      "regularClosing": {
+        "mmdd": "08-01",
+        "raw": "8/1"
+      },
+      "aidPriority": {
+        "mmdd": "04-01",
+        "raw": "4/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 16041
+    },
+    "enrollment": {
+      "undergraduates": 22991
+    },
+    "graduation": {
+      "sixYearPct": 61,
+      "cohort": 2018
+    },
+    "transfer": {
+      "applied": 3131,
+      "admitted": 3085,
+      "enrolled": 1487
+    },
+    "studentLife": {
+      "outOfStatePct": 22,
+      "onCampusPct": 85
+    },
+    "costs": {
+      "tuitionInStateUsd": 11688,
+      "tuitionOutOfStateUsd": 28560,
+      "requiredFeesUsd": 1321,
+      "foodAndHousingUsd": 14432
+    }
+  },
+  "ingestedAt": "2026-09-15 17:10:46",
+  "updatedAt": "2026-09-15 17:10:46",
+  "validation": {
+    "school": "Northern Arizona University",
+    "slug": "northern-arizona-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Northern Arizona University"
+  }
+}

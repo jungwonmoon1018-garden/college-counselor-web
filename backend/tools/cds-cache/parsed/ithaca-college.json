@@ -1,0 +1,142 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "ithaca-college",
+  "school": "Ithaca College",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.6901,
+  "yieldRate": 0.1227,
+  "enrolledSAT": {
+    "p25": 1230,
+    "p75": 1370
+  },
+  "enrolledACT": {
+    "p25": 27,
+    "p75": 30
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 12400,
+    "admitted": 8557,
+    "enrolled": 1050
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 5152,
+        "admitted": 3650,
+        "admitRate": 0.7085
+      },
+      "women": {
+        "applied": 6762,
+        "admitted": 4588,
+        "admitRate": 0.6785
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=120jXX2ti-cerOxGj1kTvom9yik5kA-Ip",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 630,
+        "p50": 670,
+        "p75": 710
+      },
+      "math": {
+        "p25": 600,
+        "p50": 640,
+        "p75": 680
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 25,
+        "p50": 29,
+        "p75": 33
+      },
+      "math": {
+        "p25": 23,
+        "p50": 26,
+        "p75": 27
+      },
+      "reading": {
+        "p25": 29,
+        "p50": 33,
+        "p75": 35
+      },
+      "science": {
+        "p25": 26,
+        "p50": 29,
+        "p75": 31
+      }
+    },
+    "submitting": {
+      "satPct": 19.8,
+      "actPct": 4.9
+    },
+    "applicationFeeUsd": 60,
+    "earlyDecision": {
+      "applications": 116,
+      "admitted": 94,
+      "admitRate": 0.8103
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "02-01",
+        "raw": "February 1"
+      },
+      "edClosing": {
+        "mmdd": "11-01",
+        "raw": "November 1"
+      },
+      "edNotification": "December 15",
+      "eaClosing": {
+        "mmdd": "12-01",
+        "raw": "December 1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 47282
+    },
+    "retention": {
+      "firstYearPct": 84.7
+    },
+    "graduation": {
+      "sixYearPct": 76.1,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 215,
+      "accepted": 136,
+      "admitted": 19
+    },
+    "transfer": {
+      "applied": 498,
+      "admitted": 262,
+      "enrolled": 78
+    },
+    "studentLife": {
+      "outOfStatePct": 56.1,
+      "onCampusPct": 99
+    }
+  },
+  "ingestedAt": "2026-09-15 17:09:38",
+  "updatedAt": "2026-09-15 17:09:38",
+  "validation": {
+    "school": "Ithaca College",
+    "slug": "ithaca-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Ithaca College Response to the Common Data Set, 2024-25 Ithaca College Office of Analytics and Institutional Research, 1/2025 Page 1 of 38 Common Data Set Index"
+  }
+}

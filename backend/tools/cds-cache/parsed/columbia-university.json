@@ -1,20 +1,11 @@
 {
-  "school": "Columbia University",
+  "source": "cds",
+  "extractionMethod": "pdfjs",
   "slug": "columbia-university",
-  "tier": "T20",
+  "school": "Columbia University",
   "year": 2024,
   "yearLabel": "2024-25",
-  "sourceUrl": "https://opir.columbia.edu/sites/opir.columbia.edu/files/content/Common%20Data%20Set/2024-25_Columbia_College_and_Columbia_Engineering_CDS.pdf",
-  "sourceKind": "pdf_text",
-  "source": "cds",
-  "parserVersion": 4,
-  "extractionMethod": "pdfjs",
-  "testPolicy": "test_optional",
-  "b1": {
-    "applied": 60247,
-    "admitted": 2325,
-    "enrolled": 1483
-  },
+  "tier": null,
   "overallAdmitRate": 0.0386,
   "yieldRate": 0.6378,
   "enrolledSAT": {
@@ -25,20 +16,8 @@
     "p25": 34,
     "p75": 36
   },
-  "c1Breakdown": {
-    "byGender": {
-      "men": {
-        "applied": 26575,
-        "admitted": 1082,
-        "admitRate": 0.0407
-      },
-      "women": {
-        "applied": 32668,
-        "admitted": 1191,
-        "admitRate": 0.0365
-      }
-    }
-  },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
   "c7": {
     "rigor": "very_important",
     "class_rank": "very_important",
@@ -60,6 +39,31 @@
     "work_experience": "considered",
     "level_of_interest": "not_considered"
   },
+  "b1": {
+    "applied": 60247,
+    "admitted": 2325,
+    "enrolled": 1483
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 26575,
+        "admitted": 1082,
+        "admitRate": 0.0407
+      },
+      "women": {
+        "applied": 32668,
+        "admitted": 1191,
+        "admitRate": 0.0365
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://opir.columbia.edu/sites/opir.columbia.edu/files/content/Common%20Data%20Set/2024-25_Columbia_College_and_Columbia_Engineering_CDS.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
   "extras": {
     "satSections": {
       "ebrw": {
@@ -225,8 +229,39 @@
     },
     "aid": {
       "averagePackageFirstYearUsd": 78824
+    },
+    "enrollment": {
+      "undergraduates": 9164
+    },
+    "graduation": {
+      "sixYearPct": 96,
+      "cohort": 2018
+    },
+    "transfer": {
+      "applied": 4180,
+      "admitted": 375,
+      "enrolled": 298
+    },
+    "studentLife": {
+      "outOfStatePct": 80,
+      "onCampusPct": 99
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 415,
+        "10-19": 760,
+        "20-29": 400,
+        "30-39": 101,
+        "40-49": 84,
+        "50-99": 178,
+        "100+": 103,
+        "total": 2041
+      },
+      "under20Pct": 57.6
     }
   },
+  "ingestedAt": "2026-09-15 17:07:35",
+  "updatedAt": "2026-09-15 17:07:35",
   "validation": {
     "school": "Columbia University",
     "slug": "columbia-university",

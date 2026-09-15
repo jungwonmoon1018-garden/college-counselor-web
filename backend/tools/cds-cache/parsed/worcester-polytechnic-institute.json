@@ -1,0 +1,169 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "worcester-polytechnic-institute",
+  "school": "Worcester Polytechnic Institute",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.6189,
+  "yieldRate": null,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": {
+    "p25": 3.75,
+    "p75": 4,
+    "avg": 3.9
+  },
+  "testPolicy": "test_optional",
+  "c7": {},
+  "b1": {
+    "applied": 12355,
+    "admitted": 7647
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.wpi.edu/sites/default/files/2026-05/WPI_CDS_2025-2026.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "classRank": {
+      "topTenthPct": 51,
+      "topQuarterPct": 83,
+      "topHalfPct": 98,
+      "submittedPct": 33
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 60
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 19
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 15
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 4
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 2
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 0
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.9,
+      "submittedPct": 88
+    },
+    "earlyDecision": {
+      "applications": 397,
+      "admitted": 310,
+      "admitRate": 0.7809
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "02-01",
+        "raw": "☒ 2/1"
+      },
+      "edClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      },
+      "edNotification": "12/15",
+      "edIIClosing": {
+        "mmdd": "01-05",
+        "raw": "1/5"
+      },
+      "eaClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      },
+      "aidPriority": {
+        "mmdd": "03-01",
+        "raw": "☒ 3/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 39298
+    },
+    "retention": {
+      "firstYearPct": 95
+    },
+    "graduation": {
+      "sixYearPct": 90,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 2293,
+      "admitted": 460
+    },
+    "earlyAction": {
+      "applications": 8882,
+      "admitted": 6151,
+      "admitRate": 0.6925
+    },
+    "transfer": {
+      "applied": 248,
+      "admitted": 198,
+      "enrolled": 63
+    },
+    "studentLife": {
+      "outOfStatePct": 51,
+      "onCampusPct": 96
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 915,
+        "10-19": 233,
+        "20-29": 252,
+        "30-39": 113,
+        "40-49": 55,
+        "50-99": 151,
+        "100+": 34,
+        "total": 1753
+      },
+      "under20Pct": 65.5
+    }
+  },
+  "ingestedAt": "2026-09-15 17:16:54",
+  "updatedAt": "2026-09-15 17:16:54",
+  "validation": {
+    "school": "Worcester Polytechnic Institute",
+    "slug": "worcester-polytechnic-institute",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2025-26 Prepared by the Office of Institutional Research, Analytics & Assessment Common Data Set Worcester Polytechnic Institute 2025-26 1 Conte · Worcester Polytechnic Institute"
+  }
+}

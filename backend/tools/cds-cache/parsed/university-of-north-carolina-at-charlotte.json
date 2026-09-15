@@ -1,0 +1,136 @@
+{
+  "source": "cds",
+  "extractionMethod": "xlsx",
+  "slug": "university-of-north-carolina-at-charlotte",
+  "school": "University of North Carolina at Charlotte",
+  "year": null,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.7778,
+  "yieldRate": 0.2331,
+  "enrolledSAT": {
+    "p25": 1150,
+    "p75": 1340
+  },
+  "enrolledACT": {
+    "p25": 21,
+    "p75": 27
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.56
+  },
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "not_considered",
+    "gpa": "very_important",
+    "test_scores": "very_important",
+    "application_essay": "considered",
+    "recommendations": "considered",
+    "interview": "not_considered",
+    "ec": "considered",
+    "talent_ability": "considered",
+    "character": "considered",
+    "first_generation": "not_considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "not_considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered",
+    "racial_ethnic_status": "not_considered"
+  },
+  "b1": {
+    "applied": 27218,
+    "admitted": 21170,
+    "enrolled": 4934
+  },
+  "c1Breakdown": {
+    "byDecisionPlan": {
+      "earlyDecision": {
+        "applied": 528,
+        "admitted": 9133,
+        "admitRate": 17.2973
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://ir.charlotte.edu/wp-content/uploads/sites/871/2026/06/CDS-2025-26.xlsx",
+  "sourceKind": "xlsx",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "actSections": {
+      "science": {
+        "p25": 20,
+        "p50": 24,
+        "p75": 27
+      }
+    },
+    "gpa": {
+      "average": 3.56
+    },
+    "applicationFeeUsd": 75,
+    "dates": {
+      "edNotification": "Can on-line application fee be waived for applicants with financial need? Yes C.2104  Month First-Time, First-Year Admission Admission Policies Early Decision Undergraduates First-time, first-year All All All MM"
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 12315,
+      "needMetPct": 57
+    },
+    "enrollment": {
+      "undergraduates": 26213
+    },
+    "retention": {
+      "firstYearPct": 86
+    },
+    "graduation": {
+      "sixYearPct": 68.2,
+      "cohort": 2019
+    },
+    "transfer": {
+      "applied": 5457,
+      "admitted": 4882,
+      "enrolled": 2987
+    },
+    "studentLife": {
+      "outOfStatePct": 10.4,
+      "onCampusPct": 80.6
+    },
+    "costs": {
+      "tuitionUsd": 7310,
+      "tuitionInStateUsd": 3812,
+      "tuitionOutOfStateUsd": 20018,
+      "requiredFeesUsd": 3505,
+      "foodAndHousingUsd": 12390,
+      "academicYear": "2025-2026"
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 196,
+        "10-19": 412,
+        "20-29": 522,
+        "30-39": 300,
+        "40-49": 264,
+        "50-99": 602,
+        "100+": 204,
+        "total": 2500
+      },
+      "under20Pct": 24.3
+    }
+  },
+  "ingestedAt": "2026-09-15 17:15:20",
+  "updatedAt": "2026-09-15 17:15:20",
+  "validation": {
+    "school": "University of North Carolina at Charlotte",
+    "slug": "university-of-north-carolina-at-charlotte",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

@@ -1,4 +1,6 @@
 {
+  "source": "cds",
+  "extractionMethod": "pdfjs",
   "slug": "georgia-institute-of-technology",
   "school": "Georgia Institute of Technology",
   "year": 2025,
@@ -51,7 +53,7 @@
   "priorities": [],
   "sourceUrl": "https://irp.gatech.edu/sites/default/files/CDS/CDS_2025-2026_FINAL_R4_03JUN2026.pdf",
   "sourceKind": "pdf_text",
-  "parserVersion": 5,
+  "parserVersion": 6,
   "parserNotes": [],
   "extras": {
     "satSections": {
@@ -424,14 +426,45 @@
     },
     "aid": {
       "averagePackageFirstYearUsd": 19981
+    },
+    "enrollment": {
+      "undergraduates": 21028
+    },
+    "retention": {
+      "firstYearPct": 97.3
+    },
+    "graduation": {
+      "sixYearPct": 94,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 7651,
+      "accepted": 4875,
+      "admitted": 653
+    },
+    "transfer": {
+      "applied": 3939,
+      "admitted": 789,
+      "enrolled": 663
+    },
+    "studentLife": {
+      "outOfStatePct": 36,
+      "onCampusPct": 92
+    },
+    "costs": {
+      "tuitionInStateUsd": 618,
+      "tuitionOutOfStateUsd": 604,
+      "foodAndHousingUsd": 628
     }
   },
-  "ingestedAt": "2026-09-15 14:17:00",
-  "updatedAt": "2026-09-15 14:17:00",
+  "ingestedAt": "2026-09-15 17:09:04",
+  "updatedAt": "2026-09-15 17:09:04",
   "validation": {
+    "school": "Georgia Institute of Technology",
+    "slug": "georgia-institute-of-technology",
     "status": "consistent",
     "discrepancies": [],
     "overrides": {},
-    "validatedAt": "2026-09-15 14:17:00"
+    "scopeFromPDF": "Common Data Set 2025-2026 A0 Respondent Information (Not for Publication) First Name: Valerie Last Name: Roberts Title: Business Analyst Office: Institutional R · Georgia Institute of Technology"
   }
 }

@@ -1,0 +1,66 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "loyola-university-maryland",
+  "school": "Loyola University Maryland",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.6986,
+  "yieldRate": 0.1303,
+  "enrolledSAT": {
+    "p25": 1250,
+    "p75": 1370
+  },
+  "enrolledACT": {
+    "p25": 29,
+    "p75": 33
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "not_considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "important",
+    "interview": "not_considered",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "very_important",
+    "first_generation": "considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "important",
+    "work_experience": "important",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 11850,
+    "admitted": 8278,
+    "enrolled": 1079
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.loyola.edu/_media/department/institutional-research/documents/cds/CDS_2025-2026-PDF_FINAL_20260408.pdf",
+  "sourceKind": "pdf_merged",
+  "parserVersion": 6,
+  "parserNotes": [
+    "merged_form_fields"
+  ],
+  "extras": null,
+  "ingestedAt": "2026-09-15 17:10:22",
+  "updatedAt": "2026-09-15 17:10:22",
+  "validation": {
+    "school": "Loyola University Maryland",
+    "slug": "loyola-university-maryland",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

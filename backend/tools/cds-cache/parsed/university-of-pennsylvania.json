@@ -1,45 +1,53 @@
 {
-  "school": "University of Pennsylvania",
-  "slug": "university-of-pennsylvania",
-  "tier": "T20",
-  "year": 2024,
   "source": "cds",
-  "parserVersion": 4,
-  "testPolicy": "test_required",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-pennsylvania",
+  "school": "University of Pennsylvania",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.054,
+  "yieldRate": 0.6835,
   "enrolledSAT": {
     "p25": 1510,
-    "p75": 1600
+    "p75": 1570
   },
   "enrolledACT": {
     "p25": 34,
     "p75": 36
   },
-  "c7": {},
-  "validation": {
-    "school": "University of Pennsylvania",
-    "slug": "university-of-pennsylvania",
-    "status": "discrepancies",
-    "discrepancies": [
-      {
-        "severity": "high",
-        "field": "overallAdmitRate",
-        "parsed": null,
-        "expected": 0.0587,
-        "note": "parser_missed"
-      }
-    ],
-    "overrides": {
-      "overallAdmitRate": 0.0587
-    },
-    "scopeFromPDF": null
+  "enrolledGPA": {
+    "p25": 3.75,
+    "p75": 4,
+    "avg": 3.9
   },
-  "_uncorrected": {
-    "enrolledSAT": {
-      "p25": 1510,
-      "p75": 1600
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 65236,
+    "admitted": 3523,
+    "enrolled": 2408
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 30339,
+        "admitted": 1634,
+        "admitRate": 0.0539
+      },
+      "women": {
+        "applied": 34887,
+        "admitted": 1889,
+        "admitRate": 0.0541
+      }
     }
   },
-  "overallAdmitRate": 0.0587,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1KPBFxXtdM6jbBCbjPldiwisgb2uMoR69",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
   "extras": {
     "satSections": {
       "ebrw": {
@@ -144,12 +152,42 @@
     },
     "aid": {
       "averagePackageFirstYearUsd": 70971
+    },
+    "graduation": {
+      "sixYearPct": 96.5,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 2958,
+      "accepted": 2288,
+      "admitted": 66
+    },
+    "studentLife": {
+      "outOfStatePct": 83,
+      "onCampusPct": 100
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 3,
+        "10-19": 504,
+        "20-29": 637,
+        "30-39": 210,
+        "40-49": 115,
+        "50-99": 93,
+        "100+": 279,
+        "total": 102
+      },
+      "under20Pct": 497.1
     }
   },
-  "enrolledGPA": {
-    "p25": 3.75,
-    "p75": 4,
-    "source": "C11_cumulative",
-    "avg": 3.9
+  "ingestedAt": "2026-09-15 17:15:30",
+  "updatedAt": "2026-09-15 17:15:30",
+  "validation": {
+    "school": "University of Pennsylvania",
+    "slug": "university-of-pennsylvania",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 University of Pennsylvania Table of Contents A"
   }
 }

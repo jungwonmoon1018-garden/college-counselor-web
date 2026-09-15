@@ -1,0 +1,63 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "gustavus-adolphus-college",
+  "school": "Gustavus Adolphus College",
+  "year": 2023,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.6099,
+  "yieldRate": 0.1517,
+  "enrolledSAT": null,
+  "enrolledACT": {
+    "p25": 24,
+    "p75": 30
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "considered",
+    "interview": "considered",
+    "ec": "considered",
+    "talent_ability": "considered",
+    "character": "considered",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 5294,
+    "admitted": 3229,
+    "enrolled": 490
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1V8MmDkggCYsDCg2dVZ2at-R_vdHEAsbO",
+  "sourceKind": "pdf_merged",
+  "parserVersion": 6,
+  "parserNotes": [
+    "merged_form_fields"
+  ],
+  "extras": null,
+  "ingestedAt": "2026-09-15 17:09:19",
+  "updatedAt": "2026-09-15 17:09:19",
+  "validation": {
+    "school": "Gustavus Adolphus College",
+    "slug": "gustavus-adolphus-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

@@ -1,0 +1,200 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "franklin-and-marshall-college",
+  "school": "Franklin and Marshall College",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.2819,
+  "yieldRate": 0.1713,
+  "enrolledSAT": {
+    "p25": 1330,
+    "p75": 1379
+  },
+  "enrolledACT": {
+    "p25": 30,
+    "p75": 31
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "very_important",
+    "gpa": "very_important",
+    "test_scores": "not_considered",
+    "application_essay": "not_considered",
+    "recommendations": "not_considered",
+    "interview": "not_considered",
+    "ec": "not_considered",
+    "talent_ability": "not_considered",
+    "character": "very_important",
+    "first_generation": "not_considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "important",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 19762,
+    "admitted": 5570,
+    "enrolled": 954
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 9881,
+        "admitted": 2785,
+        "admitRate": 0.2819
+      },
+      "women": {
+        "applied": 4893,
+        "admitted": 1519,
+        "admitRate": 0.3104
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1NuyZFZDFBfRfRWDfEJT5Qvyecof6LODb",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "math": {
+        "p25": 650,
+        "p50": 680,
+        "p75": 687
+      }
+    },
+    "submitting": {
+      "satPct": 25,
+      "actPct": 9
+    },
+    "scoreDistribution": {
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 50
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 46
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 4
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 44
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 47
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 9
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 79
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 19
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 2
+        }
+      ]
+    },
+    "classRank": {
+      "topTenthPct": 50,
+      "topHalfPct": 97,
+      "submittedPct": 23
+    },
+    "gpa": {
+      "submittedPct": 0
+    },
+    "applicationFeeUsd": 62,
+    "earlyDecision": {
+      "applications": 961,
+      "admitted": 270,
+      "admitRate": 0.281
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-06",
+        "raw": "1/6"
+      },
+      "edClosing": {
+        "mmdd": "11-15",
+        "raw": "11/15"
+      },
+      "edNotification": "12/15",
+      "edIIClosing": {
+        "mmdd": "01-06",
+        "raw": "1/6"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 56192,
+      "needMetPct": 100
+    },
+    "enrollment": {
+      "undergraduates": 1808
+    },
+    "graduation": {
+      "sixYearPct": 84,
+      "cohort": 2018
+    },
+    "transfer": {
+      "applied": 122,
+      "admitted": 32,
+      "enrolled": 6
+    },
+    "studentLife": {
+      "outOfStatePct": 66,
+      "onCampusPct": 99
+    },
+    "costs": {
+      "tuitionUsd": 70566,
+      "requiredFeesUsd": 438,
+      "foodAndHousingUsd": 6654,
+      "academicYear": "2025-2026"
+    }
+  },
+  "ingestedAt": "2026-09-15 17:08:39",
+  "updatedAt": "2026-09-15 17:08:39",
+  "validation": {
+    "school": "Franklin and Marshall College",
+    "slug": "franklin-and-marshall-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Name: Christine Alexander Title: Director of Institutional Reporting Office: Office of · Franklin & Marshall College"
+  }
+}

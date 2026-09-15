@@ -1,0 +1,291 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "susquehanna-university",
+  "school": "Susquehanna University",
+  "year": 2021,
+  "yearLabel": "2021-22",
+  "tier": null,
+  "overallAdmitRate": 0.8803,
+  "yieldRate": 0.1345,
+  "enrolledSAT": {
+    "p25": 1090,
+    "p75": 1250
+  },
+  "enrolledACT": {
+    "p25": 22,
+    "p75": 28
+  },
+  "enrolledGPA": {
+    "p25": 3.25,
+    "p75": 4,
+    "avg": 3.67
+  },
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "important",
+    "gpa": "very_important",
+    "test_scores": "important",
+    "application_essay": "important",
+    "recommendations": "important",
+    "interview": "important",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "important",
+    "first_generation": "considered",
+    "alumni_relation": "important",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "important",
+    "volunteer_work": "important",
+    "work_experience": "important",
+    "level_of_interest": "important"
+  },
+  "b1": {
+    "applied": 4687,
+    "admitted": 4126,
+    "enrolled": 555
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 1859,
+        "admitted": 1586,
+        "admitRate": 0.8531
+      },
+      "women": {
+        "applied": 2828,
+        "admitted": 2540,
+        "admitRate": 0.8982
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1_JlkkYi8OnHjMk9QughYUVTt8hcBooH7",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 550,
+        "p75": 640
+      },
+      "math": {
+        "p25": 540,
+        "p75": 630
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 22,
+        "p75": 31
+      },
+      "math": {
+        "p25": 20,
+        "p75": 27
+      }
+    },
+    "submitting": {
+      "satPct": 45,
+      "actPct": 5
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 3
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 41
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 51
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 4
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 9.3
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 39.5
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 45.2
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 5.2
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0.8
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 1
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 5.7
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 34
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 52.2
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 7.7
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0.4
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 22
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 29.2
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 18.3
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 22.5
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 12.7
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 9.6
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 7.8
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.67,
+      "submittedPct": 99.6
+    },
+    "earlyDecision": {
+      "applications": 3,
+      "admitted": 2,
+      "admitRate": 0.6667
+    },
+    "dates": {
+      "edClosing": {
+        "mmdd": "11-15",
+        "raw": "11/15"
+      },
+      "edNotification": "12/1"
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 41518
+    },
+    "enrollment": {
+      "undergraduates": 2197
+    },
+    "graduation": {
+      "sixYearPct": 70.6,
+      "cohort": 2015
+    },
+    "transfer": {
+      "applied": 116,
+      "admitted": 45,
+      "enrolled": 17
+    },
+    "studentLife": {
+      "outOfStatePct": 40,
+      "onCampusPct": 96
+    },
+    "costs": {
+      "tuitionUsd": 54440,
+      "requiredFeesUsd": 720
+    }
+  },
+  "ingestedAt": "2026-09-15 17:12:32",
+  "updatedAt": "2026-09-15 17:12:32",
+  "validation": {
+    "school": "Susquehanna University",
+    "slug": "susquehanna-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

@@ -1,0 +1,155 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "california-state-polytechnic-university-pomona",
+  "school": "California State Polytechnic University, Pomona",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.7395,
+  "yieldRate": 0.1122,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": {
+    "p25": 3.25,
+    "p75": 4,
+    "avg": 3.7
+  },
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "not_considered",
+    "gpa": "very_important",
+    "test_scores": "not_considered",
+    "application_essay": "not_considered",
+    "recommendations": "not_considered",
+    "interview": "not_considered",
+    "ec": "considered",
+    "talent_ability": "not_considered",
+    "character": "not_considered",
+    "first_generation": "considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 48258,
+    "admitted": 35688,
+    "enrolled": 4004
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.cpp.edu/data/documents/common-data-sets/cds2025.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 31.5
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 23.7
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 15.6
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 11.7
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 9.5
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 7.9
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0.1
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.7,
+      "submittedPct": 100
+    },
+    "applicationFeeUsd": 70,
+    "dates": {
+      "regularClosing": {
+        "mmdd": "12-02",
+        "raw": "12/2"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 16281
+    },
+    "enrollment": {
+      "undergraduates": 25312
+    },
+    "retention": {
+      "firstYearPct": 89.1
+    },
+    "graduation": {
+      "sixYearPct": 68,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 1152,
+      "accepted": 596,
+      "admitted": 58
+    },
+    "transfer": {
+      "applied": 12677,
+      "admitted": 9053,
+      "enrolled": 2448
+    },
+    "studentLife": {
+      "outOfStatePct": 1,
+      "onCampusPct": 38
+    },
+    "costs": {
+      "tuitionInStateUsd": 6838,
+      "tuitionOutOfStateUsd": 20968,
+      "requiredFeesUsd": 1728,
+      "foodAndHousingUsd": 16909
+    }
+  },
+  "ingestedAt": "2026-09-15 17:06:33",
+  "updatedAt": "2026-09-15 17:06:33",
+  "validation": {
+    "school": "California State Polytechnic University, Pomona",
+    "slug": "california-state-polytechnic-university-pomona",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2025-2026 A0 Respondent Information (Not for Publication) First Name: Raymond Last Name: Canlas Title: Senior Institutional Research Analyst Off · California State Polytechnic University, Pomona"
+  }
+}

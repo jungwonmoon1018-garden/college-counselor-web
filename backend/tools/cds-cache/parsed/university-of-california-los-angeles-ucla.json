@@ -1,0 +1,60 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-california-los-angeles-ucla",
+  "school": "University of California, Los Angeles (UCLA)",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.0941,
+  "yieldRate": 0.4759,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "not_considered",
+    "gpa": "very_important",
+    "test_scores": "not_considered",
+    "application_essay": "very_important",
+    "recommendations": "not_considered",
+    "interview": "not_considered",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "important",
+    "first_generation": "considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "important",
+    "work_experience": "important",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 145086,
+    "admitted": 13659,
+    "enrolled": 6500
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://apb.ucla.edu/file/d1ab04b3-ee89-4cf2-9124-8dc0471b5e5a",
+  "sourceKind": "pdf_merged",
+  "parserVersion": 6,
+  "parserNotes": [
+    "merged_form_fields"
+  ],
+  "extras": null,
+  "ingestedAt": "2026-09-15 17:17:10",
+  "updatedAt": "2026-09-15 17:17:10",
+  "validation": {
+    "school": "University of California, Los Angeles (UCLA)",
+    "slug": "university-of-california-los-angeles-ucla",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

@@ -1,0 +1,111 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-kentucky",
+  "school": "University of Kentucky",
+  "year": null,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.9352,
+  "yieldRate": 0.2229,
+  "enrolledSAT": {
+    "p25": 1058,
+    "p75": 1270
+  },
+  "enrolledACT": {
+    "p25": 21,
+    "p75": 28
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.58
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 33387,
+    "admitted": 31222,
+    "enrolled": 6960
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 13654,
+        "admitted": 12574,
+        "admitRate": 0.9209
+      },
+      "women": {
+        "applied": 19733,
+        "admitted": 18648,
+        "admitRate": 0.945
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://irads.uky.edu/sites/default/files/2026-07/university-of-kentucky-cds-2025-2026-flat.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 540,
+        "p50": 600,
+        "p75": 650
+      },
+      "math": {
+        "p25": 510,
+        "p50": 580,
+        "p75": 630
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 21,
+        "p50": 24,
+        "p75": 29
+      },
+      "math": {
+        "p25": 19,
+        "p50": 24,
+        "p75": 27
+      },
+      "reading": {
+        "p25": 22,
+        "p50": 26,
+        "p75": 31
+      },
+      "science": {
+        "p25": 22,
+        "p50": 24,
+        "p75": 28
+      }
+    },
+    "gpa": {
+      "average": 3.58
+    },
+    "applicationFeeUsd": 50,
+    "aid": {
+      "averagePackageFirstYearUsd": 18278
+    },
+    "enrollment": {
+      "undergraduates": 27386
+    },
+    "studentLife": {
+      "outOfStatePct": 39.8,
+      "onCampusPct": 85.2
+    }
+  },
+  "ingestedAt": "2026-09-15 17:14:27",
+  "updatedAt": "2026-09-15 17:14:27",
+  "validation": {
+    "school": "University of Kentucky",
+    "slug": "university-of-kentucky",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

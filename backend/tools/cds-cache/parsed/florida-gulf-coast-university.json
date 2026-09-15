@@ -1,0 +1,423 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "florida-gulf-coast-university",
+  "school": "Florida Gulf Coast University",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.6344,
+  "yieldRate": 0.2089,
+  "enrolledSAT": {
+    "p25": 1050,
+    "p75": 1200
+  },
+  "enrolledACT": {
+    "p25": 20,
+    "p75": 25
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 4.12
+  },
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "considered",
+    "class_rank": "important",
+    "gpa": "very_important",
+    "test_scores": "very_important",
+    "application_essay": "considered",
+    "recommendations": "not_considered",
+    "interview": "not_considered",
+    "ec": "not_considered",
+    "talent_ability": "considered",
+    "character": "not_considered",
+    "first_generation": "considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 20422,
+    "admitted": 12956,
+    "enrolled": 2706
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 7304,
+        "admitted": 4619,
+        "admitRate": 0.6324
+      },
+      "women": {
+        "applied": 13116,
+        "admitted": 8336,
+        "admitRate": 0.6356
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1adQcqwkHToXN9XmWPSjI48GFgTTrV0ag",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 530,
+        "p50": 570,
+        "p75": 610
+      },
+      "math": {
+        "p25": 510,
+        "p50": 540,
+        "p75": 590
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 19,
+        "p50": 22,
+        "p75": 24
+      },
+      "math": {
+        "p25": 17,
+        "p50": 20,
+        "p75": 24
+      },
+      "science": {
+        "p25": 20,
+        "p50": 22,
+        "p75": 24
+      }
+    },
+    "submitting": {
+      "satPct": 79,
+      "actPct": 45
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 1
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 24
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 66
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 9
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 3
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 33
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 56
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 8
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 2
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 20
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 61
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 17
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 3
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 32
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 59
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 6
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 0
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 6
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 28
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 51
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 15
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 1
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 27
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 42
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 30
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 20
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 33
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 40
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 7
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 5
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 32
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 54
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 9
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 22,
+      "topQuarterPct": 50,
+      "topHalfPct": 82
+    },
+    "gpa": {
+      "average": 4.12,
+      "submittedPct": 100
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "03-01",
+        "raw": "3/1"
+      },
+      "eaClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 9843
+    },
+    "enrollment": {
+      "undergraduates": 14434
+    },
+    "graduation": {
+      "sixYearPct": 57.4,
+      "cohort": 2018
+    },
+    "transfer": {
+      "applied": 2099,
+      "admitted": 1843,
+      "enrolled": 1091
+    },
+    "studentLife": {
+      "outOfStatePct": 16,
+      "onCampusPct": 74
+    },
+    "costs": {
+      "tuitionInStateUsd": 4191,
+      "tuitionOutOfStateUsd": 22328,
+      "requiredFeesUsd": 1927,
+      "foodAndHousingUsd": 10102,
+      "academicYear": "2025-2026"
+    }
+  },
+  "ingestedAt": "2026-09-15 17:08:34",
+  "updatedAt": "2026-09-15 17:08:34",
+  "validation": {
+    "school": "Florida Gulf Coast University",
+    "slug": "florida-gulf-coast-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Name: Title: Office: Mailing Address: Office of Institutional Research City/State/Zip/ · Florida Gulf Coast University"
+  }
+}

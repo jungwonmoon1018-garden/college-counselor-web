@@ -1,0 +1,119 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "suny-college-at-oswego",
+  "school": "SUNY College at Oswego",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.8057,
+  "yieldRate": 0.1037,
+  "enrolledSAT": {
+    "p25": 1080,
+    "p75": 1250
+  },
+  "enrolledACT": null,
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.11
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 15148,
+    "admitted": 12204,
+    "enrolled": 1265
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 6609,
+        "admitted": 5276,
+        "admitRate": 0.7983
+      },
+      "women": {
+        "applied": 8529,
+        "admitted": 6919,
+        "admitRate": 0.8112
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1eFTf4hqIFBRZNv1f-TBXPTB8cKWACR6M",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "submitting": {
+      "satPct": 23
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 3
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 43
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 43
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 11
+        }
+      ]
+    },
+    "classRank": {
+      "topTenthPct": 15,
+      "topQuarterPct": 38,
+      "topHalfPct": 72,
+      "submittedPct": 44
+    },
+    "gpa": {
+      "average": 3.11,
+      "submittedPct": 99
+    },
+    "applicationFeeUsd": 50,
+    "aid": {
+      "averagePackageFirstYearUsd": 8473,
+      "needMetPct": 93
+    },
+    "studentFacultyRatio": "15 to 1",
+    "enrollment": {
+      "undergraduates": 5517
+    },
+    "graduation": {
+      "sixYearPct": 60.6,
+      "cohort": 2018
+    },
+    "transfer": {
+      "applied": 1381,
+      "admitted": 1127,
+      "enrolled": 519
+    },
+    "studentLife": {
+      "outOfStatePct": 5,
+      "onCampusPct": 89
+    }
+  },
+  "ingestedAt": "2026-09-15 17:12:29",
+  "updatedAt": "2026-09-15 17:12:29",
+  "validation": {
+    "school": "SUNY College at Oswego",
+    "slug": "suny-college-at-oswego",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

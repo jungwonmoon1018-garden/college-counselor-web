@@ -1,0 +1,109 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-utah",
+  "school": "University of Utah",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.8598,
+  "yieldRate": 0.2602,
+  "enrolledSAT": {
+    "p25": 1200,
+    "p75": 1370
+  },
+  "enrolledACT": {
+    "p25": 22,
+    "p75": 29
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.67
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 26822,
+    "admitted": 23062,
+    "enrolled": 6001
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 13723,
+        "admitted": 11639,
+        "admitRate": 0.8481
+      },
+      "women": {
+        "applied": 13099,
+        "admitted": 11423,
+        "admitRate": 0.8721
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1UwytoPwwp6jPanBxAuvQ6K_CxrvsaLS3",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 600,
+        "p50": 645,
+        "p75": 690
+      },
+      "math": {
+        "p25": 590,
+        "p50": 640,
+        "p75": 690
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 21,
+        "p50": 25,
+        "p75": 30
+      },
+      "math": {
+        "p25": 21,
+        "p50": 25,
+        "p75": 28
+      },
+      "reading": {
+        "p25": 23,
+        "p50": 27,
+        "p75": 32
+      },
+      "science": {
+        "p25": 22,
+        "p50": 25,
+        "p75": 29
+      }
+    },
+    "gpa": {
+      "average": 3.67
+    },
+    "transfer": {
+      "applied": 3892,
+      "admitted": 3229,
+      "enrolled": 1522
+    },
+    "studentLife": {
+      "outOfStatePct": 45,
+      "onCampusPct": 64
+    }
+  },
+  "ingestedAt": "2026-09-15 17:16:17",
+  "updatedAt": "2026-09-15 17:16:17",
+  "validation": {
+    "school": "University of Utah",
+    "slug": "university-of-utah",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

@@ -1,0 +1,282 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "soka-university-of-america",
+  "school": "Soka University of America",
+  "year": 2022,
+  "yearLabel": "2022-23",
+  "tier": null,
+  "overallAdmitRate": 0.5663,
+  "yieldRate": 0.4574,
+  "enrolledSAT": {
+    "p25": 1280,
+    "p75": 1410
+  },
+  "enrolledACT": {
+    "p25": 26,
+    "p75": 27
+  },
+  "enrolledGPA": {
+    "p25": 3.5,
+    "p75": 3.75
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 498,
+    "admitted": 282,
+    "enrolled": 129
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 150,
+        "admitted": 92,
+        "admitRate": 0.6133
+      },
+      "women": {
+        "applied": 348,
+        "admitted": 190,
+        "admitRate": 0.546
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1WlpkJyLgryZGVUumkccZAmEQXkV55Bsa",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 550,
+        "p50": 610,
+        "p75": 660
+      },
+      "math": {
+        "p25": 690,
+        "p50": 740,
+        "p75": 780
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 26,
+        "p50": 27,
+        "p75": 30
+      },
+      "math": {
+        "p25": 24,
+        "p50": 24,
+        "p75": 25
+      },
+      "science": {
+        "p25": 24,
+        "p50": 24,
+        "p75": 27
+      }
+    },
+    "submitting": {
+      "satPct": 38,
+      "actPct": 2
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 39
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 47
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 14
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 14
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 41
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 39
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 72
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 16
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 12
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 6
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 100
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 33
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 67
+          }
+        ],
+        "math": [
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 67
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 33
+          }
+        ]
+      }
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 1
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 71
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 22
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 5
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 1
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 0
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "submittedPct": 99
+    },
+    "applicationFeeUsd": 45,
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-15",
+        "raw": "1/15"
+      },
+      "eaClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      },
+      "aidPriority": {
+        "mmdd": "02-15",
+        "raw": "2/15"
+      },
+      "aidDeadline": {
+        "mmdd": "03-02",
+        "raw": "3/2"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 36331
+    },
+    "enrollment": {
+      "undergraduates": 445
+    },
+    "waitlist": {
+      "offered": 126,
+      "accepted": 88,
+      "admitted": 35
+    },
+    "transfer": {
+      "applied": 0,
+      "admitted": 0,
+      "enrolled": 0
+    },
+    "studentLife": {
+      "outOfStatePct": 68,
+      "onCampusPct": 100
+    },
+    "costs": {
+      "tuitionUsd": 34382,
+      "requiredFeesUsd": 2326,
+      "foodAndHousingUsd": 13892
+    }
+  },
+  "ingestedAt": "2026-09-15 17:12:01",
+  "updatedAt": "2026-09-15 17:12:01",
+  "validation": {
+    "school": "Soka University of America",
+    "slug": "soka-university-of-america",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2022-2023 CDS-A Page 1 A1 Address Information Name of College/University: Mailing Address: City/State/Zip/Country: Street Address (if different) · Mailing"
+  }
+}

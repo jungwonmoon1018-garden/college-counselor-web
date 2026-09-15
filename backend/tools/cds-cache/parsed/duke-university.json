@@ -1,4 +1,6 @@
 {
+  "source": "cds",
+  "extractionMethod": "pdfjs",
   "slug": "duke-university",
   "school": "Duke University",
   "year": 2025,
@@ -27,7 +29,7 @@
   "priorities": [],
   "sourceUrl": "https://ir.provost.duke.edu/sites/default/files/CDS_PDF_2025-2026-20260622-website-published-version.pdf",
   "sourceKind": "pdf_text",
-  "parserVersion": 5,
+  "parserVersion": 6,
   "parserNotes": [],
   "extras": {
     "satSections": {
@@ -119,14 +121,36 @@
     },
     "aid": {
       "averagePackageFirstYearUsd": 83513
+    },
+    "enrollment": {
+      "undergraduates": 6525
+    },
+    "retention": {
+      "firstYearPct": 97
+    },
+    "graduation": {
+      "sixYearPct": 96.1,
+      "cohort": 2019
+    },
+    "transfer": {
+      "applied": 1812,
+      "admitted": 157,
+      "enrolled": 92
+    },
+    "costs": {
+      "tuitionUsd": 73740,
+      "requiredFeesUsd": 2635,
+      "foodAndHousingUsd": 20222
     }
   },
-  "ingestedAt": "2026-09-15 14:05:29",
-  "updatedAt": "2026-09-15 14:05:29",
+  "ingestedAt": "2026-09-15 17:08:10",
+  "updatedAt": "2026-09-15 17:08:10",
   "validation": {
+    "school": "Duke University",
+    "slug": "duke-university",
     "status": "consistent",
     "discrepancies": [],
     "overrides": {},
-    "validatedAt": "2026-09-15 14:05:29"
+    "scopeFromPDF": "Common Data Set 2025-2026 Welcome to the 2025-2026 Common Data Set collection! The Common Data Set (CDS) initiative is a collaborative effort among data provide · Duke University"
   }
 }

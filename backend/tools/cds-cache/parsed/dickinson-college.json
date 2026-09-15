@@ -1,0 +1,66 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "dickinson-college",
+  "school": "Dickinson College",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.4149,
+  "yieldRate": 0.2044,
+  "enrolledSAT": {
+    "p25": 1340,
+    "p75": 1440
+  },
+  "enrolledACT": {
+    "p25": 29,
+    "p75": 32
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "very_important",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "very_important",
+    "interview": "important",
+    "ec": "important",
+    "talent_ability": "very_important",
+    "character": "very_important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "very_important"
+  },
+  "b1": {
+    "applied": 5719,
+    "admitted": 2373,
+    "enrolled": 485
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.dickinson.edu/download/downloads/id/17199/cds_2025-2026.pdf",
+  "sourceKind": "pdf_merged",
+  "parserVersion": 6,
+  "parserNotes": [
+    "merged_form_fields"
+  ],
+  "extras": null,
+  "ingestedAt": "2026-09-15 17:08:14",
+  "updatedAt": "2026-09-15 17:08:14",
+  "validation": {
+    "school": "Dickinson College",
+    "slug": "dickinson-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

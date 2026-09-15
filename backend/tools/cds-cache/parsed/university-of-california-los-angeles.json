@@ -1,4 +1,6 @@
 {
+  "source": "cds",
+  "extractionMethod": "pdfjs",
   "slug": "university-of-california-los-angeles",
   "school": "University of California, Los Angeles",
   "year": null,
@@ -37,7 +39,7 @@
   "priorities": [],
   "sourceUrl": "https://apb.ucla.edu/file/f8f5c864-93be-4b44-b646-7807a685749f",
   "sourceKind": "pdf_text",
-  "parserVersion": 5,
+  "parserVersion": 6,
   "parserNotes": [],
   "extras": {
     "gpa": {
@@ -46,14 +48,28 @@
     "applicationFeeUsd": 70,
     "aid": {
       "averagePackageFirstYearUsd": 34312
+    },
+    "enrollment": {
+      "undergraduates": 33534
+    },
+    "waitlist": {
+      "offered": 20563,
+      "accepted": 13612,
+      "admitted": 1514
+    },
+    "studentLife": {
+      "outOfStatePct": 15,
+      "onCampusPct": 98.9
     }
   },
-  "ingestedAt": "2026-09-15 14:16:58",
-  "updatedAt": "2026-09-15 14:16:58",
+  "ingestedAt": "2026-09-15 17:13:41",
+  "updatedAt": "2026-09-15 17:13:41",
   "validation": {
+    "school": "University of California, Los Angeles",
+    "slug": "university-of-california-los-angeles",
     "status": "consistent",
     "discrepancies": [],
     "overrides": {},
-    "validatedAt": "2026-09-15 14:16:58"
+    "scopeFromPDF": null
   }
 }

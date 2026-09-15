@@ -1,0 +1,65 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "macalester-college",
+  "school": "Macalester College",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.2813,
+  "yieldRate": 0.2096,
+  "enrolledSAT": {
+    "p25": 1350,
+    "p75": 1480
+  },
+  "enrolledACT": {
+    "p25": 29.75,
+    "p75": 33
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "important",
+    "interview": "considered",
+    "ec": "important",
+    "talent_ability": "considered",
+    "character": "important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered"
+  },
+  "b1": {
+    "applied": 8819,
+    "admitted": 2481,
+    "enrolled": 520
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.macalester.edu/institutional-research/wp-content/uploads/sites/515/CDS_2025-2026_Macalester-College_completed-1.pdf",
+  "sourceKind": "pdf_merged",
+  "parserVersion": 6,
+  "parserNotes": [
+    "merged_form_fields"
+  ],
+  "extras": null,
+  "ingestedAt": "2026-09-15 17:10:44",
+  "updatedAt": "2026-09-15 17:10:44",
+  "validation": {
+    "school": "Macalester College",
+    "slug": "macalester-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

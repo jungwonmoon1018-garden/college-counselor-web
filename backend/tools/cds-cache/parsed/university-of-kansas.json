@@ -1,0 +1,159 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-kansas",
+  "school": "University of Kansas",
+  "year": null,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": null,
+  "yieldRate": null,
+  "enrolledSAT": {
+    "p25": 1080,
+    "p75": 1280
+  },
+  "enrolledACT": {
+    "p25": 20,
+    "p75": 28
+  },
+  "enrolledGPA": {
+    "p25": 3.5,
+    "p75": 4,
+    "avg": 3.71
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": null,
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://aire.ku.edu/sites/air/files/files/CDS/KUCDS_2025_2026.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "math": {
+        "p25": 520,
+        "p50": 580,
+        "p75": 640
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 19,
+        "p50": 23,
+        "p75": 27
+      },
+      "math": {
+        "p25": 18,
+        "p50": 23,
+        "p75": 27
+      },
+      "reading": {
+        "p25": 21,
+        "p50": 25,
+        "p75": 31
+      },
+      "science": {
+        "p25": 21,
+        "p50": 24,
+        "p75": 27
+      }
+    },
+    "submitting": {
+      "satPct": 7.1,
+      "actPct": 50.7
+    },
+    "classRank": {
+      "topTenthPct": 26,
+      "topQuarterPct": 53,
+      "topHalfPct": 84
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 38
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 21
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 17
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 12
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 7
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 4
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 1
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.71
+    },
+    "applicationFeeUsd": 40,
+    "earlyDecision": {
+      "applications": 2024,
+      "admitted": 2024,
+      "admitRate": 1
+    },
+    "dates": {
+      "edNotification": "______",
+      "aidPriority": {
+        "mmdd": "02-01",
+        "raw": "February 1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 20547
+    },
+    "studentFacultyRatio": "1 to 1",
+    "enrollment": {
+      "undergraduates": 22544
+    },
+    "transfer": {
+      "applied": 2337,
+      "admitted": 1973,
+      "enrolled": 1158
+    }
+  },
+  "ingestedAt": "2026-09-15 17:14:27",
+  "updatedAt": "2026-09-15 17:14:27",
+  "validation": {
+    "school": "University of Kansas",
+    "slug": "university-of-kansas",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

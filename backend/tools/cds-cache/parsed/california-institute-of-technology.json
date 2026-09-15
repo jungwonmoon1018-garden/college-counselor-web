@@ -1,19 +1,71 @@
 {
-  "school": "California Institute of Technology",
-  "slug": "california-institute-of-technology",
-  "tier": "T20",
-  "year": null,
   "source": "cds",
-  "parserVersion": 4,
+  "extractionMethod": "pdfjs",
+  "slug": "california-institute-of-technology",
+  "school": "California Institute of Technology",
+  "year": null,
+  "yearLabel": "2023-24",
+  "tier": null,
+  "overallAdmitRate": 0.0257,
+  "yieldRate": 0.6124,
+  "enrolledSAT": {
+    "p25": 1530,
+    "p75": 1580
+  },
+  "enrolledACT": null,
+  "enrolledGPA": null,
   "testPolicy": "test_required",
+  "c7": {},
   "b1": {
-    "applied": 13847,
+    "applied": 13856,
     "admitted": 356,
     "enrolled": 218
   },
-  "overallAdmitRate": 0.0257,
-  "yieldRate": 0.6124,
-  "c7": {},
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 9401,
+        "admitted": 166,
+        "admitRate": 0.0177
+      },
+      "women": {
+        "applied": 4446,
+        "admitted": 190,
+        "admitRate": 0.0427
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=16JODH2rg6DZu5CUEeEQx_8UogBYooIM1",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "applicationFeeUsd": 75,
+    "aid": {
+      "averagePackageFirstYearUsd": 74780
+    },
+    "enrollment": {
+      "undergraduates": 987
+    },
+    "waitlist": {
+      "offered": 206,
+      "accepted": 171,
+      "admitted": 41
+    },
+    "transfer": {
+      "applied": 178,
+      "admitted": 11,
+      "enrolled": 10
+    },
+    "studentLife": {
+      "outOfStatePct": 63,
+      "onCampusPct": 100
+    }
+  },
+  "ingestedAt": "2026-09-15 17:06:42",
+  "updatedAt": "2026-09-15 17:06:42",
   "validation": {
     "school": "California Institute of Technology",
     "slug": "california-institute-of-technology",
@@ -37,18 +89,5 @@
       }
     },
     "scopeFromPDF": null
-  },
-  "_uncorrected": {
-    "overallAdmitRate": 0.0257
-  },
-  "enrolledSAT": {
-    "p25": 1530,
-    "p75": 1580
-  },
-  "extras": {
-    "applicationFeeUsd": 75,
-    "aid": {
-      "averagePackageFirstYearUsd": 74780
-    }
   }
 }

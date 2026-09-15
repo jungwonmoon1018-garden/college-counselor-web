@@ -1,0 +1,167 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "lewis-clark-college",
+  "school": "Lewis & Clark College",
+  "year": 2024,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.7118,
+  "yieldRate": 0.1252,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": {
+    "p25": 3.25,
+    "p75": 3.75,
+    "avg": 3.66
+  },
+  "testPolicy": "test_blind",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "not_considered",
+    "application_essay": "important",
+    "recommendations": "important",
+    "interview": "considered",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "important",
+    "first_generation": "considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "important",
+    "work_experience": "important",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 5804,
+    "admitted": 4131,
+    "enrolled": 517
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.lclark.edu/live/files/37831-lc-cds2025-26pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 13.4
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 35.8
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 23.2
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 16.7
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 8.1
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 2.8
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.66,
+      "submittedPct": 98.3
+    },
+    "earlyDecision": {
+      "applications": 98,
+      "admitted": 73,
+      "admitRate": 0.7449
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-15",
+        "raw": "1/15"
+      },
+      "edClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      },
+      "edNotification": "12/5",
+      "eaClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 66450
+    },
+    "enrollment": {
+      "undergraduates": 1989
+    },
+    "retention": {
+      "firstYearPct": 83
+    },
+    "graduation": {
+      "sixYearPct": 73.8,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 140,
+      "accepted": 35,
+      "admitted": 2
+    },
+    "transfer": {
+      "applied": 255,
+      "admitted": 120,
+      "enrolled": 55
+    },
+    "studentLife": {
+      "outOfStatePct": 78,
+      "onCampusPct": 95
+    },
+    "costs": {
+      "tuitionUsd": 70657,
+      "requiredFeesUsd": 434,
+      "foodAndHousingUsd": 16892
+    }
+  },
+  "ingestedAt": "2026-09-15 17:09:57",
+  "updatedAt": "2026-09-15 17:09:57",
+  "validation": {
+    "school": "Lewis & Clark College",
+    "slug": "lewis-clark-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 http://www.lclark.edu/offices/institutional_research/common_da A0 Respondent Information (Not for Publication) First Name: Read Last N · Lewis & Clark College"
+  }
+}

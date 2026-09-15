@@ -1,0 +1,216 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "hamilton-college",
+  "school": "Hamilton College",
+  "year": 2024,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.1359,
+  "yieldRate": 0.395,
+  "enrolledSAT": {
+    "p25": 1440,
+    "p75": 1510
+  },
+  "enrolledACT": {
+    "p25": 33,
+    "p75": 35
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "very_important",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "important",
+    "interview": "considered",
+    "ec": "considered",
+    "talent_ability": "considered",
+    "character": "important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 8904,
+    "admitted": 1210,
+    "enrolled": 478
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.hamilton.edu/documents/CDS%202025-26%20Excel%20Final.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 710,
+        "p50": 740,
+        "p75": 760
+      },
+      "math": {
+        "p25": 710,
+        "p50": 740,
+        "p75": 770
+      }
+    },
+    "submitting": {
+      "satPct": 35,
+      "actPct": 13
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 91
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 8.4
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 0.6
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 86.1
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 13.9
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 83.7
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 14.5
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 1.8
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 98.4
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 1.6
+        }
+      ]
+    },
+    "classRank": {
+      "topTenthPct": 86.4,
+      "topQuarterPct": 97.7,
+      "topHalfPct": 100,
+      "submittedPct": 18.4
+    },
+    "applicationFeeUsd": 65,
+    "earlyDecision": {
+      "applications": 1120,
+      "admitted": 315,
+      "admitRate": 0.2813
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-06",
+        "raw": "1/6"
+      },
+      "edClosing": {
+        "mmdd": "11-15",
+        "raw": "11/15"
+      },
+      "edNotification": "12/15",
+      "edIIClosing": {
+        "mmdd": "01-06",
+        "raw": "1/6"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 70010
+    },
+    "enrollment": {
+      "undergraduates": 1980
+    },
+    "retention": {
+      "firstYearPct": 96.2
+    },
+    "graduation": {
+      "sixYearPct": 89.9,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 2032,
+      "accepted": 1226,
+      "admitted": 49
+    },
+    "transfer": {
+      "applied": 225,
+      "admitted": 42,
+      "enrolled": 14
+    },
+    "studentLife": {
+      "outOfStatePct": 70,
+      "onCampusPct": 100
+    },
+    "costs": {
+      "tuitionUsd": 75210,
+      "requiredFeesUsd": 750,
+      "academicYear": "2026-2027"
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 147,
+        "10-19": 191,
+        "20-29": 67,
+        "30-39": 39,
+        "40-49": 23,
+        "50-99": 2,
+        "100+": 469,
+        "total": 938
+      },
+      "under20Pct": 36
+    }
+  },
+  "ingestedAt": "2026-09-15 17:09:11",
+  "updatedAt": "2026-09-15 17:09:11",
+  "validation": {
+    "school": "Hamilton College",
+    "slug": "hamilton-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 CDS-A Page 1 A. · Hamilton College"
+  }
+}

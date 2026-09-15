@@ -1,0 +1,168 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "pitzer-college",
+  "school": "Pitzer College",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.2516,
+  "yieldRate": 0.3584,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": {
+    "p25": 3.75,
+    "p75": 4,
+    "avg": 3.88
+  },
+  "testPolicy": "test_optional",
+  "c7": {},
+  "b1": {
+    "applied": 3438,
+    "admitted": 865,
+    "enrolled": 310
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 973,
+        "admitted": 256,
+        "admitRate": 0.2631
+      },
+      "women": {
+        "applied": 1565,
+        "admitted": 462,
+        "admitRate": 0.2952
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1vzdUhj0H16b29zNeUCKb9JW2FC5_GY2S",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "submitting": {
+      "satPct": 0,
+      "actPct": 0
+    },
+    "classRank": {
+      "topTenthPct": 86,
+      "topQuarterPct": 86,
+      "topHalfPct": 100,
+      "submittedPct": 2.3
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 45.6
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 34.2
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 15.3
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 3.9
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 1
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 0
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.88,
+      "submittedPct": 99
+    },
+    "applicationFeeUsd": 70,
+    "earlyDecision": {
+      "applications": 419,
+      "admitted": 177,
+      "admitRate": 0.4224
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-06",
+        "raw": "1/6"
+      },
+      "edClosing": {
+        "mmdd": "11-15",
+        "raw": "11/15"
+      },
+      "edNotification": "12/18",
+      "edIIClosing": {
+        "mmdd": "01-06",
+        "raw": "1/6"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 61090
+    },
+    "enrollment": {
+      "undergraduates": 1242
+    },
+    "graduation": {
+      "sixYearPct": 83.4,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 570,
+      "accepted": 209,
+      "admitted": 34
+    },
+    "transfer": {
+      "applied": 185,
+      "admitted": 51,
+      "enrolled": 24
+    },
+    "studentLife": {
+      "outOfStatePct": 52.1,
+      "onCampusPct": 100
+    },
+    "costs": {
+      "tuitionUsd": 64888,
+      "requiredFeesUsd": 304,
+      "foodAndHousingUsd": 22150
+    }
+  },
+  "ingestedAt": "2026-09-15 17:11:06",
+  "updatedAt": "2026-09-15 17:11:06",
+  "validation": {
+    "school": "Pitzer College",
+    "slug": "pitzer-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 4/14/2025 A0 Respondent Information (Not for Publication) Name: Leeshawn Cradoc Moore, Ph.D. Title: Director of Institutional Research · Pitzer College"
+  }
+}

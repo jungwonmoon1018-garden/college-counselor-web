@@ -1,0 +1,129 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "brandeis-university",
+  "school": "Brandeis University",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.4541,
+  "yieldRate": 0.1679,
+  "enrolledSAT": {
+    "p25": 1370,
+    "p75": 1470
+  },
+  "enrolledACT": {
+    "p25": 31,
+    "p75": 34
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.84
+  },
+  "testPolicy": "test_optional",
+  "c7": {},
+  "b1": {
+    "applied": 9756,
+    "admitted": 4430,
+    "enrolled": 744
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 4219,
+        "admitted": 1684,
+        "admitRate": 0.3991
+      },
+      "women": {
+        "applied": 5532,
+        "admitted": 2742,
+        "admitRate": 0.4957
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.brandeis.edu/institutional-research/docs/cds-2025-26.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 670,
+        "p50": 710,
+        "p75": 740
+      },
+      "math": {
+        "p25": 660,
+        "p50": 710,
+        "p75": 750
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 31,
+        "p50": 34,
+        "p75": 35
+      },
+      "math": {
+        "p25": 27,
+        "p50": 30,
+        "p75": 32
+      },
+      "reading": {
+        "p25": 32,
+        "p50": 34,
+        "p75": 36
+      },
+      "science": {
+        "p25": 28,
+        "p50": 32,
+        "p75": 33
+      }
+    },
+    "gpa": {
+      "average": 3.84
+    },
+    "applicationFeeUsd": 80,
+    "earlyDecision": {
+      "applications": 242,
+      "admitted": 242,
+      "admitRate": 1
+    },
+    "dates": {
+      "edNotification": "12 11"
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 65635
+    },
+    "enrollment": {
+      "undergraduates": 3358
+    },
+    "waitlist": {
+      "offered": 1717,
+      "accepted": 771,
+      "admitted": 206
+    },
+    "transfer": {
+      "applied": 640,
+      "admitted": 243,
+      "enrolled": 52
+    },
+    "studentLife": {
+      "outOfStatePct": 67,
+      "onCampusPct": 98.7
+    }
+  },
+  "ingestedAt": "2026-09-15 17:06:21",
+  "updatedAt": "2026-09-15 17:06:21",
+  "validation": {
+    "school": "Brandeis University",
+    "slug": "brandeis-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2025-2026 Welcome to the 2025-2026 Common Data Set collection! The Common Data Set (CDS) initiative is a collaborative effort among data provide · Brandeis University"
+  }
+}

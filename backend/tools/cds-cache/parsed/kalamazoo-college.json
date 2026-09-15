@@ -1,0 +1,124 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "kalamazoo-college",
+  "school": "Kalamazoo College",
+  "year": 2021,
+  "yearLabel": "2021-22",
+  "tier": null,
+  "overallAdmitRate": 0.7996,
+  "yieldRate": 0.1433,
+  "enrolledSAT": {
+    "p25": 1160,
+    "p75": 1373
+  },
+  "enrolledACT": {
+    "p25": 24,
+    "p75": 30
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.733
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 3334,
+    "admitted": 2666,
+    "enrolled": 382
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 1441,
+        "admitted": 1131,
+        "admitRate": 0.7849
+      },
+      "women": {
+        "applied": 1893,
+        "admitted": 1535,
+        "admitRate": 0.8109
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1OKgLxEqlo6kmq_Jn-UZfGG0nnmsdNJYU",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 590,
+        "p75": 690
+      },
+      "math": {
+        "p25": 568,
+        "p75": 690
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 24,
+        "p75": 34
+      },
+      "math": {
+        "p25": 22,
+        "p75": 29
+      }
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-15",
+        "raw": "1/15"
+      },
+      "edClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      },
+      "edNotification": "12/1",
+      "edIIClosing": {
+        "mmdd": "02-01",
+        "raw": "2/1"
+      },
+      "eaClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 51497
+    },
+    "enrollment": {
+      "undergraduates": 1241
+    },
+    "graduation": {
+      "sixYearPct": 76.4,
+      "cohort": 2015
+    },
+    "waitlist": {
+      "admitted": 0
+    },
+    "transfer": {
+      "applied": 52,
+      "admitted": 17,
+      "enrolled": 10
+    },
+    "studentLife": {
+      "outOfStatePct": 35,
+      "onCampusPct": 100
+    }
+  },
+  "ingestedAt": "2026-09-15 17:09:46",
+  "updatedAt": "2026-09-15 17:09:46",
+  "validation": {
+    "school": "Kalamazoo College",
+    "slug": "kalamazoo-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

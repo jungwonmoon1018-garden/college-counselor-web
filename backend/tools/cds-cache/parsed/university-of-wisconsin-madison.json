@@ -1,16 +1,11 @@
 {
-  "school": "University of Wisconsin-Madison",
-  "slug": "university-of-wisconsin-madison",
-  "tier": "T100",
-  "year": 2023,
   "source": "cds",
-  "parserVersion": 4,
-  "testPolicy": "test_optional",
-  "b1": {
-    "applied": 65933,
-    "admitted": 29784,
-    "enrolled": 8513
-  },
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-wisconsin-madison",
+  "school": "University of Wisconsin-Madison",
+  "year": 2023,
+  "yearLabel": "2024-25",
+  "tier": null,
   "overallAdmitRate": 0.4517,
   "yieldRate": 0.2858,
   "enrolledSAT": {
@@ -21,6 +16,8 @@
     "p25": 29,
     "p75": 33
   },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
   "c7": {
     "rigor": "very_important",
     "class_rank": "considered",
@@ -41,13 +38,27 @@
     "work_experience": "considered",
     "level_of_interest": "not_considered"
   },
+  "b1": {
+    "applied": 65933,
+    "admitted": 29784,
+    "enrolled": 8513
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=14UNcqVitOmVpukkpaj0kFv-4N4N_Df9v",
+  "sourceKind": "pdf_merged",
+  "parserVersion": 6,
   "parserNotes": [
     "merged_form_fields"
   ],
+  "extras": null,
+  "ingestedAt": "2026-09-15 17:16:30",
+  "updatedAt": "2026-09-15 17:16:30",
   "validation": {
     "school": "University of Wisconsin-Madison",
     "slug": "university-of-wisconsin-madison",
-    "status": "ok",
+    "status": "consistent",
     "discrepancies": [],
     "overrides": {},
     "scopeFromPDF": null

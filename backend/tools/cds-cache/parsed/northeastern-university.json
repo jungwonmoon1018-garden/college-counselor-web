@@ -1,0 +1,155 @@
+{
+  "source": "cds",
+  "extractionMethod": "xlsx",
+  "slug": "northeastern-university",
+  "school": "Northeastern University",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.0522,
+  "yieldRate": 0.537,
+  "enrolledSAT": {
+    "p25": 1450,
+    "p75": 1520
+  },
+  "enrolledACT": {
+    "p25": 33,
+    "p75": 35
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "not_considered",
+    "class_rank": "considered",
+    "gpa": "not_considered",
+    "test_scores": "not_considered",
+    "application_essay": "considered",
+    "recommendations": "not_considered",
+    "interview": "considered",
+    "ec": "not_considered",
+    "talent_ability": "very_important",
+    "character": "not_considered",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "very_important",
+    "work_experience": "very_important",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 98397,
+    "admitted": 5132,
+    "enrolled": 2756
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 42678,
+        "admitted": 2058,
+        "admitRate": 0.0482
+      },
+      "women": {
+        "applied": 55719,
+        "admitted": 3074,
+        "admitRate": 0.0552
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://docs.google.com/spreadsheets/d/1uTHhAIjtHoK4IM7YxVRbMeY75ZspPMFc/export?format=xlsx",
+  "sourceKind": "xlsx",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 710,
+        "p50": 730,
+        "p75": 760
+      },
+      "math": {
+        "p25": 730,
+        "p50": 760,
+        "p75": 780
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 33,
+        "p50": 35,
+        "p75": 35
+      },
+      "math": {
+        "p25": 30,
+        "p50": 33,
+        "p75": 35
+      },
+      "science": {
+        "p25": 31,
+        "p50": 33,
+        "p75": 35
+      }
+    },
+    "applicationFeeUsd": 75,
+    "earlyDecision": {
+      "applications": 3466,
+      "admitted": 1492,
+      "admitRate": 0.4305
+    },
+    "dates": {
+      "edNotification": "2025-01-01"
+    },
+    "enrollment": {
+      "undergraduates": 22695
+    },
+    "graduation": {
+      "sixYearPct": 91,
+      "cohort": 2018
+    },
+    "transfer": {
+      "applied": 3420,
+      "admitted": 675,
+      "enrolled": 288
+    },
+    "studentLife": {
+      "outOfStatePct": 68,
+      "onCampusPct": 99
+    },
+    "costs": {
+      "tuitionUsd": 64990,
+      "requiredFeesUsd": 1172,
+      "foodAndHousingUsd": 21620,
+      "academicYear": "2025-2026"
+    },
+    "aid": {
+      "needMetPct": 88.1
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 323,
+        "10-19": 1262,
+        "20-29": 534,
+        "30-39": 373,
+        "40-49": 373,
+        "50-99": 183,
+        "100+": 79,
+        "total": 3127
+      },
+      "under20Pct": 50.7
+    }
+  },
+  "ingestedAt": "2026-09-15 17:10:45",
+  "updatedAt": "2026-09-15 17:10:45",
+  "validation": {
+    "school": "Northeastern University",
+    "slug": "northeastern-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

@@ -1,0 +1,114 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "bryant-university",
+  "school": "Bryant University",
+  "year": null,
+  "yearLabel": "2019-20",
+  "tier": null,
+  "overallAdmitRate": 0.7099,
+  "yieldRate": 0.1576,
+  "enrolledSAT": {
+    "p25": 1150,
+    "p75": 1280
+  },
+  "enrolledACT": {
+    "p25": 25,
+    "p75": 29
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.43
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 7633,
+    "admitted": 5419,
+    "enrolled": 854
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 4550,
+        "admitted": 3191,
+        "admitRate": 0.7013
+      },
+      "women": {
+        "applied": 3083,
+        "admitted": 2228,
+        "admitRate": 0.7227
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1b5P1fIWYgQGy8W86fwlfxMtRsKlZSz6o",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 560,
+        "p75": 640
+      },
+      "math": {
+        "p25": 570,
+        "p75": 660
+      }
+    },
+    "submitting": {
+      "satPct": 70.5,
+      "actPct": 6.8
+    },
+    "classRank": {
+      "topTenthPct": 20.1,
+      "topQuarterPct": 48.5,
+      "topHalfPct": 88.1,
+      "submittedPct": 34.3
+    },
+    "gpa": {
+      "average": 3.43,
+      "submittedPct": 99.8
+    },
+    "applicationFeeUsd": 50,
+    "earlyDecision": {
+      "applications": 174,
+      "admitted": 136,
+      "admitRate": 0.7816
+    },
+    "dates": {
+      "edNotification": "C21  12-01"
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 25023
+    },
+    "enrollment": {
+      "undergraduates": 3259
+    },
+    "graduation": {
+      "sixYearPct": 80.9,
+      "cohort": 2013
+    },
+    "waitlist": {
+      "accepted": 108,
+      "admitted": 9
+    },
+    "studentLife": {
+      "outOfStatePct": 89,
+      "onCampusPct": 94
+    }
+  },
+  "ingestedAt": "2026-09-15 17:06:24",
+  "updatedAt": "2026-09-15 17:06:24",
+  "validation": {
+    "school": "Bryant University",
+    "slug": "bryant-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Bryant University"
+  }
+}

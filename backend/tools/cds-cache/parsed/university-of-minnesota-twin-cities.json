@@ -1,0 +1,109 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-minnesota-twin-cities",
+  "school": "University of Minnesota-Twin Cities",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.7979,
+  "yieldRate": 0.223,
+  "enrolledSAT": {
+    "p25": 1320,
+    "p75": 1470
+  },
+  "enrolledACT": {
+    "p25": 26,
+    "p75": 31
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 41357,
+    "admitted": 32997,
+    "enrolled": 7357
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 20012,
+        "admitted": 15827,
+        "admitRate": 0.7909
+      },
+      "women": {
+        "applied": 21345,
+        "admitted": 17170,
+        "admitRate": 0.8044
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1x8Pg9Po2_MoAoPgvdGcQSLNTOMT1g8Ou",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 640,
+        "p50": 690,
+        "p75": 730
+      },
+      "math": {
+        "p25": 660,
+        "p50": 720,
+        "p75": 770
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 24,
+        "p50": 28,
+        "p75": 33
+      },
+      "math": {
+        "p25": 25,
+        "p50": 27,
+        "p75": 31
+      },
+      "reading": {
+        "p25": 27,
+        "p50": 31,
+        "p75": 34
+      },
+      "science": {
+        "p25": 25,
+        "p50": 28,
+        "p75": 32
+      }
+    },
+    "applicationFeeUsd": 55,
+    "aid": {
+      "averagePackageFirstYearUsd": 19285
+    },
+    "enrollment": {
+      "undergraduates": 41303
+    },
+    "transfer": {
+      "applied": 6071,
+      "admitted": 3270,
+      "enrolled": 1747
+    },
+    "studentLife": {
+      "outOfStatePct": 29.9,
+      "onCampusPct": 76
+    }
+  },
+  "ingestedAt": "2026-09-15 17:14:57",
+  "updatedAt": "2026-09-15 17:14:57",
+  "validation": {
+    "school": "University of Minnesota-Twin Cities",
+    "slug": "university-of-minnesota-twin-cities",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

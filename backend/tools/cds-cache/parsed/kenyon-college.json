@@ -1,0 +1,153 @@
+{
+  "source": "cds",
+  "extractionMethod": "xlsx",
+  "slug": "kenyon-college",
+  "school": "Kenyon College",
+  "year": null,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.3015,
+  "yieldRate": 0.1927,
+  "enrolledSAT": {
+    "p25": 1400,
+    "p75": 1495
+  },
+  "enrolledACT": {
+    "p25": 31,
+    "p75": 34
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 4.15
+  },
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "important",
+    "interview": "considered",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "important",
+    "racial_ethnic_status": "not_considered"
+  },
+  "b1": {
+    "applied": 7091,
+    "admitted": 2138,
+    "enrolled": 412
+  },
+  "c1Breakdown": {
+    "byDecisionPlan": {
+      "earlyDecision": {
+        "applied": 11,
+        "admitted": 868,
+        "admitRate": 78.9091
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.kenyon.edu/files/resources/cds-2025-26-kenyon.xlsx",
+  "sourceKind": "xlsx",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "actSections": {
+      "english": {
+        "p25": 25,
+        "p75": 33
+      },
+      "math": {
+        "p25": 25,
+        "p75": 27
+      },
+      "reading": {
+        "p25": 25,
+        "p75": 33
+      },
+      "science": {
+        "p25": 25,
+        "p75": 29
+      }
+    },
+    "gpa": {
+      "average": 4.15
+    },
+    "earlyDecision": {
+      "applications": 663,
+      "admitted": 231,
+      "admitRate": 0.3484
+    },
+    "dates": {
+      "edNotification": "Can on-line application fee be waived for applicants with financial need? C.2104  Month 12 First-Time, First-Year Admission Admission Policies Early Decision Undergraduates First-time, first-year All All All MM"
+    },
+    "enrollment": {
+      "undergraduates": 2052
+    },
+    "retention": {
+      "firstYearPct": 91
+    },
+    "graduation": {
+      "sixYearPct": 85.4,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 1439,
+      "accepted": 808,
+      "admitted": 63
+    },
+    "transfer": {
+      "applied": 77,
+      "admitted": 41,
+      "enrolled": 11
+    },
+    "studentLife": {
+      "outOfStatePct": 82.6,
+      "onCampusPct": 99.9
+    },
+    "costs": {
+      "tuitionUsd": 72880,
+      "requiredFeesUsd": 350,
+      "foodAndHousingUsd": 900,
+      "academicYear": "2026-2027"
+    },
+    "aid": {
+      "needMetPct": 1
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 96,
+        "10-19": 226,
+        "20-29": 95,
+        "30-39": 16,
+        "40-49": 2,
+        "50-99": 435,
+        "100+": 100,
+        "total": 970
+      },
+      "under20Pct": 33.2
+    }
+  },
+  "ingestedAt": "2026-09-15 17:09:49",
+  "updatedAt": "2026-09-15 17:09:49",
+  "validation": {
+    "school": "Kenyon College",
+    "slug": "kenyon-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

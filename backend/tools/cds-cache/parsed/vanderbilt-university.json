@@ -1,0 +1,156 @@
+{
+  "source": "cds",
+  "extractionMethod": "xlsx",
+  "slug": "vanderbilt-university",
+  "school": "Vanderbilt University",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.0586,
+  "yieldRate": 0.6123,
+  "enrolledSAT": {
+    "p25": 1510,
+    "p75": 1560
+  },
+  "enrolledACT": {
+    "p25": 34,
+    "p75": 35
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.89
+  },
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "not_considered",
+    "class_rank": "not_considered",
+    "gpa": "not_considered",
+    "test_scores": "not_considered",
+    "application_essay": "not_considered",
+    "recommendations": "very_important",
+    "interview": "considered",
+    "ec": "not_considered",
+    "talent_ability": "very_important",
+    "character": "not_considered",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 45409,
+    "admitted": 2662,
+    "enrolled": 1630
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 20851,
+        "admitted": 1238,
+        "admitRate": 0.0594
+      },
+      "women": {
+        "applied": 24553,
+        "admitted": 1424,
+        "admitRate": 0.058
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://docs.google.com/spreadsheets/d/1eNGg4VpN47OW-Zl3EltQOEkVpx9PFhSx/export?format=xlsx",
+  "sourceKind": "xlsx",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 730,
+        "p50": 750,
+        "p75": 770
+      },
+      "math": {
+        "p25": 770,
+        "p50": 790,
+        "p75": 800
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 35,
+        "p50": 35,
+        "p75": 36
+      },
+      "math": {
+        "p25": 32,
+        "p50": 34,
+        "p75": 35
+      },
+      "science": {
+        "p25": 33,
+        "p50": 34,
+        "p75": 36
+      }
+    },
+    "gpa": {
+      "average": 3.89
+    },
+    "applicationFeeUsd": 50,
+    "earlyDecision": {
+      "applications": 5363,
+      "admitted": 825,
+      "admitRate": 0.1538
+    },
+    "dates": {
+      "edNotification": "Dec 15th"
+    },
+    "enrollment": {
+      "undergraduates": 7221
+    },
+    "graduation": {
+      "sixYearPct": 93.5,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "admitted": 279
+    },
+    "transfer": {
+      "applied": 3202,
+      "admitted": 698,
+      "enrolled": 359
+    },
+    "studentLife": {
+      "outOfStatePct": 85,
+      "onCampusPct": 84
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 489,
+        "10-19": 605,
+        "20-29": 362,
+        "30-39": 204,
+        "40-49": 40,
+        "50-99": 104,
+        "100+": 39,
+        "total": 1843
+      },
+      "under20Pct": 59.4
+    }
+  },
+  "ingestedAt": "2026-09-15 17:16:20",
+  "updatedAt": "2026-09-15 17:16:20",
+  "validation": {
+    "school": "Vanderbilt University",
+    "slug": "vanderbilt-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

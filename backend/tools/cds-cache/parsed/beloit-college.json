@@ -1,0 +1,232 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "beloit-college",
+  "school": "Beloit College",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.6304,
+  "yieldRate": 0.0922,
+  "enrolledSAT": {
+    "p25": 1260,
+    "p75": 1430
+  },
+  "enrolledACT": {
+    "p25": 26,
+    "p75": 30
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.47
+  },
+  "testPolicy": "test_optional",
+  "c7": {},
+  "b1": {
+    "applied": 3853,
+    "admitted": 2429,
+    "enrolled": 224
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 2192,
+        "admitted": 1312,
+        "admitRate": 0.5985
+      },
+      "women": {
+        "applied": 1658,
+        "admitted": 1114,
+        "admitRate": 0.6719
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1Apb7fPlyQXqISvL3QAK8D6ck42jSjIj_",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 590,
+        "p50": 685,
+        "p75": 720
+      },
+      "math": {
+        "p25": 610,
+        "p50": 635,
+        "p75": 710
+      }
+    },
+    "actSections": {
+      "reading": {
+        "p25": 26,
+        "p75": 31
+      }
+    },
+    "submitting": {
+      "satPct": 8,
+      "actPct": 7
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 27.8
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 61.1
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 11.1
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 44.4
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 27.8
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 27.8
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 33.3
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 44.4
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 22.2
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 25
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 50
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 25
+        }
+      ],
+      "actSections": {
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 56.3
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 31.3
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 12.5
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 18.8
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 56.3
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 25
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 26,
+      "topQuarterPct": 53,
+      "topHalfPct": 81
+    },
+    "gpa": {
+      "average": 3.47,
+      "submittedPct": 98.7
+    },
+    "dates": {
+      "eaClosing": {
+        "mmdd": "12-01",
+        "raw": "12/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 59766
+    },
+    "enrollment": {
+      "undergraduates": 1004
+    },
+    "graduation": {
+      "sixYearPct": 71,
+      "cohort": 2018
+    },
+    "transfer": {
+      "applied": 75,
+      "admitted": 55,
+      "enrolled": 28
+    },
+    "studentLife": {
+      "outOfStatePct": 76,
+      "onCampusPct": 92
+    },
+    "costs": {
+      "tuitionUsd": 2024,
+      "requiredFeesUsd": 2024,
+      "foodAndHousingUsd": 2024
+    }
+  },
+  "ingestedAt": "2026-09-15 17:06:03",
+  "updatedAt": "2026-09-15 17:06:03",
+  "validation": {
+    "school": "Beloit College",
+    "slug": "beloit-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Name: Ellenor Anderbyrne Title: Chief of Staff, Senior Director of Strategic Research  · Beloit College"
+  }
+}

@@ -1,0 +1,298 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "austin-college",
+  "school": "Austin College",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.4768,
+  "yieldRate": 0.126,
+  "enrolledSAT": {
+    "p25": 1120,
+    "p75": 1300
+  },
+  "enrolledACT": {
+    "p25": 22,
+    "p75": 30
+  },
+  "enrolledGPA": {
+    "p25": 3.5,
+    "p75": 3.75,
+    "avg": 3.67
+  },
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "considered",
+    "interview": "considered",
+    "ec": "important",
+    "talent_ability": "not_considered",
+    "character": "not_considered",
+    "first_generation": "considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 5826,
+    "admitted": 2778,
+    "enrolled": 350
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.austincollege.edu/fs/resource-manager/view/c55c1047-d98e-4e8e-9eb0-81c35ee45771",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 570,
+        "p50": 620,
+        "p75": 670
+      },
+      "math": {
+        "p25": 550,
+        "p50": 590,
+        "p75": 650
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 20,
+        "p50": 26,
+        "p75": 30
+      },
+      "math": {
+        "p25": 19,
+        "p50": 24,
+        "p75": 28
+      },
+      "reading": {
+        "p25": 23,
+        "p50": 28,
+        "p75": 33
+      },
+      "science": {
+        "p25": 23,
+        "p50": 26,
+        "p75": 29
+      }
+    },
+    "submitting": {
+      "satPct": 21,
+      "actPct": 12
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 12.3
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 41.1
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 41.1
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 5.5
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 13.7
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 46.6
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 28.8
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 11
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 12.3
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 35.6
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 45.2
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 6.9
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 22,
+      "topQuarterPct": 57,
+      "topHalfPct": 89,
+      "submittedPct": 69
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 8.6
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 37.1
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 30.8
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 17.5
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 4.3
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 1.4
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0.3
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.67,
+      "submittedPct": 99.4
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "03-01",
+        "raw": "3/1"
+      },
+      "eaClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1, 2/1"
+      }
+    },
+    "enrollment": {
+      "undergraduates": 1181
+    },
+    "retention": {
+      "firstYearPct": 79.7
+    },
+    "graduation": {
+      "sixYearPct": 63,
+      "cohort": 2019
+    },
+    "transfer": {
+      "applied": 250,
+      "admitted": 119,
+      "enrolled": 41
+    },
+    "studentLife": {
+      "outOfStatePct": 9,
+      "onCampusPct": 93
+    },
+    "costs": {
+      "tuitionUsd": 51308,
+      "requiredFeesUsd": 210
+    }
+  },
+  "ingestedAt": "2026-09-15 17:05:16",
+  "updatedAt": "2026-09-15 17:05:16",
+  "validation": {
+    "school": "Austin College",
+    "slug": "austin-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2025-2026 August 21, 2026 A0 Respondent Information (Not for Publication) First Name: Amon Last Name: Seagull Title: Director of Institutional R · Austin College"
+  }
+}

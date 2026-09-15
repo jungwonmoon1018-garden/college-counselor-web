@@ -1,0 +1,477 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "illinois-institute-of-technology",
+  "school": "Illinois Institute of Technology",
+  "year": 2023,
+  "yearLabel": "2023-24",
+  "tier": null,
+  "overallAdmitRate": 0.5542,
+  "yieldRate": 0.1081,
+  "enrolledSAT": {
+    "p25": 1190,
+    "p75": 1400
+  },
+  "enrolledACT": {
+    "p25": 25,
+    "p75": 31
+  },
+  "enrolledGPA": {
+    "p25": 3.75,
+    "p75": 4,
+    "avg": 4.2
+  },
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "considered",
+    "recommendations": "considered",
+    "interview": "not_considered",
+    "ec": "considered",
+    "talent_ability": "considered",
+    "character": "considered",
+    "first_generation": "not_considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 8912,
+    "admitted": 4939,
+    "enrolled": 534
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 5867,
+        "admitted": 3155,
+        "admitRate": 0.5378
+      },
+      "women": {
+        "applied": 3045,
+        "admitted": 1784,
+        "admitRate": 0.5859
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1yxJibejN_DbM9-M4CVYR05FvyHSPwMIp",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "math": {
+        "p25": 610,
+        "p50": 650,
+        "p75": 720
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 24,
+        "p50": 29,
+        "p75": 34
+      },
+      "math": {
+        "p25": 25,
+        "p50": 27,
+        "p75": 30
+      },
+      "science": {
+        "p25": 25,
+        "p50": 28,
+        "p75": 31
+      }
+    },
+    "submitting": {
+      "satPct": 45,
+      "actPct": 11
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 26
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 47
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 24
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 3
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 22
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 45
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 26
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 5
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 1
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 37
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 41
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 18
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 3
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 1
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 48
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 38
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 14
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 0
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 0
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 50
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 25
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 23
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 2
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 25
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 62
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 11
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 2
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 59
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 21
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 20
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 37
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 45
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 18
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 39,
+      "topQuarterPct": 77,
+      "topHalfPct": 97,
+      "submittedPct": 26
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 64
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 19.8
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 11.3
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 2.6
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 1.5
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 0.4
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0.2
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 4.2,
+      "submittedPct": 86.4
+    },
+    "earlyDecision": {
+      "applications": 69,
+      "admitted": 47,
+      "admitRate": 0.6812
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "08-01",
+        "raw": "8/1"
+      },
+      "edClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      },
+      "edNotification": "12/1",
+      "edIIClosing": {
+        "mmdd": "01-01",
+        "raw": "1/1"
+      },
+      "eaClosing": {
+        "mmdd": "11-15",
+        "raw": "11/15"
+      },
+      "aidPriority": {
+        "mmdd": "10-01",
+        "raw": "(MM/DD) 10/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 51229
+    },
+    "enrollment": {
+      "undergraduates": 3316
+    },
+    "graduation": {
+      "sixYearPct": 72,
+      "cohort": 2017
+    },
+    "transfer": {
+      "applied": 763,
+      "admitted": 305,
+      "enrolled": 131
+    },
+    "studentLife": {
+      "outOfStatePct": 24,
+      "onCampusPct": 64
+    }
+  },
+  "ingestedAt": "2026-09-15 17:09:28",
+  "updatedAt": "2026-09-15 17:09:28",
+  "validation": {
+    "school": "Illinois Institute of Technology",
+    "slug": "illinois-institute-of-technology",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Illinois Institute of Technology"
+  }
+}

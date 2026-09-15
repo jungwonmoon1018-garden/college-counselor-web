@@ -1,0 +1,63 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "cuny-bernard-m-baruch-college",
+  "school": "CUNY Bernard M Baruch College",
+  "year": 2023,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.4752,
+  "yieldRate": 0.1698,
+  "enrolledSAT": {
+    "p25": 1100,
+    "p75": 1400
+  },
+  "enrolledACT": null,
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "not_considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "important",
+    "interview": "considered",
+    "ec": "considered",
+    "talent_ability": "considered",
+    "character": "considered",
+    "first_generation": "not_considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "not_considered",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 28111,
+    "admitted": 13357,
+    "enrolled": 2268
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=12Y-yqkMAUDhkjU3tuhYWJ6wTNPUvhlZl",
+  "sourceKind": "pdf_merged",
+  "parserVersion": 6,
+  "parserNotes": [
+    "merged_form_fields"
+  ],
+  "extras": null,
+  "ingestedAt": "2026-09-15 17:07:54",
+  "updatedAt": "2026-09-15 17:07:54",
+  "validation": {
+    "school": "CUNY Bernard M Baruch College",
+    "slug": "cuny-bernard-m-baruch-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

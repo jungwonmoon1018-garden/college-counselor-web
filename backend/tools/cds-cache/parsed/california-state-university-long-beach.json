@@ -1,0 +1,150 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "california-state-university-long-beach",
+  "school": "California State University, Long Beach",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.4543,
+  "yieldRate": 0.1467,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": {
+    "p25": 3.25,
+    "p75": 3.75,
+    "avg": 3.66
+  },
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "not_considered",
+    "class_rank": "very_important",
+    "gpa": "very_important",
+    "test_scores": "not_considered",
+    "application_essay": "not_considered",
+    "recommendations": "not_considered",
+    "interview": "not_considered",
+    "ec": "not_considered",
+    "talent_ability": "not_considered",
+    "character": "not_considered",
+    "first_generation": "not_considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "not_considered",
+    "work_experience": "not_considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 88276,
+    "admitted": 40105,
+    "enrolled": 5884
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.csulb.edu/sites/default/files/2026/documents/CDS%202025%20-%202026%20(PDF)_0.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 20
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 26.6
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 23.5
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 14.8
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 10
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 5
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.66,
+      "submittedPct": 99.4
+    },
+    "applicationFeeUsd": 70,
+    "dates": {
+      "regularClosing": {
+        "mmdd": "12-01",
+        "raw": "12/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 15994
+    },
+    "enrollment": {
+      "undergraduates": 36056
+    },
+    "retention": {
+      "firstYearPct": 88.1
+    },
+    "graduation": {
+      "sixYearPct": 70,
+      "cohort": 2019
+    },
+    "transfer": {
+      "applied": 26319,
+      "admitted": 13204,
+      "enrolled": 4407
+    },
+    "studentLife": {
+      "outOfStatePct": 2,
+      "onCampusPct": 27.2
+    },
+    "costs": {
+      "tuitionInStateUsd": 6838,
+      "tuitionOutOfStateUsd": 19084,
+      "requiredFeesUsd": 1910,
+      "foodAndHousingUsd": 18554
+    }
+  },
+  "ingestedAt": "2026-09-15 17:06:52",
+  "updatedAt": "2026-09-15 17:06:52",
+  "validation": {
+    "school": "California State University, Long Beach",
+    "slug": "california-state-university-long-beach",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2025-2026 Welcome to the 2025-2026 Common Data Set collection! The Common Data Set (CDS) initiative is a collaborative effort among data provide · California State University, Long Beach"
+  }
+}

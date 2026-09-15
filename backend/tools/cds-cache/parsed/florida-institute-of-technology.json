@@ -1,0 +1,84 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "florida-institute-of-technology",
+  "school": "Florida Institute of Technology",
+  "year": 2023,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.577,
+  "yieldRate": 0.0942,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": {
+    "p25": 3.25,
+    "p75": 3.75,
+    "avg": 3.54
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 17295,
+    "admitted": 9979,
+    "enrolled": 940
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 9976,
+        "admitted": 5781,
+        "admitRate": 0.5795
+      },
+      "women": {
+        "applied": 7291,
+        "admitted": 4187,
+        "admitRate": 0.5743
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1_XxPcyrnq6Z6X7IjQD3jAL5kcDH3wn8l",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "classRank": {
+      "topTenthPct": 26,
+      "topQuarterPct": 56.9,
+      "topHalfPct": 84.4,
+      "submittedPct": 50.3
+    },
+    "gpa": {
+      "average": 3.54,
+      "submittedPct": 90
+    },
+    "dates": {
+      "edNotification": "C2103"
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 45654
+    },
+    "enrollment": {
+      "undergraduates": 3677
+    },
+    "graduation": {
+      "sixYearPct": 55.3,
+      "cohort": 2018
+    },
+    "studentLife": {
+      "outOfStatePct": 54.9,
+      "onCampusPct": 89
+    }
+  },
+  "ingestedAt": "2026-09-15 17:08:41",
+  "updatedAt": "2026-09-15 17:08:41",
+  "validation": {
+    "school": "Florida Institute of Technology",
+    "slug": "florida-institute-of-technology",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Florida Institute of Technology -"
+  }
+}

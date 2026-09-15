@@ -1,0 +1,267 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "middlebury-college",
+  "school": "Middlebury College",
+  "year": 2024,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.1277,
+  "yieldRate": 0.4196,
+  "enrolledSAT": {
+    "p25": 1460,
+    "p75": 1530
+  },
+  "enrolledACT": {
+    "p25": 33,
+    "p75": 35
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "very_important",
+    "gpa": "very_important",
+    "test_scores": "important",
+    "application_essay": "important",
+    "recommendations": "important",
+    "interview": "not_considered",
+    "ec": "very_important",
+    "talent_ability": "very_important",
+    "character": "very_important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 11831,
+    "admitted": 1511,
+    "enrolled": 634
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.middlebury.edu/sites/default/files/2026-06/Fall%202025%20CDS%20FINAL.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 730,
+        "p50": 750,
+        "p75": 770
+      },
+      "math": {
+        "p25": 720,
+        "p50": 750,
+        "p75": 780
+      }
+    },
+    "submitting": {
+      "satPct": 33,
+      "actPct": 16
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 92.5
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 7.1
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 0.5
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 0
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 90.6
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 9
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 0.5
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 89.6
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 9.4
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 0.5
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0.5
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 97
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 2
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 1
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 0
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 0
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ]
+    },
+    "applicationFeeUsd": 65,
+    "earlyDecision": {
+      "applications": 1179,
+      "admitted": 460,
+      "admitRate": 0.3902
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-01",
+        "raw": "1/1"
+      },
+      "edClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      },
+      "edNotification": "Mid December",
+      "edIIClosing": {
+        "mmdd": "01-01",
+        "raw": "1/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 64367
+    },
+    "enrollment": {
+      "undergraduates": 2653
+    },
+    "retention": {
+      "firstYearPct": 93
+    },
+    "graduation": {
+      "sixYearPct": 93,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 1996,
+      "accepted": 1878,
+      "admitted": 109
+    },
+    "transfer": {
+      "applied": 297,
+      "admitted": 44,
+      "enrolled": 13
+    },
+    "studentLife": {
+      "outOfStatePct": 95.6,
+      "onCampusPct": 100
+    },
+    "costs": {
+      "tuitionUsd": 70120,
+      "requiredFeesUsd": 520,
+      "foodAndHousingUsd": 20116
+    }
+  },
+  "ingestedAt": "2026-09-15 17:10:32",
+  "updatedAt": "2026-09-15 17:10:32",
+  "validation": {
+    "school": "Middlebury College",
+    "slug": "middlebury-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) First Name: Middlebury College Last Name: Title: Office: Office of Assessment and IR A · Street"
+  }
+}

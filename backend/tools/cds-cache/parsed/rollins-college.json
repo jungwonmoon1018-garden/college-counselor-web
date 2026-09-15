@@ -1,0 +1,341 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "rollins-college",
+  "school": "Rollins College",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.4754,
+  "yieldRate": 0.1349,
+  "enrolledSAT": {
+    "p25": 1210,
+    "p75": 1340
+  },
+  "enrolledACT": {
+    "p25": 25,
+    "p75": 30
+  },
+  "enrolledGPA": {
+    "p25": 3,
+    "p75": 3.75,
+    "avg": 3.46
+  },
+  "testPolicy": "test_optional",
+  "c7": {},
+  "b1": {
+    "applied": 8860,
+    "admitted": 4212,
+    "enrolled": 568
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 3492,
+        "admitted": 1573,
+        "admitRate": 0.4505
+      },
+      "women": {
+        "applied": 5367,
+        "admitted": 2639,
+        "admitRate": 0.4917
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1kuzTrfMGGpU6FncJ1kqxT6hav0ir20L5",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "math": {
+        "p25": 580,
+        "p50": 610,
+        "p75": 660
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 24,
+        "p50": 28,
+        "p75": 32
+      },
+      "math": {
+        "p25": 22,
+        "p50": 25,
+        "p75": 27
+      },
+      "reading": {
+        "p25": 26,
+        "p50": 31,
+        "p75": 34
+      },
+      "science": {
+        "p25": 24,
+        "p50": 26,
+        "p75": 30
+      }
+    },
+    "submitting": {
+      "satPct": 25,
+      "actPct": 15
+    },
+    "scoreDistribution": {
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 19.6
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 62.2
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 17.5
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0.7
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 13.3
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 54.5
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 31.5
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0.7
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 35
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 60
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 6
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 44
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 39
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 17
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 13
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 56
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 23
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 8
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 66
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 30
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 5
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 31
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 46
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 23
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 22,
+      "topQuarterPct": 54,
+      "topHalfPct": 85,
+      "submittedPct": 38
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 5.1
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 24.3
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 22.7
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 17.8
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 14.6
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 15.3
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0.2
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.46,
+      "submittedPct": 100
+    },
+    "earlyDecision": {
+      "applications": 548,
+      "admitted": 222,
+      "admitRate": 0.4051
+    },
+    "dates": {
+      "edClosing": {
+        "mmdd": "11-15",
+        "raw": "11/15"
+      },
+      "edNotification": "12/15",
+      "edIIClosing": {
+        "mmdd": "01-05",
+        "raw": "1/5"
+      },
+      "eaClosing": {
+        "mmdd": "11-15",
+        "raw": "11/15"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 48209
+    },
+    "enrollment": {
+      "undergraduates": 2640
+    },
+    "graduation": {
+      "sixYearPct": 75,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 611,
+      "accepted": 68,
+      "admitted": 27
+    },
+    "transfer": {
+      "applied": 456,
+      "admitted": 244,
+      "enrolled": 98
+    },
+    "studentLife": {
+      "outOfStatePct": 43,
+      "onCampusPct": 82
+    },
+    "costs": {
+      "tuitionUsd": 62950,
+      "foodAndHousingUsd": 17990
+    }
+  },
+  "ingestedAt": "2026-09-15 17:11:35",
+  "updatedAt": "2026-09-15 17:11:35",
+  "validation": {
+    "school": "Rollins College",
+    "slug": "rollins-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Name: Amy Armenia Title: Director Office: Institutional Research and Analytics Mailing · Rollins College"
+  }
+}

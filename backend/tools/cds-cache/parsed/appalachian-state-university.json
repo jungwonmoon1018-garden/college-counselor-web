@@ -1,0 +1,66 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "appalachian-state-university",
+  "school": "Appalachian State University",
+  "year": 2023,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.9014,
+  "yieldRate": 0.182,
+  "enrolledSAT": {
+    "p25": 1140,
+    "p75": 1270
+  },
+  "enrolledACT": {
+    "p25": 21,
+    "p75": 27
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "very_important",
+    "gpa": "very_important",
+    "test_scores": "important",
+    "application_essay": "considered",
+    "recommendations": "not_considered",
+    "interview": "important",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "considered",
+    "first_generation": "considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "important",
+    "work_experience": "important",
+    "level_of_interest": "important"
+  },
+  "b1": {
+    "applied": 24614,
+    "admitted": 22188,
+    "enrolled": 4038
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1BSu4wJPfG2j8SpHEA3vUk1GBN3jGYg1n",
+  "sourceKind": "pdf_merged",
+  "parserVersion": 6,
+  "parserNotes": [
+    "merged_form_fields"
+  ],
+  "extras": null,
+  "ingestedAt": "2026-09-15 17:05:17",
+  "updatedAt": "2026-09-15 17:05:17",
+  "validation": {
+    "school": "Appalachian State University",
+    "slug": "appalachian-state-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

@@ -1,0 +1,475 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "depauw-university",
+  "school": "DePauw University",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.5719,
+  "yieldRate": 0.1321,
+  "enrolledSAT": {
+    "p25": 1130,
+    "p75": 1350
+  },
+  "enrolledACT": {
+    "p25": 25,
+    "p75": 31
+  },
+  "enrolledGPA": {
+    "p25": 3.5,
+    "p75": 4,
+    "avg": 3.92
+  },
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "important",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "important",
+    "interview": "considered",
+    "ec": "considered",
+    "talent_ability": "considered",
+    "character": "considered",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "not_considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 6683,
+    "admitted": 3822,
+    "enrolled": 505
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 3302,
+        "admitted": 1715,
+        "admitRate": 0.5194
+      },
+      "women": {
+        "applied": 3381,
+        "admitted": 2107,
+        "admitRate": 0.6232
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1H0BDWS4g91wjnlSqI9HfncCRb9rTBud2",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 560,
+        "p50": 620,
+        "p75": 675
+      },
+      "math": {
+        "p25": 560,
+        "p50": 630,
+        "p75": 695
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 25,
+        "p50": 30,
+        "p75": 33
+      },
+      "math": {
+        "p25": 24,
+        "p50": 27,
+        "p75": 30
+      },
+      "science": {
+        "p25": 24,
+        "p50": 28,
+        "p75": 31
+      }
+    },
+    "submitting": {
+      "satPct": 58,
+      "actPct": 18
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 15
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 47
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 32
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 6
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 14
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 47
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 31
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 7
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 25
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 35
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 33
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 7
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 1
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 1
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 44
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 40
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 15
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 1
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 0
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 51
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 30
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 19
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 28
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 48
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 20
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 3
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 54
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 28
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 17
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 1
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 38
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 40
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 22
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 1
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 44,
+      "topQuarterPct": 78,
+      "topHalfPct": 97,
+      "submittedPct": 31
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 42
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 28
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 14
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 10
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 5
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 1
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.92,
+      "submittedPct": 100
+    },
+    "dates": {
+      "edClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      },
+      "edNotification": "12/15",
+      "edIIClosing": {
+        "mmdd": "12-15",
+        "raw": "12/15"
+      },
+      "eaClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 53003
+    },
+    "enrollment": {
+      "undergraduates": 1917
+    },
+    "graduation": {
+      "sixYearPct": 76,
+      "cohort": 2018
+    },
+    "transfer": {
+      "applied": 111,
+      "admitted": 14,
+      "enrolled": 2
+    },
+    "studentLife": {
+      "outOfStatePct": 50,
+      "onCampusPct": 100
+    },
+    "costs": {
+      "tuitionUsd": 60310,
+      "requiredFeesUsd": 1120,
+      "foodAndHousingUsd": 15790,
+      "academicYear": "2025-2026"
+    }
+  },
+  "ingestedAt": "2026-09-15 17:08:03",
+  "updatedAt": "2026-09-15 17:08:03",
+  "validation": {
+    "school": "DePauw University",
+    "slug": "depauw-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Name: Kevin Fosnacht Title: Director of Institutional Reporting and Analytics Office:  · Depauw University"
+  }
+}

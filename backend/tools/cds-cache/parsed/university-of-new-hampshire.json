@@ -1,0 +1,66 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-new-hampshire",
+  "school": "University of New Hampshire",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.8914,
+  "yieldRate": 0.1196,
+  "enrolledSAT": {
+    "p25": 1120,
+    "p75": 1310
+  },
+  "enrolledACT": {
+    "p25": 26,
+    "p75": 30
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "considered",
+    "recommendations": "important",
+    "interview": "not_considered",
+    "ec": "considered",
+    "talent_ability": "considered",
+    "character": "considered",
+    "first_generation": "considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 21567,
+    "admitted": 19224,
+    "enrolled": 2300
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.unh.edu/institutional-research/sites/default/files/media/2026-06/CDS%202025-2026%20UNH%20Published%206.16.26.pdf",
+  "sourceKind": "pdf_merged",
+  "parserVersion": 6,
+  "parserNotes": [
+    "merged_form_fields"
+  ],
+  "extras": null,
+  "ingestedAt": "2026-09-15 17:15:18",
+  "updatedAt": "2026-09-15 17:15:18",
+  "validation": {
+    "school": "University of New Hampshire",
+    "slug": "university-of-new-hampshire",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

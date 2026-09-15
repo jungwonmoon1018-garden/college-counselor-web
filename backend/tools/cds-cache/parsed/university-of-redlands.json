@@ -1,0 +1,294 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-redlands",
+  "school": "University of Redlands",
+  "year": 2021,
+  "yearLabel": "2021-22",
+  "tier": null,
+  "overallAdmitRate": 0.8293,
+  "yieldRate": 0.1655,
+  "enrolledSAT": {
+    "p25": 1108,
+    "p75": 1300
+  },
+  "enrolledACT": {
+    "p25": 25,
+    "p75": 29
+  },
+  "enrolledGPA": {
+    "p25": 3.25,
+    "p75": 4,
+    "avg": 3.74
+  },
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "not_considered",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "considered",
+    "recommendations": "considered",
+    "interview": "considered",
+    "ec": "considered",
+    "talent_ability": "considered",
+    "character": "considered",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 3738,
+    "admitted": 3100,
+    "enrolled": 513
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 1676,
+        "admitted": 1335,
+        "admitRate": 0.7965
+      },
+      "women": {
+        "applied": 2062,
+        "admitted": 1765,
+        "admitRate": 0.856
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1zULt4HBuuBRfIJvKJzpLz_InxUMl_kOt",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 550,
+        "p75": 643
+      },
+      "math": {
+        "p25": 540,
+        "p75": 660
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 23,
+        "p75": 29
+      },
+      "math": {
+        "p25": 24,
+        "p75": 27
+      }
+    },
+    "submitting": {
+      "satPct": 22,
+      "actPct": 7
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 7.1
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 45.5
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 39.3
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 7.1
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 6.3
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 47.3
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 37.5
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 8.9
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0.9
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 12.5
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 42
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 36.6
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 8
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0.9
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 32
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 19.5
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 19.7
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 13.1
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 9.8
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 6
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.74,
+      "submittedPct": 100
+    },
+    "applicationFeeUsd": 50,
+    "earlyDecision": {
+      "applications": 12,
+      "admitted": 12,
+      "admitRate": 1
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "07-01",
+        "raw": "7/1"
+      },
+      "edClosing": {
+        "mmdd": "01-31",
+        "raw": "1/31"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 47855
+    },
+    "enrollment": {
+      "undergraduates": 2241
+    },
+    "transfer": {
+      "applied": 277,
+      "admitted": 170,
+      "enrolled": 72
+    },
+    "studentLife": {
+      "outOfStatePct": 24,
+      "onCampusPct": 76
+    },
+    "costs": {
+      "tuitionUsd": 55328,
+      "requiredFeesUsd": 500,
+      "foodAndHousingUsd": 15758
+    }
+  },
+  "ingestedAt": "2026-09-15 17:15:37",
+  "updatedAt": "2026-09-15 17:15:37",
+  "validation": {
+    "school": "University of Redlands",
+    "slug": "university-of-redlands",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2021-2022 A0 Respondent Information (Not for Publication) Name: Kimberley Coles Title: Interim Assistant Provost Office: Institutional Effective · University of Redlands"
+  }
+}

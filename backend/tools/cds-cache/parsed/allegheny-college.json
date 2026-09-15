@@ -1,0 +1,136 @@
+{
+  "source": "cds",
+  "extractionMethod": "xlsx",
+  "slug": "allegheny-college",
+  "school": "Allegheny College",
+  "year": null,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.5877,
+  "yieldRate": 0.086,
+  "enrolledSAT": {
+    "p25": 1155,
+    "p75": 1360
+  },
+  "enrolledACT": {
+    "p25": 24,
+    "p75": 28
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.59
+  },
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "important",
+    "application_essay": "considered",
+    "recommendations": "considered",
+    "interview": "considered",
+    "ec": "important",
+    "talent_ability": "considered",
+    "character": "important",
+    "first_generation": "considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered",
+    "racial_ethnic_status": "not_considered"
+  },
+  "b1": {
+    "applied": 6151,
+    "admitted": 3615,
+    "enrolled": 311
+  },
+  "c1Breakdown": {
+    "byDecisionPlan": {
+      "earlyDecision": {
+        "applied": 11,
+        "admitted": 1745,
+        "admitRate": 158.6364
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://sites.allegheny.edu/institutional-effectiveness/files/2026/04/CDS-2025-26_AlleghenyCollege_Final.xlsx",
+  "sourceKind": "xlsx",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "actSections": {
+      "science": {
+        "p25": 21,
+        "p75": 27
+      }
+    },
+    "gpa": {
+      "average": 3.59
+    },
+    "earlyDecision": {
+      "applications": 135,
+      "admitted": 67,
+      "admitRate": 0.4963
+    },
+    "dates": {
+      "edNotification": "Can on-line application fee be waived for applicants with financial need? C.2104  Month 11 First-Time, First-Year Admission Admission Policies Early Decision Undergraduates First-time, first-year All All All MM"
+    },
+    "enrollment": {
+      "undergraduates": 1125
+    },
+    "retention": {
+      "firstYearPct": 80.4
+    },
+    "graduation": {
+      "sixYearPct": 77.4,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 220,
+      "accepted": 220,
+      "admitted": 3
+    },
+    "studentLife": {
+      "outOfStatePct": 45.3,
+      "onCampusPct": 96.4
+    },
+    "costs": {
+      "tuitionUsd": 59050,
+      "requiredFeesUsd": 740,
+      "foodAndHousingUsd": 15760,
+      "academicYear": "2026-2027"
+    },
+    "aid": {
+      "needMetPct": 89.1
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 99,
+        "10-19": 183,
+        "20-29": 44,
+        "30-39": 2,
+        "40-49": 0,
+        "50-99": 0,
+        "100+": 0,
+        "total": 328
+      },
+      "under20Pct": 86
+    }
+  },
+  "ingestedAt": "2026-09-15 17:04:47",
+  "updatedAt": "2026-09-15 17:04:47",
+  "validation": {
+    "school": "Allegheny College",
+    "slug": "allegheny-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

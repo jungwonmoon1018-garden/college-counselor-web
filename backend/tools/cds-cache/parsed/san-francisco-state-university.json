@@ -1,0 +1,285 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "san-francisco-state-university",
+  "school": "San Francisco State University",
+  "year": 2020,
+  "yearLabel": "2021-22",
+  "tier": null,
+  "overallAdmitRate": 0.8409,
+  "yieldRate": 0.1051,
+  "enrolledSAT": {
+    "p25": 940,
+    "p75": 1130
+  },
+  "enrolledACT": {
+    "p25": 16,
+    "p75": 23
+  },
+  "enrolledGPA": {
+    "p25": 3,
+    "p75": 3.5,
+    "avg": 3.31
+  },
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "not_considered",
+    "class_rank": "not_considered",
+    "gpa": "very_important",
+    "test_scores": "very_important",
+    "application_essay": "not_considered",
+    "recommendations": "not_considered",
+    "interview": "not_considered",
+    "ec": "not_considered",
+    "talent_ability": "not_considered",
+    "character": "not_considered",
+    "first_generation": "not_considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "considered",
+    "state_residency": "important",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "not_considered",
+    "work_experience": "not_considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 31430,
+    "admitted": 26431,
+    "enrolled": 2779
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 12103,
+        "admitted": 9927,
+        "admitRate": 0.8202
+      },
+      "women": {
+        "applied": 19327,
+        "admitted": 16504,
+        "admitRate": 0.8539
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1NGcwHRGue34bb-dtqfwby3OeZkSileoE",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "math": {
+        "p25": 460,
+        "p75": 560
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 14,
+        "p75": 23
+      },
+      "math": {
+        "p25": 16,
+        "p75": 22
+      }
+    },
+    "submitting": {
+      "satPct": 89,
+      "actPct": 19
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 0.6
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 13
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 47.7
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 34.9
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 1.3
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 16.5
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 43.6
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 35.3
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 3.2
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 3.8
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 1.7
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 12.4
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 46.2
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 32.4
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 7.3
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 6.1
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 12.8
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 18.1
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 17.9
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 21.5
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 21.6
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 2
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.31,
+      "submittedPct": 99.7
+    },
+    "applicationFeeUsd": 70,
+    "dates": {
+      "regularClosing": {
+        "mmdd": "11-30",
+        "raw": "11/30 Admission for Transfers"
+      },
+      "aidPriority": {
+        "mmdd": "03-02",
+        "raw": "3/2"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 15025
+    },
+    "enrollment": {
+      "undergraduates": 24025
+    },
+    "transfer": {
+      "applied": 15752,
+      "admitted": 12522,
+      "enrolled": 3016
+    },
+    "studentLife": {
+      "outOfStatePct": 2,
+      "onCampusPct": 6
+    },
+    "costs": {
+      "tuitionInStateUsd": 5742,
+      "tuitionOutOfStateUsd": 17622,
+      "requiredFeesUsd": 1742
+    }
+  },
+  "ingestedAt": "2026-09-15 17:11:44",
+  "updatedAt": "2026-09-15 17:11:44",
+  "validation": {
+    "school": "San Francisco State University",
+    "slug": "san-francisco-state-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2020-2021 A1 San Francisco State University 1600 Holloway Avenue San Francisco, CA 93132 USA 415-338-1113 https://www.sfsu.edu/ 415-338-6486 sam"
+  }
+}

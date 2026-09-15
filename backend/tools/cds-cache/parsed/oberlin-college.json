@@ -1,0 +1,231 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "oberlin-college",
+  "school": "Oberlin College",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.3416,
+  "yieldRate": null,
+  "enrolledSAT": {
+    "p25": 1370,
+    "p75": 1500
+  },
+  "enrolledACT": {
+    "p25": 31,
+    "p75": 34
+  },
+  "enrolledGPA": {
+    "p25": 3.5,
+    "p75": 3.75,
+    "avg": 3.7
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 10529,
+    "admitted": 3597
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1n6XHQfN6By8JTLmj1c69WMK71T2N-irU",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 700,
+        "p50": 740,
+        "p75": 760
+      },
+      "math": {
+        "p25": 660,
+        "p50": 710,
+        "p75": 760
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 33,
+        "p50": 35,
+        "p75": 36
+      },
+      "math": {
+        "p25": 27,
+        "p50": 30,
+        "p75": 33
+      },
+      "reading": {
+        "p25": 34,
+        "p50": 35,
+        "p75": 36
+      },
+      "science": {
+        "p25": 30,
+        "p50": 32,
+        "p75": 34
+      }
+    },
+    "submitting": {
+      "satPct": 31,
+      "actPct": 17
+    },
+    "scoreDistribution": {
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 80
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 19
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 1
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 58
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 37
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 5
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 45,
+      "topQuarterPct": 72,
+      "topHalfPct": 97,
+      "submittedPct": 0
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 11
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 42
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 25
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 14
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 6
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 2
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.7,
+      "submittedPct": 88.6
+    },
+    "earlyDecision": {
+      "applications": 635,
+      "admitted": 246,
+      "admitRate": 0.3874
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-15",
+        "raw": "1/15"
+      },
+      "edClosing": {
+        "mmdd": "11-15",
+        "raw": "11/15"
+      },
+      "edNotification": "12/15",
+      "edIIClosing": {
+        "mmdd": "01-02",
+        "raw": "1/2"
+      },
+      "aidPriority": {
+        "mmdd": "02-01",
+        "raw": "(MM/DD) 2/1"
+      },
+      "aidDeadline": {
+        "mmdd": "02-15",
+        "raw": "(MM/DD) 2/15"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 59570
+    },
+    "graduation": {
+      "sixYearPct": 81,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 748,
+      "accepted": 330,
+      "admitted": 41
+    },
+    "transfer": {
+      "applied": 256,
+      "admitted": 68,
+      "enrolled": 28
+    },
+    "studentLife": {
+      "outOfStatePct": 92,
+      "onCampusPct": 100
+    }
+  },
+  "ingestedAt": "2026-09-15 17:10:51",
+  "updatedAt": "2026-09-15 17:10:51",
+  "validation": {
+    "school": "Oberlin College",
+    "slug": "oberlin-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

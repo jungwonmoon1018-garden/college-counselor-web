@@ -1,0 +1,107 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "ohio-state-university",
+  "school": "Ohio State University",
+  "year": 2023,
+  "yearLabel": "2023-24",
+  "tier": null,
+  "overallAdmitRate": 0.5082,
+  "yieldRate": 0.2265,
+  "enrolledSAT": {
+    "p25": 1290,
+    "p75": 1440
+  },
+  "enrolledACT": {
+    "p25": 27,
+    "p75": 32
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 70028,
+    "admitted": 35588,
+    "enrolled": 8062
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 34160,
+        "admitted": 16943,
+        "admitRate": 0.496
+      },
+      "women": {
+        "applied": 35868,
+        "admitted": 18645,
+        "admitRate": 0.5198
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1gpiIxLpQ5mee7c-k-8uIbOZ_Erl7Wsqm",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "math": {
+        "p25": 640,
+        "p50": 700,
+        "p75": 750
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 25,
+        "p50": 29,
+        "p75": 33
+      },
+      "math": {
+        "p25": 26,
+        "p50": 28,
+        "p75": 31
+      },
+      "science": {
+        "p25": 25,
+        "p50": 29,
+        "p75": 33
+      }
+    },
+    "applicationFeeUsd": 60,
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-15",
+        "raw": "1/15"
+      },
+      "edNotification": "Click or tap here to enter text."
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 18535
+    },
+    "enrollment": {
+      "undergraduates": 45728
+    },
+    "waitlist": {
+      "offered": 2596,
+      "accepted": 701,
+      "admitted": 556
+    },
+    "transfer": {
+      "applied": 3774,
+      "admitted": 3257,
+      "enrolled": 1835
+    }
+  },
+  "ingestedAt": "2026-09-15 17:10:55",
+  "updatedAt": "2026-09-15 17:10:55",
+  "validation": {
+    "school": "Ohio State University",
+    "slug": "ohio-state-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

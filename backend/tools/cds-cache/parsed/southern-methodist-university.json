@@ -1,0 +1,119 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "southern-methodist-university",
+  "school": "Southern Methodist University",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.6335,
+  "yieldRate": 0.1777,
+  "enrolledSAT": {
+    "p25": 1340,
+    "p75": 1480
+  },
+  "enrolledACT": {
+    "p25": 30,
+    "p75": 34
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.67
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 15245,
+    "admitted": 9657,
+    "enrolled": 1716
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 7131,
+        "admitted": 4384,
+        "admitRate": 0.6148
+      },
+      "women": {
+        "applied": 8114,
+        "admitted": 5273,
+        "admitRate": 0.6499
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1wgLsYaj01l55rF2swI7cDGbNa2Thuq0E",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 670,
+        "p50": 700,
+        "p75": 740
+      },
+      "math": {
+        "p25": 670,
+        "p50": 720,
+        "p75": 750
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 30,
+        "p50": 33,
+        "p75": 35
+      },
+      "math": {
+        "p25": 27,
+        "p50": 30,
+        "p75": 33
+      }
+    },
+    "gpa": {
+      "average": 3.67
+    },
+    "applicationFeeUsd": 60,
+    "earlyDecision": {
+      "applications": 353,
+      "admitted": 353,
+      "admitRate": 1
+    },
+    "dates": {
+      "edNotification": "12 31"
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 62094
+    },
+    "enrollment": {
+      "undergraduates": 7285
+    },
+    "waitlist": {
+      "offered": 1480,
+      "accepted": 607,
+      "admitted": 67
+    },
+    "transfer": {
+      "applied": 1114,
+      "admitted": 835,
+      "enrolled": 314
+    },
+    "studentLife": {
+      "outOfStatePct": 56.6,
+      "onCampusPct": 97.7
+    }
+  },
+  "ingestedAt": "2026-09-15 17:12:01",
+  "updatedAt": "2026-09-15 17:12:01",
+  "validation": {
+    "school": "Southern Methodist University",
+    "slug": "southern-methodist-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

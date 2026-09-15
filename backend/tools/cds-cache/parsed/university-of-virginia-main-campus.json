@@ -1,35 +1,72 @@
 {
-  "school": "University of Virginia-Main Campus",
-  "slug": "university-of-virginia-main-campus",
-  "tier": "T50",
-  "year": null,
   "source": "cds",
-  "parserVersion": 4,
-  "testPolicy": "test_required",
-  "b1": {
-    "applied": 58951,
-    "admitted": 9909,
-    "enrolled": 3961
-  },
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-virginia-main-campus",
+  "school": "University of Virginia-Main Campus",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
   "overallAdmitRate": 0.1681,
   "yieldRate": 0.3997,
   "enrolledSAT": {
     "p25": 1410,
-    "p75": 1560
+    "p75": 1520
   },
   "enrolledACT": {
     "p25": 32,
     "p75": 35
   },
-  "c7": {},
-  "validation": {
-    "school": "University of Virginia-Main Campus",
-    "slug": "university-of-virginia-main-campus",
-    "status": "ok",
-    "discrepancies": [],
-    "overrides": {},
-    "scopeFromPDF": null
+  "enrolledGPA": {
+    "p25": 4,
+    "p75": 4
   },
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "very_important",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "important",
+    "interview": "not_considered",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "very_important",
+    "first_generation": "considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "considered",
+    "state_residency": "very_important",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 58951,
+    "admitted": 9909,
+    "enrolled": 3961
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 27252,
+        "admitted": 4382,
+        "admitRate": 0.1608
+      },
+      "women": {
+        "applied": 31685,
+        "admitted": 5527,
+        "admitRate": 0.1744
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1_YeCKoq6qh9clB_COd1PsB7YmTQPhmFG",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
   "extras": {
     "satSections": {
       "ebrw": {
@@ -340,11 +377,43 @@
     },
     "aid": {
       "averagePackageFirstYearUsd": 37123
+    },
+    "enrollment": {
+      "undergraduates": 17901
+    },
+    "graduation": {
+      "sixYearPct": 95.6,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 10470,
+      "accepted": 6759,
+      "admitted": 242
+    },
+    "transfer": {
+      "applied": 4245,
+      "admitted": 1357,
+      "enrolled": 851
+    },
+    "studentLife": {
+      "outOfStatePct": 31,
+      "onCampusPct": 99
+    },
+    "costs": {
+      "tuitionInStateUsd": 18613,
+      "tuitionOutOfStateUsd": 56994,
+      "requiredFeesUsd": 3793,
+      "foodAndHousingUsd": 15300
     }
   },
-  "enrolledGPA": {
-    "p25": 4,
-    "p75": 4,
-    "source": "C11_cumulative"
+  "ingestedAt": "2026-09-15 17:16:19",
+  "updatedAt": "2026-09-15 17:16:19",
+  "validation": {
+    "school": "University of Virginia-Main Campus",
+    "slug": "university-of-virginia-main-campus",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "University of Virginia"
   }
 }

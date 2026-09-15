@@ -1,0 +1,247 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "washington-and-lee-university",
+  "school": "Washington and Lee University",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.1354,
+  "yieldRate": 0.411,
+  "enrolledSAT": {
+    "p25": 1430,
+    "p75": 1530
+  },
+  "enrolledACT": {
+    "p25": 33,
+    "p75": 34
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "considered",
+    "gpa": "considered",
+    "test_scores": "considered",
+    "application_essay": "considered",
+    "recommendations": "very_important",
+    "interview": "considered",
+    "ec": "very_important",
+    "talent_ability": "considered",
+    "character": "very_important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 8963,
+    "admitted": 1214,
+    "enrolled": 499
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://my.wlu.edu/document/2025-common-data-set",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 710,
+        "p50": 740,
+        "p75": 750
+      },
+      "math": {
+        "p25": 720,
+        "p50": 740,
+        "p75": 780
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 34,
+        "p50": 35,
+        "p75": 35
+      },
+      "math": {
+        "p25": 30,
+        "p50": 31,
+        "p75": 34
+      }
+    },
+    "submitting": {
+      "satPct": 29.7,
+      "actPct": 22.2
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 94.6
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 5.4
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 0
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 88.5
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 11.5
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 87.2
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 12.2
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 0.7
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 98.2
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 1.8
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 98.2
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 0.9
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 0.9
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 74.8
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 25.2
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 85.3,
+      "topQuarterPct": 98.7,
+      "topHalfPct": 100,
+      "submittedPct": 31.3
+    },
+    "applicationFeeUsd": 60,
+    "earlyDecision": {
+      "applications": 1048,
+      "admitted": 289,
+      "admitRate": 0.2758
+    },
+    "dates": {
+      "edClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      },
+      "edNotification": "12/15",
+      "edIIClosing": {
+        "mmdd": "01-05",
+        "raw": "1/5"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 80346
+    },
+    "enrollment": {
+      "undergraduates": 1916
+    },
+    "retention": {
+      "firstYearPct": 97.5
+    },
+    "graduation": {
+      "sixYearPct": 95.9,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 1274,
+      "accepted": 604,
+      "admitted": 2
+    },
+    "transfer": {
+      "applied": 100,
+      "admitted": 7,
+      "enrolled": 3
+    },
+    "studentLife": {
+      "outOfStatePct": 79.1,
+      "onCampusPct": 100
+    },
+    "costs": {
+      "tuitionUsd": 73575,
+      "requiredFeesUsd": 1285,
+      "foodAndHousingUsd": 20575
+    }
+  },
+  "ingestedAt": "2026-09-15 17:16:35",
+  "updatedAt": "2026-09-15 17:16:35",
+  "validation": {
+    "school": "Washington and Lee University",
+    "slug": "washington-and-lee-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2025-2026 Welcome to the 2025-2026 Common Data Set collection! The Common Data Set (CDS) initiative is a collaborative effort among data provide · Washington and Lee University"
+  }
+}

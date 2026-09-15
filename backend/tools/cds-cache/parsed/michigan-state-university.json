@@ -1,35 +1,53 @@
 {
-  "school": "Michigan State University",
-  "slug": "michigan-state-university",
-  "tier": "T100",
-  "year": 2024,
   "source": "cds",
-  "parserVersion": 4,
-  "testPolicy": "test_required",
-  "b1": {
-    "applied": 62116,
-    "admitted": 52672,
-    "enrolled": 9649
-  },
+  "extractionMethod": "pdfjs",
+  "slug": "michigan-state-university",
+  "school": "Michigan State University",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
   "overallAdmitRate": 0.848,
   "yieldRate": 0.1832,
   "enrolledSAT": {
     "p25": 1100,
-    "p75": 1320
+    "p75": 1310
   },
   "enrolledACT": {
     "p25": 24,
-    "p75": 32
+    "p75": 30
   },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.74
+  },
+  "testPolicy": "test_required",
   "c7": {},
-  "validation": {
-    "school": "Michigan State University",
-    "slug": "michigan-state-university",
-    "status": "ok",
-    "discrepancies": [],
-    "overrides": {},
-    "scopeFromPDF": null
+  "b1": {
+    "applied": 62138,
+    "admitted": 52690,
+    "enrolled": 9652
   },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 29049,
+        "admitted": 24505,
+        "admitRate": 0.8436
+      },
+      "women": {
+        "applied": 33067,
+        "admitted": 28167,
+        "admitRate": 0.8518
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1xASdIYvOH3Ef_BNyRTEtiw_ICgUenhjp",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
   "extras": {
     "satSections": {
       "ebrw": {
@@ -71,9 +89,30 @@
     "applicationFeeUsd": 65,
     "aid": {
       "averagePackageFirstYearUsd": 17699
+    },
+    "waitlist": {
+      "offered": 4334,
+      "accepted": 4134,
+      "admitted": 3596
+    },
+    "transfer": {
+      "applied": 3172,
+      "admitted": 2471,
+      "enrolled": 1326
+    },
+    "studentLife": {
+      "outOfStatePct": 19.8,
+      "onCampusPct": 96.1
     }
   },
-  "enrolledGPA": {
-    "avg": 3.74
+  "ingestedAt": "2026-09-15 17:10:29",
+  "updatedAt": "2026-09-15 17:10:29",
+  "validation": {
+    "school": "Michigan State University",
+    "slug": "michigan-state-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 Welcome to the 2024-2025 Common Data Set collection! The Common Data Set (CDS) initiative is a collaborative effort among data provide · Michigan State University"
   }
 }

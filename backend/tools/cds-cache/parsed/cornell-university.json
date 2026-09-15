@@ -1,4 +1,6 @@
 {
+  "source": "cds",
+  "extractionMethod": "xlsx",
   "slug": "cornell-university",
   "school": "Cornell University",
   "year": null,
@@ -55,15 +57,88 @@
   "priorities": [],
   "sourceUrl": "https://irp.cornell.edu/wp-content/uploads/2026/06/CDS-Cornell-2025-2026-v2.xlsx",
   "sourceKind": "xlsx",
-  "parserVersion": 5,
+  "parserVersion": 6,
   "parserNotes": [],
-  "extras": null,
-  "ingestedAt": "2026-09-15 16:08:32",
-  "updatedAt": "2026-09-15 16:08:32",
+  "extras": {
+    "actSections": {
+      "english": {
+        "p25": 25,
+        "p75": 34
+      },
+      "math": {
+        "p25": 25,
+        "p75": 32
+      },
+      "science": {
+        "p25": 32,
+        "p50": 34,
+        "p75": 35
+      }
+    },
+    "applicationFeeUsd": 85,
+    "earlyDecision": {
+      "applications": 46024,
+      "admitted": 10057,
+      "admitRate": 0.2185
+    },
+    "dates": {
+      "edNotification": "Can on-line application fee be waived for applicants with financial need? Yes C.2104  Month 11 First-Time, First-Year Admission Admission Policies Early Decision Undergraduates First-time, first-year All All All MM"
+    },
+    "enrollment": {
+      "undergraduates": 16138
+    },
+    "retention": {
+      "firstYearPct": 97.8
+    },
+    "graduation": {
+      "sixYearPct": 95,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 9720,
+      "accepted": 6598,
+      "admitted": 254
+    },
+    "transfer": {
+      "applied": 7381,
+      "admitted": 864,
+      "enrolled": 625
+    },
+    "studentLife": {
+      "outOfStatePct": 65.8,
+      "onCampusPct": 98.9
+    },
+    "costs": {
+      "tuitionUsd": 73946,
+      "requiredFeesUsd": 1024,
+      "foodAndHousingUsd": 21348,
+      "academicYear": "2026-2027"
+    },
+    "aid": {
+      "needMetPct": 1
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 345,
+        "10-19": 921,
+        "20-29": 321,
+        "30-39": 180,
+        "40-49": 143,
+        "50-99": 295,
+        "100+": 186,
+        "total": 2391
+      },
+      "under20Pct": 52.9
+    }
+  },
+  "ingestedAt": "2026-09-15 17:07:40",
+  "updatedAt": "2026-09-15 17:07:40",
   "validation": {
+    "school": "Cornell University",
+    "slug": "cornell-university",
     "status": "consistent",
     "discrepancies": [],
     "overrides": {},
-    "validatedAt": "2026-09-15 16:08:32"
+    "scopeFromPDF": null
   }
 }

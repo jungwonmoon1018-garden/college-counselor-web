@@ -1,0 +1,103 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-texas-at-austin",
+  "school": "University of Texas at Austin",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.2664,
+  "yieldRate": 0.4743,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "considered",
+    "class_rank": "considered",
+    "gpa": "considered",
+    "test_scores": "considered",
+    "application_essay": "considered",
+    "recommendations": "considered",
+    "interview": "not_considered",
+    "ec": "considered",
+    "talent_ability": "considered",
+    "character": "considered",
+    "first_generation": "considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 72885,
+    "admitted": 19417,
+    "enrolled": 9210
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 35912,
+        "admitted": 8101,
+        "admitRate": 0.2256
+      },
+      "women": {
+        "applied": 36750,
+        "admitted": 11264,
+        "admitRate": 0.3065
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1IfM-WLguczkEG1sfDhg4OhihHeQkchY9",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "applicationFeeUsd": 75,
+    "dates": {
+      "regularClosing": {
+        "mmdd": "12-01",
+        "raw": "12/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 20219
+    },
+    "enrollment": {
+      "undergraduates": 43165
+    },
+    "graduation": {
+      "sixYearPct": 88.9,
+      "cohort": 2018
+    },
+    "transfer": {
+      "applied": 10055,
+      "admitted": 2267,
+      "enrolled": 1704
+    },
+    "studentLife": {
+      "outOfStatePct": 9,
+      "onCampusPct": 64
+    },
+    "costs": {
+      "tuitionOutOfStateUsd": 44908,
+      "foodAndHousingUsd": 14828
+    }
+  },
+  "ingestedAt": "2026-09-15 17:16:01",
+  "updatedAt": "2026-09-15 17:16:01",
+  "validation": {
+    "school": "University of Texas at Austin",
+    "slug": "university-of-texas-at-austin",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Name: Shiva Jaganathan Title: Chief Data Officer and Assistant Vice Provost and Direct · The University of Texas at Austin"
+  }
+}

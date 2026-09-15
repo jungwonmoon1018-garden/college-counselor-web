@@ -1,4 +1,6 @@
 {
+  "source": "cds",
+  "extractionMethod": "pdfjs",
   "slug": "boston-university",
   "school": "Boston University",
   "year": null,
@@ -51,7 +53,7 @@
   "priorities": [],
   "sourceUrl": "https://www.bu.edu/asir/files/2026/07/CDS-2025-2026-updated.pdf",
   "sourceKind": "pdf_text",
-  "parserVersion": 5,
+  "parserVersion": 6,
   "parserNotes": [],
   "extras": {
     "satSections": {
@@ -309,14 +311,37 @@
     "aid": {
       "averagePackageFirstYearUsd": 70629
     },
-    "studentFacultyRatio": "10 to 1"
+    "studentFacultyRatio": "10 to 1",
+    "enrollment": {
+      "undergraduates": 18289
+    },
+    "graduation": {
+      "sixYearPct": 90,
+      "cohort": 2019
+    },
+    "transfer": {
+      "applied": 6761,
+      "admitted": 2416,
+      "enrolled": 840
+    },
+    "studentLife": {
+      "outOfStatePct": 82,
+      "onCampusPct": 99
+    },
+    "costs": {
+      "tuitionUsd": 69870,
+      "requiredFeesUsd": 1502,
+      "foodAndHousingUsd": 19970
+    }
   },
-  "ingestedAt": "2026-09-15 14:04:41",
-  "updatedAt": "2026-09-15 14:04:41",
+  "ingestedAt": "2026-09-15 17:06:09",
+  "updatedAt": "2026-09-15 17:06:09",
   "validation": {
+    "school": "Boston University",
+    "slug": "boston-university",
     "status": "consistent",
     "discrepancies": [],
     "overrides": {},
-    "validatedAt": "2026-09-15 14:04:41"
+    "scopeFromPDF": "Boston University Common Data Set 1 https://www.bu.edu/asir/bu-facts/common-data-set/ A. · Boston University"
   }
 }

@@ -1,0 +1,386 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-south-carolina",
+  "school": "University of South Carolina",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.6015,
+  "yieldRate": 0.2294,
+  "enrolledSAT": {
+    "p25": 1190,
+    "p75": 1350
+  },
+  "enrolledACT": {
+    "p25": 26,
+    "p75": 32
+  },
+  "enrolledGPA": {
+    "p25": 3.5,
+    "p75": 3.75,
+    "avg": 3.69
+  },
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "important",
+    "class_rank": "important",
+    "gpa": "very_important",
+    "test_scores": "important",
+    "application_essay": "considered",
+    "recommendations": "considered",
+    "interview": "not_considered",
+    "ec": "considered",
+    "talent_ability": "considered",
+    "character": "not_considered",
+    "first_generation": "not_considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 52703,
+    "admitted": 31701,
+    "enrolled": 7272
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 20662,
+        "admitted": 11377,
+        "admitRate": 0.5506
+      },
+      "women": {
+        "applied": 32041,
+        "admitted": 20324,
+        "admitRate": 0.6343
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1NL9FMDkvcWRsIrwu26wWK1w2cLsdr-C1",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 600,
+        "p50": 640,
+        "p75": 680
+      },
+      "math": {
+        "p25": 580,
+        "p50": 630,
+        "p75": 680
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 25,
+        "p50": 29,
+        "p75": 34
+      },
+      "math": {
+        "p25": 24,
+        "p50": 27,
+        "p75": 30
+      },
+      "reading": {
+        "p25": 28,
+        "p50": 32,
+        "p75": 34
+      },
+      "science": {
+        "p25": 25,
+        "p50": 28,
+        "p75": 32
+      }
+    },
+    "submitting": {
+      "satPct": 29,
+      "actPct": 15
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 17
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 57
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 25
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 1
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 20
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 56
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 22
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 2
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 20
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 47
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 30
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 3
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 49
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 40
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 11
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 47
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 35
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 16
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 2
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 25
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 53
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 18
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 4
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 68
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 24
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 8
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 1
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 41
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 45
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 13
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 1
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 29,
+      "topQuarterPct": 63,
+      "topHalfPct": 93,
+      "submittedPct": 62
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 16
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 34
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 28
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 15
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 6
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 1
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.69,
+      "submittedPct": 97.9
+    },
+    "applicationFeeUsd": 65,
+    "dates": {
+      "regularClosing": {
+        "mmdd": "12-01",
+        "raw": "12/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 17418
+    },
+    "enrollment": {
+      "undergraduates": 30187
+    },
+    "graduation": {
+      "sixYearPct": 79,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 7332,
+      "accepted": 2915,
+      "admitted": 500
+    },
+    "transfer": {
+      "applied": 3206,
+      "admitted": 2120,
+      "enrolled": 1414
+    },
+    "studentLife": {
+      "outOfStatePct": 45,
+      "onCampusPct": 96
+    }
+  },
+  "ingestedAt": "2026-09-15 17:15:51",
+  "updatedAt": "2026-09-15 17:15:51",
+  "validation": {
+    "school": "University of South Carolina",
+    "slug": "university-of-south-carolina",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A1 Address Information Name of College/University: University of South Carolina Mailing Address: City/State/Zip/Country: Columbia, SC  · University of South Carolina"
+  }
+}

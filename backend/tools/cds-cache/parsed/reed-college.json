@@ -1,0 +1,116 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "reed-college",
+  "school": "Reed College",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.2461,
+  "yieldRate": 0.1305,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": {
+    "p25": 3.75,
+    "p75": 4,
+    "avg": 4.01
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 9431,
+    "admitted": 2321,
+    "enrolled": 303
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 4099,
+        "admitted": 729,
+        "admitRate": 0.1778
+      },
+      "women": {
+        "applied": 4597,
+        "admitted": 1303,
+        "admitRate": 0.2834
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1o3FD7pfAbFDV4jkuw1HI0AzpIAkkNUKu",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "actSections": {
+      "english": {
+        "p25": 25,
+        "p75": 32
+      },
+      "math": {
+        "p25": 25,
+        "p75": 27
+      },
+      "reading": {
+        "p25": 25,
+        "p75": 33
+      },
+      "science": {
+        "p25": 25,
+        "p75": 30
+      }
+    },
+    "submitting": {
+      "satPct": 52,
+      "actPct": 21
+    },
+    "classRank": {
+      "topTenthPct": 50.6,
+      "topQuarterPct": 27.1,
+      "topHalfPct": 20,
+      "submittedPct": 0
+    },
+    "gpa": {
+      "average": 4.01,
+      "submittedPct": 91.8
+    },
+    "earlyDecision": {
+      "applications": 526,
+      "admitted": 80,
+      "admitRate": 0.1521
+    },
+    "dates": {
+      "edNotification": "C2103  20-Dec"
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 59053
+    },
+    "enrollment": {
+      "undergraduates": 1346
+    },
+    "graduation": {
+      "sixYearPct": 76.2,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 5170,
+      "accepted": 2237,
+      "admitted": 101
+    },
+    "studentLife": {
+      "outOfStatePct": 86,
+      "onCampusPct": 98
+    }
+  },
+  "ingestedAt": "2026-09-15 17:11:21",
+  "updatedAt": "2026-09-15 17:11:21",
+  "validation": {
+    "school": "Reed College",
+    "slug": "reed-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Reed College Common Data Set 2024-25 A01 Name: Ellen Kotler A02 Title: Assistant Director A03 Office: Office of Institutional Research A04 Mailing Address: 3203 · Reed College A102"
+  }
+}

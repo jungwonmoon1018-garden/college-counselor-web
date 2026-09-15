@@ -1,0 +1,168 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "indiana-university-bloomington",
+  "school": "Indiana University Bloomington",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.7821,
+  "yieldRate": null,
+  "enrolledSAT": {
+    "p25": 1180,
+    "p75": 1390
+  },
+  "enrolledACT": {
+    "p25": 27,
+    "p75": 33
+  },
+  "enrolledGPA": {
+    "p25": 3.5,
+    "p75": 4,
+    "avg": 3.76
+  },
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "very_important",
+    "gpa": "not_considered",
+    "test_scores": "important",
+    "application_essay": "important",
+    "recommendations": "considered",
+    "interview": "considered",
+    "ec": "considered",
+    "talent_ability": "considered",
+    "character": "considered",
+    "first_generation": "considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 67647,
+    "admitted": 52907
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1XC4cMR7dtCX9EeDB2D8cCFD3C5m4XSer",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 590,
+        "p50": 640,
+        "p75": 690
+      },
+      "math": {
+        "p25": 580,
+        "p50": 650,
+        "p75": 710
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 26,
+        "p50": 31,
+        "p75": 34
+      },
+      "math": {
+        "p25": 26,
+        "p50": 29,
+        "p75": 32
+      },
+      "reading": {
+        "p25": 28,
+        "p50": 32,
+        "p75": 34
+      },
+      "science": {
+        "p25": 26,
+        "p50": 29,
+        "p75": 32
+      }
+    },
+    "submitting": {
+      "satPct": 42.2,
+      "actPct": 14.1
+    },
+    "classRank": {
+      "topTenthPct": 28.9,
+      "topQuarterPct": 62.3,
+      "topHalfPct": 93.1,
+      "submittedPct": 29.6
+    },
+    "gpa": {
+      "average": 3.76,
+      "submittedPct": 95.2
+    },
+    "applicationFeeUsd": 65,
+    "dates": {
+      "eaClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      },
+      "aidPriority": {
+        "mmdd": "04-15",
+        "raw": "4/15"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 14953
+    },
+    "graduation": {
+      "sixYearPct": 80.2,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 7524,
+      "accepted": 3059,
+      "admitted": 3041
+    },
+    "transfer": {
+      "applied": 2077,
+      "admitted": 1352,
+      "enrolled": 627
+    },
+    "studentLife": {
+      "outOfStatePct": 43.2,
+      "onCampusPct": 98
+    },
+    "costs": {
+      "tuitionInStateUsd": 10622,
+      "tuitionOutOfStateUsd": 40369,
+      "requiredFeesUsd": 1522,
+      "foodAndHousingUsd": 13984
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 462,
+        "10-19": 1077,
+        "20-29": 1212,
+        "30-39": 381,
+        "40-49": 481,
+        "50-99": 512,
+        "100+": 312,
+        "total": 4437
+      },
+      "under20Pct": 34.7
+    }
+  },
+  "ingestedAt": "2026-09-15 17:09:41",
+  "updatedAt": "2026-09-15 17:09:41",
+  "validation": {
+    "school": "Indiana University Bloomington",
+    "slug": "indiana-university-bloomington",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Indiana University Bloomington"
+  }
+}

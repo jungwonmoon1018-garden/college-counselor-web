@@ -1,4 +1,6 @@
 {
+  "source": "cds",
+  "extractionMethod": "xlsx",
   "slug": "university-of-california-berkeley",
   "school": "University of California, Berkeley",
   "year": null,
@@ -45,15 +47,69 @@
   "priorities": [],
   "sourceUrl": "https://docs.google.com/spreadsheets/d/1INsGFH6MhaO-MFMBZ1Dngcn84FeN-hc0BLS0-v8TL_k/export?format=xlsx",
   "sourceKind": "xlsx",
-  "parserVersion": 5,
+  "parserVersion": 6,
   "parserNotes": [],
-  "extras": null,
-  "ingestedAt": "2026-09-15 16:08:33",
-  "updatedAt": "2026-09-15 16:08:33",
+  "extras": {
+    "gpa": {
+      "average": 3.9
+    },
+    "applicationFeeUsd": 80,
+    "enrollment": {
+      "undergraduates": 33513
+    },
+    "retention": {
+      "firstYearPct": 97
+    },
+    "graduation": {
+      "sixYearPct": 93.7,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 9102,
+      "accepted": 6479,
+      "admitted": 0
+    },
+    "transfer": {
+      "applied": 23401,
+      "admitted": 5658,
+      "enrolled": 3055
+    },
+    "studentLife": {
+      "outOfStatePct": 19.4,
+      "onCampusPct": 90
+    },
+    "costs": {
+      "tuitionInStateUsd": 14202,
+      "tuitionOutOfStateUsd": 53472,
+      "requiredFeesUsd": 4262,
+      "foodAndHousingUsd": 26028,
+      "academicYear": "2025-2026"
+    },
+    "aid": {
+      "needMetPct": 88.4
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 679,
+        "10-19": 852,
+        "20-29": 427,
+        "30-39": 230,
+        "40-49": 168,
+        "50-99": 298,
+        "100+": 352,
+        "total": 3006
+      },
+      "under20Pct": 50.9
+    }
+  },
+  "ingestedAt": "2026-09-15 17:13:34",
+  "updatedAt": "2026-09-15 17:13:34",
   "validation": {
+    "school": "University of California, Berkeley",
+    "slug": "university-of-california-berkeley",
     "status": "consistent",
     "discrepancies": [],
     "overrides": {},
-    "validatedAt": "2026-09-15 16:08:33"
+    "scopeFromPDF": null
   }
 }

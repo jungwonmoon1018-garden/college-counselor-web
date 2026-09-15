@@ -1,0 +1,342 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "college-of-charleston",
+  "school": "College of Charleston",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.6003,
+  "yieldRate": 0.1191,
+  "enrolledSAT": {
+    "p25": 1150,
+    "p75": 1300
+  },
+  "enrolledACT": {
+    "p25": 25,
+    "p75": 30
+  },
+  "enrolledGPA": {
+    "p25": 3.5,
+    "p75": 4,
+    "avg": 4
+  },
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "important",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "considered",
+    "recommendations": "considered",
+    "interview": "not_considered",
+    "ec": "considered",
+    "talent_ability": "considered",
+    "character": "considered",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "important",
+    "state_residency": "important",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 31680,
+    "admitted": 19016,
+    "enrolled": 2265
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 8897,
+        "admitted": 4779,
+        "admitRate": 0.5371
+      },
+      "women": {
+        "applied": 22783,
+        "admitted": 14237,
+        "admitRate": 0.6249
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1Fn6DeJuD-KBiKm0rw6EC5oHwDGWdGtz3",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "math": {
+        "p25": 550,
+        "p50": 590,
+        "p75": 640
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 24,
+        "p50": 27,
+        "p75": 31
+      },
+      "math": {
+        "p25": 21,
+        "p50": 25,
+        "p75": 27
+      }
+    },
+    "submitting": {
+      "satPct": 18,
+      "actPct": 11
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 8
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 53
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 35
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 3
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 14.2
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 54
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 30.3
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 1.5
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 8.2
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 40.5
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 46.5
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 4.2
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0.5
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 28.1
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 55.4
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 16.5
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 36.1
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 41
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 20.5
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 2.4
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 10.4
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 48.2
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 35.3
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 6
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 18,
+      "topQuarterPct": 44,
+      "topHalfPct": 80
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 48.2
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 19.3
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 15.9
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 9
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 4.6
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 2.8
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0.1
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 4,
+      "submittedPct": 100
+    },
+    "applicationFeeUsd": 60,
+    "earlyDecision": {
+      "applications": 752,
+      "admitted": 402,
+      "admitRate": 0.5346
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-15",
+        "raw": "1/15"
+      },
+      "edClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      },
+      "edNotification": "12/1",
+      "eaClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      }
+    },
+    "enrollment": {
+      "undergraduates": 10880
+    },
+    "graduation": {
+      "sixYearPct": 65.8,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 3378,
+      "accepted": 1303,
+      "admitted": 491
+    },
+    "transfer": {
+      "applied": 1707,
+      "admitted": 1588,
+      "enrolled": 634
+    },
+    "studentLife": {
+      "outOfStatePct": 54.7,
+      "onCampusPct": 92.1
+    }
+  },
+  "ingestedAt": "2026-09-15 17:07:22",
+  "updatedAt": "2026-09-15 17:07:22",
+  "validation": {
+    "school": "College of Charleston",
+    "slug": "college-of-charleston",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Name: Kate Anderson Title: Associate Director Office: Office of Institutional Research · College of Charleston"
+  }
+}

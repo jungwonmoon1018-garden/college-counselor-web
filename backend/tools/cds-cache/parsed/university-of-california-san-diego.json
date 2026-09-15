@@ -1,0 +1,168 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-california-san-diego",
+  "school": "University of California, San Diego",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.2677,
+  "yieldRate": 0.2037,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": {
+    "p25": 3.75,
+    "p75": 4,
+    "avg": 3.9
+  },
+  "testPolicy": "test_blind",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "not_considered",
+    "application_essay": "very_important",
+    "recommendations": "not_considered",
+    "interview": "not_considered",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "important",
+    "first_generation": "considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "considered",
+    "state_residency": "important",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "important",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 134455,
+    "admitted": 35989,
+    "enrolled": 7330
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 60225,
+        "admitted": 13964,
+        "admitRate": 0.2319
+      },
+      "women": {
+        "applied": 67953,
+        "admitted": 20282,
+        "admitRate": 0.2985
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1Be780xVVbU98euP4LPBud63QxodXxGd5",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "classRank": {
+      "topTenthPct": 100,
+      "topQuarterPct": 100,
+      "topHalfPct": 100,
+      "submittedPct": 96
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 27.3
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 52.5
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 17.2
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 3
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 0
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 0
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.9,
+      "submittedPct": 96
+    },
+    "applicationFeeUsd": 80,
+    "dates": {
+      "regularClosing": {
+        "mmdd": "11-30",
+        "raw": "11/30"
+      }
+    },
+    "enrollment": {
+      "undergraduates": 34955
+    },
+    "graduation": {
+      "sixYearPct": 86,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 27521,
+      "accepted": 19156,
+      "admitted": 4539
+    },
+    "transfer": {
+      "applied": 22510,
+      "admitted": 12280,
+      "enrolled": 3757
+    },
+    "studentLife": {
+      "outOfStatePct": 12,
+      "onCampusPct": 77
+    },
+    "costs": {
+      "tuitionOutOfStateUsd": 52536,
+      "requiredFeesUsd": 5472,
+      "foodAndHousingUsd": 19629,
+      "academicYear": "2025-2026"
+    }
+  },
+  "ingestedAt": "2026-09-15 17:13:45",
+  "updatedAt": "2026-09-15 17:13:45",
+  "validation": {
+    "school": "University of California, San Diego",
+    "slug": "university-of-california-san-diego",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Name: Title: Office: Mailing Address: City/State/Zip/Country: Phone: Fax: E-mail Addre · University of California, San Diego"
+  }
+}

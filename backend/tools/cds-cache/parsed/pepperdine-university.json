@@ -1,0 +1,333 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "pepperdine-university",
+  "school": "Pepperdine University",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.6286,
+  "yieldRate": 0.1164,
+  "enrolledSAT": {
+    "p25": 1300,
+    "p75": 1440
+  },
+  "enrolledACT": {
+    "p25": 29,
+    "p75": 32
+  },
+  "enrolledGPA": {
+    "p25": 3.25,
+    "p75": 3.75,
+    "avg": 3.61
+  },
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "not_considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "very_important",
+    "recommendations": "important",
+    "interview": "considered",
+    "ec": "very_important",
+    "talent_ability": "very_important",
+    "character": "very_important",
+    "first_generation": "considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "very_important",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "important",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 11526,
+    "admitted": 7245,
+    "enrolled": 843
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 4197,
+        "admitted": 2716,
+        "admitRate": 0.6471
+      },
+      "women": {
+        "applied": 7325,
+        "admitted": 4528,
+        "admitRate": 0.6182
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=16KVLUw3ll1EXe0Xz5cuBjeHtDGMGGf8A",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "math": {
+        "p25": 640,
+        "p50": 690,
+        "p75": 740
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 30,
+        "p50": 33,
+        "p75": 35
+      },
+      "math": {
+        "p25": 27,
+        "p50": 28,
+        "p75": 32
+      }
+    },
+    "submitting": {
+      "satPct": 18,
+      "actPct": 10
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 41
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 54
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 5
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 39
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 58
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 2
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 1
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 48
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 40
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 11
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 1
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 70
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 26
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 4
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 76
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 19
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 5
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 37
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 55
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 8
+          }
+        ]
+      }
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 9
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 29
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 31
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 19
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 10
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 3
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.61,
+      "submittedPct": 99
+    },
+    "applicationFeeUsd": 70,
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-15",
+        "raw": "Jan 15"
+      },
+      "eaClosing": {
+        "mmdd": "11-01",
+        "raw": "Nov 1"
+      },
+      "aidPriority": {
+        "mmdd": "02-15",
+        "raw": "Feb 15 Dec 15"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 44096
+    },
+    "enrollment": {
+      "undergraduates": 3553
+    },
+    "graduation": {
+      "sixYearPct": 83,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 1443,
+      "accepted": 790,
+      "admitted": 785
+    },
+    "transfer": {
+      "applied": 736,
+      "admitted": 322,
+      "enrolled": 85
+    },
+    "studentLife": {
+      "outOfStatePct": 42,
+      "onCampusPct": 99.5
+    },
+    "costs": {
+      "tuitionUsd": 71860,
+      "requiredFeesUsd": 812,
+      "foodAndHousingUsd": 22480,
+      "academicYear": "2025-2026"
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 190,
+        "10-19": 419,
+        "20-29": 187,
+        "30-39": 60,
+        "40-49": 12,
+        "50-99": 9,
+        "100+": 10,
+        "total": 887
+      },
+      "under20Pct": 68.7
+    }
+  },
+  "ingestedAt": "2026-09-15 17:11:05",
+  "updatedAt": "2026-09-15 17:11:05",
+  "validation": {
+    "school": "Pepperdine University",
+    "slug": "pepperdine-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Name: Title: Office: Office of Institutional Effectiveness Mailing Address: City/State · Pepperdine University"
+  }
+}

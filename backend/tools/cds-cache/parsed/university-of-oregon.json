@@ -1,0 +1,377 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-oregon",
+  "school": "University of Oregon",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.883,
+  "yieldRate": 0.144,
+  "enrolledSAT": {
+    "p25": 1130,
+    "p75": 1360
+  },
+  "enrolledACT": {
+    "p25": 23,
+    "p75": 30
+  },
+  "enrolledGPA": {
+    "p25": 3.25,
+    "p75": 4,
+    "avg": 3.73
+  },
+  "testPolicy": "test_optional",
+  "c7": {},
+  "b1": {
+    "applied": 40021,
+    "admitted": 35337,
+    "enrolled": 5087
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 16602,
+        "admitted": 14336,
+        "admitRate": 0.8635
+      },
+      "women": {
+        "applied": 23350,
+        "admitted": 20951,
+        "admitRate": 0.8973
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1zwLGl0L_2NTWAc5L4ITKInrUXoDdbsiR",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 580,
+        "p50": 640,
+        "p75": 690
+      },
+      "math": {
+        "p25": 550,
+        "p50": 610,
+        "p75": 670
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 22,
+        "p50": 26,
+        "p75": 31
+      },
+      "math": {
+        "p25": 20,
+        "p50": 25,
+        "p75": 27
+      }
+    },
+    "submitting": {
+      "satPct": 8,
+      "actPct": 5
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 16.8
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 49
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 24
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 9
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 23.1
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 49.8
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 19.4
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 7
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0.7
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 16.8
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 43
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 27.4
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 11.7
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 1.2
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 1.2
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 28.3
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 42.7
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 23.5
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 5.5
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 0
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 31.6
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 33.5
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 25
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 8.8
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 1.1
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 12.9
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 44.5
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 29.8
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 12.9
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 33.3
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 20.9
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 16.9
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 12.8
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 9.4
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 6.8
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0.2
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.73,
+      "submittedPct": 99.9
+    },
+    "applicationFeeUsd": 65,
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-15",
+        "raw": "1/15"
+      },
+      "eaClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 15408
+    },
+    "enrollment": {
+      "undergraduates": 20622
+    },
+    "graduation": {
+      "sixYearPct": 72,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 1598,
+      "accepted": 641,
+      "admitted": 631
+    },
+    "transfer": {
+      "applied": 2602,
+      "admitted": 1650,
+      "enrolled": 835
+    },
+    "costs": {
+      "tuitionInStateUsd": 13404,
+      "tuitionOutOfStateUsd": 41865,
+      "requiredFeesUsd": 2733,
+      "foodAndHousingUsd": 16611
+    }
+  },
+  "ingestedAt": "2026-09-15 17:15:28",
+  "updatedAt": "2026-09-15 17:15:28",
+  "validation": {
+    "school": "University of Oregon",
+    "slug": "university-of-oregon",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Name: Title: Office: Mailing Address: City/State/Zip/Country: Phone: Fax: E-mail Addre · University of Oregon"
+  }
+}

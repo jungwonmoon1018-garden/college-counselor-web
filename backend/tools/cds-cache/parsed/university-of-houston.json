@@ -1,0 +1,127 @@
+{
+  "source": "cds",
+  "extractionMethod": "xlsx",
+  "slug": "university-of-houston",
+  "school": "University of Houston",
+  "year": null,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.7577,
+  "yieldRate": 0.2535,
+  "enrolledSAT": {
+    "p25": 1140,
+    "p75": 1310
+  },
+  "enrolledACT": {
+    "p25": 22,
+    "p75": 28
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.46
+  },
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "considered",
+    "class_rank": "considered",
+    "gpa": "important",
+    "test_scores": "important",
+    "application_essay": "considered",
+    "recommendations": "not_considered",
+    "interview": "not_considered",
+    "ec": "considered",
+    "talent_ability": "considered",
+    "character": "not_considered",
+    "first_generation": "not_considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered",
+    "racial_ethnic_status": "not_considered"
+  },
+  "b1": {
+    "applied": 34728,
+    "admitted": 26312,
+    "enrolled": 6669
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.uh.edu/ir/reports/common-data-sets/cds-data/common-data-set_2025-2026_final.xlsx",
+  "sourceKind": "xlsx",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "actSections": {
+      "science": {
+        "p25": 20,
+        "p50": 24,
+        "p75": 27
+      }
+    },
+    "gpa": {
+      "average": 3.46
+    },
+    "applicationFeeUsd": 75,
+    "dates": {
+      "edNotification": "Can on-line application fee be waived for applicants with financial need? Y C.2104  Month First-Time, First-Year Admission Admission Policies Early Decision Undergraduates First-time, first-year All All All MM"
+    },
+    "enrollment": {
+      "undergraduates": 40366
+    },
+    "retention": {
+      "firstYearPct": 86.4
+    },
+    "graduation": {
+      "sixYearPct": 65.7,
+      "cohort": 2019
+    },
+    "transfer": {
+      "applied": 8358,
+      "admitted": 7390,
+      "enrolled": 4415
+    },
+    "studentLife": {
+      "outOfStatePct": 3,
+      "onCampusPct": 36
+    },
+    "costs": {
+      "tuitionUsd": 5230,
+      "tuitionInStateUsd": 10856,
+      "tuitionOutOfStateUsd": 26744,
+      "requiredFeesUsd": 1032,
+      "foodAndHousingUsd": 11286,
+      "academicYear": "2026-2027"
+    },
+    "aid": {
+      "needMetPct": 56.9
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 167,
+        "10-19": 462,
+        "20-29": 405,
+        "30-39": 278,
+        "40-49": 151,
+        "50-99": 254,
+        "100+": 198,
+        "total": 1915
+      },
+      "under20Pct": 32.8
+    }
+  },
+  "ingestedAt": "2026-09-15 17:14:11",
+  "updatedAt": "2026-09-15 17:14:11",
+  "validation": {
+    "school": "University of Houston",
+    "slug": "university-of-houston",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

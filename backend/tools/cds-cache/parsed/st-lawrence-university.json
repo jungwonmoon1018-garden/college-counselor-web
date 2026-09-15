@@ -1,0 +1,251 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "st-lawrence-university",
+  "school": "St Lawrence University",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.5434,
+  "yieldRate": 0.1281,
+  "enrolledSAT": {
+    "p25": 1285,
+    "p75": 1385
+  },
+  "enrolledACT": {
+    "p25": 30,
+    "p75": 33
+  },
+  "enrolledGPA": {
+    "p25": 3.5,
+    "p75": 4,
+    "avg": 3.72
+  },
+  "testPolicy": "test_optional",
+  "c7": {},
+  "b1": {
+    "applied": 6089,
+    "admitted": 3309,
+    "enrolled": 424
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 2877,
+        "admitted": 1475,
+        "admitRate": 0.5127
+      },
+      "women": {
+        "applied": 3208,
+        "admitted": 1830,
+        "admitRate": 0.5704
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1U0fX_eImG2cjZl1HjX4u3AYru7oWmMUE",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 645,
+        "p50": 690,
+        "p75": 710
+      },
+      "math": {
+        "p25": 610,
+        "p50": 660,
+        "p75": 710
+      }
+    },
+    "submitting": {
+      "satPct": 15,
+      "actPct": 5
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 23.4
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 67.2
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 9.4
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 37.5
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 50
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 12.5
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 28.1
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 56.3
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 15.6
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 90
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 10
+        }
+      ]
+    },
+    "classRank": {
+      "topTenthPct": 47.6,
+      "topQuarterPct": 80.6,
+      "topHalfPct": 98.1,
+      "submittedPct": 24.3
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 39.4
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 17.7
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 23.1
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 8.3
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 7.5
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 3.5
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0.5
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.72,
+      "submittedPct": 100
+    },
+    "earlyDecision": {
+      "applications": 253,
+      "admitted": 118,
+      "admitRate": 0.4664
+    },
+    "dates": {
+      "edClosing": {
+        "mmdd": "11-02",
+        "raw": "11/2"
+      },
+      "edNotification": "a continual basis",
+      "edIIClosing": {
+        "mmdd": "02-01",
+        "raw": "2/1"
+      },
+      "eaClosing": {
+        "mmdd": "12-01",
+        "raw": "12/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 59478
+    },
+    "enrollment": {
+      "undergraduates": 1949
+    },
+    "graduation": {
+      "sixYearPct": 79.1,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 190,
+      "accepted": 33,
+      "admitted": 3
+    },
+    "transfer": {
+      "applied": 116,
+      "admitted": 54,
+      "enrolled": 19
+    },
+    "studentLife": {
+      "outOfStatePct": 58,
+      "onCampusPct": 100
+    },
+    "costs": {
+      "tuitionUsd": 67427,
+      "requiredFeesUsd": 463
+    }
+  },
+  "ingestedAt": "2026-09-15 17:12:05",
+  "updatedAt": "2026-09-15 17:12:05",
+  "validation": {
+    "school": "St Lawrence University",
+    "slug": "st-lawrence-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Name: Christine Zimmerman Title: Director of Institutional Research Office: Office of  · St. Lawrence University"
+  }
+}

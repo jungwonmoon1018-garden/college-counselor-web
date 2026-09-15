@@ -1,0 +1,456 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "kansas-state-university",
+  "school": "Kansas State University",
+  "year": null,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.875,
+  "yieldRate": 0.2767,
+  "enrolledSAT": {
+    "p25": 1040,
+    "p75": 1260
+  },
+  "enrolledACT": {
+    "p25": 20,
+    "p75": 27
+  },
+  "enrolledGPA": {
+    "p25": 3.25,
+    "p75": 3.75,
+    "avg": 3.86
+  },
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "not_considered",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "important",
+    "application_essay": "considered",
+    "recommendations": "considered",
+    "interview": "not_considered",
+    "ec": "not_considered",
+    "talent_ability": "not_considered",
+    "character": "not_considered",
+    "first_generation": "not_considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "not_considered",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 15591,
+    "admitted": 13642,
+    "enrolled": 3775
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.k-state.edu/data/institutional-research/resources/common-data-set/CDS_2025_2026.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 520,
+        "p50": 600,
+        "p75": 660
+      },
+      "math": {
+        "p25": 500,
+        "p50": 570,
+        "p75": 650
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 19,
+        "p50": 23,
+        "p75": 26
+      },
+      "math": {
+        "p25": 19,
+        "p50": 24,
+        "p75": 27
+      },
+      "reading": {
+        "p25": 21,
+        "p50": 25,
+        "p75": 30
+      },
+      "science": {
+        "p25": 21,
+        "p50": 24,
+        "p75": 27
+      }
+    },
+    "submitting": {
+      "satPct": 7,
+      "actPct": 80
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 5.1
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 33.2
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 44.3
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 15.8
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 11.5
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 38.9
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 35.7
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 12.7
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0.6
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0.6
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 1.2
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0.4
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 8.9
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 29.9
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 38.2
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 20.4
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 1.9
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0.6
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 13.2
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 37.1
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 40.1
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 9.6
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 0.1
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 14.4
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 28.8
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 39.6
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 14.9
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 2.4
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 9.6
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 41
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 31.6
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 17.7
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0.1
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 29.2
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 26.9
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 33.8
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 9.5
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0.6
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 13.7
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 37.8
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 40.5
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 7.4
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0.6
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 29,
+      "topQuarterPct": 56,
+      "topHalfPct": 84,
+      "submittedPct": 64
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 13
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 39
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 21
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 13
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 7
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 6
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 1
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.86,
+      "submittedPct": 86.5
+    },
+    "applicationFeeUsd": 40,
+    "aid": {
+      "averagePackageFirstYearUsd": 18226
+    },
+    "enrollment": {
+      "undergraduates": 16555
+    },
+    "retention": {
+      "firstYearPct": 86
+    },
+    "graduation": {
+      "sixYearPct": 71.2,
+      "cohort": 2019
+    },
+    "transfer": {
+      "applied": 2961,
+      "admitted": 2077,
+      "enrolled": 1212
+    },
+    "studentLife": {
+      "outOfStatePct": 22,
+      "onCampusPct": 81
+    },
+    "costs": {
+      "tuitionInStateUsd": 10601,
+      "tuitionOutOfStateUsd": 28555,
+      "requiredFeesUsd": 978,
+      "foodAndHousingUsd": 11520
+    }
+  },
+  "ingestedAt": "2026-09-15 17:09:46",
+  "updatedAt": "2026-09-15 17:09:46",
+  "validation": {
+    "school": "Kansas State University",
+    "slug": "kansas-state-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Kansas State University"
+  }
+}

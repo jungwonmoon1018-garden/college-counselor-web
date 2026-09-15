@@ -1,0 +1,140 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "colby-college",
+  "school": "Colby College",
+  "year": 2019,
+  "yearLabel": "2019-20",
+  "tier": null,
+  "overallAdmitRate": 0.0967,
+  "yieldRate": 0.3973,
+  "enrolledSAT": {
+    "p25": 1380,
+    "p75": 1520
+  },
+  "enrolledACT": {
+    "p25": 31,
+    "p75": 34
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "not_considered",
+    "class_rank": "important",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "very_important",
+    "interview": "not_considered",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "very_important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "important",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 13584,
+    "admitted": 1314,
+    "enrolled": 522
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 6274,
+        "admitted": 584,
+        "admitRate": 0.0931
+      },
+      "women": {
+        "applied": 7310,
+        "admitted": 730,
+        "admitRate": 0.0999
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1jsGkWYBrDSeg9RZMKVUM-9uMzA50rZi4",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "math": {
+        "p25": 700,
+        "p75": 780
+      }
+    },
+    "submitting": {
+      "satPct": 52,
+      "actPct": 38
+    },
+    "classRank": {
+      "topTenthPct": 68.1,
+      "topQuarterPct": 89.4,
+      "topHalfPct": 99.1,
+      "submittedPct": 21.6
+    },
+    "earlyDecision": {
+      "applications": 21,
+      "admitted": 21,
+      "admitRate": 1
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-01",
+        "raw": "C14 1/1"
+      },
+      "edClosing": {
+        "mmdd": "11-15",
+        "raw": "C21 11/15"
+      },
+      "edNotification": "C21  12/15",
+      "edIIClosing": {
+        "mmdd": "01-01",
+        "raw": "C21 1/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 55762
+    },
+    "enrollment": {
+      "undergraduates": 2003
+    },
+    "retention": {
+      "firstYearPct": 93.4
+    },
+    "graduation": {
+      "sixYearPct": 89,
+      "cohort": 2013
+    },
+    "waitlist": {
+      "offered": 3668,
+      "accepted": 1454,
+      "admitted": 19
+    },
+    "studentLife": {
+      "outOfStatePct": 92,
+      "onCampusPct": 100
+    },
+    "costs": {
+      "tuitionUsd": 56930
+    }
+  },
+  "ingestedAt": "2026-09-15 17:07:12",
+  "updatedAt": "2026-09-15 17:07:12",
+  "validation": {
+    "school": "Colby College",
+    "slug": "colby-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

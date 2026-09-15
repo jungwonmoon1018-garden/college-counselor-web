@@ -1,0 +1,111 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "santa-clara-university",
+  "school": "Santa Clara University",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.4788,
+  "yieldRate": 0.1711,
+  "enrolledSAT": {
+    "p25": 1330,
+    "p75": 1470
+  },
+  "enrolledACT": {
+    "p25": 29,
+    "p75": 33
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.72
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 20032,
+    "admitted": 9592,
+    "enrolled": 1641
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 9262,
+        "admitted": 4256,
+        "admitRate": 0.4595
+      },
+      "women": {
+        "applied": 10770,
+        "admitted": 5336,
+        "admitRate": 0.4955
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.scu.edu/media/offices/institutional-research/fampf/common-data-set/rba13-Common_Data_Set_2025-2026.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 660,
+        "p50": 700,
+        "p75": 730
+      },
+      "math": {
+        "p25": 660,
+        "p50": 710,
+        "p75": 750
+      }
+    },
+    "actSections": {
+      "math": {
+        "p25": 27,
+        "p50": 31,
+        "p75": 34
+      }
+    },
+    "gpa": {
+      "average": 3.72
+    },
+    "applicationFeeUsd": 75,
+    "earlyDecision": {
+      "applications": 467,
+      "admitted": 467,
+      "admitRate": 1
+    },
+    "dates": {
+      "edNotification": "12 31"
+    },
+    "enrollment": {
+      "undergraduates": 6695
+    },
+    "waitlist": {
+      "offered": 405,
+      "accepted": 268,
+      "admitted": 263
+    },
+    "transfer": {
+      "applied": 1206,
+      "admitted": 780,
+      "enrolled": 247
+    },
+    "studentLife": {
+      "outOfStatePct": 38,
+      "onCampusPct": 94
+    }
+  },
+  "ingestedAt": "2026-09-15 17:11:47",
+  "updatedAt": "2026-09-15 17:11:47",
+  "validation": {
+    "school": "Santa Clara University",
+    "slug": "santa-clara-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

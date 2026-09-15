@@ -1,0 +1,119 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "the-college-of-wooster",
+  "school": "The College of Wooster",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.5953,
+  "yieldRate": 0.1142,
+  "enrolledSAT": {
+    "p25": 1250,
+    "p75": 1420
+  },
+  "enrolledACT": {
+    "p25": 27,
+    "p75": 33
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.74
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 5473,
+    "admitted": 3258,
+    "enrolled": 372
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 2968,
+        "admitted": 1600,
+        "admitRate": 0.5391
+      },
+      "women": {
+        "applied": 2498,
+        "admitted": 1652,
+        "admitRate": 0.6613
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1s15mPw4CPv-jsjrepmzMpykl8hS5Ftnt",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 630,
+        "p50": 680,
+        "p75": 740
+      },
+      "math": {
+        "p25": 590,
+        "p50": 650,
+        "p75": 720
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 26,
+        "p50": 30,
+        "p75": 34
+      },
+      "math": {
+        "p25": 25,
+        "p50": 27,
+        "p75": 30
+      },
+      "reading": {
+        "p25": 28,
+        "p50": 32,
+        "p75": 35
+      },
+      "science": {
+        "p25": 24,
+        "p50": 28,
+        "p75": 31
+      }
+    },
+    "gpa": {
+      "average": 3.74
+    },
+    "earlyDecision": {
+      "applications": 83,
+      "admitted": 83,
+      "admitRate": 1
+    },
+    "dates": {
+      "edNotification": "11 15"
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 59425
+    },
+    "transfer": {
+      "applied": 168,
+      "admitted": 56,
+      "enrolled": 26
+    },
+    "studentLife": {
+      "onCampusPct": 30
+    }
+  },
+  "ingestedAt": "2026-09-15 17:13:01",
+  "updatedAt": "2026-09-15 17:13:01",
+  "validation": {
+    "school": "The College of Wooster",
+    "slug": "the-college-of-wooster",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

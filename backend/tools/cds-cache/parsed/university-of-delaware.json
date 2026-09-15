@@ -1,0 +1,110 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-delaware",
+  "school": "University of Delaware",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.6924,
+  "yieldRate": 0.1481,
+  "enrolledSAT": {
+    "p25": 1220,
+    "p75": 1370
+  },
+  "enrolledACT": {
+    "p25": 28,
+    "p75": 32
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.98
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 39741,
+    "admitted": 27516,
+    "enrolled": 4075
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 15747,
+        "admitted": 10155,
+        "admitRate": 0.6449
+      },
+      "women": {
+        "applied": 23994,
+        "admitted": 17361,
+        "admitRate": 0.7236
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1oiwhsiGKFpTRnaOBdnbVvK8Q9Z6FmmC4",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 610,
+        "p50": 650,
+        "p75": 700
+      },
+      "math": {
+        "p25": 590,
+        "p50": 640,
+        "p75": 690
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 27,
+        "p50": 30,
+        "p75": 35
+      },
+      "math": {
+        "p25": 26,
+        "p50": 28,
+        "p75": 32
+      }
+    },
+    "gpa": {
+      "average": 3.98
+    },
+    "applicationFeeUsd": 75,
+    "aid": {
+      "averagePackageFirstYearUsd": 20474
+    },
+    "enrollment": {
+      "undergraduates": 19287
+    },
+    "waitlist": {
+      "offered": 3417,
+      "admitted": 2087
+    },
+    "transfer": {
+      "applied": 2033,
+      "admitted": 1157,
+      "enrolled": 642
+    },
+    "studentLife": {
+      "outOfStatePct": 66,
+      "onCampusPct": 91
+    }
+  },
+  "ingestedAt": "2026-09-15 17:14:08",
+  "updatedAt": "2026-09-15 17:14:08",
+  "validation": {
+    "school": "University of Delaware",
+    "slug": "university-of-delaware",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

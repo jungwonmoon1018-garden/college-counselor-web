@@ -1,0 +1,94 @@
+{
+  "source": "cds",
+  "extractionMethod": "xlsx",
+  "slug": "university-of-california-merced",
+  "school": "University of California, Merced",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.9152,
+  "yieldRate": 0.0726,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.57
+  },
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "not_considered",
+    "gpa": "very_important",
+    "test_scores": "not_considered",
+    "application_essay": "very_important",
+    "recommendations": "considered",
+    "interview": "not_considered",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "considered",
+    "first_generation": "considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered",
+    "racial_ethnic_status": "not_considered"
+  },
+  "b1": {
+    "applied": 31582,
+    "admitted": 28903,
+    "enrolled": 2097
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 15051,
+        "admitted": 13672,
+        "admitRate": 0.9084
+      },
+      "women": {
+        "applied": 15134,
+        "admitted": 13933,
+        "admitRate": 0.9206
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://docs.google.com/spreadsheets/d/1lUTmFPQC7tXMFF6mAZn8o2UcISM1oZes/export?format=xlsx",
+  "sourceKind": "xlsx",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "gpa": {
+      "average": 3.57
+    },
+    "applicationFeeUsd": 70,
+    "dates": {
+      "edNotification": "C2103  First-Time, First-Year Admission Admission Policies Early Decision Undergraduates First-time, first-year All All All MM-DD"
+    },
+    "enrollment": {
+      "undergraduates": 8372
+    },
+    "studentLife": {
+      "outOfStatePct": 1,
+      "onCampusPct": 80
+    },
+    "aid": {
+      "needMetPct": 1
+    }
+  },
+  "ingestedAt": "2026-09-15 17:13:40",
+  "updatedAt": "2026-09-15 17:13:40",
+  "validation": {
+    "school": "University of California, Merced",
+    "slug": "university-of-california-merced",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

@@ -1,0 +1,142 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-california-davis",
+  "school": "University of California, Davis",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.4183,
+  "yieldRate": 0.1645,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": {
+    "p25": 3.75,
+    "p75": 4,
+    "avg": 4.04
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 98869,
+    "admitted": 41353,
+    "enrolled": 6804
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 43931,
+        "admitted": 16150,
+        "admitRate": 0.3676
+      },
+      "women": {
+        "applied": 50044,
+        "admitted": 23056,
+        "admitRate": 0.4607
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1xd_2g4L1SqR_csHIwhIpBMTyhY_2E71l",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 68.5
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 21.9
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 7.6
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 1.6
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 0.4
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 0
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 4.04,
+      "submittedPct": 100
+    },
+    "applicationFeeUsd": 80,
+    "dates": {
+      "regularClosing": {
+        "mmdd": "11-30",
+        "raw": "11/30"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 32263
+    },
+    "enrollment": {
+      "undergraduates": 32273
+    },
+    "waitlist": {
+      "offered": 17166,
+      "accepted": 9609,
+      "admitted": 4309
+    },
+    "transfer": {
+      "applied": 16516,
+      "admitted": 9608,
+      "enrolled": 2605
+    },
+    "studentLife": {
+      "outOfStatePct": 7,
+      "onCampusPct": 90
+    },
+    "costs": {
+      "tuitionInStateUsd": 13602,
+      "tuitionOutOfStateUsd": 51204,
+      "requiredFeesUsd": 3749,
+      "foodAndHousingUsd": 20771,
+      "academicYear": "2025-2026"
+    }
+  },
+  "ingestedAt": "2026-09-15 17:13:37",
+  "updatedAt": "2026-09-15 17:13:37",
+  "validation": {
+    "school": "University of California, Davis",
+    "slug": "university-of-california-davis",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Name: Erika Jackson Title: Director, Institutional Analysis Office: Budget & Instituti · University of California - Davis"
+  }
+}

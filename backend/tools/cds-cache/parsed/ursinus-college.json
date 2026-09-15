@@ -1,0 +1,151 @@
+{
+  "source": "cds",
+  "extractionMethod": "xlsx",
+  "slug": "ursinus-college",
+  "school": "Ursinus College",
+  "year": null,
+  "yearLabel": "2021-22",
+  "tier": null,
+  "overallAdmitRate": 0.8271,
+  "yieldRate": 0.1371,
+  "enrolledSAT": {
+    "p25": 1200,
+    "p75": 1290
+  },
+  "enrolledACT": {
+    "p25": 27,
+    "p75": 29
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "not_considered",
+    "class_rank": "very_important",
+    "gpa": "not_considered",
+    "test_scores": "considered",
+    "application_essay": "very_important",
+    "recommendations": "very_important",
+    "interview": "very_important",
+    "ec": "not_considered",
+    "talent_ability": "very_important",
+    "character": "not_considered",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "considered",
+    "racial_ethnic_status": "considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 3818,
+    "admitted": 3158,
+    "enrolled": 433
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 1886,
+        "admitted": 1491,
+        "admitRate": 0.7906
+      },
+      "women": {
+        "applied": 1932,
+        "admitted": 1667,
+        "admitRate": 0.8628
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://docs.google.com/spreadsheets/d/1sPm4qdrmalnGbfyLqlfBYfzLB7EreV79/export?format=xlsx",
+  "sourceKind": "xlsx",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 610,
+        "p50": 680,
+        "p75": 640
+      },
+      "math": {
+        "p25": 590,
+        "p50": 680,
+        "p75": 630
+      }
+    },
+    "actSections": {
+      "math": {
+        "p25": 24,
+        "p50": 31,
+        "p75": 26
+      }
+    },
+    "gpa": {
+      "average": 3.53
+    },
+    "earlyDecision": {
+      "applications": 90,
+      "admitted": 80,
+      "admitRate": 0.8889
+    },
+    "dates": {
+      "edNotification": "Mid-December"
+    },
+    "enrollment": {
+      "undergraduates": 1556
+    },
+    "graduation": {
+      "sixYearPct": 72.5,
+      "cohort": 2015
+    },
+    "waitlist": {
+      "offered": 27,
+      "accepted": 24,
+      "admitted": 7
+    },
+    "transfer": {
+      "applied": 91,
+      "admitted": 55,
+      "enrolled": 24
+    },
+    "studentLife": {
+      "outOfStatePct": 42.6,
+      "onCampusPct": 95.8
+    },
+    "costs": {
+      "tuitionUsd": 58016,
+      "foodAndHousingUsd": 14624,
+      "academicYear": "2022-2023"
+    },
+    "aid": {
+      "needMetPct": 82.7
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 62,
+        "10-19": 174,
+        "20-29": 116,
+        "30-39": 16,
+        "40-49": 2,
+        "50-99": 1,
+        "100+": 0,
+        "total": 371
+      },
+      "under20Pct": 63.6
+    }
+  },
+  "ingestedAt": "2026-09-15 17:16:18",
+  "updatedAt": "2026-09-15 17:16:18",
+  "validation": {
+    "school": "Ursinus College",
+    "slug": "ursinus-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

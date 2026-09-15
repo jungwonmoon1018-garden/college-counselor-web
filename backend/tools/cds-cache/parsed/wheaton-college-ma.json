@@ -1,0 +1,317 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "wheaton-college-ma",
+  "school": "Wheaton College, MA",
+  "year": 2020,
+  "yearLabel": "2022-23",
+  "tier": null,
+  "overallAdmitRate": 0.7709,
+  "yieldRate": 0.1659,
+  "enrolledSAT": {
+    "p25": 1180,
+    "p75": 1340
+  },
+  "enrolledACT": {
+    "p25": 25,
+    "p75": 31
+  },
+  "enrolledGPA": {
+    "p25": 3,
+    "p75": 3.75,
+    "avg": 3.48
+  },
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "not_considered",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "very_important",
+    "recommendations": "very_important",
+    "interview": "considered",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "very_important",
+    "first_generation": "not_considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "important"
+  },
+  "b1": {
+    "applied": 3580,
+    "admitted": 2760,
+    "enrolled": 458
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 1340,
+        "admitted": 949,
+        "admitRate": 0.7082
+      },
+      "women": {
+        "applied": 2240,
+        "admitted": 1811,
+        "admitRate": 0.8085
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=116oR-snX73Ty05DlpRHNhXVwu4b7zc_y",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 590,
+        "p75": 680
+      },
+      "math": {
+        "p25": 570,
+        "p75": 670
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 26,
+        "p75": 34
+      },
+      "math": {
+        "p25": 22,
+        "p75": 27
+      }
+    },
+    "submitting": {
+      "satPct": 52,
+      "actPct": 7
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 13.1
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 54.4
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 27.4
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 5.1
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 17.3
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 55.7
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 22.8
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 4.2
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 16.9
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 42.6
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 35.9
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 4.2
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0.4
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 30.6,
+      "topQuarterPct": 63.1,
+      "topHalfPct": 86.3,
+      "submittedPct": 34.9
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 15.3
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 19
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 20.1
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 18.4
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 10.1
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 14.7
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 2.4
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.48,
+      "submittedPct": 99.8
+    },
+    "earlyDecision": {
+      "applications": 125,
+      "admitted": 95,
+      "admitRate": 0.76
+    },
+    "dates": {
+      "edClosing": {
+        "mmdd": "11-20",
+        "raw": "11/20"
+      },
+      "edNotification": "12/15",
+      "edIIClosing": {
+        "mmdd": "01-15",
+        "raw": "1/15"
+      },
+      "eaClosing": {
+        "mmdd": "12-01",
+        "raw": "12/1"
+      },
+      "aidPriority": {
+        "mmdd": "11-15",
+        "raw": "Early Decision/Early Action: 11/15; Regular Decision: 1/15"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 49406
+    },
+    "enrollment": {
+      "undergraduates": 1669
+    },
+    "graduation": {
+      "sixYearPct": 77.5,
+      "cohort": 2014
+    },
+    "waitlist": {
+      "offered": 92,
+      "accepted": 89,
+      "admitted": 6
+    },
+    "transfer": {
+      "applied": 88,
+      "admitted": 45,
+      "enrolled": 14
+    },
+    "studentLife": {
+      "outOfStatePct": 58.2,
+      "onCampusPct": 78.4
+    },
+    "costs": {
+      "tuitionUsd": 57700,
+      "requiredFeesUsd": 480,
+      "foodAndHousingUsd": 14670
+    }
+  },
+  "ingestedAt": "2026-09-15 17:16:47",
+  "updatedAt": "2026-09-15 17:16:47",
+  "validation": {
+    "school": "Wheaton College, MA",
+    "slug": "wheaton-college-ma",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2020-2021 CDS-A Page 1 A0 Respondent Information (Not for Publication) Name: Kimberly Puhala, Ph.D. Title: Director Office: Institutional Resear · Wheaton College"
+  }
+}

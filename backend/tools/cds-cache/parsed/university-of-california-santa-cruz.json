@@ -1,0 +1,124 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-california-santa-cruz",
+  "school": "University of California, Santa Cruz",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.7273,
+  "yieldRate": 0.0952,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": {
+    "p25": 3.5,
+    "p75": 4,
+    "avg": 3.87
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 66374,
+    "admitted": 48274,
+    "enrolled": 4596
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 28428,
+        "admitted": 19978,
+        "admitRate": 0.7028
+      },
+      "women": {
+        "applied": 34971,
+        "admitted": 25969,
+        "admitRate": 0.7426
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://mediafiles.ucsc.edu/iraps/common-data-set/common-data-set-2025-26-revised.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 35.9
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 36.4
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 22.2
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 4.7
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 0.8
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 0.1
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.87,
+      "submittedPct": 99.3
+    },
+    "applicationFeeUsd": 80,
+    "aid": {
+      "averagePackageFirstYearUsd": 35200
+    },
+    "enrollment": {
+      "undergraduates": 18194
+    },
+    "waitlist": {
+      "offered": 9881,
+      "accepted": 6444,
+      "admitted": 2648
+    },
+    "studentLife": {
+      "outOfStatePct": 2,
+      "onCampusPct": 2.1
+    }
+  },
+  "ingestedAt": "2026-09-15 17:14:05",
+  "updatedAt": "2026-09-15 17:14:05",
+  "validation": {
+    "school": "University of California, Santa Cruz",
+    "slug": "university-of-california-santa-cruz",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

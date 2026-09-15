@@ -1,0 +1,112 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "west-virginia-university",
+  "school": "West Virginia University",
+  "year": 2023,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.8514,
+  "yieldRate": 0.2407,
+  "enrolledSAT": {
+    "p25": 1010,
+    "p75": 1210
+  },
+  "enrolledACT": {
+    "p25": 20,
+    "p75": 26
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.7
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 20148,
+    "admitted": 17155,
+    "enrolled": 4129
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 9333,
+        "admitted": 8578,
+        "admitRate": 0.9191
+      },
+      "women": {
+        "applied": 10814,
+        "admitted": 8576,
+        "admitRate": 0.793
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1HJqpIcCSMUMx4s6xX1AgegpamvtCkLm5",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 510,
+        "p50": 570,
+        "p75": 620
+      },
+      "math": {
+        "p25": 490,
+        "p50": 540,
+        "p75": 590
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 19,
+        "p50": 22,
+        "p75": 25
+      },
+      "math": {
+        "p25": 18,
+        "p50": 22,
+        "p75": 25
+      },
+      "reading": {
+        "p25": 20,
+        "p50": 24,
+        "p75": 29
+      },
+      "science": {
+        "p25": 20,
+        "p50": 23,
+        "p75": 25
+      }
+    },
+    "gpa": {
+      "average": 3.7
+    },
+    "enrollment": {
+      "undergraduates": 18206
+    },
+    "transfer": {
+      "applied": 1769,
+      "admitted": 988,
+      "enrolled": 662
+    },
+    "studentLife": {
+      "outOfStatePct": 58.6,
+      "onCampusPct": 4.4
+    }
+  },
+  "ingestedAt": "2026-09-15 17:17:13",
+  "updatedAt": "2026-09-15 17:17:13",
+  "validation": {
+    "school": "West Virginia University",
+    "slug": "west-virginia-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

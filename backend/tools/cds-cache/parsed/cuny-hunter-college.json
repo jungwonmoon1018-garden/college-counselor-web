@@ -1,0 +1,283 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "cuny-hunter-college",
+  "school": "CUNY Hunter College",
+  "year": 2020,
+  "yearLabel": "2020-21",
+  "tier": null,
+  "overallAdmitRate": 0.5054,
+  "yieldRate": 0.1339,
+  "enrolledSAT": {
+    "p25": 1050,
+    "p75": 1260
+  },
+  "enrolledACT": {
+    "p25": 23,
+    "p75": 31
+  },
+  "enrolledGPA": {
+    "p25": 3,
+    "p75": 3.75,
+    "avg": 3.39
+  },
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "important",
+    "class_rank": "not_considered",
+    "gpa": "very_important",
+    "test_scores": "important",
+    "application_essay": "not_considered",
+    "recommendations": "not_considered",
+    "interview": "not_considered",
+    "ec": "not_considered",
+    "talent_ability": "not_considered",
+    "character": "not_considered",
+    "first_generation": "not_considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "not_considered",
+    "work_experience": "not_considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 29894,
+    "admitted": 15107,
+    "enrolled": 2023
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 13855,
+        "admitted": 6056,
+        "admitRate": 0.4371
+      },
+      "women": {
+        "applied": 16039,
+        "admitted": 9051,
+        "admitRate": 0.5643
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1-oO2L3E5LQw7hwxpWA5_3epTHINH-Ji5",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 520,
+        "p75": 610
+      },
+      "math": {
+        "p25": 530,
+        "p75": 650
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 23,
+        "p75": 32
+      },
+      "math": {
+        "p25": 24,
+        "p75": 30
+      }
+    },
+    "submitting": {
+      "satPct": 98,
+      "actPct": 12.7
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 7.6
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 23.5
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 54.2
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 14.7
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 5.8
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 22
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 51.8
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 20.3
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0.1
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 13.4
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 26.3
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 46.8
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 13.2
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0.3
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 10.6
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 15.2
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 18.5
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 18.9
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 19.3
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 14.7
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 2.8
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.39,
+      "submittedPct": 99
+    },
+    "applicationFeeUsd": 65,
+    "dates": {
+      "aidPriority": {
+        "mmdd": "03-15",
+        "raw": "3/15/20"
+      },
+      "aidDeadline": {
+        "mmdd": "05-22",
+        "raw": "5/22/21"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 5572
+    },
+    "enrollment": {
+      "undergraduates": 12587
+    },
+    "graduation": {
+      "sixYearPct": 59.7,
+      "cohort": 2014
+    },
+    "transfer": {
+      "applied": 8861,
+      "admitted": 4243,
+      "enrolled": 881
+    },
+    "studentLife": {
+      "outOfStatePct": 2
+    },
+    "costs": {
+      "tuitionInStateUsd": 6930,
+      "tuitionOutOfStateUsd": 18600,
+      "requiredFeesUsd": 410,
+      "foodAndHousingUsd": 17427
+    }
+  },
+  "ingestedAt": "2026-09-15 17:07:50",
+  "updatedAt": "2026-09-15 17:07:50",
+  "validation": {
+    "school": "CUNY Hunter College",
+    "slug": "cuny-hunter-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

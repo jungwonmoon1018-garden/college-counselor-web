@@ -1,0 +1,105 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "williams-college",
+  "school": "Williams College",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.0825,
+  "yieldRate": 0.43,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 15411,
+    "admitted": 1272,
+    "enrolled": 547
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 7280,
+        "admitted": 582,
+        "admitRate": 0.0799
+      },
+      "women": {
+        "applied": 7256,
+        "admitted": 638,
+        "admitRate": 0.0879
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1FTUbdWL56QfCfQCalPhJrHvq5NjOKNjr",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "actSections": {
+      "english": {
+        "p25": 25,
+        "p75": 35
+      },
+      "math": {
+        "p25": 25,
+        "p75": 32
+      }
+    },
+    "submitting": {
+      "satPct": 35,
+      "actPct": 17
+    },
+    "classRank": {
+      "topTenthPct": 88.4,
+      "topQuarterPct": 98.2,
+      "topHalfPct": 99.1,
+      "submittedPct": 20.5
+    },
+    "gpa": {
+      "submittedPct": 75
+    },
+    "applicationFeeUsd": 65,
+    "earlyDecision": {
+      "applications": 1067,
+      "admitted": 249,
+      "admitRate": 0.2334
+    },
+    "dates": {
+      "edNotification": "C2103  15-Dec"
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 76769,
+      "needMetPct": 100
+    },
+    "enrollment": {
+      "undergraduates": 2101
+    },
+    "graduation": {
+      "sixYearPct": 93.3,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 2303,
+      "accepted": 858,
+      "admitted": 113
+    },
+    "studentLife": {
+      "outOfStatePct": 87.2,
+      "onCampusPct": 100
+    }
+  },
+  "ingestedAt": "2026-09-15 17:16:53",
+  "updatedAt": "2026-09-15 17:16:53",
+  "validation": {
+    "school": "Williams College",
+    "slug": "williams-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Williams College 2024-2025 Common Data Set A. · Williams College A102"
+  }
+}

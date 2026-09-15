@@ -1,0 +1,226 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "occidental-college",
+  "school": "Occidental College",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": null,
+  "yieldRate": null,
+  "enrolledSAT": {
+    "p25": 1400,
+    "p75": 1495
+  },
+  "enrolledACT": {
+    "p25": 31,
+    "p75": 32
+  },
+  "enrolledGPA": {
+    "p25": 3.25,
+    "p75": 3.75,
+    "avg": 3.61
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": null,
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=16wnaErEtBPpbCQLXrtclCMe7bYk-GLxr",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 690,
+        "p50": 720,
+        "p75": 716
+      },
+      "math": {
+        "p25": 690,
+        "p50": 720,
+        "p75": 722
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 33,
+        "p50": 34,
+        "p75": 35
+      },
+      "math": {
+        "p25": 28,
+        "p50": 20,
+        "p75": 33
+      }
+    },
+    "submitting": {
+      "satPct": 20,
+      "actPct": 8
+    },
+    "scoreDistribution": {
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 98
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 2
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 94
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 6
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 63
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 33
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 3
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 49,
+      "topQuarterPct": 79,
+      "topHalfPct": 96,
+      "submittedPct": 23
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 6
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 30
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 32
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 21
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 8
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 0
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.61,
+      "submittedPct": 97
+    },
+    "applicationFeeUsd": 70,
+    "earlyDecision": {
+      "applications": 466,
+      "admitted": 223,
+      "admitRate": 0.4785
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-10",
+        "raw": "1/10"
+      },
+      "edClosing": {
+        "mmdd": "11-15",
+        "raw": "11/15"
+      },
+      "edNotification": "Mid-December",
+      "edIIClosing": {
+        "mmdd": "01-10",
+        "raw": "1/10"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 56806
+    },
+    "enrollment": {
+      "undergraduates": 1881
+    },
+    "graduation": {
+      "sixYearPct": 80.9,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 1238,
+      "accepted": 437,
+      "admitted": 71
+    },
+    "transfer": {
+      "applied": 442,
+      "admitted": 145,
+      "enrolled": 43
+    },
+    "studentLife": {
+      "outOfStatePct": 55,
+      "onCampusPct": 100
+    },
+    "costs": {
+      "tuitionUsd": 65678,
+      "requiredFeesUsd": 596,
+      "foodAndHousingUsd": 19252
+    }
+  },
+  "ingestedAt": "2026-09-15 17:10:55",
+  "updatedAt": "2026-09-15 17:10:55",
+  "validation": {
+    "school": "Occidental College",
+    "slug": "occidental-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 202 4 -202 5 A. · Occidental College"
+  }
+}

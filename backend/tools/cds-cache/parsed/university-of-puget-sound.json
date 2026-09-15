@@ -1,0 +1,476 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-puget-sound",
+  "school": "University of Puget Sound",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.7241,
+  "yieldRate": 0.1114,
+  "enrolledSAT": {
+    "p25": 1200,
+    "p75": 1370
+  },
+  "enrolledACT": {
+    "p25": 27,
+    "p75": 32
+  },
+  "enrolledGPA": {
+    "p25": 3.25,
+    "p75": 3.75,
+    "avg": 3.65
+  },
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "very_important",
+    "recommendations": "important",
+    "interview": "considered",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "very_important",
+    "first_generation": "considered",
+    "alumni_relation": "important",
+    "geographical_residence": "not_considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "important",
+    "work_experience": "important",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 4711,
+    "admitted": 3411,
+    "enrolled": 380
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.pugetsound.edu/sites/default/files/2026-04/CDS2025-26.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 620,
+        "p50": 670,
+        "p75": 720
+      },
+      "math": {
+        "p25": 570,
+        "p50": 630,
+        "p75": 670
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 25,
+        "p50": 30,
+        "p75": 33
+      },
+      "math": {
+        "p25": 25,
+        "p50": 27,
+        "p75": 29
+      },
+      "reading": {
+        "p25": 28,
+        "p50": 33,
+        "p75": 35
+      },
+      "science": {
+        "p25": 25,
+        "p50": 28,
+        "p75": 31
+      }
+    },
+    "submitting": {
+      "satPct": 30,
+      "actPct": 13
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 18.6
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 56.6
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 22.1
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 2.7
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 38.1
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 40.7
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 18.6
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0.9
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 1.8
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 15
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 53.1
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 30.1
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 1.8
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 48
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 42
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 10
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 0
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 0
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 50
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 36
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 14
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 22
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 66
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 8
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 4
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 72
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 22
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 4
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 2
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 46
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 40
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 14
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 32.5,
+      "topQuarterPct": 59.5,
+      "topHalfPct": 92.6,
+      "submittedPct": 42.9
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 9.2
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 38.7
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 23.2
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 16.1
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 10
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 2.6
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0.3
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.65,
+      "submittedPct": 100
+    },
+    "applicationFeeUsd": 65,
+    "earlyDecision": {
+      "applications": 157,
+      "admitted": 91,
+      "admitRate": 0.5796
+    },
+    "dates": {
+      "edClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      },
+      "edNotification": "12/15",
+      "eaClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 63315
+    },
+    "enrollment": {
+      "undergraduates": 1626
+    },
+    "retention": {
+      "firstYearPct": 87.9
+    },
+    "graduation": {
+      "sixYearPct": 69,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 43,
+      "accepted": 12,
+      "admitted": 1
+    },
+    "transfer": {
+      "applied": 173,
+      "admitted": 87,
+      "enrolled": 45
+    },
+    "studentLife": {
+      "outOfStatePct": 67.2,
+      "onCampusPct": 96.8
+    },
+    "costs": {
+      "tuitionUsd": 67550,
+      "requiredFeesUsd": 638,
+      "foodAndHousingUsd": 17140
+    }
+  },
+  "ingestedAt": "2026-09-15 17:15:34",
+  "updatedAt": "2026-09-15 17:15:34",
+  "validation": {
+    "school": "University of Puget Sound",
+    "slug": "university-of-puget-sound",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2025-2026 A0 Respondent Information (Not for Publication) First Name: Rianna Last Name: Miramontez Title: Institutional Research Analyst Office: · University of Puget Sound"
+  }
+}

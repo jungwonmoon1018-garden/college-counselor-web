@@ -1,0 +1,93 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "college-of-the-holy-cross",
+  "school": "College of the Holy Cross",
+  "year": null,
+  "yearLabel": "2023-24",
+  "tier": null,
+  "overallAdmitRate": null,
+  "yieldRate": null,
+  "enrolledSAT": {
+    "p25": 1270,
+    "p75": 1420
+  },
+  "enrolledACT": {
+    "p25": 28,
+    "p75": 32
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": null,
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1mpXu3K_GDSpwTZbnMCKaHlM4jee1QGI3",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "submitting": {
+      "satPct": 35,
+      "actPct": 19
+    },
+    "classRank": {
+      "topTenthPct": 38,
+      "topQuarterPct": 69,
+      "topHalfPct": 94,
+      "submittedPct": 22
+    },
+    "gpa": {
+      "submittedPct": 0
+    },
+    "earlyDecision": {
+      "applications": 761,
+      "admitted": 511,
+      "admitRate": 0.6715
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-15",
+        "raw": "1/15"
+      },
+      "edClosing": {
+        "mmdd": "11-15",
+        "raw": "11/15"
+      },
+      "edNotification": "12/15",
+      "edIIClosing": {
+        "mmdd": "01-15",
+        "raw": "1/15"
+      },
+      "aidPriority": {
+        "mmdd": "01-15",
+        "raw": "(MM/DD) 1/15"
+      },
+      "aidDeadline": {
+        "mmdd": "01-15",
+        "raw": "(MM/DD) 1/15"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 51739
+    },
+    "waitlist": {
+      "offered": 3700,
+      "accepted": 1572
+    },
+    "studentLife": {
+      "outOfStatePct": 60
+    }
+  },
+  "ingestedAt": "2026-09-15 17:07:27",
+  "updatedAt": "2026-09-15 17:07:27",
+  "validation": {
+    "school": "College of the Holy Cross",
+    "slug": "college-of-the-holy-cross",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

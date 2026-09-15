@@ -1,0 +1,371 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "new-college-of-florida",
+  "school": "New College of Florida",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": null,
+  "yieldRate": null,
+  "enrolledSAT": {
+    "p25": 1040,
+    "p75": 1143
+  },
+  "enrolledACT": {
+    "p25": 20,
+    "p75": 23
+  },
+  "enrolledGPA": {
+    "p25": 3.25,
+    "p75": 4,
+    "avg": 3.82
+  },
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "not_considered",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "important",
+    "application_essay": "considered",
+    "recommendations": "considered",
+    "interview": "not_considered",
+    "ec": "important",
+    "talent_ability": "considered",
+    "character": "important",
+    "first_generation": "considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 1120,
+    "enrolled": 122
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 732,
+        "admitted": 521,
+        "admitRate": 0.7117
+      },
+      "women": {
+        "applied": 387,
+        "admitted": 1047,
+        "admitRate": 2.7054
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1gSVEkP_B06RBTm7zMaoytyWfoBJNe9vb",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 530,
+        "p50": 580,
+        "p75": 588
+      },
+      "math": {
+        "p25": 500,
+        "p50": 550,
+        "p75": 555
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 20,
+        "p50": 23,
+        "p75": 24
+      },
+      "math": {
+        "p25": 17,
+        "p50": 21,
+        "p75": 21
+      },
+      "reading": {
+        "p25": 22,
+        "p50": 25,
+        "p75": 25
+      },
+      "science": {
+        "p25": 20,
+        "p50": 23,
+        "p75": 23
+      }
+    },
+    "submitting": {
+      "satPct": 74,
+      "actPct": 38
+    },
+    "scoreDistribution": {
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 11.8
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 37.6
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 41.2
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 9.4
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 0
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 16.5
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 29.4
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 44.7
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 9.4
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 3.5
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 30.6
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 34.1
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 31.8
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 29.4
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 32.9
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 30.6
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 5.9
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 1.2
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 15.3
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 30.6
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 43.5
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 10.6
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 33,
+      "topQuarterPct": 59,
+      "topHalfPct": 89,
+      "submittedPct": 44.8
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 44
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 13
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 17
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 10
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 9
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 6
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 1
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.82
+    },
+    "dates": {
+      "edNotification": "-",
+      "aidPriority": {
+        "mmdd": "11-01",
+        "raw": "November 1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 23369
+    },
+    "enrollment": {
+      "undergraduates": 710
+    },
+    "graduation": {
+      "sixYearPct": 62,
+      "cohort": 2017
+    },
+    "waitlist": {
+      "offered": 16,
+      "accepted": 1,
+      "admitted": 8
+    },
+    "earlyAction": {
+      "applications": 847,
+      "admitted": 616,
+      "admitRate": 0.7273
+    },
+    "studentLife": {
+      "outOfStatePct": 83,
+      "onCampusPct": 87
+    }
+  },
+  "ingestedAt": "2026-09-15 17:10:45",
+  "updatedAt": "2026-09-15 17:10:45",
+  "validation": {
+    "school": "New College of Florida",
+    "slug": "new-college-of-florida",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

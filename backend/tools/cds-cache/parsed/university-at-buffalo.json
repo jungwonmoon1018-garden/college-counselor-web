@@ -1,0 +1,92 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-at-buffalo",
+  "school": "University at Buffalo",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.8059,
+  "yieldRate": 0.1402,
+  "enrolledSAT": {
+    "p25": 1220,
+    "p75": 1390
+  },
+  "enrolledACT": {
+    "p25": 27,
+    "p75": 31
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 45637,
+    "admitted": 36780,
+    "enrolled": 5155
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.buffalo.edu/content/dam/www/oia/Common-Data-Sets/CDS_2025-2026.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 610,
+        "p50": 650,
+        "p75": 690
+      },
+      "math": {
+        "p25": 610,
+        "p50": 650,
+        "p75": 700
+      }
+    },
+    "submitting": {
+      "satPct": 26.7,
+      "actPct": 1.9
+    },
+    "gpa": {
+      "submittedPct": 92.7
+    },
+    "applicationFeeUsd": 50,
+    "dates": {
+      "eaClosing": {
+        "mmdd": "11-01",
+        "raw": "Nov. 1"
+      },
+      "aidPriority": {
+        "mmdd": "03-01",
+        "raw": "3/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 13835
+    },
+    "graduation": {
+      "sixYearPct": 72.8,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 2355,
+      "accepted": 857,
+      "admitted": 106
+    },
+    "studentLife": {
+      "outOfStatePct": 4,
+      "onCampusPct": 67
+    }
+  },
+  "ingestedAt": "2026-09-15 17:13:25",
+  "updatedAt": "2026-09-15 17:13:25",
+  "validation": {
+    "school": "University at Buffalo",
+    "slug": "university-at-buffalo",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

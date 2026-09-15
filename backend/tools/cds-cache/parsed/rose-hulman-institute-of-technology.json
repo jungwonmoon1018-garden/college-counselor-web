@@ -1,0 +1,188 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "rose-hulman-institute-of-technology",
+  "school": "Rose-Hulman Institute of Technology",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.809,
+  "yieldRate": 0.1001,
+  "enrolledSAT": {
+    "p25": 1270,
+    "p75": 1357
+  },
+  "enrolledACT": {
+    "p25": 28,
+    "p75": 31
+  },
+  "enrolledGPA": {
+    "p25": 3.75,
+    "p75": 4,
+    "avg": 3.91
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 5991,
+    "admitted": 4847,
+    "enrolled": 485
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 4513,
+        "admitted": 3638,
+        "admitRate": 0.8061
+      },
+      "women": {
+        "applied": 1478,
+        "admitted": 1209,
+        "admitRate": 0.818
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.rose-hulman.edu/academics/academic-affairs/irpa/reports/2025-26-Academic-Year-CDS.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 620,
+        "p50": 720,
+        "p75": 666
+      },
+      "math": {
+        "p25": 650,
+        "p50": 750,
+        "p75": 691
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 27,
+        "p50": 34,
+        "p75": 30
+      },
+      "math": {
+        "p25": 28,
+        "p50": 34,
+        "p75": 31
+      }
+    },
+    "submitting": {
+      "satPct": 35.7,
+      "actPct": 16.5
+    },
+    "scoreDistribution": {
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 37.6
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 43.4
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 17.9
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 1.1
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 56.1
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 29.5
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 12.7
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 1.7
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 59.2,
+      "topQuarterPct": 85.9,
+      "topHalfPct": 97.8,
+      "submittedPct": 38
+    },
+    "gpa": {
+      "average": 3.91,
+      "submittedPct": 97.9
+    },
+    "applicationFeeUsd": 65,
+    "dates": {
+      "regularClosing": {
+        "mmdd": "02-01",
+        "raw": "February 1 (regular decision)"
+      },
+      "eaClosing": {
+        "mmdd": "11-01",
+        "raw": "November 1"
+      },
+      "aidPriority": {
+        "mmdd": "03-10",
+        "raw": "March 10"
+      }
+    },
+    "enrollment": {
+      "undergraduates": 2160
+    },
+    "retention": {
+      "firstYearPct": 91.6
+    },
+    "graduation": {
+      "sixYearPct": 75,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 113,
+      "accepted": 29,
+      "admitted": 1
+    },
+    "transfer": {
+      "applied": 77,
+      "admitted": 55,
+      "enrolled": 15
+    },
+    "studentLife": {
+      "outOfStatePct": 65.1,
+      "onCampusPct": 96.9
+    }
+  },
+  "ingestedAt": "2026-09-15 17:11:37",
+  "updatedAt": "2026-09-15 17:11:37",
+  "validation": {
+    "school": "Rose-Hulman Institute of Technology",
+    "slug": "rose-hulman-institute-of-technology",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

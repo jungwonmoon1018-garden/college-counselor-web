@@ -1,0 +1,438 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "oregon-state-university",
+  "school": "Oregon State University",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.773,
+  "yieldRate": 0.204,
+  "enrolledSAT": {
+    "p25": 1160,
+    "p75": 1390
+  },
+  "enrolledACT": {
+    "p25": 24,
+    "p75": 31
+  },
+  "enrolledGPA": {
+    "p25": 3.5,
+    "p75": 3.75,
+    "avg": 3.7
+  },
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "important",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "considered",
+    "interview": "not_considered",
+    "ec": "considered",
+    "talent_ability": "considered",
+    "character": "important",
+    "first_generation": "not_considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 30293,
+    "admitted": 23418,
+    "enrolled": 4778
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 14009,
+        "admitted": 10557,
+        "admitRate": 0.7536
+      },
+      "women": {
+        "applied": 16237,
+        "admitted": 12835,
+        "admitRate": 0.7905
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1PzNfPYjSWUw3Q5AKkX4TNLSnZgD11ayq",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 580,
+        "p50": 650,
+        "p75": 700
+      },
+      "math": {
+        "p25": 560,
+        "p50": 640,
+        "p75": 700
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 23,
+        "p50": 27,
+        "p75": 32
+      },
+      "math": {
+        "p25": 24,
+        "p50": 26,
+        "p75": 30
+      },
+      "science": {
+        "p25": 25,
+        "p50": 30,
+        "p75": 33
+      }
+    },
+    "submitting": {
+      "satPct": 10,
+      "actPct": 4
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 23
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 46
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 24
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 7
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 27
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 42
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 25
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 6
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 25
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 40
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 26
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 7
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 1
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 37
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 43
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 18
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 1
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 0
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 33
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 39
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 23
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 4
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 26
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 50
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 21
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 3
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 52
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 28
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 17
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 3
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 29,
+      "topQuarterPct": 58,
+      "topHalfPct": 88,
+      "submittedPct": 51
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 13
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 38
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 25
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 15
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 7
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 2
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.7,
+      "submittedPct": 98
+    },
+    "applicationFeeUsd": 65,
+    "dates": {
+      "regularClosing": {
+        "mmdd": "08-25",
+        "raw": "8/25"
+      },
+      "eaClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 15031
+    },
+    "enrollment": {
+      "undergraduates": 31253
+    },
+    "graduation": {
+      "sixYearPct": 70.1,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 1013,
+      "accepted": 256,
+      "admitted": 84
+    },
+    "transfer": {
+      "applied": 5236,
+      "admitted": 4287,
+      "enrolled": 2373
+    },
+    "studentLife": {
+      "outOfStatePct": 44,
+      "onCampusPct": 87
+    }
+  },
+  "ingestedAt": "2026-09-15 17:11:01",
+  "updatedAt": "2026-09-15 17:11:01",
+  "validation": {
+    "school": "Oregon State University",
+    "slug": "oregon-state-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

@@ -1,0 +1,103 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "bryn-mawr-college",
+  "school": "Bryn Mawr College",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.2943,
+  "yieldRate": 0.3154,
+  "enrolledSAT": {
+    "p25": 1290,
+    "p75": 1490
+  },
+  "enrolledACT": {
+    "p25": 29,
+    "p75": 33
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 4094,
+    "admitted": 1205,
+    "enrolled": 380
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "women": {
+        "applied": 4094,
+        "admitted": 1205,
+        "admitRate": 0.2943
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1GHHBZasqXHUBlr7elAB4Sigve5-tCoNg",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 660,
+        "p50": 710,
+        "p75": 750
+      },
+      "math": {
+        "p25": 620,
+        "p50": 680,
+        "p75": 760
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 30,
+        "p50": 34,
+        "p75": 35
+      },
+      "math": {
+        "p25": 25,
+        "p50": 28,
+        "p75": 31
+      }
+    },
+    "earlyDecision": {
+      "applications": 167,
+      "admitted": 167,
+      "admitRate": 1
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 67642
+    },
+    "enrollment": {
+      "undergraduates": 1368
+    },
+    "waitlist": {
+      "offered": 494,
+      "accepted": 285,
+      "admitted": 23
+    },
+    "transfer": {
+      "applied": 144,
+      "admitted": 20,
+      "enrolled": 6
+    },
+    "studentLife": {
+      "outOfStatePct": 88.9,
+      "onCampusPct": 100
+    }
+  },
+  "ingestedAt": "2026-09-15 17:06:27",
+  "updatedAt": "2026-09-15 17:06:27",
+  "validation": {
+    "school": "Bryn Mawr College",
+    "slug": "bryn-mawr-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "grinnell-college",
+  "school": "Grinnell College",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.1451,
+  "yieldRate": 0.3093,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 9758,
+    "admitted": 1416,
+    "enrolled": 438
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 5048,
+        "admitted": 637,
+        "admitRate": 0.1262
+      },
+      "women": {
+        "applied": 4421,
+        "admitted": 725,
+        "admitRate": 0.164
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1VYF-nDPRFsRgSqcCKysq67uwp_LXeliM",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "actSections": {
+      "english": {
+        "p25": 25,
+        "p75": 31
+      },
+      "math": {
+        "p25": 25,
+        "p75": 28
+      }
+    },
+    "gpa": {
+      "submittedPct": 0
+    },
+    "earlyDecision": {
+      "applications": 828,
+      "admitted": 283,
+      "admitRate": 0.3418
+    },
+    "dates": {
+      "edNotification": "C2103  15-Dec"
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 67476
+    },
+    "enrollment": {
+      "undergraduates": 1788
+    },
+    "graduation": {
+      "sixYearPct": 90,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 2021,
+      "accepted": 1180,
+      "admitted": 36
+    }
+  },
+  "ingestedAt": "2026-09-15 17:09:10",
+  "updatedAt": "2026-09-15 17:09:10",
+  "validation": {
+    "school": "Grinnell College",
+    "slug": "grinnell-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Grinnell College A102"
+  }
+}

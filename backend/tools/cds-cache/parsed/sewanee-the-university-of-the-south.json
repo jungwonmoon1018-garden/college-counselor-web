@@ -1,0 +1,336 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "sewanee-the-university-of-the-south",
+  "school": "Sewanee: The University of the South",
+  "year": 2023,
+  "yearLabel": "2023-24",
+  "tier": null,
+  "overallAdmitRate": 0.509,
+  "yieldRate": 0.1758,
+  "enrolledSAT": {
+    "p25": 1230,
+    "p75": 1290
+  },
+  "enrolledACT": {
+    "p25": 27,
+    "p75": 31
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "very_important",
+    "interview": "considered",
+    "ec": "important",
+    "talent_ability": "considered",
+    "character": "important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "important",
+    "work_experience": "important",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 5018,
+    "admitted": 2554,
+    "enrolled": 449
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 2365,
+        "admitted": 1057,
+        "admitRate": 0.4469
+      },
+      "women": {
+        "applied": 2601,
+        "admitted": 1472,
+        "admitRate": 0.5659
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1yBT2kMtIg54bIVUmZ5aMVKUFPFvyXh6w",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 620,
+        "p50": 650,
+        "p75": 700
+      },
+      "math": {
+        "p25": 590,
+        "p50": 640,
+        "p75": 680
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 27,
+        "p50": 31,
+        "p75": 34
+      },
+      "math": {
+        "p25": 24,
+        "p50": 26,
+        "p75": 29
+      },
+      "science": {
+        "p25": 25,
+        "p50": 28,
+        "p75": 31
+      }
+    },
+    "submitting": {
+      "satPct": 21,
+      "actPct": 44
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 16
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 66
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 17
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 1
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 28
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 57
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 14
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 1
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 21
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 50
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 24
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 5
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 42
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 49
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 8
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 1
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 66
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 23
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 10
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 1
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 20
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 60
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 18
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 2
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 77
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 17
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 6
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 37
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 49
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 13
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 1
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 41,
+      "topQuarterPct": 66,
+      "topHalfPct": 89,
+      "submittedPct": 31
+    },
+    "gpa": {
+      "submittedPct": 0
+    },
+    "earlyDecision": {
+      "applications": 211,
+      "admitted": 147,
+      "admitRate": 0.6967
+    },
+    "dates": {
+      "edNotification": "early December"
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 49729
+    },
+    "enrollment": {
+      "undergraduates": 1615
+    },
+    "graduation": {
+      "sixYearPct": 82.4,
+      "cohort": 2017
+    },
+    "waitlist": {
+      "offered": 243,
+      "accepted": 66,
+      "admitted": 5
+    },
+    "transfer": {
+      "applied": 50,
+      "admitted": 43,
+      "enrolled": 22
+    },
+    "studentLife": {
+      "outOfStatePct": 74,
+      "onCampusPct": 100
+    },
+    "costs": {
+      "tuitionUsd": 55822,
+      "requiredFeesUsd": 298,
+      "foodAndHousingUsd": 16028,
+      "academicYear": "2024-2025"
+    }
+  },
+  "ingestedAt": "2026-09-15 17:11:55",
+  "updatedAt": "2026-09-15 17:11:55",
+  "validation": {
+    "school": "Sewanee: The University of the South",
+    "slug": "sewanee-the-university-of-the-south",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "The University of the South Common Data Set 2023-2024 A0 Respondent Information (Not for Publication) Name: Emily McNair Title: Associate Director Office: Offic · The University of the South"
+  }
+}

@@ -1,0 +1,346 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-texas-at-dallas",
+  "school": "University of Texas at Dallas",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.6513,
+  "yieldRate": 0.2027,
+  "enrolledSAT": {
+    "p25": 1170,
+    "p75": 1390
+  },
+  "enrolledACT": {
+    "p25": 24,
+    "p75": 32
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "important",
+    "application_essay": "important",
+    "recommendations": "important",
+    "interview": "not_considered",
+    "ec": "important",
+    "talent_ability": "considered",
+    "character": "important",
+    "first_generation": "not_considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "important",
+    "work_experience": "important",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 31789,
+    "admitted": 20704,
+    "enrolled": 4196
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 16064,
+        "admitted": 10064,
+        "admitRate": 0.6265
+      },
+      "women": {
+        "applied": 15725,
+        "admitted": 10640,
+        "admitRate": 0.6766
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1cigaguVyYb-5dDGoizNviBdvfunLmx4n",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 580,
+        "p50": 630,
+        "p75": 690
+      },
+      "math": {
+        "p25": 580,
+        "p50": 650,
+        "p75": 720
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 23,
+        "p50": 28,
+        "p75": 34
+      },
+      "math": {
+        "p25": 24,
+        "p50": 27,
+        "p75": 32
+      }
+    },
+    "submitting": {
+      "satPct": 78,
+      "actPct": 13
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 24.8
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 44.6
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 27.1
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 3.5
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 22.9
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 44.4
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 28
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 4.6
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0.1
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0.1
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 31.6
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 38.4
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 25.8
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 3.8
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0.5
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 42.4
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 37.5
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 18
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 2.1
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 0
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 45.4
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 28.3
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 21.9
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 3.9
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0.5
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 37.1
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 39.6
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 18.6
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 4.8
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 40,
+      "topQuarterPct": 69.9,
+      "topHalfPct": 94.5,
+      "submittedPct": 56.7
+    },
+    "gpa": {
+      "submittedPct": 0
+    },
+    "applicationFeeUsd": 50,
+    "dates": {
+      "regularClosing": {
+        "mmdd": "05-01",
+        "raw": "5/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 17049
+    },
+    "enrollment": {
+      "undergraduates": 21858
+    },
+    "graduation": {
+      "sixYearPct": 75.7,
+      "cohort": 2018
+    },
+    "transfer": {
+      "applied": 4362,
+      "admitted": 2788,
+      "enrolled": 1748
+    },
+    "studentLife": {
+      "outOfStatePct": 5,
+      "onCampusPct": 51
+    },
+    "costs": {
+      "tuitionInStateUsd": 10639,
+      "tuitionOutOfStateUsd": 36139,
+      "requiredFeesUsd": 4005,
+      "foodAndHousingUsd": 15125
+    }
+  },
+  "ingestedAt": "2026-09-15 17:16:02",
+  "updatedAt": "2026-09-15 17:16:02",
+  "validation": {
+    "school": "University of Texas at Dallas",
+    "slug": "university-of-texas-at-dallas",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Name: Dr. Christopher Wendt Title: Associate Director, Institutional Research & Analyt · The University of Texas at Dallas"
+  }
+}

@@ -1,0 +1,126 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "rochester-institute-of-technology",
+  "school": "Rochester Institute of Technology",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.7109,
+  "yieldRate": 0.1315,
+  "enrolledSAT": {
+    "p25": 1310,
+    "p75": 1440
+  },
+  "enrolledACT": {
+    "p25": 30,
+    "p75": 34
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.9
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 31527,
+    "admitted": 22411,
+    "enrolled": 2948
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 18303,
+        "admitted": 13142,
+        "admitRate": 0.718
+      },
+      "women": {
+        "applied": 13224,
+        "admitted": 9269,
+        "admitRate": 0.7009
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.rit.edu/institutionalresearch/sites/rit.edu.institutionalresearch/files/documents/Common%20Data%20Set%20PDFs/RIT_CDS_2025_26_FINAL_20260603.pdf",
+  "sourceKind": "pdf_merged",
+  "parserVersion": 6,
+  "parserNotes": [
+    "merged_form_fields"
+  ],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 650,
+        "p50": 690,
+        "p75": 730
+      },
+      "math": {
+        "p25": 640,
+        "p50": 690,
+        "p75": 730
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 28,
+        "p50": 32,
+        "p75": 35
+      },
+      "math": {
+        "p25": 27,
+        "p50": 30,
+        "p75": 34
+      },
+      "reading": {
+        "p25": 31,
+        "p50": 34,
+        "p75": 35
+      },
+      "science": {
+        "p25": 29,
+        "p50": 32,
+        "p75": 34
+      }
+    },
+    "gpa": {
+      "average": 3.9
+    },
+    "applicationFeeUsd": 65,
+    "earlyDecision": {
+      "applications": 1028,
+      "admitted": 1028,
+      "admitRate": 1
+    },
+    "dates": {
+      "edNotification": "12 1"
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 64823
+    },
+    "enrollment": {
+      "undergraduates": 14145
+    },
+    "waitlist": {
+      "offered": 2155,
+      "accepted": 657,
+      "admitted": 164
+    },
+    "studentLife": {
+      "outOfStatePct": 59.1,
+      "onCampusPct": 95
+    }
+  },
+  "ingestedAt": "2026-09-15 17:11:32",
+  "updatedAt": "2026-09-15 17:11:32",
+  "validation": {
+    "school": "Rochester Institute of Technology",
+    "slug": "rochester-institute-of-technology",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

@@ -1,0 +1,111 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "carleton-college",
+  "school": "Carleton College",
+  "year": 2023,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.2041,
+  "yieldRate": 0.3482,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 7133,
+    "admitted": 1456,
+    "enrolled": 507
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 3820,
+        "admitted": 677,
+        "admitRate": 0.1772
+      },
+      "women": {
+        "applied": 3305,
+        "admitted": 776,
+        "admitRate": 0.2348
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1WstOtBocYVh6OjCsaItre7Th0bYSBj-p",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "actSections": {
+      "english": {
+        "p25": 25,
+        "p75": 34
+      },
+      "math": {
+        "p25": 25,
+        "p75": 29
+      },
+      "reading": {
+        "p25": 25,
+        "p75": 33
+      },
+      "science": {
+        "p25": 25,
+        "p75": 31
+      }
+    },
+    "submitting": {
+      "satPct": 34,
+      "actPct": 25
+    },
+    "classRank": {
+      "topTenthPct": 63,
+      "topQuarterPct": 93,
+      "topHalfPct": 99,
+      "submittedPct": 28
+    },
+    "gpa": {
+      "submittedPct": 0
+    },
+    "earlyDecision": {
+      "applications": 667,
+      "admitted": 244,
+      "admitRate": 0.3658
+    },
+    "dates": {
+      "edNotification": "C2103  15-Dec First-Time, F Admission Policie Early Decision Undergraduat First-time, first-year All All All MM-DD"
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 69761
+    },
+    "enrollment": {
+      "undergraduates": 2128
+    },
+    "graduation": {
+      "sixYearPct": 88.1,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 573,
+      "accepted": 242,
+      "admitted": 52
+    },
+    "studentLife": {
+      "outOfStatePct": 80,
+      "onCampusPct": 100
+    }
+  },
+  "ingestedAt": "2026-09-15 17:06:59",
+  "updatedAt": "2026-09-15 17:06:59",
+  "validation": {
+    "school": "Carleton College",
+    "slug": "carleton-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Carleton College General Inf"
+  }
+}

@@ -1,0 +1,195 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "hofstra-university",
+  "school": "Hofstra University",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.6808,
+  "yieldRate": 0.103,
+  "enrolledSAT": {
+    "p25": 1240,
+    "p75": 1380
+  },
+  "enrolledACT": {
+    "p25": 27,
+    "p75": 32
+  },
+  "enrolledGPA": {
+    "p25": 3.5,
+    "p75": 4,
+    "avg": 3.78
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 25021,
+    "admitted": 17035,
+    "enrolled": 1754
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 9873,
+        "admitted": 6447,
+        "admitRate": 0.653
+      },
+      "women": {
+        "applied": 15123,
+        "admitted": 10573,
+        "admitRate": 0.6991
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1y74-oLPPqrwWUmEBaB0Yv5nasWNENRo0",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "math": {
+        "p25": 610,
+        "p50": 650,
+        "p75": 700
+      }
+    },
+    "submitting": {
+      "satPct": 26,
+      "actPct": 4
+    },
+    "scoreDistribution": {
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 29.8
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 59.7
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 10.5
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 28.5
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 50.3
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 20.9
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0.2
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 19,
+      "topQuarterPct": 56,
+      "topHalfPct": 90,
+      "submittedPct": 23
+    },
+    "gpa": {
+      "average": 3.78,
+      "submittedPct": 100
+    },
+    "applicationFeeUsd": 70,
+    "dates": {
+      "eaClosing": {
+        "mmdd": "11-15",
+        "raw": "Early Action I - 11/15/2024 (and Early Action II - 12/15/2024)"
+      },
+      "aidPriority": {
+        "mmdd": "11-15",
+        "raw": "11/15"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 40983
+    },
+    "waitlist": {
+      "offered": 267,
+      "accepted": 117,
+      "admitted": 23
+    },
+    "studentLife": {
+      "outOfStatePct": 35,
+      "onCampusPct": 56
+    }
+  },
+  "ingestedAt": "2026-09-15 17:09:24",
+  "updatedAt": "2026-09-15 17:09:24",
+  "validation": {
+    "school": "Hofstra University",
+    "slug": "hofstra-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

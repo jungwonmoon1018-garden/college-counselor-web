@@ -1,0 +1,322 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-maine",
+  "school": "University of Maine",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.9664,
+  "yieldRate": 0.1542,
+  "enrolledSAT": {
+    "p25": 1060,
+    "p75": 1280
+  },
+  "enrolledACT": {
+    "p25": 21,
+    "p75": 30
+  },
+  "enrolledGPA": {
+    "p25": 3.25,
+    "p75": 3.75,
+    "avg": 3.49
+  },
+  "testPolicy": "test_blind",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "very_important",
+    "gpa": "very_important",
+    "test_scores": "not_considered",
+    "application_essay": "important",
+    "recommendations": "important",
+    "interview": "considered",
+    "ec": "considered",
+    "talent_ability": "considered",
+    "character": "considered",
+    "first_generation": "not_considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 14044,
+    "admitted": 13572,
+    "enrolled": 2093
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 5991,
+        "admitted": 5759,
+        "admitRate": 0.9613
+      },
+      "women": {
+        "applied": 7966,
+        "admitted": 7729,
+        "admitRate": 0.9702
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1iIm6kbdpySc_APcfykY1gICTMkNIQHN0",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 530,
+        "p50": 590,
+        "p75": 650
+      },
+      "math": {
+        "p25": 520,
+        "p50": 590,
+        "p75": 640
+      }
+    },
+    "submitting": {
+      "satPct": 16,
+      "actPct": 2
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 8.4
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 39.1
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 38.2
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 14
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 11.2
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 38.5
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 39.3
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 10.7
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0.3
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0.3
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 10.4
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 36.7
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 37.6
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 12.2
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 3
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 37.8
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 33.3
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 24.4
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 4.4
+        }
+      ]
+    },
+    "classRank": {
+      "topTenthPct": 18,
+      "topQuarterPct": 43,
+      "topHalfPct": 76,
+      "submittedPct": 49
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 11.7
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 22
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 24.8
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 17.2
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 10.3
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 11.1
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 2.7
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0.2
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.49,
+      "submittedPct": 99
+    },
+    "dates": {
+      "eaClosing": {
+        "mmdd": "12-01",
+        "raw": "12/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 19615
+    },
+    "enrollment": {
+      "undergraduates": 9601
+    },
+    "graduation": {
+      "sixYearPct": 55,
+      "cohort": 2018
+    },
+    "transfer": {
+      "applied": 1261,
+      "admitted": 1123,
+      "enrolled": 508
+    },
+    "studentLife": {
+      "outOfStatePct": 34,
+      "onCampusPct": 89
+    },
+    "costs": {
+      "tuitionInStateUsd": 12360,
+      "tuitionOutOfStateUsd": 35790,
+      "requiredFeesUsd": 966,
+      "foodAndHousingUsd": 13410
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 93,
+        "10-19": 299,
+        "20-29": 237,
+        "30-39": 102,
+        "40-49": 73,
+        "50-99": 96,
+        "100+": 41,
+        "total": 941
+      },
+      "under20Pct": 41.7
+    }
+  },
+  "ingestedAt": "2026-09-15 17:14:31",
+  "updatedAt": "2026-09-15 17:14:31",
+  "validation": {
+    "school": "University of Maine",
+    "slug": "university-of-maine",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Name: Debra Allen Title: Assistant Provost Office: Office of Institutional Research an · University of Maine"
+  }
+}

@@ -1,0 +1,120 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "marquette-university",
+  "school": "Marquette University",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.8134,
+  "yieldRate": 0.1413,
+  "enrolledSAT": {
+    "p25": 1220,
+    "p75": 1350
+  },
+  "enrolledACT": {
+    "p25": 26,
+    "p75": 31
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.61
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 18701,
+    "admitted": 15212,
+    "enrolled": 2149
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 8211,
+        "admitted": 6450,
+        "admitRate": 0.7855
+      },
+      "women": {
+        "applied": 10490,
+        "admitted": 8762,
+        "admitRate": 0.8353
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1pMFO3GmBO9kB8qWC77zXPoZac4E6ZGdv",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 610,
+        "p50": 650,
+        "p75": 680
+      },
+      "math": {
+        "p25": 590,
+        "p50": 640,
+        "p75": 680
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 25,
+        "p50": 29,
+        "p75": 32
+      },
+      "math": {
+        "p25": 25,
+        "p50": 27,
+        "p75": 30
+      },
+      "reading": {
+        "p25": 27,
+        "p50": 30,
+        "p75": 33
+      },
+      "science": {
+        "p25": 25,
+        "p50": 27,
+        "p75": 31
+      }
+    },
+    "gpa": {
+      "average": 3.61
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 43919
+    },
+    "enrollment": {
+      "undergraduates": 8045
+    },
+    "waitlist": {
+      "offered": 452,
+      "accepted": 452,
+      "admitted": 113
+    },
+    "transfer": {
+      "applied": 492,
+      "admitted": 340,
+      "enrolled": 106
+    },
+    "studentLife": {
+      "outOfStatePct": 65,
+      "onCampusPct": 90
+    }
+  },
+  "ingestedAt": "2026-09-15 17:10:18",
+  "updatedAt": "2026-09-15 17:10:18",
+  "validation": {
+    "school": "Marquette University",
+    "slug": "marquette-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "MARQUETTE UNIVERSITY COMMON DATA SET \u0013\u0011\u0013\u0015\u000e\u0013\u0011\u0013\u0016 Common Data Set 202 \u0017 -202 \u0018 Welcome to the 202 \u0017 -202 \u0018 Common Data Set collection! The Common Data Set (CDS) in"
+  }
+}

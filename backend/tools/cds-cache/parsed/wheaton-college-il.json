@@ -1,0 +1,67 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "wheaton-college-il",
+  "school": "Wheaton College, IL",
+  "year": 2022,
+  "yearLabel": "2022-23",
+  "tier": null,
+  "overallAdmitRate": 0.8868,
+  "yieldRate": 0.3036,
+  "enrolledSAT": {
+    "p25": 1260,
+    "p75": 1420
+  },
+  "enrolledACT": {
+    "p25": 28,
+    "p75": 33
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "very_important",
+    "recommendations": "very_important",
+    "interview": "important",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "very_important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "very_important",
+    "racial_ethnic_status": "considered",
+    "volunteer_work": "important",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 1872,
+    "admitted": 1660,
+    "enrolled": 504
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1a1n_kYqlKmikPiRKQbzdgH5kp8UaCcvE",
+  "sourceKind": "pdf_merged",
+  "parserVersion": 6,
+  "parserNotes": [
+    "merged_form_fields"
+  ],
+  "extras": null,
+  "ingestedAt": "2026-09-15 17:16:44",
+  "updatedAt": "2026-09-15 17:16:44",
+  "validation": {
+    "school": "Wheaton College, IL",
+    "slug": "wheaton-college-il",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

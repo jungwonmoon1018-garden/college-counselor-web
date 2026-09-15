@@ -1,4 +1,6 @@
 {
+  "source": "cds",
+  "extractionMethod": "pdfjs",
   "slug": "university-of-north-carolina-at-chapel-hill",
   "school": "University of North Carolina at Chapel Hill",
   "year": 2025,
@@ -51,7 +53,7 @@
   "priorities": [],
   "sourceUrl": "https://oira.unc.edu/wp-content/uploads/sites/297/2026/06/CDS_UNCCH_2025-26_20260615.pdf",
   "sourceKind": "pdf_text",
-  "parserVersion": 5,
+  "parserVersion": 6,
   "parserNotes": [],
   "extras": {
     "satSections": {
@@ -354,14 +356,55 @@
     },
     "aid": {
       "averagePackageFirstYearUsd": 21695
+    },
+    "enrollment": {
+      "undergraduates": 22007
+    },
+    "retention": {
+      "firstYearPct": 96.7
+    },
+    "graduation": {
+      "sixYearPct": 91.1,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 5258,
+      "accepted": 2099
+    },
+    "transfer": {
+      "applied": 5330,
+      "admitted": 1970,
+      "enrolled": 1078
+    },
+    "studentLife": {
+      "outOfStatePct": 15,
+      "onCampusPct": 99
+    },
+    "costs": {
+      "requiredFeesUsd": 2129
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 338,
+        "10-19": 864,
+        "20-29": 951,
+        "30-39": 304,
+        "40-49": 261,
+        "50-99": 231,
+        "100+": 199,
+        "total": 3148
+      },
+      "under20Pct": 38.2
     }
   },
-  "ingestedAt": "2026-09-15 14:16:54",
-  "updatedAt": "2026-09-15 14:16:54",
+  "ingestedAt": "2026-09-15 17:15:17",
+  "updatedAt": "2026-09-15 17:15:17",
   "validation": {
+    "school": "University of North Carolina at Chapel Hill",
+    "slug": "university-of-north-carolina-at-chapel-hill",
     "status": "consistent",
     "discrepancies": [],
     "overrides": {},
-    "validatedAt": "2026-09-15 14:16:54"
+    "scopeFromPDF": "University of North Carolina at Chapel Hill, Common Data Set 2025-26 Publication Date: Last Revision Date: A0 Respondent Information (Not for Publication) Are y · Mailing"
   }
 }

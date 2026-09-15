@@ -1,0 +1,98 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "butler-university",
+  "school": "Butler University",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.8508,
+  "yieldRate": 0.1287,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": {
+    "p25": 3.5,
+    "p75": 4,
+    "avg": 3.86
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 9471,
+    "admitted": 8058,
+    "enrolled": 1037
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 3909,
+        "admitted": 3302,
+        "admitRate": 0.8447
+      },
+      "women": {
+        "applied": 5558,
+        "admitted": 4752,
+        "admitRate": 0.855
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1EwcVaexL3MUER9jj_mWnF4l2AF-JWB2Z",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "actSections": {
+      "english": {
+        "p25": 25,
+        "p75": 25
+      }
+    },
+    "submitting": {
+      "satPct": 35,
+      "actPct": 19
+    },
+    "classRank": {
+      "topTenthPct": 43,
+      "topQuarterPct": 69,
+      "topHalfPct": 95,
+      "submittedPct": 37
+    },
+    "gpa": {
+      "average": 3.86,
+      "submittedPct": 99.9
+    },
+    "applicationFeeUsd": 50,
+    "dates": {
+      "regularClosing": {
+        "mmdd": "08-01",
+        "raw": "C1402 8/1/2024"
+      },
+      "edNotification": "C2103"
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 38224
+    },
+    "enrollment": {
+      "undergraduates": 4489
+    },
+    "waitlist": {
+      "admitted": 0
+    },
+    "studentLife": {
+      "outOfStatePct": 48,
+      "onCampusPct": 92
+    }
+  },
+  "ingestedAt": "2026-09-15 17:06:32",
+  "updatedAt": "2026-09-15 17:06:32",
+  "validation": {
+    "school": "Butler University",
+    "slug": "butler-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Butler University A102"
+  }
+}

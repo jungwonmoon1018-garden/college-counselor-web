@@ -1,0 +1,164 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "trinity-college",
+  "school": "Trinity College",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": null,
+  "yieldRate": null,
+  "enrolledSAT": {
+    "p25": 1350,
+    "p75": 1440
+  },
+  "enrolledACT": {
+    "p25": 30,
+    "p75": 33
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": null,
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1FWsepbbZ43xGI2pdckioWvT1wwBBgr9G",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 660,
+        "p50": 690,
+        "p75": 730
+      },
+      "math": {
+        "p25": 650,
+        "p50": 700,
+        "p75": 730
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 29,
+        "p50": 32,
+        "p75": 35
+      },
+      "math": {
+        "p25": 27,
+        "p50": 28,
+        "p75": 30
+      },
+      "reading": {
+        "p25": 32,
+        "p50": 34,
+        "p75": 35
+      },
+      "science": {
+        "p25": 28,
+        "p50": 30,
+        "p75": 32
+      }
+    },
+    "submitting": {
+      "satPct": 9,
+      "actPct": 4
+    },
+    "scoreDistribution": {
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 47
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 47
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 6
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 51
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 40
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 9
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 42,
+      "topQuarterPct": 73.7,
+      "topHalfPct": 98.9,
+      "submittedPct": 17.1
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-17",
+        "raw": "1/17"
+      },
+      "edClosing": {
+        "mmdd": "11-15",
+        "raw": "11/15"
+      },
+      "edNotification": "12/15",
+      "edIIClosing": {
+        "mmdd": "01-17",
+        "raw": "1/17"
+      },
+      "aidDeadline": {
+        "mmdd": "01-17",
+        "raw": "(MM/DD) 1/17"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 58133
+    },
+    "graduation": {
+      "sixYearPct": 83,
+      "cohort": 2017
+    },
+    "waitlist": {
+      "offered": 1728,
+      "accepted": 990,
+      "admitted": 10
+    },
+    "transfer": {
+      "applied": 227,
+      "admitted": 101,
+      "enrolled": 40
+    },
+    "studentLife": {
+      "outOfStatePct": 86,
+      "onCampusPct": 100
+    }
+  },
+  "ingestedAt": "2026-09-15 17:13:07",
+  "updatedAt": "2026-09-15 17:13:07",
+  "validation": {
+    "school": "Trinity College",
+    "slug": "trinity-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

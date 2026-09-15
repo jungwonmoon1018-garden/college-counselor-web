@@ -1,0 +1,138 @@
+{
+  "source": "cds",
+  "extractionMethod": "xlsx",
+  "slug": "university-of-nebraska-lincoln",
+  "school": "University of Nebraska-Lincoln",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.8749,
+  "yieldRate": 0.2979,
+  "enrolledSAT": {
+    "p25": 1100,
+    "p75": 1310
+  },
+  "enrolledACT": {
+    "p25": 22,
+    "p75": 28
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.54
+  },
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "important",
+    "class_rank": "important",
+    "gpa": "important",
+    "test_scores": "important",
+    "application_essay": "not_considered",
+    "recommendations": "not_considered",
+    "interview": "not_considered",
+    "ec": "not_considered",
+    "talent_ability": "not_considered",
+    "character": "not_considered",
+    "first_generation": "not_considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "not_considered",
+    "work_experience": "not_considered",
+    "level_of_interest": "not_considered",
+    "racial_ethnic_status": "not_considered"
+  },
+  "b1": {
+    "applied": 17841,
+    "admitted": 15609,
+    "enrolled": 4650
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 7954,
+        "admitted": 6849,
+        "admitRate": 0.8611
+      },
+      "women": {
+        "applied": 9869,
+        "admitted": 8745,
+        "admitRate": 0.8861
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://docs.google.com/spreadsheets/d/1k_zsYE-S_P_unRzwgWFoSqxDs8Bs0efc/export?format=xlsx",
+  "sourceKind": "xlsx",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 560,
+        "p50": 610,
+        "p75": 670
+      },
+      "math": {
+        "p25": 538,
+        "p50": 590,
+        "p75": 660
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 21,
+        "p50": 24,
+        "p75": 28
+      },
+      "math": {
+        "p25": 20,
+        "p50": 24,
+        "p75": 27
+      }
+    },
+    "classRank": {
+      "submittedPct": 100
+    },
+    "gpa": {
+      "average": 3.54
+    },
+    "applicationFeeUsd": 45,
+    "enrollment": {
+      "undergraduates": 19701
+    },
+    "transfer": {
+      "applied": 1958,
+      "admitted": 1093,
+      "enrolled": 744
+    },
+    "aid": {
+      "needMetPct": 68
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 163,
+        "10-19": 368,
+        "20-29": 444,
+        "30-39": 237,
+        "40-49": 162,
+        "50-99": 203,
+        "100+": 146,
+        "total": 1723
+      },
+      "under20Pct": 30.8
+    }
+  },
+  "ingestedAt": "2026-09-15 17:14:58",
+  "updatedAt": "2026-09-15 17:14:58",
+  "validation": {
+    "school": "University of Nebraska-Lincoln",
+    "slug": "university-of-nebraska-lincoln",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

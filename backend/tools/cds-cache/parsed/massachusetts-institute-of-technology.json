@@ -1,0 +1,149 @@
+{
+  "source": "cds",
+  "extractionMethod": "xlsx",
+  "slug": "massachusetts-institute-of-technology",
+  "school": "Massachusetts Institute of Technology",
+  "year": null,
+  "yearLabel": "2023-24",
+  "tier": null,
+  "overallAdmitRate": 0.0461,
+  "yieldRate": 0.8612,
+  "enrolledSAT": {
+    "p25": 1520,
+    "p75": 1570
+  },
+  "enrolledACT": {
+    "p25": 34,
+    "p75": 36
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "not_considered",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "not_considered",
+    "application_essay": "very_important",
+    "recommendations": "very_important",
+    "interview": "very_important",
+    "ec": "not_considered",
+    "talent_ability": "very_important",
+    "character": "not_considered",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 27182,
+    "admitted": 1254,
+    "enrolled": 1080
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 17210,
+        "admitted": 606,
+        "admitRate": 0.0352
+      },
+      "women": {
+        "applied": 8975,
+        "admitted": 612,
+        "admitRate": 0.0682
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://docs.google.com/spreadsheets/d/1sHduG-Dfl3f5GJChbOh1ADti8MeI0THm/export?format=xlsx",
+  "sourceKind": "xlsx",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 740,
+        "p50": 760,
+        "p75": 780
+      },
+      "math": {
+        "p25": 780,
+        "p50": 800,
+        "p75": 800
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 35,
+        "p50": 35,
+        "p75": 36
+      },
+      "math": {
+        "p25": 35,
+        "p50": 35,
+        "p75": 36
+      }
+    },
+    "applicationFeeUsd": 75,
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-01",
+        "raw": "Jan. 1"
+      },
+      "edNotification": "___",
+      "eaClosing": {
+        "mmdd": "11-01",
+        "raw": "Nov. 1"
+      },
+      "aidPriority": {
+        "mmdd": "02-15",
+        "raw": "Feb. 15"
+      }
+    },
+    "enrollment": {
+      "undergraduates": 4535
+    },
+    "graduation": {
+      "sixYearPct": 96,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 590,
+      "accepted": 509,
+      "admitted": 9
+    },
+    "transfer": {
+      "applied": 1346,
+      "admitted": 32,
+      "enrolled": 28
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 449,
+        "10-19": 295,
+        "20-29": 119,
+        "30-39": 66,
+        "40-49": 49,
+        "50-99": 79,
+        "100+": 41,
+        "total": 1098
+      },
+      "under20Pct": 67.8
+    }
+  },
+  "ingestedAt": "2026-09-15 17:10:21",
+  "updatedAt": "2026-09-15 17:10:21",
+  "validation": {
+    "school": "Massachusetts Institute of Technology",
+    "slug": "massachusetts-institute-of-technology",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

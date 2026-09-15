@@ -1,0 +1,74 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-san-diego",
+  "school": "University of San Diego",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.5358,
+  "yieldRate": 0.1389,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 4.02
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 17463,
+    "admitted": 9357,
+    "enrolled": 1300
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 6394,
+        "admitted": 3535,
+        "admitRate": 0.5529
+      },
+      "women": {
+        "applied": 11069,
+        "admitted": 5822,
+        "admitRate": 0.526
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.sandiego.edu/facts/documents/cds/cds_2025-26.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "gpa": {
+      "average": 4.02
+    },
+    "applicationFeeUsd": 70,
+    "dates": {
+      "edNotification": "12 12 15 15"
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 61010
+    },
+    "enrollment": {
+      "undergraduates": 6049
+    },
+    "studentLife": {
+      "outOfStatePct": 42,
+      "onCampusPct": 93.6
+    }
+  },
+  "ingestedAt": "2026-09-15 17:15:59",
+  "updatedAt": "2026-09-15 17:15:59",
+  "validation": {
+    "school": "University of San Diego",
+    "slug": "university-of-san-diego",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

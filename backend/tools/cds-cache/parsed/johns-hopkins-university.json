@@ -1,4 +1,6 @@
 {
+  "source": "cds",
+  "extractionMethod": "pdfjs",
   "slug": "johns-hopkins-university",
   "school": "Johns Hopkins University",
   "year": 2025,
@@ -51,7 +53,7 @@
   "priorities": [],
   "sourceUrl": "https://oira.jhu.edu/wp-content/uploads/2025-2026-CDS-Johns-Hopkins-University-v2.pdf",
   "sourceKind": "pdf_text",
-  "parserVersion": 5,
+  "parserVersion": 6,
   "parserNotes": [],
   "extras": {
     "satSections": {
@@ -290,14 +292,45 @@
     },
     "aid": {
       "averagePackageFirstYearUsd": 70919
+    },
+    "enrollment": {
+      "undergraduates": 6354
+    },
+    "retention": {
+      "firstYearPct": 97.8
+    },
+    "graduation": {
+      "sixYearPct": 93.4,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 2058,
+      "accepted": 1359,
+      "admitted": 247
+    },
+    "transfer": {
+      "applied": 2468,
+      "admitted": 119,
+      "enrolled": 59
+    },
+    "studentLife": {
+      "outOfStatePct": 90,
+      "onCampusPct": 93
+    },
+    "costs": {
+      "tuitionUsd": 68670,
+      "requiredFeesUsd": 500,
+      "foodAndHousingUsd": 21967
     }
   },
-  "ingestedAt": "2026-09-15 14:16:57",
-  "updatedAt": "2026-09-15 14:16:57",
+  "ingestedAt": "2026-09-15 17:09:44",
+  "updatedAt": "2026-09-15 17:09:44",
   "validation": {
+    "school": "Johns Hopkins University",
+    "slug": "johns-hopkins-university",
     "status": "consistent",
     "discrepancies": [],
     "overrides": {},
-    "validatedAt": "2026-09-15 14:16:57"
+    "scopeFromPDF": "Common Data Set 2025-2026 Johns Hopkins University A0 Respondent Information (Not for Publication) First Name: Ratna Last Name: Sarkar Title: Vice Provost for I · Johns Hopkins University"
   }
 }

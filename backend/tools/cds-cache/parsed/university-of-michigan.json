@@ -1,4 +1,6 @@
 {
+  "source": "cds",
+  "extractionMethod": "pdfjs",
   "slug": "university-of-michigan",
   "school": "University of Michigan",
   "year": 2025,
@@ -31,7 +33,7 @@
   "priorities": [],
   "sourceUrl": "https://obp.umich.edu/wp-content/uploads/pubdata/cds/cds_2025-26_umaa.pdf",
   "sourceKind": "pdf_text",
-  "parserVersion": 5,
+  "parserVersion": 6,
   "parserNotes": [],
   "extras": {
     "satSections": {
@@ -315,14 +317,28 @@
     },
     "aid": {
       "averagePackageFirstYearUsd": 38078
+    },
+    "enrollment": {
+      "undergraduates": 35358
+    },
+    "waitlist": {
+      "offered": 24447,
+      "accepted": 18435,
+      "admitted": 1663
+    },
+    "studentLife": {
+      "outOfStatePct": 45,
+      "onCampusPct": 96
     }
   },
-  "ingestedAt": "2026-09-15 14:17:00",
-  "updatedAt": "2026-09-15 14:17:00",
+  "ingestedAt": "2026-09-15 17:14:53",
+  "updatedAt": "2026-09-15 17:14:53",
   "validation": {
+    "school": "University of Michigan",
+    "slug": "university-of-michigan",
     "status": "consistent",
     "discrepancies": [],
     "overrides": {},
-    "validatedAt": "2026-09-15 14:17:00"
+    "scopeFromPDF": null
   }
 }

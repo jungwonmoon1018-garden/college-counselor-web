@@ -1,4 +1,6 @@
 {
+  "source": "cds",
+  "extractionMethod": "pdfjs",
   "slug": "university-of-washington",
   "school": "University of Washington",
   "year": 2025,
@@ -46,17 +48,19 @@
   "priorities": [],
   "sourceUrl": "https://cdn.uw.edu/wp-content/uploads/sites/162/2026/02/27111247/CDS_2025-2026_Seattle.pdf",
   "sourceKind": "pdf_merged",
-  "parserVersion": 5,
+  "parserVersion": 6,
   "parserNotes": [
     "merged_form_fields"
   ],
   "extras": null,
-  "ingestedAt": "2026-09-15 14:04:56",
-  "updatedAt": "2026-09-15 14:04:56",
+  "ingestedAt": "2026-09-15 17:17:12",
+  "updatedAt": "2026-09-15 17:17:12",
   "validation": {
+    "school": "University of Washington",
+    "slug": "university-of-washington",
     "status": "consistent",
     "discrepancies": [],
     "overrides": {},
-    "validatedAt": "2026-09-15 14:04:56"
+    "scopeFromPDF": null
   }
 }

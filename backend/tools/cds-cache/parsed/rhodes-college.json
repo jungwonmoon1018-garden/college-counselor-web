@@ -1,0 +1,153 @@
+{
+  "source": "cds",
+  "extractionMethod": "xlsx",
+  "slug": "rhodes-college",
+  "school": "Rhodes College",
+  "year": null,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.5151,
+  "yieldRate": 0.1688,
+  "enrolledSAT": {
+    "p25": 1360,
+    "p75": 1470
+  },
+  "enrolledACT": {
+    "p25": 28,
+    "p75": 32
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.75
+  },
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "very_important",
+    "gpa": "very_important",
+    "test_scores": "important",
+    "application_essay": "important",
+    "recommendations": "important",
+    "interview": "considered",
+    "ec": "considered",
+    "talent_ability": "considered",
+    "character": "important",
+    "first_generation": "considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered",
+    "racial_ethnic_status": "not_considered"
+  },
+  "b1": {
+    "applied": 5682,
+    "admitted": 2927,
+    "enrolled": 494
+  },
+  "c1Breakdown": {
+    "byDecisionPlan": {
+      "earlyDecision": {
+        "applied": 11,
+        "admitted": 1184,
+        "admitRate": 107.6364
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.rhodes.edu/sites/default/files/2026-05/CDS_2025-26_(New_Update).xlsx",
+  "sourceKind": "xlsx",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "actSections": {
+      "english": {
+        "p25": 25,
+        "p75": 29
+      },
+      "math": {
+        "p25": 25,
+        "p75": 26
+      },
+      "reading": {
+        "p25": 25,
+        "p75": 31
+      },
+      "science": {
+        "p25": 25,
+        "p75": 27
+      }
+    },
+    "gpa": {
+      "average": 3.75
+    },
+    "earlyDecision": {
+      "applications": 357,
+      "admitted": 195,
+      "admitRate": 0.5462
+    },
+    "dates": {
+      "edNotification": "Can on-line application fee be waived for applicants with financial need? C.2104  Month 11 First-Time, First-Year Admission Admission Policies Early Decision Undergraduates First-time, first-year All All All MM"
+    },
+    "enrollment": {
+      "undergraduates": 1739
+    },
+    "retention": {
+      "firstYearPct": 90.2
+    },
+    "graduation": {
+      "sixYearPct": 81.2,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 893,
+      "accepted": 511,
+      "admitted": 28
+    },
+    "transfer": {
+      "applied": 135,
+      "admitted": 28,
+      "enrolled": 15
+    },
+    "studentLife": {
+      "outOfStatePct": 66,
+      "onCampusPct": 95
+    },
+    "costs": {
+      "tuitionUsd": 58272,
+      "requiredFeesUsd": 810,
+      "foodAndHousingUsd": 14336,
+      "academicYear": "2025-2026"
+    },
+    "aid": {
+      "needMetPct": 88.9
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 91,
+        "10-19": 301,
+        "20-29": 87,
+        "30-39": 14,
+        "40-49": 1,
+        "50-99": 0,
+        "100+": 0,
+        "total": 494
+      },
+      "under20Pct": 79.4
+    }
+  },
+  "ingestedAt": "2026-09-15 17:11:23",
+  "updatedAt": "2026-09-15 17:11:23",
+  "validation": {
+    "school": "Rhodes College",
+    "slug": "rhodes-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

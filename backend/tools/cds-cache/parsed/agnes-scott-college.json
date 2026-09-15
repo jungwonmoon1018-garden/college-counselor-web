@@ -1,0 +1,280 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "agnes-scott-college",
+  "school": "Agnes Scott College",
+  "year": null,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.6353,
+  "yieldRate": 0.1506,
+  "enrolledSAT": {
+    "p25": 1098,
+    "p75": 1280
+  },
+  "enrolledACT": {
+    "p25": 25,
+    "p75": 31
+  },
+  "enrolledGPA": {
+    "p25": 3.25,
+    "p75": 3.75,
+    "avg": 3.63
+  },
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "important",
+    "interview": "considered",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "considered",
+    "first_generation": "considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "important",
+    "work_experience": "important",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 2070,
+    "admitted": 1315,
+    "enrolled": 198
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.agnesscott.edu/assets/documents/institutional-research/cds_2025_2026.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 570,
+        "p50": 645,
+        "p75": 673
+      },
+      "math": {
+        "p25": 510,
+        "p50": 580,
+        "p75": 613
+      }
+    },
+    "submitting": {
+      "satPct": 29,
+      "actPct": 11
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 5.2
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 51.7
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 31
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 12.1
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 15.5
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 51.7
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 25.9
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 6.9
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 5.2
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 37.9
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 36.2
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 17.2
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 4
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 38.1
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 47.6
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 9.5
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 4.8
+        }
+      ]
+    },
+    "classRank": {
+      "topTenthPct": 13,
+      "topQuarterPct": 47,
+      "topHalfPct": 74,
+      "submittedPct": 44
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 18.7
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 20.7
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 31.6
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 16.1
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 8.8
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 4.1
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.63,
+      "submittedPct": 97.5
+    },
+    "earlyDecision": {
+      "applications": 8,
+      "admitted": 6,
+      "admitRate": 0.75
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "05-01",
+        "raw": "5/1"
+      },
+      "edClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      },
+      "edNotification": "12/1",
+      "eaClosing": {
+        "mmdd": "11-15",
+        "raw": "11/15"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 46956
+    },
+    "enrollment": {
+      "undergraduates": 731
+    },
+    "retention": {
+      "firstYearPct": 74
+    },
+    "graduation": {
+      "sixYearPct": 68.5,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "admitted": 0
+    },
+    "transfer": {
+      "applied": 112,
+      "admitted": 24,
+      "enrolled": 8
+    },
+    "studentLife": {
+      "outOfStatePct": 26,
+      "onCampusPct": 87
+    },
+    "costs": {
+      "tuitionUsd": 53256,
+      "requiredFeesUsd": 600,
+      "foodAndHousingUsd": 14079
+    }
+  },
+  "ingestedAt": "2026-09-15 17:04:50",
+  "updatedAt": "2026-09-15 17:04:50",
+  "validation": {
+    "school": "Agnes Scott College",
+    "slug": "agnes-scott-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 202 5 -202 6 A1 Address Information Name of College/University: AGNES SCOTT COLLEGE Street Address Line 1: 141 E. College Ave. Street Address Li · AGNES SCOTT COLLEGE"
+  }
+}

@@ -1,26 +1,27 @@
 {
-  "school": "Purdue University",
-  "slug": "purdue-university",
-  "tier": "T100",
-  "year": 2024,
   "source": "cds",
-  "parserVersion": 4,
-  "testPolicy": "test_required",
-  "b1": {
-    "applied": 78745,
-    "admitted": 39272,
-    "enrolled": 11467
-  },
+  "extractionMethod": "pdfjs",
+  "slug": "purdue-university",
+  "school": "Purdue University",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
   "overallAdmitRate": 0.4987,
   "yieldRate": 0.292,
   "enrolledSAT": {
-    "p25": 1200,
-    "p75": 1520
+    "p25": 1210,
+    "p75": 1470
   },
   "enrolledACT": {
     "p25": 27,
-    "p75": 35
+    "p75": 34
   },
+  "enrolledGPA": {
+    "p25": 3.5,
+    "p75": 4,
+    "avg": 3.76
+  },
+  "testPolicy": "test_required",
   "c7": {
     "rigor": "very_important",
     "class_rank": "considered",
@@ -42,14 +43,31 @@
     "work_experience": "considered",
     "level_of_interest": "considered"
   },
-  "validation": {
-    "school": "Purdue University",
-    "slug": "purdue-university",
-    "status": "ok",
-    "discrepancies": [],
-    "overrides": {},
-    "scopeFromPDF": null
+  "b1": {
+    "applied": 78745,
+    "admitted": 39272,
+    "enrolled": 11467
   },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 48473,
+        "admitted": 22551,
+        "admitRate": 0.4652
+      },
+      "women": {
+        "applied": 30272,
+        "admitted": 16721,
+        "admitRate": 0.5524
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1lfbKE3X0Htyuj-rSDRiF90bDw98vVOHL",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
   "extras": {
     "satSections": {
       "ebrw": {
@@ -361,13 +379,45 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 14019
+      "averagePackageFirstYearUsd": 14019,
+      "needMetPct": 69.9
+    },
+    "enrollment": {
+      "undergraduates": 44819
+    },
+    "graduation": {
+      "sixYearPct": 83,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 3344,
+      "accepted": 1860,
+      "admitted": 9
+    },
+    "transfer": {
+      "applied": 3311,
+      "admitted": 1721,
+      "enrolled": 1054
+    },
+    "studentLife": {
+      "outOfStatePct": 54,
+      "onCampusPct": 93
+    },
+    "costs": {
+      "tuitionInStateUsd": 9208,
+      "tuitionOutOfStateUsd": 28010,
+      "requiredFeesUsd": 784,
+      "foodAndHousingUsd": 10030
     }
   },
-  "enrolledGPA": {
-    "p25": 3.5,
-    "p75": 4,
-    "source": "C11_cumulative",
-    "avg": 3.76
+  "ingestedAt": "2026-09-15 17:11:13",
+  "updatedAt": "2026-09-15 17:11:13",
+  "validation": {
+    "school": "Purdue University",
+    "slug": "purdue-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
   }
 }

@@ -1,0 +1,263 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-oklahoma",
+  "school": "University of Oklahoma",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.766,
+  "yieldRate": 0.2933,
+  "enrolledSAT": {
+    "p25": 1160,
+    "p75": 1320
+  },
+  "enrolledACT": {
+    "p25": 23,
+    "p75": 29
+  },
+  "enrolledGPA": {
+    "p25": 3.25,
+    "p75": 3.75,
+    "avg": 3.63
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 24893,
+    "admitted": 19069,
+    "enrolled": 5593
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 10811,
+        "admitted": 8017,
+        "admitRate": 0.7416
+      },
+      "women": {
+        "applied": 14082,
+        "admitted": 11052,
+        "admitRate": 0.7848
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1Rd_jXwuvVxhs2JC5gMB0nsAh5-QjdcQW",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "math": {
+        "p25": 560,
+        "p50": 613,
+        "p75": 660
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 22,
+        "p50": 26,
+        "p75": 30
+      },
+      "math": {
+        "p25": 21,
+        "p50": 24,
+        "p75": 27
+      },
+      "reading": {
+        "p25": 23,
+        "p50": 27,
+        "p75": 32
+      },
+      "science": {
+        "p25": 23,
+        "p50": 25,
+        "p75": 28
+      }
+    },
+    "submitting": {
+      "satPct": 23,
+      "actPct": 40
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 9.2
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 53
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 36.9
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 0.8
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 14.6
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 53.2
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 30.9
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 1.2
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0.1
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 11.7
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 44.2
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 41.4
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 2.7
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 28.6,
+      "topQuarterPct": 57.3,
+      "topHalfPct": 87.9,
+      "submittedPct": 56.2
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 11.6
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 31.2
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 26
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 18.1
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 11
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 1.9
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0.1
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0.1
+      }
+    ],
+    "gpa": {
+      "average": 3.63,
+      "submittedPct": 100
+    },
+    "applicationFeeUsd": 50,
+    "aid": {
+      "averagePackageFirstYearUsd": 16189
+    },
+    "enrollment": {
+      "undergraduates": 23351
+    },
+    "graduation": {
+      "sixYearPct": 75.3,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 2342,
+      "accepted": 1560,
+      "admitted": 81
+    },
+    "studentLife": {
+      "outOfStatePct": 51,
+      "onCampusPct": 89.7
+    }
+  },
+  "ingestedAt": "2026-09-15 17:15:30",
+  "updatedAt": "2026-09-15 17:15:30",
+  "validation": {
+    "school": "University of Oklahoma",
+    "slug": "university-of-oklahoma",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "OU Institutional Research and Reporting Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Name: Susannah Livingood Title: Associate Prov · University of Oklahoma"
+  }
+}

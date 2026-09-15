@@ -1,0 +1,154 @@
+{
+  "source": "cds",
+  "extractionMethod": "xlsx",
+  "slug": "illinois-college",
+  "school": "Illinois College",
+  "year": null,
+  "yearLabel": "2022-23",
+  "tier": null,
+  "overallAdmitRate": 0.7718,
+  "yieldRate": 0.0931,
+  "enrolledSAT": {
+    "p25": 960,
+    "p75": 1110
+  },
+  "enrolledACT": {
+    "p25": 21,
+    "p75": 26
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.65
+  },
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "not_considered",
+    "class_rank": "very_important",
+    "gpa": "not_considered",
+    "test_scores": "considered",
+    "application_essay": "very_important",
+    "recommendations": "very_important",
+    "interview": "very_important",
+    "ec": "not_considered",
+    "talent_ability": "very_important",
+    "character": "not_considered",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "considered",
+    "racial_ethnic_status": "considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 3243,
+    "admitted": 2503,
+    "enrolled": 233
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 1582,
+        "admitted": 1193,
+        "admitRate": 0.7541
+      },
+      "women": {
+        "applied": 1661,
+        "admitted": 1310,
+        "admitRate": 0.7887
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://docs.google.com/spreadsheets/d/1CYECAW5lpyGxW_2RWv_3klmGl47ZJvjg/export?format=xlsx",
+  "sourceKind": "xlsx",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 480,
+        "p50": 520,
+        "p75": 565
+      },
+      "math": {
+        "p25": 480,
+        "p50": 520,
+        "p75": 565
+      }
+    },
+    "actSections": {
+      "math": {
+        "p25": 20,
+        "p50": 23,
+        "p75": 26
+      },
+      "science": {
+        "p25": 21,
+        "p50": 23,
+        "p75": 26
+      }
+    },
+    "gpa": {
+      "average": 3.65
+    },
+    "dates": {
+      "aidPriority": {
+        "mmdd": "10-31",
+        "raw": "October 31"
+      }
+    },
+    "enrollment": {
+      "undergraduates": 1028
+    },
+    "graduation": {
+      "sixYearPct": 67.4,
+      "cohort": 2016
+    },
+    "transfer": {
+      "applied": 237,
+      "admitted": 213,
+      "enrolled": 51
+    },
+    "studentLife": {
+      "outOfStatePct": 23.3,
+      "onCampusPct": 95
+    },
+    "costs": {
+      "tuitionUsd": 36870,
+      "requiredFeesUsd": 600,
+      "foodAndHousingUsd": 10264,
+      "academicYear": "2023-2024"
+    },
+    "aid": {
+      "needMetPct": 90.4
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 45,
+        "10-19": 94,
+        "20-29": 69,
+        "30-39": 4,
+        "40-49": 0,
+        "50-99": 0,
+        "100+": 0,
+        "total": 212
+      },
+      "under20Pct": 65.6
+    }
+  },
+  "ingestedAt": "2026-09-15 17:09:26",
+  "updatedAt": "2026-09-15 17:09:26",
+  "validation": {
+    "school": "Illinois College",
+    "slug": "illinois-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

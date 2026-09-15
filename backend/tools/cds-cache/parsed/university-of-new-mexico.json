@@ -1,0 +1,47 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-new-mexico",
+  "school": "University of New Mexico",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.7996,
+  "yieldRate": 0.3412,
+  "enrolledSAT": {
+    "p25": 920,
+    "p75": 1170
+  },
+  "enrolledACT": {
+    "p25": 20,
+    "p75": 26
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 13589,
+    "admitted": 10866,
+    "enrolled": 3708
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://oia.unm.edu/resources/cds_25_26_updated.pdf",
+  "sourceKind": "pdf_merged",
+  "parserVersion": 6,
+  "parserNotes": [
+    "merged_form_fields"
+  ],
+  "extras": null,
+  "ingestedAt": "2026-09-15 17:15:31",
+  "updatedAt": "2026-09-15 17:15:31",
+  "validation": {
+    "school": "University of New Mexico",
+    "slug": "university-of-new-mexico",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

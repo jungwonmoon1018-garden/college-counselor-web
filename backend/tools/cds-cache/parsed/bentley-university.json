@@ -1,0 +1,428 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "bentley-university",
+  "school": "Bentley University",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.4505,
+  "yieldRate": 0.2129,
+  "enrolledSAT": {
+    "p25": 1290,
+    "p75": 1403
+  },
+  "enrolledACT": {
+    "p25": 28,
+    "p75": 31
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "not_considered",
+    "gpa": "important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "important",
+    "interview": "considered",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "important",
+    "work_experience": "considered",
+    "level_of_interest": "important"
+  },
+  "b1": {
+    "applied": 11012,
+    "admitted": 4961,
+    "enrolled": 1056
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 6491,
+        "admitted": 2760,
+        "admitRate": 0.4252
+      },
+      "women": {
+        "applied": 4520,
+        "admitted": 2201,
+        "admitRate": 0.4869
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=10et1a0IuSwyI57Me-zG7gMPoKAPc26k-",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "math": {
+        "p25": 650,
+        "p50": 690,
+        "p75": 730
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 29,
+        "p50": 32,
+        "p75": 34
+      },
+      "math": {
+        "p25": 25,
+        "p50": 27,
+        "p75": 32
+      },
+      "science": {
+        "p25": 26,
+        "p50": 28,
+        "p75": 30
+      }
+    },
+    "submitting": {
+      "satPct": 19,
+      "actPct": 2
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 28.1
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 65.3
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 6.1
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 0.5
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 29.3
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 63.3
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 6.8
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0.7
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 44.9
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 46.3
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 8.2
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0.7
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 56.3
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 43.8
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 0
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 0
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 0
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 68.8
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 31.3
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 0
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 43.8
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 50
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 6.3
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 62.5
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 31.3
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 6.3
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 37.5
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 56.3
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 6.3
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 34,
+      "topQuarterPct": 66,
+      "topHalfPct": 95,
+      "submittedPct": 25
+    },
+    "gpa": {
+      "submittedPct": 0
+    },
+    "applicationFeeUsd": 75,
+    "earlyDecision": {
+      "applications": 637,
+      "admitted": 389,
+      "admitRate": 0.6107
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-15",
+        "raw": "1/15"
+      },
+      "edClosing": {
+        "mmdd": "11-15",
+        "raw": "11/15"
+      },
+      "edNotification": "Late December",
+      "edIIClosing": {
+        "mmdd": "01-15",
+        "raw": "1/15"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 47713
+    },
+    "enrollment": {
+      "undergraduates": 4526
+    },
+    "graduation": {
+      "sixYearPct": 86.8,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 1665,
+      "accepted": 410,
+      "admitted": 225
+    },
+    "transfer": {
+      "applied": 537,
+      "admitted": 235,
+      "enrolled": 96
+    },
+    "studentLife": {
+      "outOfStatePct": 54,
+      "onCampusPct": 94
+    },
+    "costs": {
+      "tuitionUsd": 61000,
+      "foodAndHousingUsd": 20140,
+      "academicYear": "2025-2026"
+    }
+  },
+  "ingestedAt": "2026-09-15 17:06:06",
+  "updatedAt": "2026-09-15 17:06:06",
+  "validation": {
+    "school": "Bentley University",
+    "slug": "bentley-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Name: Lawrence McGill Jr Title: Business Analyst II Office: Business Intelligence Mail · Bentley University"
+  }
+}

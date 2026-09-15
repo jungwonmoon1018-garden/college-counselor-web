@@ -1,0 +1,103 @@
+{
+  "source": "cds",
+  "extractionMethod": "xlsx",
+  "slug": "university-of-illinois-at-urbana-champaign",
+  "school": "University of Illinois at Urbana-Champaign",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.4237,
+  "yieldRate": 0.2883,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "not_considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "not_considered",
+    "interview": "not_considered",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "important",
+    "first_generation": "important",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered",
+    "racial_ethnic_status": "not_considered"
+  },
+  "b1": {
+    "applied": 73742,
+    "admitted": 31247,
+    "enrolled": 9008
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 41597,
+        "admitted": 15134,
+        "admitRate": 0.3638
+      },
+      "women": {
+        "applied": 32124,
+        "admitted": 16102,
+        "admitRate": 0.5012
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://docs.google.com/spreadsheets/d/1ioTJ14fecoAinpYlR8FahbiHvOhDUTJ5/export?format=xlsx",
+  "sourceKind": "xlsx",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "actSections": {
+      "english": {
+        "p25": 25,
+        "p75": 32
+      },
+      "math": {
+        "p25": 25,
+        "p75": 29
+      }
+    },
+    "applicationFeeUsd": 50,
+    "dates": {
+      "edNotification": "C2103"
+    },
+    "studentFacultyRatio": "20 to 1",
+    "enrollment": {
+      "undergraduates": 37140
+    },
+    "waitlist": {
+      "offered": 2794,
+      "accepted": 1874,
+      "admitted": 1
+    },
+    "studentLife": {
+      "outOfStatePct": 17.3,
+      "onCampusPct": 99
+    },
+    "aid": {
+      "needMetPct": 78
+    }
+  },
+  "ingestedAt": "2026-09-15 17:14:17",
+  "updatedAt": "2026-09-15 17:14:17",
+  "validation": {
+    "school": "University of Illinois at Urbana-Champaign",
+    "slug": "university-of-illinois-at-urbana-champaign",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

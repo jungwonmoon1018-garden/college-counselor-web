@@ -1,0 +1,79 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-massachusetts-amherst",
+  "school": "University of Massachusetts Amherst",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.5973,
+  "yieldRate": 0.1795,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": {
+    "p25": 3.75,
+    "p75": 4,
+    "avg": 4.04
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 50261,
+    "admitted": 30020,
+    "enrolled": 5388
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 23706,
+        "admitted": 12356,
+        "admitRate": 0.5212
+      },
+      "women": {
+        "applied": 26555,
+        "admitted": 17664,
+        "admitRate": 0.6652
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1szAao2jFOzxBWnk9Ed1-OVIJP7IeqL6U",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "classRank": {
+      "topTenthPct": 30,
+      "topQuarterPct": 67,
+      "topHalfPct": 94,
+      "submittedPct": 29
+    },
+    "gpa": {
+      "average": 4.04,
+      "submittedPct": 99.5
+    },
+    "applicationFeeUsd": 85,
+    "aid": {
+      "averagePackageFirstYearUsd": 22429
+    },
+    "enrollment": {
+      "undergraduates": 23920
+    },
+    "waitlist": {
+      "offered": 9742,
+      "accepted": 6478,
+      "admitted": 1142
+    }
+  },
+  "ingestedAt": "2026-09-15 17:14:47",
+  "updatedAt": "2026-09-15 17:14:47",
+  "validation": {
+    "school": "University of Massachusetts Amherst",
+    "slug": "university-of-massachusetts-amherst",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "University of Massachusetts Amherst"
+  }
+}

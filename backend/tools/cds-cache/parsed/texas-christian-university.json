@@ -1,0 +1,251 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "texas-christian-university",
+  "school": "Texas Christian University",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.4809,
+  "yieldRate": 0.2525,
+  "enrolledSAT": {
+    "p25": 1110,
+    "p75": 1330
+  },
+  "enrolledACT": {
+    "p25": 26,
+    "p75": 31
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "not_considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "considered",
+    "interview": "not_considered",
+    "ec": "important",
+    "talent_ability": "considered",
+    "character": "important",
+    "first_generation": "important",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "important",
+    "work_experience": "important",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 22680,
+    "admitted": 10906,
+    "enrolled": 2754
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://ir.tcu.edu/wp-content/uploads/2026/03/CDS-2025-26-TCU.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 560,
+        "p50": 630,
+        "p75": 680
+      },
+      "math": {
+        "p25": 540,
+        "p50": 620,
+        "p75": 660
+      }
+    },
+    "submitting": {
+      "satPct": 27,
+      "actPct": 21
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 12.6
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 50.1
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 25.5
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 10.5
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 16.1
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 48
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 25.8
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 9.2
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0.9
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 1.2
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 14.8
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 44.8
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 26.9
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 12.8
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0.8
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 37.3
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 51.4
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 10.3
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 1.1
+        }
+      ]
+    },
+    "classRank": {
+      "topTenthPct": 45.6,
+      "topQuarterPct": 77.9,
+      "topHalfPct": 94.6,
+      "submittedPct": 36.5
+    },
+    "applicationFeeUsd": 50,
+    "earlyDecision": {
+      "applications": 1373,
+      "admitted": 935,
+      "admitRate": 0.681
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "02-01",
+        "raw": "2/1"
+      },
+      "edClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      },
+      "edNotification": "1/1",
+      "edIIClosing": {
+        "mmdd": "02-01",
+        "raw": "2/1"
+      },
+      "eaClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 53669
+    },
+    "enrollment": {
+      "undergraduates": 11152
+    },
+    "retention": {
+      "firstYearPct": 93.4
+    },
+    "graduation": {
+      "sixYearPct": 86,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 3676,
+      "accepted": 1083,
+      "admitted": 396
+    },
+    "transfer": {
+      "applied": 949,
+      "admitted": 797,
+      "enrolled": 394
+    },
+    "studentLife": {
+      "outOfStatePct": 52,
+      "onCampusPct": 96
+    },
+    "costs": {
+      "tuitionUsd": 66520,
+      "foodAndHousingUsd": 18780
+    }
+  },
+  "ingestedAt": "2026-09-15 17:12:55",
+  "updatedAt": "2026-09-15 17:12:55",
+  "validation": {
+    "school": "Texas Christian University",
+    "slug": "texas-christian-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Texas Christian University Common Data Set 2025-2026 Institutional Research Common Data Set 2025-2026 A0 Respondent Information (Not for Publication) First Name · Texas Christian University"
+  }
+}

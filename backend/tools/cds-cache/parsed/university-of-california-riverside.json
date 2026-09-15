@@ -1,0 +1,147 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-california-riverside",
+  "school": "University of California, Riverside",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.8609,
+  "yieldRate": 0.1269,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": {
+    "p25": 3.25,
+    "p75": 4,
+    "avg": 3.75
+  },
+  "testPolicy": "test_optional",
+  "c7": {},
+  "b1": {
+    "applied": 61184,
+    "admitted": 52676,
+    "enrolled": 6686
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 28275,
+        "admitted": 23831,
+        "admitRate": 0.8428
+      },
+      "women": {
+        "applied": 30832,
+        "admitted": 26994,
+        "admitRate": 0.8755
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://ir.ucr.edu/sites/default/files/2026-05/cds-2025-2026.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 29
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 22.2
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 23
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 16.2
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 9.2
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 0.4
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.75,
+      "submittedPct": 100
+    },
+    "applicationFeeUsd": 80,
+    "dates": {
+      "regularClosing": {
+        "mmdd": "12-02",
+        "raw": "12/02"
+      },
+      "aidPriority": {
+        "mmdd": "03-02",
+        "raw": "3/2"
+      },
+      "aidDeadline": {
+        "mmdd": "06-30",
+        "raw": "6/30"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 33140
+    },
+    "enrollment": {
+      "undergraduates": 24034
+    },
+    "graduation": {
+      "sixYearPct": 75.5,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 3783,
+      "accepted": 2019,
+      "admitted": 0
+    },
+    "transfer": {
+      "applied": 13778,
+      "admitted": 9341,
+      "enrolled": 1607
+    },
+    "studentLife": {
+      "outOfStatePct": 1,
+      "onCampusPct": 69
+    }
+  },
+  "ingestedAt": "2026-09-15 17:13:42",
+  "updatedAt": "2026-09-15 17:13:42",
+  "validation": {
+    "school": "University of California, Riverside",
+    "slug": "university-of-california-riverside",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "University of California, Riverside"
+  }
+}

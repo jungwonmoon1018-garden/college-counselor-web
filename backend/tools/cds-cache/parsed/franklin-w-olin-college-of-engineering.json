@@ -1,0 +1,200 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "franklin-w-olin-college-of-engineering",
+  "school": "Franklin W. Olin College of Engineering",
+  "year": null,
+  "yearLabel": "2023-24",
+  "tier": null,
+  "overallAdmitRate": 0.2166,
+  "yieldRate": null,
+  "enrolledSAT": {
+    "p25": 1500,
+    "p75": 1560
+  },
+  "enrolledACT": {
+    "p25": 34,
+    "p75": 35
+  },
+  "enrolledGPA": {
+    "p25": 4,
+    "p75": 4,
+    "avg": 3.9
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 928,
+    "admitted": 201
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1ozXKVHV9qsewEEZROvNH25ldoAKsmSnt",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 720,
+        "p50": 750,
+        "p75": 770
+      },
+      "math": {
+        "p25": 760,
+        "p50": 780,
+        "p75": 790
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 34,
+        "p50": 35,
+        "p75": 35
+      },
+      "math": {
+        "p25": 32,
+        "p50": 35,
+        "p75": 36
+      }
+    },
+    "submitting": {
+      "satPct": 46,
+      "actPct": 22
+    },
+    "scoreDistribution": {
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 96
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 4
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 0
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 100
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 0
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 0
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "gpa": {
+      "average": 3.9,
+      "submittedPct": 100
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-01",
+        "raw": "1/1"
+      },
+      "aidPriority": {
+        "mmdd": "02-15",
+        "raw": "(MM/DD) 2/15"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 57912
+    },
+    "graduation": {
+      "sixYearPct": 92,
+      "cohort": 2017
+    },
+    "waitlist": {
+      "offered": 53,
+      "accepted": 33,
+      "admitted": 10
+    },
+    "transfer": {
+      "applied": 1,
+      "admitted": 1,
+      "enrolled": 1
+    },
+    "studentLife": {
+      "outOfStatePct": 82,
+      "onCampusPct": 100
+    }
+  },
+  "ingestedAt": "2026-09-15 17:08:42",
+  "updatedAt": "2026-09-15 17:08:42",
+  "validation": {
+    "school": "Franklin W. Olin College of Engineering",
+    "slug": "franklin-w-olin-college-of-engineering",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

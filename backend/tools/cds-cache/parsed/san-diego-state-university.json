@@ -1,0 +1,126 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "san-diego-state-university",
+  "school": "San Diego State University",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.3741,
+  "yieldRate": null,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": {
+    "p25": 3.5,
+    "p75": 4,
+    "avg": 3.82
+  },
+  "testPolicy": "test_optional",
+  "c7": {},
+  "b1": {
+    "applied": 95444,
+    "admitted": 35709
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://asir.sdsu.edu/Documents/CommonDataSets/CDS_2025-26.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "classRank": {
+      "topTenthPct": 25,
+      "topQuarterPct": 66,
+      "topHalfPct": 95,
+      "submittedPct": 29
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 34
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 31
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 21
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 10
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 3
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 1
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.82,
+      "submittedPct": 100
+    },
+    "applicationFeeUsd": 70,
+    "dates": {
+      "aidPriority": {
+        "mmdd": "04-01",
+        "raw": "H9 April 1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 17270
+    },
+    "enrollment": {
+      "undergraduates": 36196
+    },
+    "graduation": {
+      "sixYearPct": 78,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 11627,
+      "accepted": 6016,
+      "admitted": 962
+    },
+    "studentLife": {
+      "outOfStatePct": 21,
+      "onCampusPct": 71
+    }
+  },
+  "ingestedAt": "2026-09-15 17:11:44",
+  "updatedAt": "2026-09-15 17:11:44",
+  "validation": {
+    "school": "San Diego State University",
+    "slug": "san-diego-state-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

@@ -1,4 +1,6 @@
 {
+  "source": "cds",
+  "extractionMethod": "pdfjs",
   "slug": "georgetown-university",
   "school": "Georgetown University",
   "year": 2024,
@@ -14,6 +16,7 @@
     "p25": 31,
     "p75": 35
   },
+  "enrolledGPA": null,
   "testPolicy": "test_required",
   "c7": {},
   "b1": {
@@ -39,10 +42,8 @@
   "priorities": [],
   "sourceUrl": "https://drive.google.com/uc?export=download&id=1msvBhqWzTph5m5dUBiyzH6ev4kwzYS03",
   "sourceKind": "pdf_text",
-  "parserVersion": 4,
+  "parserVersion": 6,
   "parserNotes": [],
-  "ingestedAt": "2026-08-31 04:13:30",
-  "updatedAt": "2026-08-31 04:13:30",
   "extras": {
     "satSections": {
       "ebrw": {
@@ -361,6 +362,43 @@
     },
     "aid": {
       "averagePackageFirstYearUsd": 60931
+    },
+    "enrollment": {
+      "undergraduates": 7833
+    },
+    "graduation": {
+      "sixYearPct": 95,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 2690,
+      "accepted": 2023,
+      "admitted": 163
+    },
+    "transfer": {
+      "applied": 2278,
+      "admitted": 135,
+      "enrolled": 85
+    },
+    "studentLife": {
+      "outOfStatePct": 98,
+      "onCampusPct": 100
+    },
+    "costs": {
+      "tuitionUsd": 71136,
+      "requiredFeesUsd": 202,
+      "foodAndHousingUsd": 21202,
+      "academicYear": "2025-2026"
     }
+  },
+  "ingestedAt": "2026-09-15 17:08:58",
+  "updatedAt": "2026-09-15 17:08:58",
+  "validation": {
+    "school": "Georgetown University",
+    "slug": "georgetown-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Name: Office of Assessment and Decision Support Title: Office: Office of Assessment an · Georgetown University"
   }
 }

@@ -1,0 +1,144 @@
+{
+  "source": "cds",
+  "extractionMethod": "xlsx",
+  "slug": "michigan-technological-university",
+  "school": "Michigan Technological University",
+  "year": null,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.8546,
+  "yieldRate": 0.1636,
+  "enrolledSAT": {
+    "p25": 1120,
+    "p75": 1330
+  },
+  "enrolledACT": {
+    "p25": 25,
+    "p75": 32
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.86
+  },
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "not_considered",
+    "class_rank": "considered",
+    "gpa": "not_considered",
+    "test_scores": "not_considered",
+    "application_essay": "considered",
+    "recommendations": "considered",
+    "interview": "considered",
+    "ec": "considered",
+    "talent_ability": "considered",
+    "character": "considered",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 10359,
+    "admitted": 8853,
+    "enrolled": 1448
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.mtu.edu/institutional-research/cds/files/cds-2025-2026.xlsx",
+  "sourceKind": "xlsx",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 560,
+        "p50": 620,
+        "p75": 670
+      },
+      "math": {
+        "p25": 560,
+        "p50": 620,
+        "p75": 670
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 23,
+        "p50": 27,
+        "p75": 32
+      },
+      "math": {
+        "p25": 26,
+        "p50": 29,
+        "p75": 32
+      },
+      "science": {
+        "p25": 25,
+        "p50": 29,
+        "p75": 33
+      }
+    },
+    "gpa": {
+      "average": 3.86
+    },
+    "enrollment": {
+      "undergraduates": 6009
+    },
+    "retention": {
+      "firstYearPct": 88.5
+    },
+    "graduation": {
+      "sixYearPct": 70,
+      "cohort": 2019
+    },
+    "transfer": {
+      "applied": 599,
+      "admitted": 348,
+      "enrolled": 153
+    },
+    "studentLife": {
+      "outOfStatePct": 23.9,
+      "onCampusPct": 95.6
+    },
+    "costs": {
+      "tuitionInStateUsd": 20396,
+      "tuitionOutOfStateUsd": 46294,
+      "requiredFeesUsd": 382,
+      "foodAndHousingUsd": 14321,
+      "academicYear": "2026-2027"
+    },
+    "aid": {
+      "needMetPct": 92.3
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 215,
+        "10-19": 282,
+        "20-29": 251,
+        "30-39": 115,
+        "40-49": 95,
+        "50-99": 113,
+        "100+": 26,
+        "total": 1097
+      },
+      "under20Pct": 45.3
+    }
+  },
+  "ingestedAt": "2026-09-15 17:10:25",
+  "updatedAt": "2026-09-15 17:10:25",
+  "validation": {
+    "school": "Michigan Technological University",
+    "slug": "michigan-technological-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

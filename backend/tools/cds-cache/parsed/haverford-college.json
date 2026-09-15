@@ -1,0 +1,412 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "haverford-college",
+  "school": "Haverford College",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.1237,
+  "yieldRate": 0.4262,
+  "enrolledSAT": {
+    "p25": 1470,
+    "p75": 1540
+  },
+  "enrolledACT": {
+    "p25": 33,
+    "p75": 35
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "important",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "very_important",
+    "recommendations": "very_important",
+    "interview": "considered",
+    "ec": "very_important",
+    "talent_ability": "important",
+    "character": "very_important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "important",
+    "work_experience": "important",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 7341,
+    "admitted": 908,
+    "enrolled": 387
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 3636,
+        "admitted": 402,
+        "admitRate": 0.1106
+      },
+      "women": {
+        "applied": 3705,
+        "admitted": 506,
+        "admitRate": 0.1366
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1bmaI6uLUoLUsPBJjdmEqHTRj2thUSvmW",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "math": {
+        "p25": 740,
+        "p50": 760,
+        "p75": 780
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 34,
+        "p50": 35,
+        "p75": 36
+      },
+      "math": {
+        "p25": 31,
+        "p50": 33,
+        "p75": 35
+      },
+      "science": {
+        "p25": 32,
+        "p50": 34,
+        "p75": 35
+      }
+    },
+    "submitting": {
+      "satPct": 39,
+      "actPct": 17
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 93.4
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 6.6
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 0
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 0
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 90.7
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 8
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 1.3
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 90.7
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 8.6
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 0.7
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 98.5
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 0
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 1.5
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 0
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 0
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 97
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 3
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 0
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 88.1
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 10.4
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 1.5
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 98.5
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 1.5
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 0
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 91
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 7.5
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 1.5
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 94.1,
+      "topQuarterPct": 98.8,
+      "topHalfPct": 100,
+      "submittedPct": 22
+    },
+    "applicationFeeUsd": 65,
+    "earlyDecision": {
+      "applications": 745,
+      "admitted": 219,
+      "admitRate": 0.294
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-15",
+        "raw": "1/15"
+      },
+      "edNotification": "15-Dec"
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 70506
+    },
+    "enrollment": {
+      "undergraduates": 1431
+    },
+    "graduation": {
+      "sixYearPct": 90,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 1248,
+      "accepted": 718,
+      "admitted": 3
+    },
+    "transfer": {
+      "applied": 194,
+      "admitted": 24,
+      "enrolled": 7
+    },
+    "studentLife": {
+      "outOfStatePct": 86,
+      "onCampusPct": 99
+    }
+  },
+  "ingestedAt": "2026-09-15 17:09:16",
+  "updatedAt": "2026-09-15 17:09:16",
+  "validation": {
+    "school": "Haverford College",
+    "slug": "haverford-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Name: HAVERFORD COLLEGE Title: Office: Mailing Address: City/State/Zip/Country: Phone: · Haverford College"
+  }
+}

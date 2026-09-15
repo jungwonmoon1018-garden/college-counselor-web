@@ -1,0 +1,193 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "stonehill-college",
+  "school": "Stonehill College",
+  "year": 2019,
+  "yearLabel": "2019-20",
+  "tier": null,
+  "overallAdmitRate": 0.6769,
+  "yieldRate": 0.1384,
+  "enrolledSAT": {
+    "p25": 1130,
+    "p75": 1280
+  },
+  "enrolledACT": null,
+  "enrolledGPA": {
+    "p25": 3,
+    "p75": 3.5,
+    "avg": 3.32
+  },
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "not_considered",
+    "class_rank": "very_important",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "important",
+    "interview": "considered",
+    "ec": "important",
+    "talent_ability": "very_important",
+    "character": "considered",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 6961,
+    "admitted": 4712,
+    "enrolled": 652
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 3149,
+        "admitted": 1889,
+        "admitRate": 0.5999
+      },
+      "women": {
+        "applied": 3812,
+        "admitted": 2823,
+        "admitRate": 0.7406
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1qx2m3R55uCRIwzI2hHyE57pYfB5pnxZe",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "math": {
+        "p25": 550,
+        "p75": 640
+      }
+    },
+    "submitting": {
+      "satPct": 56,
+      "actPct": 7
+    },
+    "classRank": {
+      "topTenthPct": 19.5,
+      "topQuarterPct": 50.9,
+      "topHalfPct": 88.4,
+      "submittedPct": 45
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 1.1
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 11.7
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 18.8
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 27.9
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 23.9
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 15.4
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 1.1
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.32
+    },
+    "applicationFeeUsd": 60,
+    "earlyDecision": {
+      "applications": 128,
+      "admitted": 113,
+      "admitRate": 0.8828
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-15",
+        "raw": "C14 1/15"
+      },
+      "edClosing": {
+        "mmdd": "12-01",
+        "raw": "C21 12/1"
+      },
+      "edNotification": "C21  12/31",
+      "edIIClosing": {
+        "mmdd": "02-01",
+        "raw": "C21 2/1"
+      },
+      "aidPriority": {
+        "mmdd": "02-01",
+        "raw": "H9 1 EA&ED, 2/1 RD"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 32799
+    },
+    "enrollment": {
+      "undergraduates": 2509
+    },
+    "retention": {
+      "firstYearPct": 82.8
+    },
+    "graduation": {
+      "sixYearPct": 82.4,
+      "cohort": 2013
+    },
+    "waitlist": {
+      "offered": 1133,
+      "accepted": 264,
+      "admitted": 51
+    },
+    "studentLife": {
+      "outOfStatePct": 34,
+      "onCampusPct": 92
+    }
+  },
+  "ingestedAt": "2026-09-15 17:12:23",
+  "updatedAt": "2026-09-15 17:12:23",
+  "validation": {
+    "school": "Stonehill College",
+    "slug": "stonehill-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2019-2020 CDS-A Page 1 A. · Stonehill College A1"
+  }
+}

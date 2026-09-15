@@ -1,4 +1,6 @@
 {
+  "source": "cds",
+  "extractionMethod": "pdfjs",
   "slug": "harvard-university",
   "school": "Harvard University",
   "year": 2025,
@@ -51,7 +53,7 @@
   "priorities": [],
   "sourceUrl": "https://oira.harvard.edu/files/2026/07/CDS_2025-2026.pdf",
   "sourceKind": "pdf_text",
-  "parserVersion": 5,
+  "parserVersion": 6,
   "parserNotes": [],
   "extras": {
     "satSections": {
@@ -287,14 +289,38 @@
     },
     "aid": {
       "averagePackageFirstYearUsd": 75166
+    },
+    "enrollment": {
+      "undergraduates": 6738
+    },
+    "retention": {
+      "firstYearPct": 98
+    },
+    "graduation": {
+      "sixYearPct": 97.1,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "admitted": 75
+    },
+    "transfer": {
+      "applied": 2042,
+      "admitted": 13,
+      "enrolled": 12
+    },
+    "studentLife": {
+      "outOfStatePct": 86,
+      "onCampusPct": 100
     }
   },
-  "ingestedAt": "2026-09-15 14:05:23",
-  "updatedAt": "2026-09-15 14:05:23",
+  "ingestedAt": "2026-09-15 17:09:13",
+  "updatedAt": "2026-09-15 17:09:13",
   "validation": {
+    "school": "Harvard University",
+    "slug": "harvard-university",
     "status": "consistent",
     "discrepancies": [],
     "overrides": {},
-    "validatedAt": "2026-09-15 14:05:23"
+    "scopeFromPDF": "Common Data Set 2025-26 A0 Respondent Information (Not for Publication) First Name: Harvard University Last Name: Title: Office: Address Line 1: 86 Brattle Stre · Harvard University"
   }
 }

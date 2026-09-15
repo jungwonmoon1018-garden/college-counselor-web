@@ -1,0 +1,108 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "virginia-commonwealth-university",
+  "school": "Virginia Commonwealth University",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.9232,
+  "yieldRate": 0.2184,
+  "enrolledSAT": {
+    "p25": 1010,
+    "p75": 1260
+  },
+  "enrolledACT": {
+    "p25": 22,
+    "p75": 30
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.63
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 21201,
+    "admitted": 19572,
+    "enrolled": 4275
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 7729,
+        "admitted": 7042,
+        "admitRate": 0.9111
+      },
+      "women": {
+        "applied": 13449,
+        "admitted": 12508,
+        "admitRate": 0.93
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1xfH-y0pomGwS5DsfTjCmfEg2VnY8fkAj",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 520,
+        "p50": 580,
+        "p75": 650
+      },
+      "math": {
+        "p25": 490,
+        "p50": 550,
+        "p75": 620
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 21,
+        "p50": 25,
+        "p75": 31
+      },
+      "math": {
+        "p25": 18,
+        "p50": 25,
+        "p75": 27
+      }
+    },
+    "gpa": {
+      "average": 3.63
+    },
+    "applicationFeeUsd": 75,
+    "aid": {
+      "averagePackageFirstYearUsd": 19344
+    },
+    "waitlist": {
+      "offered": 28,
+      "accepted": 28,
+      "admitted": 17
+    },
+    "transfer": {
+      "applied": 2658,
+      "admitted": 2326,
+      "enrolled": 1413
+    },
+    "studentLife": {
+      "outOfStatePct": 7.7,
+      "onCampusPct": 81
+    }
+  },
+  "ingestedAt": "2026-09-15 17:16:26",
+  "updatedAt": "2026-09-15 17:16:26",
+  "validation": {
+    "school": "Virginia Commonwealth University",
+    "slug": "virginia-commonwealth-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

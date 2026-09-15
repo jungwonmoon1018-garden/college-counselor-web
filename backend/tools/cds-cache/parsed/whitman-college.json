@@ -1,0 +1,365 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "whitman-college",
+  "school": "Whitman College",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.4016,
+  "yieldRate": 0.1336,
+  "enrolledSAT": {
+    "p25": 1190,
+    "p75": 1415
+  },
+  "enrolledACT": {
+    "p25": 29,
+    "p75": 33
+  },
+  "enrolledGPA": {
+    "p25": 3.5,
+    "p75": 3.75,
+    "avg": 3.91
+  },
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "very_important",
+    "recommendations": "not_considered",
+    "interview": "considered",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "important",
+    "first_generation": "considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 6950,
+    "admitted": 2791,
+    "enrolled": 373
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.whitman.edu/documents/offices/institutional-research/2026/CDS-2025-26-Whitman-College-Final-V2.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 650,
+        "p50": 700,
+        "p75": 740
+      },
+      "math": {
+        "p25": 660,
+        "p50": 720,
+        "p75": 770
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 29,
+        "p50": 34,
+        "p75": 35
+      },
+      "math": {
+        "p25": 26,
+        "p50": 29,
+        "p75": 32
+      },
+      "reading": {
+        "p25": 31,
+        "p50": 34,
+        "p75": 36
+      },
+      "science": {
+        "p25": 27,
+        "p50": 31,
+        "p75": 33
+      }
+    },
+    "submitting": {
+      "satPct": 25,
+      "actPct": 9
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 45
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 43
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 12
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 57.3
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 31.7
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 11
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 36.6
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 46.3
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 17.1
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 75.8
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 21.2
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 3
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 72.7
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 24.2
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 3
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 36.4
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 54.6
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 6.1
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 3
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 93.9
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 3
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 3
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 69.7
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 24.2
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 3
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 3
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 52,
+      "topQuarterPct": 83,
+      "topHalfPct": 95,
+      "submittedPct": 32
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 10.4
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 46.8
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 21.8
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 14.6
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 3.8
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 2.5
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.91,
+      "submittedPct": 95.8
+    },
+    "applicationFeeUsd": 60,
+    "earlyDecision": {
+      "applications": 542,
+      "admitted": 114,
+      "admitRate": 0.2103
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-15",
+        "raw": "1/15"
+      },
+      "edClosing": {
+        "mmdd": "11-15",
+        "raw": "11/15"
+      },
+      "edNotification": "Mid December",
+      "edIIClosing": {
+        "mmdd": "01-10",
+        "raw": "1/10"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 64085
+    },
+    "enrollment": {
+      "undergraduates": 1468
+    },
+    "retention": {
+      "firstYearPct": 89.2
+    },
+    "graduation": {
+      "sixYearPct": 75.3,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 863,
+      "accepted": 837,
+      "admitted": 33
+    },
+    "transfer": {
+      "applied": 152,
+      "admitted": 81,
+      "enrolled": 40
+    },
+    "studentLife": {
+      "outOfStatePct": 33,
+      "onCampusPct": 99
+    }
+  },
+  "ingestedAt": "2026-09-15 17:16:50",
+  "updatedAt": "2026-09-15 17:16:50",
+  "validation": {
+    "school": "Whitman College",
+    "slug": "whitman-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2025-2026 A0 Respondent Information (Not for Publication) First Name: Cynthia Last Name: Cohn Title: Assistant Director of Institutional Researc · Whitman College"
+  }
+}

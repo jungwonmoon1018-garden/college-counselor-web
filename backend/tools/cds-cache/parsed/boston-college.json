@@ -1,0 +1,305 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "boston-college",
+  "school": "Boston College",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.1619,
+  "yieldRate": 0.4251,
+  "enrolledSAT": {
+    "p25": 1460,
+    "p75": 1520
+  },
+  "enrolledACT": {
+    "p25": 33,
+    "p75": 35
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "important",
+    "gpa": "very_important",
+    "test_scores": "important",
+    "application_essay": "important",
+    "recommendations": "important",
+    "interview": "not_considered",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "important",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 34779,
+    "admitted": 5632,
+    "enrolled": 2394
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 14099,
+        "admitted": 2800,
+        "admitRate": 0.1986
+      },
+      "women": {
+        "applied": 20674,
+        "admitted": 2832,
+        "admitRate": 0.137
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1Wz4J6SRfCTTibOEHavBLweEnYAxG_oJR",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 710,
+        "p50": 740,
+        "p75": 760
+      },
+      "math": {
+        "p25": 730,
+        "p50": 760,
+        "p75": 780
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 34,
+        "p50": 35,
+        "p75": 35
+      },
+      "math": {
+        "p25": 30,
+        "p50": 32,
+        "p75": 34
+      },
+      "science": {
+        "p25": 32,
+        "p50": 33,
+        "p75": 35
+      }
+    },
+    "submitting": {
+      "satPct": 30,
+      "actPct": 15
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 94.8
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 4.8
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 0.3
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 86.2
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 12.9
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 0.7
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0.1
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 91.8
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 7.6
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 0.4
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0.1
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0.1
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 99.2
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 0.8
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 97.8
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 1.9
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 0.3
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 80.1
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 20
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 99.2
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 0.8
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 94.8
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 5.2
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 90,
+      "topQuarterPct": 96.9,
+      "topHalfPct": 99.1,
+      "submittedPct": 26.6
+    },
+    "earlyDecision": {
+      "applications": 4288,
+      "admitted": 1434,
+      "admitRate": 0.3344
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-02",
+        "raw": "1/2"
+      },
+      "edClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1/25"
+      },
+      "edNotification": "by 12/15/25",
+      "edIIClosing": {
+        "mmdd": "01-02",
+        "raw": "1/2/25"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 62865
+    },
+    "enrollment": {
+      "undergraduates": 9654
+    },
+    "graduation": {
+      "sixYearPct": 91,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 7444,
+      "accepted": 4139,
+      "admitted": 352
+    },
+    "transfer": {
+      "applied": 1480,
+      "admitted": 410,
+      "enrolled": 181
+    },
+    "studentLife": {
+      "outOfStatePct": 78,
+      "onCampusPct": 99
+    },
+    "costs": {
+      "tuitionUsd": 72180,
+      "requiredFeesUsd": 1328,
+      "foodAndHousingUsd": 19290,
+      "academicYear": "2025-2026"
+    }
+  },
+  "ingestedAt": "2026-09-15 17:06:08",
+  "updatedAt": "2026-09-15 17:06:08",
+  "validation": {
+    "school": "Boston College",
+    "slug": "boston-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 CDS-A Page 1 A0 Respondent Information (Not for Publication) Name: Shadman Islem Title: Assistant Director, Institutional Research Off · Boston College"
+  }
+}

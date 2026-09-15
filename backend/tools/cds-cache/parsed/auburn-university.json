@@ -1,0 +1,146 @@
+{
+  "source": "cds",
+  "extractionMethod": "xlsx",
+  "slug": "auburn-university",
+  "school": "Auburn University",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.4593,
+  "yieldRate": 0.2414,
+  "enrolledSAT": {
+    "p25": 1260,
+    "p75": 1380
+  },
+  "enrolledACT": {
+    "p25": 26,
+    "p75": 31
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 4.09
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 55054,
+    "admitted": 25284,
+    "enrolled": 6103
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 22199,
+        "admitted": 10586,
+        "admitRate": 0.4769
+      },
+      "women": {
+        "applied": 32855,
+        "admitted": 14698,
+        "admitRate": 0.4474
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://docs.google.com/spreadsheets/d/1fxDNA-7P00i1c4YdEl0l1-ZqQdg3uUVF/export?format=xlsx",
+  "sourceKind": "xlsx",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 630,
+        "p50": 660,
+        "p75": 690
+      },
+      "math": {
+        "p25": 620,
+        "p50": 660,
+        "p75": 700
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 25,
+        "p50": 29,
+        "p75": 33
+      },
+      "math": {
+        "p25": 24,
+        "p50": 26,
+        "p75": 29
+      },
+      "reading": {
+        "p25": 26,
+        "p50": 31,
+        "p75": 34
+      }
+    },
+    "gpa": {
+      "average": 4.09,
+      "submittedPct": 100
+    },
+    "applicationFeeUsd": 50,
+    "dates": {
+      "regularClosing": {
+        "mmdd": "02-01",
+        "raw": "February 1"
+      },
+      "eaClosing": {
+        "mmdd": "11-01",
+        "raw": "November 1"
+      },
+      "aidPriority": {
+        "mmdd": "03-28",
+        "raw": "March 28 yes"
+      }
+    },
+    "enrollment": {
+      "undergraduates": 27907
+    },
+    "retention": {
+      "firstYearPct": 94.7
+    },
+    "graduation": {
+      "sixYearPct": 82,
+      "cohort": 2018
+    },
+    "transfer": {
+      "applied": 4645,
+      "admitted": 2400,
+      "enrolled": 1203
+    },
+    "studentLife": {
+      "outOfStatePct": 46,
+      "onCampusPct": 58
+    },
+    "aid": {
+      "needMetPct": 60
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 304,
+        "10-19": 779,
+        "20-29": 905,
+        "30-39": 458,
+        "40-49": 242,
+        "50-99": 310,
+        "100+": 200,
+        "total": 3198
+      },
+      "under20Pct": 33.9
+    }
+  },
+  "ingestedAt": "2026-09-15 17:05:12",
+  "updatedAt": "2026-09-15 17:05:12",
+  "validation": {
+    "school": "Auburn University",
+    "slug": "auburn-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

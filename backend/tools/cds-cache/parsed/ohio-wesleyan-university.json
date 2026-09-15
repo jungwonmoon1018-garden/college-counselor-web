@@ -1,0 +1,60 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "ohio-wesleyan-university",
+  "school": "Ohio Wesleyan University",
+  "year": 2023,
+  "yearLabel": "2023-24",
+  "tier": null,
+  "overallAdmitRate": 0.5067,
+  "yieldRate": 0.1452,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "not_considered",
+    "application_essay": "important",
+    "recommendations": "important",
+    "interview": "considered",
+    "ec": "considered",
+    "talent_ability": "considered",
+    "character": "important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 5708,
+    "admitted": 2892,
+    "enrolled": 420
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1YqSOuoijtprh1lihDeLMNnPWzcpm--Bo",
+  "sourceKind": "pdf_merged",
+  "parserVersion": 6,
+  "parserNotes": [
+    "merged_form_fields"
+  ],
+  "extras": null,
+  "ingestedAt": "2026-09-15 17:11:11",
+  "updatedAt": "2026-09-15 17:11:11",
+  "validation": {
+    "school": "Ohio Wesleyan University",
+    "slug": "ohio-wesleyan-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

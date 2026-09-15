@@ -1,0 +1,411 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "amherst-college",
+  "school": "Amherst College",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.0901,
+  "yieldRate": 0.3877,
+  "enrolledSAT": {
+    "p25": 1500,
+    "p75": 1560
+  },
+  "enrolledACT": {
+    "p25": 33,
+    "p75": 35
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "important",
+    "gpa": "very_important",
+    "test_scores": "very_important",
+    "application_essay": "very_important",
+    "recommendations": "very_important",
+    "interview": "not_considered",
+    "ec": "very_important",
+    "talent_ability": "very_important",
+    "character": "important",
+    "first_generation": "important",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "important",
+    "work_experience": "important",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 13742,
+    "admitted": 1238,
+    "enrolled": 480
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 6121,
+        "admitted": 508,
+        "admitRate": 0.083
+      },
+      "women": {
+        "applied": 6776,
+        "admitted": 652,
+        "admitRate": 0.0962
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1nyc6IMyEA2YcnGR-0O0PXFTQufJsn-bp",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 740,
+        "p50": 760,
+        "p75": 780
+      },
+      "math": {
+        "p25": 750,
+        "p50": 780,
+        "p75": 800
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 34,
+        "p50": 35,
+        "p75": 36
+      },
+      "math": {
+        "p25": 32,
+        "p50": 34,
+        "p75": 35
+      },
+      "reading": {
+        "p25": 34,
+        "p50": 35,
+        "p75": 36
+      },
+      "science": {
+        "p25": 33,
+        "p50": 34,
+        "p75": 35
+      }
+    },
+    "submitting": {
+      "satPct": 39,
+      "actPct": 22
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 98
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 2
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 95
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 5
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 0
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 97
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 3
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 0
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 98
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 2
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 0
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 0
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 0
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 97
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 3
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 0
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 93
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 7
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 0
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 99
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 1
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 0
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 97
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 3
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 0
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 93,
+      "topQuarterPct": 99,
+      "topHalfPct": 100,
+      "submittedPct": 29
+    },
+    "applicationFeeUsd": 75,
+    "earlyDecision": {
+      "applications": 735,
+      "admitted": 216,
+      "admitRate": 0.2939
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-06",
+        "raw": "1/6"
+      },
+      "edClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      },
+      "edNotification": "12/15"
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 69507
+    },
+    "enrollment": {
+      "undergraduates": 1914
+    },
+    "graduation": {
+      "sixYearPct": 94,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 1105,
+      "accepted": 623,
+      "admitted": 8
+    },
+    "transfer": {
+      "applied": 638,
+      "admitted": 55,
+      "enrolled": 31
+    },
+    "studentLife": {
+      "outOfStatePct": 84,
+      "onCampusPct": 100
+    },
+    "costs": {
+      "tuitionUsd": 69820,
+      "requiredFeesUsd": 660,
+      "foodAndHousingUsd": 18390
+    }
+  },
+  "ingestedAt": "2026-09-15 17:04:57",
+  "updatedAt": "2026-09-15 17:04:57",
+  "validation": {
+    "school": "Amherst College",
+    "slug": "amherst-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Name: Jesse Barba Title: Director of Institutional Research Office: Office of Institut · Amherst College"
+  }
+}

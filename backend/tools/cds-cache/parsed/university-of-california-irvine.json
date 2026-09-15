@@ -1,0 +1,121 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-california-irvine",
+  "school": "University of California, Irvine",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.2878,
+  "yieldRate": 0.1907,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "not_considered",
+    "gpa": "very_important",
+    "test_scores": "not_considered",
+    "application_essay": "very_important",
+    "recommendations": "not_considered",
+    "interview": "not_considered",
+    "ec": "very_important",
+    "talent_ability": "very_important",
+    "character": "important",
+    "first_generation": "considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "very_important",
+    "work_experience": "very_important",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 122706,
+    "admitted": 35317,
+    "enrolled": 6736
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 56925,
+        "admitted": 14682,
+        "admitRate": 0.2579
+      },
+      "women": {
+        "applied": 64049,
+        "admitted": 20174,
+        "admitRate": 0.315
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1E6CPsg5A5FC83Kl5AzRfhXifxSd5O2j9",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "gpa": {
+      "submittedPct": 0
+    },
+    "applicationFeeUsd": 80,
+    "dates": {
+      "regularClosing": {
+        "mmdd": "11-30",
+        "raw": "11/30"
+      },
+      "aidPriority": {
+        "mmdd": "03-04",
+        "raw": "3/4/2025"
+      },
+      "aidDeadline": {
+        "mmdd": "05-30",
+        "raw": "5/30/2025"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 29751
+    },
+    "enrollment": {
+      "undergraduates": 30204
+    },
+    "graduation": {
+      "sixYearPct": 87,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 13155,
+      "accepted": 6259,
+      "admitted": 6259
+    },
+    "transfer": {
+      "applied": 25103,
+      "admitted": 10023,
+      "enrolled": 2719
+    },
+    "studentLife": {
+      "outOfStatePct": 8,
+      "onCampusPct": 80
+    },
+    "costs": {
+      "tuitionInStateUsd": 13602,
+      "tuitionOutOfStateUsd": 51204,
+      "requiredFeesUsd": 2852,
+      "foodAndHousingUsd": 19653
+    }
+  },
+  "ingestedAt": "2026-09-15 17:13:39",
+  "updatedAt": "2026-09-15 17:13:39",
+  "validation": {
+    "school": "University of California, Irvine",
+    "slug": "university-of-california-irvine",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Name: Ryan Cherland Title: Assistant Vice Chancellor Office: Office of Academic Planni · University of California, Irvine"
+  }
+}

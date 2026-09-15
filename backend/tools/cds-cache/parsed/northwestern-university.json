@@ -1,35 +1,49 @@
 {
-  "school": "Northwestern University",
-  "slug": "northwestern-university",
-  "tier": "Sub-Ivy",
-  "year": 2024,
   "source": "cds",
-  "parserVersion": 4,
-  "testPolicy": "test_required",
-  "b1": {
-    "applied": 49460,
-    "admitted": 3805,
-    "enrolled": 2104
-  },
+  "extractionMethod": "pdfjs",
+  "slug": "northwestern-university",
+  "school": "Northwestern University",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
   "overallAdmitRate": 0.0769,
-  "yieldRate": 0.553,
+  "yieldRate": 0.5531,
   "enrolledSAT": {
     "p25": 1510,
-    "p75": 1570
+    "p75": 1560
   },
   "enrolledACT": {
     "p25": 34,
-    "p75": 36
+    "p75": 35
   },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
   "c7": {},
-  "validation": {
-    "school": "Northwestern University",
-    "slug": "northwestern-university",
-    "status": "ok",
-    "discrepancies": [],
-    "overrides": {},
-    "scopeFromPDF": null
+  "b1": {
+    "applied": 49474,
+    "admitted": 3806,
+    "enrolled": 2105
   },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 23774,
+        "admitted": 1735,
+        "admitRate": 0.073
+      },
+      "women": {
+        "applied": 25686,
+        "admitted": 2070,
+        "admitRate": 0.0806
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://enrollment.northwestern.edu/data/2024-2025.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
   "extras": {
     "satSections": {
       "math": {
@@ -345,6 +359,35 @@
     },
     "aid": {
       "averagePackageFirstYearUsd": 67785
+    },
+    "enrollment": {
+      "undergraduates": 9060
+    },
+    "graduation": {
+      "sixYearPct": 95,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "admitted": 59
+    },
+    "transfer": {
+      "applied": 4045,
+      "admitted": 484,
+      "enrolled": 277
+    },
+    "studentLife": {
+      "outOfStatePct": 79,
+      "onCampusPct": 99
     }
+  },
+  "ingestedAt": "2026-09-15 17:10:51",
+  "updatedAt": "2026-09-15 17:10:51",
+  "validation": {
+    "school": "Northwestern University",
+    "slug": "northwestern-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
   }
 }

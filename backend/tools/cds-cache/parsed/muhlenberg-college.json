@@ -1,0 +1,128 @@
+{
+  "source": "cds",
+  "extractionMethod": "xlsx",
+  "slug": "muhlenberg-college",
+  "school": "Muhlenberg College",
+  "year": null,
+  "yearLabel": "2023-24",
+  "tier": null,
+  "overallAdmitRate": 0.6401,
+  "yieldRate": null,
+  "enrolledSAT": {
+    "p25": 1230,
+    "p75": 1390
+  },
+  "enrolledACT": {
+    "p25": 28,
+    "p75": 31
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.55
+  },
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "considered",
+    "recommendations": "important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "interview": "important",
+    "talent_ability": "important",
+    "character": "very_important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "not_considered",
+    "volunteer_work": "important",
+    "work_experience": "important",
+    "level_of_interest": "considered",
+    "gpa": "not_considered",
+    "ec": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered"
+  },
+  "b1": {
+    "applied": 4348,
+    "admitted": 2783
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://docs.google.com/spreadsheets/d/1lDR736MgkyhkmQce-ujs3KBVzzOIEkFt/export?format=xlsx",
+  "sourceKind": "xlsx",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 630,
+        "p50": 670,
+        "p75": 710
+      },
+      "math": {
+        "p25": 600,
+        "p50": 640,
+        "p75": 690
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 27,
+        "p50": 30,
+        "p75": 33
+      },
+      "math": {
+        "p25": 25,
+        "p50": 26,
+        "p75": 30
+      }
+    },
+    "classRank": {
+      "topHalfPct": 100
+    },
+    "gpa": {
+      "average": 3.55
+    },
+    "earlyDecision": {
+      "applications": 266,
+      "admitted": 199,
+      "admitRate": 0.7481
+    },
+    "dates": {
+      "edNotification": "2024-12-15"
+    },
+    "graduation": {
+      "sixYearPct": 80.2,
+      "cohort": 2017
+    },
+    "waitlist": {
+      "offered": 531,
+      "accepted": 156,
+      "admitted": 1
+    },
+    "transfer": {
+      "applied": 126,
+      "admitted": 34,
+      "enrolled": 20
+    },
+    "studentLife": {
+      "outOfStatePct": 19.2,
+      "onCampusPct": 96
+    },
+    "aid": {
+      "needMetPct": 87.9
+    }
+  },
+  "ingestedAt": "2026-09-15 17:10:38",
+  "updatedAt": "2026-09-15 17:10:38",
+  "validation": {
+    "school": "Muhlenberg College",
+    "slug": "muhlenberg-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

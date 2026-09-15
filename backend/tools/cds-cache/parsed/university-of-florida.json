@@ -1,4 +1,6 @@
 {
+  "source": "cds",
+  "extractionMethod": "pdfjs",
   "slug": "university-of-florida",
   "school": "University of Florida",
   "year": 2025,
@@ -31,7 +33,7 @@
   "priorities": [],
   "sourceUrl": "https://data-apps.ir.aa.ufl.edu/public/cds/CDS%202025-26_v8_08.14.2026.pdf",
   "sourceKind": "pdf_text",
-  "parserVersion": 5,
+  "parserVersion": 6,
   "parserNotes": [],
   "extras": {
     "satSections": {
@@ -399,14 +401,45 @@
     },
     "aid": {
       "averagePackageFirstYearUsd": 21768
+    },
+    "enrollment": {
+      "undergraduates": 37283
+    },
+    "graduation": {
+      "sixYearPct": 92,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 3196,
+      "accepted": 2737,
+      "admitted": 1
+    },
+    "studentLife": {
+      "outOfStatePct": 21,
+      "onCampusPct": 69
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 764,
+        "10-19": 879,
+        "20-29": 660,
+        "30-39": 346,
+        "40-49": 248,
+        "50-99": 251,
+        "100+": 108,
+        "total": 3256
+      },
+      "under20Pct": 50.5
     }
   },
-  "ingestedAt": "2026-09-15 14:04:49",
-  "updatedAt": "2026-09-15 14:04:49",
+  "ingestedAt": "2026-09-15 17:14:11",
+  "updatedAt": "2026-09-15 17:14:11",
   "validation": {
+    "school": "University of Florida",
+    "slug": "university-of-florida",
     "status": "consistent",
     "discrepancies": [],
     "overrides": {},
-    "validatedAt": "2026-09-15 14:04:50"
+    "scopeFromPDF": "Common Data Set 2025-2026 - UF Main Campus A. · University of Florida"
   }
 }

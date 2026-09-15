@@ -1,0 +1,155 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-california-santa-barbara",
+  "school": "University of California, Santa Barbara",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.3296,
+  "yieldRate": 0.1378,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": {
+    "p25": 4,
+    "p75": 4,
+    "avg": 4.3
+  },
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "important",
+    "class_rank": "not_considered",
+    "gpa": "very_important",
+    "test_scores": "not_considered",
+    "application_essay": "very_important",
+    "recommendations": "not_considered",
+    "interview": "not_considered",
+    "ec": "considered",
+    "talent_ability": "considered",
+    "character": "considered",
+    "first_generation": "considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 110266,
+    "admitted": 36347,
+    "enrolled": 5008
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 47530,
+        "admitted": 13764,
+        "admitRate": 0.2896
+      },
+      "women": {
+        "applied": 57512,
+        "admitted": 20641,
+        "admitRate": 0.3589
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1992WqPbdNyHeaw0-sqQTw9kLNVXGSm8c",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 90.4
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 6.1
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 2.9
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 0.4
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 0.2
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 0
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 4.3,
+      "submittedPct": 97.6
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "11-30",
+        "raw": "11/30"
+      }
+    },
+    "enrollment": {
+      "undergraduates": 23181
+    },
+    "graduation": {
+      "sixYearPct": 83,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 15958,
+      "accepted": 10641,
+      "admitted": 8715
+    },
+    "transfer": {
+      "applied": 18440,
+      "admitted": 11369,
+      "enrolled": 2109
+    },
+    "studentLife": {
+      "outOfStatePct": 10,
+      "onCampusPct": 95
+    }
+  },
+  "ingestedAt": "2026-09-15 17:13:45",
+  "updatedAt": "2026-09-15 17:13:45",
+  "validation": {
+    "school": "University of California, Santa Barbara",
+    "slug": "university-of-california-santa-barbara",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Name: Steven Velasco Title: Director Office: Institutional Research, Planning & Assess · University of California, Santa Barbara"
+  }
+}

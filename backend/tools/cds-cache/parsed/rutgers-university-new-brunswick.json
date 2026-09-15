@@ -1,0 +1,128 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "rutgers-university-new-brunswick",
+  "school": "Rutgers University-New Brunswick",
+  "year": 2023,
+  "yearLabel": "2023-24",
+  "tier": null,
+  "overallAdmitRate": 0.6535,
+  "yieldRate": 0.2712,
+  "enrolledSAT": {
+    "p25": 1270,
+    "p75": 1480
+  },
+  "enrolledACT": {
+    "p25": 28,
+    "p75": 33
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "not_considered",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "not_considered",
+    "interview": "not_considered",
+    "ec": "important",
+    "talent_ability": "not_considered",
+    "character": "important",
+    "first_generation": "considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 43347,
+    "admitted": 28326,
+    "enrolled": 7681
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 20326,
+        "admitted": 13052,
+        "admitRate": 0.6421
+      },
+      "women": {
+        "applied": 23021,
+        "admitted": 15274,
+        "admitRate": 0.6635
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1zHfENwACXAI_irSTzvjIG1U2qpurZG66",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 630,
+        "p50": 680,
+        "p75": 720
+      },
+      "math": {
+        "p25": 640,
+        "p50": 700,
+        "p75": 760
+      }
+    },
+    "submitting": {
+      "satPct": 50.9,
+      "actPct": 5.4
+    },
+    "classRank": {
+      "topTenthPct": 30,
+      "topQuarterPct": 66,
+      "topHalfPct": 92,
+      "submittedPct": 14
+    },
+    "applicationFeeUsd": 70,
+    "earlyDecision": {
+      "applications": 21,
+      "admitted": 21,
+      "admitRate": 1
+    },
+    "dates": {
+      "edNotification": "C21",
+      "aidPriority": {
+        "mmdd": "12-01",
+        "raw": "H9 12/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 14373
+    },
+    "enrollment": {
+      "undergraduates": 36588
+    },
+    "graduation": {
+      "sixYearPct": 85,
+      "cohort": 2017
+    },
+    "studentLife": {
+      "outOfStatePct": 9,
+      "onCampusPct": 75
+    }
+  },
+  "ingestedAt": "2026-09-15 17:11:37",
+  "updatedAt": "2026-09-15 17:11:37",
+  "validation": {
+    "school": "Rutgers University-New Brunswick",
+    "slug": "rutgers-university-new-brunswick",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2023-2024 RUTGERS UNIVERSITY – NEW BRUNSWICK A1 Address Information A1 Name of College/University: A1 Mailing Address: A1 City/State/Zip/Country · A1 Mailing"
+  }
+}

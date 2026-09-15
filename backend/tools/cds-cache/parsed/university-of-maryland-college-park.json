@@ -1,0 +1,160 @@
+{
+  "source": "cds",
+  "extractionMethod": "xlsx",
+  "slug": "university-of-maryland-college-park",
+  "school": "University of Maryland, College Park",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.448,
+  "yieldRate": 0.2163,
+  "enrolledSAT": {
+    "p25": 1410,
+    "p75": 1520
+  },
+  "enrolledACT": {
+    "p25": 32,
+    "p75": 35
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 4.44
+  },
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "not_considered",
+    "class_rank": "considered",
+    "gpa": "not_considered",
+    "test_scores": "considered",
+    "application_essay": "very_important",
+    "recommendations": "very_important",
+    "interview": "considered",
+    "ec": "not_considered",
+    "talent_ability": "very_important",
+    "character": "not_considered",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 60042,
+    "admitted": 26897,
+    "enrolled": 5818
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 29991,
+        "admitted": 12659,
+        "admitRate": 0.4221
+      },
+      "women": {
+        "applied": 30007,
+        "admitted": 14209,
+        "admitRate": 0.4735
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://docs.google.com/spreadsheets/d/13-gMhKZTC31aAQz6s9d1G-MoszUyrhBe/export?format=xlsx",
+  "sourceKind": "xlsx",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 680,
+        "p50": 720,
+        "p75": 750
+      },
+      "math": {
+        "p25": 710,
+        "p50": 750,
+        "p75": 780
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 33,
+        "p50": 35,
+        "p75": 35
+      },
+      "math": {
+        "p25": 29,
+        "p50": 32,
+        "p75": 35
+      }
+    },
+    "gpa": {
+      "average": 4.44
+    },
+    "applicationFeeUsd": 75,
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-20",
+        "raw": "1/20"
+      }
+    },
+    "enrollment": {
+      "undergraduates": 31133
+    },
+    "graduation": {
+      "sixYearPct": 88.6,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 250,
+      "admitted": 0
+    },
+    "transfer": {
+      "applied": 6468,
+      "admitted": 4092,
+      "enrolled": 2538
+    },
+    "studentLife": {
+      "outOfStatePct": 30,
+      "onCampusPct": 89.1
+    },
+    "costs": {
+      "tuitionInStateUsd": 10087,
+      "tuitionOutOfStateUsd": 39464,
+      "requiredFeesUsd": 1722,
+      "foodAndHousingUsd": 15719,
+      "academicYear": "2025-2026"
+    },
+    "aid": {
+      "needMetPct": 67.1
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 551,
+        "10-19": 1283,
+        "20-29": 763,
+        "30-39": 426,
+        "40-49": 257,
+        "50-99": 411,
+        "100+": 326,
+        "total": 4017
+      },
+      "under20Pct": 45.7
+    }
+  },
+  "ingestedAt": "2026-09-15 17:14:42",
+  "updatedAt": "2026-09-15 17:14:42",
+  "validation": {
+    "school": "University of Maryland, College Park",
+    "slug": "university-of-maryland-college-park",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

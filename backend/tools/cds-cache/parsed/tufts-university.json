@@ -1,0 +1,204 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "tufts-university",
+  "school": "Tufts University",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.1153,
+  "yieldRate": 0.4551,
+  "enrolledSAT": {
+    "p25": 1480,
+    "p75": 1540
+  },
+  "enrolledACT": {
+    "p25": 33,
+    "p75": 35
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "very_important",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "very_important",
+    "recommendations": "very_important",
+    "interview": "considered",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "very_important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 34330,
+    "admitted": 3957,
+    "enrolled": 1801
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 14314,
+        "admitted": 1633,
+        "admitRate": 0.1141
+      },
+      "women": {
+        "applied": 18839,
+        "admitted": 2189,
+        "admitRate": 0.1162
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1hEj-ItSJm3HogJxkfPJ94oeHWFAGYEjK",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 720,
+        "p50": 740,
+        "p75": 770
+      },
+      "math": {
+        "p25": 750,
+        "p50": 770,
+        "p75": 790
+      }
+    },
+    "submitting": {
+      "satPct": 38,
+      "actPct": 18
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 98.8
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 1.2
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 91.6
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 8.4
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 96.4
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 3.6
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 98.7
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 1.3
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 0
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 0
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 0
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ]
+    },
+    "classRank": {
+      "submittedPct": 32
+    },
+    "gpa": {
+      "submittedPct": 0
+    },
+    "dates": {
+      "edNotification": "Mid-December",
+      "aidDeadline": {
+        "mmdd": "02-15",
+        "raw": "February 15"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 59574
+    },
+    "enrollment": {
+      "undergraduates": 7126
+    },
+    "graduation": {
+      "sixYearPct": 94,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 2800,
+      "accepted": 991,
+      "admitted": 354
+    },
+    "transfer": {
+      "applied": 1610,
+      "admitted": 342,
+      "enrolled": 118
+    },
+    "studentLife": {
+      "outOfStatePct": 76,
+      "onCampusPct": 100
+    }
+  },
+  "ingestedAt": "2026-09-15 17:13:10",
+  "updatedAt": "2026-09-15 17:13:10",
+  "validation": {
+    "school": "Tufts University",
+    "slug": "tufts-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Mailing Address: 2 The Green City/State/Zip/Country: Medford, MA 01255, USA Phone: 617 · Tufts University"
+  }
+}

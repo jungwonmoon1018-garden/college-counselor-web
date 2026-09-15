@@ -1,0 +1,152 @@
+{
+  "source": "cds",
+  "extractionMethod": "xlsx",
+  "slug": "seattle-university",
+  "school": "Seattle University",
+  "year": null,
+  "yearLabel": "2022-23",
+  "tier": null,
+  "overallAdmitRate": 0.8515,
+  "yieldRate": 0.1486,
+  "enrolledSAT": {
+    "p25": 1160,
+    "p75": 1360
+  },
+  "enrolledACT": {
+    "p25": 24,
+    "p75": 30
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "not_considered",
+    "class_rank": "considered",
+    "gpa": "not_considered",
+    "test_scores": "considered",
+    "application_essay": "very_important",
+    "recommendations": "very_important",
+    "interview": "considered",
+    "ec": "not_considered",
+    "talent_ability": "considered",
+    "character": "not_considered",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 7934,
+    "admitted": 6756,
+    "enrolled": 1004
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 2717,
+        "admitted": 2297,
+        "admitRate": 0.8454
+      },
+      "women": {
+        "applied": 5217,
+        "admitted": 4459,
+        "admitRate": 0.8547
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://docs.google.com/spreadsheets/d/1aAMAz6PsbdlzMLmo3vjtxQg5IhD8kXKv/export?format=xlsx",
+  "sourceKind": "xlsx",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 580,
+        "p50": 640,
+        "p75": 690
+      },
+      "math": {
+        "p25": 570,
+        "p50": 620,
+        "p75": 690
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 23,
+        "p50": 26,
+        "p75": 30
+      },
+      "math": {
+        "p25": 23,
+        "p50": 26,
+        "p75": 28
+      },
+      "science": {
+        "p25": 23,
+        "p50": 26,
+        "p75": 36
+      }
+    },
+    "applicationFeeUsd": 60,
+    "enrollment": {
+      "undergraduates": 4113
+    },
+    "graduation": {
+      "sixYearPct": 74.3,
+      "cohort": 2016
+    },
+    "waitlist": {
+      "offered": 309,
+      "accepted": 122,
+      "admitted": 122
+    },
+    "transfer": {
+      "applied": 1336,
+      "admitted": 764,
+      "enrolled": 320
+    },
+    "studentLife": {
+      "outOfStatePct": 53,
+      "onCampusPct": 86
+    },
+    "costs": {
+      "tuitionUsd": 53235,
+      "requiredFeesUsd": 1050,
+      "foodAndHousingUsd": 14748,
+      "academicYear": "2023-2024"
+    },
+    "aid": {
+      "needMetPct": 81.6
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 218,
+        "10-19": 352,
+        "20-29": 166,
+        "30-39": 69,
+        "40-49": 13,
+        "50-99": 7,
+        "100+": 55,
+        "total": 880
+      },
+      "under20Pct": 64.8
+    }
+  },
+  "ingestedAt": "2026-09-15 17:11:50",
+  "updatedAt": "2026-09-15 17:11:50",
+  "validation": {
+    "school": "Seattle University",
+    "slug": "seattle-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

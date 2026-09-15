@@ -1,0 +1,343 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-connecticut",
+  "school": "University of Connecticut",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.5239,
+  "yieldRate": 0.1541,
+  "enrolledSAT": {
+    "p25": 1220,
+    "p75": 1420
+  },
+  "enrolledACT": {
+    "p25": 28,
+    "p75": 33
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "very_important",
+    "gpa": "very_important",
+    "test_scores": "very_important",
+    "application_essay": "very_important",
+    "recommendations": "important",
+    "interview": "not_considered",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "important",
+    "first_generation": "important",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "important",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 55479,
+    "admitted": 29065,
+    "enrolled": 4478
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 23683,
+        "admitted": 11403,
+        "admitRate": 0.4815
+      },
+      "women": {
+        "applied": 31770,
+        "admitted": 17652,
+        "admitRate": 0.5556
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1BBILZKCO-i59J0oRpd2d3FK2NOzlMbIz",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 610,
+        "p50": 670,
+        "p75": 710
+      },
+      "math": {
+        "p25": 600,
+        "p50": 670,
+        "p75": 730
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 29,
+        "p50": 32,
+        "p75": 35
+      },
+      "math": {
+        "p25": 26,
+        "p50": 28,
+        "p75": 32
+      }
+    },
+    "submitting": {
+      "satPct": 36,
+      "actPct": 5
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 33.2
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 44.2
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 15.5
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 6.3
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 33.2
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 43.9
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 16
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 6
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0.8
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0.1
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0.8
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 38.9
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 37.9
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 15.5
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 6.3
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 1.4
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 63.6
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 29.9
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 6.1
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 0.5
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 0
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 67.8
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 21
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 9.8
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 1.4
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 41.1
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 46.7
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 10.3
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 1.9
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 47.2,
+      "topQuarterPct": 83.1,
+      "topHalfPct": 97.3,
+      "submittedPct": 35.3
+    },
+    "applicationFeeUsd": 80,
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-15",
+        "raw": "January 15"
+      },
+      "edNotification": "Mid December"
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 22411
+    },
+    "enrollment": {
+      "undergraduates": 20056
+    },
+    "graduation": {
+      "sixYearPct": 83,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 2438,
+      "accepted": 642,
+      "admitted": 28
+    },
+    "transfer": {
+      "applied": 2455,
+      "admitted": 1626,
+      "enrolled": 754
+    },
+    "studentLife": {
+      "outOfStatePct": 45,
+      "onCampusPct": 95
+    }
+  },
+  "ingestedAt": "2026-09-15 17:14:01",
+  "updatedAt": "2026-09-15 17:14:01",
+  "validation": {
+    "school": "University of Connecticut",
+    "slug": "university-of-connecticut",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 X Yes No If yes, please provide the URL of the corresponding Web page: A0A A1 Address Information Name of College/University: Universi · University of Connecticut"
+  }
+}

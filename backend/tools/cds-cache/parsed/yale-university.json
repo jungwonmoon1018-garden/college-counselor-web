@@ -1,11 +1,13 @@
 {
+  "source": "cds",
+  "extractionMethod": "pdfjs",
   "slug": "yale-university",
   "school": "Yale University",
   "year": 2025,
   "yearLabel": "2025-26",
   "tier": null,
   "overallAdmitRate": 0.0475,
-  "yieldRate": 0.6875,
+  "yieldRate": 0.6841,
   "enrolledSAT": {
     "p25": 1480,
     "p75": 1560
@@ -20,7 +22,7 @@
   "b1": {
     "applied": 50264,
     "admitted": 2387,
-    "enrolled": 1641
+    "enrolled": 1633
   },
   "c1Breakdown": {
     "byGender": {
@@ -40,7 +42,7 @@
   "priorities": [],
   "sourceUrl": "https://oir.yale.edu/sites/default/files/yale_cds_2025-26_md_20260616.pdf",
   "sourceKind": "pdf_text",
-  "parserVersion": 5,
+  "parserVersion": 6,
   "parserNotes": [],
   "extras": {
     "satSections": {
@@ -190,14 +192,53 @@
     },
     "aid": {
       "averagePackageFirstYearUsd": 74353
+    },
+    "enrollment": {
+      "undergraduates": 6667
+    },
+    "retention": {
+      "firstYearPct": 99.4
+    },
+    "graduation": {
+      "sixYearPct": 96.3,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 944,
+      "accepted": 738,
+      "admitted": 32
+    },
+    "transfer": {
+      "applied": 1747,
+      "admitted": 45,
+      "enrolled": 35
+    },
+    "studentLife": {
+      "outOfStatePct": 91,
+      "onCampusPct": 100
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 376,
+        "10-19": 599,
+        "20-29": 130,
+        "30-39": 64,
+        "40-49": 39,
+        "50-99": 79,
+        "100+": 46,
+        "total": 1333
+      },
+      "under20Pct": 73.1
     }
   },
-  "ingestedAt": "2026-09-15 14:05:26",
-  "updatedAt": "2026-09-15 14:05:26",
+  "ingestedAt": "2026-09-15 17:16:57",
+  "updatedAt": "2026-09-15 17:16:57",
   "validation": {
+    "school": "Yale University",
+    "slug": "yale-university",
     "status": "consistent",
     "discrepancies": [],
     "overrides": {},
-    "validatedAt": "2026-09-15 14:05:26"
+    "scopeFromPDF": null
   }
 }

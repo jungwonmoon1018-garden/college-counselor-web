@@ -1,0 +1,230 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "scripps-college",
+  "school": "Scripps College",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.3989,
+  "yieldRate": 0.2337,
+  "enrolledSAT": {
+    "p25": 1430,
+    "p75": 1500
+  },
+  "enrolledACT": {
+    "p25": 32,
+    "p75": 34
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 3229,
+    "admitted": 1288,
+    "enrolled": 301
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.scrippscollege.edu/assessir/wp-content/uploads/sites/30/CDS_2025-2026_FINAL_V3.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 730,
+        "p50": 750,
+        "p75": 770
+      },
+      "math": {
+        "p25": 690,
+        "p50": 720,
+        "p75": 750
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 34,
+        "p50": 35,
+        "p75": 36
+      },
+      "math": {
+        "p25": 28,
+        "p50": 30,
+        "p75": 33
+      },
+      "reading": {
+        "p25": 35,
+        "p50": 36,
+        "p75": 36
+      },
+      "science": {
+        "p25": 31,
+        "p50": 33,
+        "p75": 34
+      }
+    },
+    "submitting": {
+      "satPct": 19,
+      "actPct": 12
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 89
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 11
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 93
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 7
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 72
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 26
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 2
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 100
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 100
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 57
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 43
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 100
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 86
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 14
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 63,
+      "topQuarterPct": 90,
+      "topHalfPct": 100,
+      "submittedPct": 13
+    },
+    "applicationFeeUsd": 60,
+    "earlyDecision": {
+      "applications": 275,
+      "admitted": 141,
+      "admitRate": 0.5127
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-08",
+        "raw": "January 8"
+      },
+      "edClosing": {
+        "mmdd": "11-15",
+        "raw": "11/15"
+      },
+      "edNotification": "Mid-December",
+      "edIIClosing": {
+        "mmdd": "01-08",
+        "raw": "01/08"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 59623
+    },
+    "enrollment": {
+      "undergraduates": 1103
+    },
+    "retention": {
+      "firstYearPct": 92.3
+    },
+    "graduation": {
+      "sixYearPct": 84.5,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 537,
+      "accepted": 319,
+      "admitted": 70
+    },
+    "transfer": {
+      "applied": 117,
+      "admitted": 37,
+      "enrolled": 8
+    },
+    "studentLife": {
+      "outOfStatePct": 54,
+      "onCampusPct": 100
+    }
+  },
+  "ingestedAt": "2026-09-15 17:11:53",
+  "updatedAt": "2026-09-15 17:11:53",
+  "validation": {
+    "school": "Scripps College",
+    "slug": "scripps-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "COMMON DATA SET 2025-2026 SCRIPPS COLLEGE PAGE 1 OF 44 Welcome to the 2025-2026 Common Data Set Collection! The Common Data Set (CDS) initiative is a collaborat"
+  }
+}

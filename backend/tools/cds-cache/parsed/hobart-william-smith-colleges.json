@@ -1,0 +1,110 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "hobart-william-smith-colleges",
+  "school": "Hobart William Smith Colleges",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.667,
+  "yieldRate": 0.1247,
+  "enrolledSAT": {
+    "p25": 1185,
+    "p75": 1380
+  },
+  "enrolledACT": {
+    "p25": 30,
+    "p75": 32
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.83
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 5865,
+    "admitted": 3912,
+    "enrolled": 488
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 2795,
+        "admitted": 1761,
+        "admitRate": 0.6301
+      },
+      "women": {
+        "applied": 2991,
+        "admitted": 2109,
+        "admitRate": 0.7051
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.hws.edu/offices/irp/pdf/cds-2526.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 600,
+        "p50": 670,
+        "p75": 710
+      },
+      "math": {
+        "p25": 580,
+        "p50": 630,
+        "p75": 675
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 30,
+        "p75": 33
+      },
+      "reading": {
+        "p25": 31,
+        "p75": 35
+      },
+      "science": {
+        "p25": 30,
+        "p75": 33
+      }
+    },
+    "gpa": {
+      "average": 3.83
+    },
+    "earlyDecision": {
+      "applications": 125,
+      "admitted": 125,
+      "admitRate": 1
+    },
+    "dates": {
+      "edNotification": "12 15"
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 56426
+    },
+    "enrollment": {
+      "undergraduates": 1862
+    },
+    "studentLife": {
+      "outOfStatePct": 56.6,
+      "onCampusPct": 84.8
+    }
+  },
+  "ingestedAt": "2026-09-15 17:09:28",
+  "updatedAt": "2026-09-15 17:09:28",
+  "validation": {
+    "school": "Hobart William Smith Colleges",
+    "slug": "hobart-william-smith-colleges",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

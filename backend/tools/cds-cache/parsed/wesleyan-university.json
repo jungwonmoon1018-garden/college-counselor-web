@@ -1,0 +1,396 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "wesleyan-university",
+  "school": "Wesleyan University",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.1649,
+  "yieldRate": 0.3477,
+  "enrolledSAT": {
+    "p25": 1300,
+    "p75": 1500
+  },
+  "enrolledACT": {
+    "p25": 31,
+    "p75": 34
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "important",
+    "gpa": "important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "important",
+    "interview": "not_considered",
+    "ec": "considered",
+    "talent_ability": "important",
+    "character": "important",
+    "first_generation": "important",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 14389,
+    "admitted": 2373,
+    "enrolled": 825
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 5915,
+        "admitted": 1066,
+        "admitRate": 0.1802
+      },
+      "women": {
+        "applied": 8460,
+        "admitted": 1304,
+        "admitRate": 0.1541
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1Tu6btPPH-IrFDCQbFCmtwha7kLe8-enJ",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 660,
+        "p50": 710,
+        "p75": 750
+      },
+      "math": {
+        "p25": 630,
+        "p50": 700,
+        "p75": 760
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 33,
+        "p50": 34,
+        "p75": 35
+      },
+      "math": {
+        "p25": 28,
+        "p50": 30,
+        "p75": 33
+      },
+      "science": {
+        "p25": 30,
+        "p50": 32,
+        "p75": 34
+      }
+    },
+    "submitting": {
+      "satPct": 41,
+      "actPct": 17
+    },
+    "scoreDistribution": {
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 57.9
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 33.7
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 7.5
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0.9
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 53.1
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 30.2
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 14.3
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 2.4
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 84.6
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 11.2
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 4.2
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 0
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 0
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 83.9
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 11.2
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 4.9
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 63.4
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 28.9
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 7
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0.7
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 87.4
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 9.1
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 3.5
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 76.2
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 17.5
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 6.3
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 78,
+      "topQuarterPct": 94,
+      "topHalfPct": 99,
+      "submittedPct": 23
+    },
+    "gpa": {
+      "submittedPct": 0
+    },
+    "applicationFeeUsd": 65,
+    "earlyDecision": {
+      "applications": 1309,
+      "admitted": 502,
+      "admitRate": 0.3835
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-01",
+        "raw": "1/1"
+      },
+      "edClosing": {
+        "mmdd": "11-15",
+        "raw": "11/15"
+      },
+      "edNotification": "12/15",
+      "edIIClosing": {
+        "mmdd": "01-01",
+        "raw": "1/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 75903
+    },
+    "enrollment": {
+      "undergraduates": 3805
+    },
+    "graduation": {
+      "sixYearPct": 92.6,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 2844,
+      "accepted": 1734,
+      "admitted": 5
+    },
+    "transfer": {
+      "applied": 543,
+      "admitted": 131,
+      "enrolled": 48
+    },
+    "studentLife": {
+      "outOfStatePct": 90,
+      "onCampusPct": 100
+    }
+  },
+  "ingestedAt": "2026-09-15 17:16:39",
+  "updatedAt": "2026-09-15 17:16:39",
+  "validation": {
+    "school": "Wesleyan University",
+    "slug": "wesleyan-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Name: Rick Shoup Title: Institutional Research Analyst Office: Office of Institutional · Wesleyan University"
+  }
+}

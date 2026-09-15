@@ -1,0 +1,107 @@
+{
+  "source": "cds",
+  "extractionMethod": "xlsx",
+  "slug": "college-of-william-and-mary",
+  "school": "College of William and Mary",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.3407,
+  "yieldRate": 0.2662,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "very_important",
+    "gpa": "very_important",
+    "test_scores": "very_important",
+    "application_essay": "very_important",
+    "recommendations": "very_important",
+    "interview": "considered",
+    "ec": "very_important",
+    "talent_ability": "very_important",
+    "character": "very_important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "very_important",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "very_important",
+    "work_experience": "very_important",
+    "level_of_interest": "considered",
+    "racial_ethnic_status": "not_considered"
+  },
+  "b1": {
+    "applied": 17798,
+    "admitted": 6064,
+    "enrolled": 1614
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 6742,
+        "admitted": 2519,
+        "admitRate": 0.3736
+      },
+      "women": {
+        "applied": 11047,
+        "admitted": 3544,
+        "admitRate": 0.3208
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://docs.google.com/spreadsheets/d/1UqaTEr0J4PRNRpTPjdfsSiru-zQ5WlIB/export?format=xlsx",
+  "sourceKind": "xlsx",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "actSections": {
+      "english": {
+        "p25": 25,
+        "p75": 34
+      },
+      "math": {
+        "p25": 25,
+        "p75": 28
+      }
+    },
+    "applicationFeeUsd": 75,
+    "earlyDecision": {
+      "applications": 1586,
+      "admitted": 746,
+      "admitRate": 0.4704
+    },
+    "dates": {
+      "edNotification": "C2103  Mid-December First-Time, First-Year Admission Admission Policies Early Decision Undergraduates First-time, first-year All All All MM-DD"
+    },
+    "enrollment": {
+      "undergraduates": 7063
+    },
+    "waitlist": {
+      "offered": 4232,
+      "accepted": 2063,
+      "admitted": 207
+    },
+    "studentLife": {
+      "outOfStatePct": 38.8,
+      "onCampusPct": 99.3
+    },
+    "aid": {
+      "needMetPct": 82
+    }
+  },
+  "ingestedAt": "2026-09-15 17:07:25",
+  "updatedAt": "2026-09-15 17:07:25",
+  "validation": {
+    "school": "College of William and Mary",
+    "slug": "college-of-william-and-mary",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

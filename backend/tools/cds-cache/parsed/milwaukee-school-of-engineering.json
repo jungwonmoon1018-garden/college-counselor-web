@@ -1,0 +1,446 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "milwaukee-school-of-engineering",
+  "school": "Milwaukee School of Engineering",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.6711,
+  "yieldRate": 0.2208,
+  "enrolledSAT": {
+    "p25": 1205,
+    "p75": 1375
+  },
+  "enrolledACT": {
+    "p25": 24,
+    "p75": 30
+  },
+  "enrolledGPA": {
+    "p25": 3.5,
+    "p75": 3.75,
+    "avg": 3.68
+  },
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "important",
+    "class_rank": "not_considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "not_considered",
+    "recommendations": "not_considered",
+    "interview": "not_considered",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "considered",
+    "first_generation": "not_considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "not_considered",
+    "work_experience": "not_considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 5020,
+    "admitted": 3369,
+    "enrolled": 744
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://msoe.s3.amazonaws.com/files/resources/cds-final-pdf-25-26-1.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 595,
+        "p50": 640,
+        "p75": 680
+      },
+      "math": {
+        "p25": 600,
+        "p50": 670,
+        "p75": 710
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 26,
+        "p75": 30
+      },
+      "math": {
+        "p25": 28,
+        "p75": 31
+      },
+      "reading": {
+        "p25": 22,
+        "p50": 28,
+        "p75": 32
+      },
+      "science": {
+        "p25": 24,
+        "p50": 27,
+        "p75": 31
+      }
+    },
+    "submitting": {
+      "satPct": 11,
+      "actPct": 20
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 20.3
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 55.7
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 24.1
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 0
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 12.7
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 62
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 22.8
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 2.5
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 32.9
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 44.3
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 22.8
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 29
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 51
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 17
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 3
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 0
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 28.3
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 46.7
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 17.8
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 6.6
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0.7
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 32.9
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 52.6
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 11.2
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 3.3
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 40.8
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 27
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 28.3
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 4
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 35.5
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 46.1
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 17.1
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 1.3
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 10.9
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 39.1
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 26.9
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 14.1
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 8.3
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 0.7
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.68,
+      "submittedPct": 100
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 47015
+    },
+    "enrollment": {
+      "undergraduates": 2836
+    },
+    "retention": {
+      "firstYearPct": 85.9
+    },
+    "graduation": {
+      "sixYearPct": 63,
+      "cohort": 2019
+    },
+    "transfer": {
+      "applied": 477,
+      "admitted": 246,
+      "enrolled": 100
+    },
+    "studentLife": {
+      "outOfStatePct": 48,
+      "onCampusPct": 88
+    },
+    "costs": {
+      "tuitionUsd": 49930,
+      "requiredFeesUsd": 2298,
+      "foodAndHousingUsd": 14474
+    }
+  },
+  "ingestedAt": "2026-09-15 17:10:30",
+  "updatedAt": "2026-09-15 17:10:30",
+  "validation": {
+    "school": "Milwaukee School of Engineering",
+    "slug": "milwaukee-school-of-engineering",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2025-2026 A0 Respondent Information (Not for Publication) First Name: Ian Last Name: Dahlinghaus Title: Assistant Director, IE and Data Visualiz · Milwaukee School of Engineering"
+  }
+}

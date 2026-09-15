@@ -1,0 +1,121 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "chapman-university",
+  "school": "Chapman University",
+  "year": null,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.7207,
+  "yieldRate": 0.1623,
+  "enrolledSAT": {
+    "p25": 1255,
+    "p75": 1420
+  },
+  "enrolledACT": {
+    "p25": 28,
+    "p75": 32
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 14760,
+    "admitted": 10637,
+    "enrolled": 1726
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 5212,
+        "admitted": 3649,
+        "admitRate": 0.7001
+      },
+      "women": {
+        "applied": 9548,
+        "admitted": 6988,
+        "admitRate": 0.7319
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.chapman.edu/campus-services/institutional-research/_files/cds/cds_2025-2026.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 640,
+        "p50": 690,
+        "p75": 720
+      },
+      "math": {
+        "p25": 590,
+        "p50": 660,
+        "p75": 710
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 28,
+        "p50": 32,
+        "p75": 35
+      },
+      "math": {
+        "p25": 26,
+        "p50": 27,
+        "p75": 30
+      },
+      "reading": {
+        "p25": 32,
+        "p50": 33,
+        "p75": 35
+      },
+      "science": {
+        "p25": 26,
+        "p50": 28,
+        "p75": 31
+      }
+    },
+    "submitting": {
+      "satPct": 15.9,
+      "actPct": 6
+    },
+    "applicationFeeUsd": 70,
+    "earlyDecision": {
+      "applications": 145,
+      "admitted": 145,
+      "admitRate": 1
+    },
+    "dates": {
+      "edNotification": "12 20"
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 52773
+    },
+    "enrollment": {
+      "undergraduates": 7630
+    },
+    "waitlist": {
+      "offered": 1726,
+      "accepted": 764,
+      "admitted": 246
+    },
+    "studentLife": {
+      "outOfStatePct": 35.5,
+      "onCampusPct": 85.5
+    }
+  },
+  "ingestedAt": "2026-09-15 17:07:01",
+  "updatedAt": "2026-09-15 17:07:01",
+  "validation": {
+    "school": "Chapman University",
+    "slug": "chapman-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

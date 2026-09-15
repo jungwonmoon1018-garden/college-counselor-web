@@ -1,0 +1,189 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-notre-dame",
+  "school": "University of Notre Dame",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.1127,
+  "yieldRate": 0.6171,
+  "enrolledSAT": {
+    "p25": 1470,
+    "p75": 1540
+  },
+  "enrolledACT": {
+    "p25": 33,
+    "p75": 35
+  },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "very_important",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "very_important",
+    "recommendations": "very_important",
+    "interview": "not_considered",
+    "ec": "very_important",
+    "talent_ability": "very_important",
+    "character": "very_important",
+    "first_generation": "important",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "important",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "very_important",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 29942,
+    "admitted": 3374,
+    "enrolled": 2082
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 14922,
+        "admitted": 1736,
+        "admitRate": 0.1163
+      },
+      "women": {
+        "applied": 15020,
+        "admitted": 1638,
+        "admitRate": 0.1091
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1UbEUcDYK0qBNm3g5JoyeGjrP1W1ITCIS",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 720,
+        "p50": 750,
+        "p75": 770
+      },
+      "math": {
+        "p25": 735,
+        "p50": 770,
+        "p75": 790
+      }
+    },
+    "scoreDistribution": {
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 89.7
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 10.1
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 0.1
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 91.5
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 8.2
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 0.3
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 98.2
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 1.8
+        }
+      ]
+    },
+    "classRank": {
+      "topTenthPct": 92,
+      "topQuarterPct": 98,
+      "topHalfPct": 100
+    },
+    "gpa": {
+      "submittedPct": 0
+    },
+    "applicationFeeUsd": 75,
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-01",
+        "raw": "1/1"
+      },
+      "eaClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 67855
+    },
+    "enrollment": {
+      "undergraduates": 8880
+    },
+    "graduation": {
+      "sixYearPct": 95,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 2206,
+      "accepted": 1385,
+      "admitted": 42
+    },
+    "transfer": {
+      "applied": 1064,
+      "admitted": 267,
+      "enrolled": 203
+    },
+    "studentLife": {
+      "outOfStatePct": 91,
+      "onCampusPct": 100
+    },
+    "costs": {
+      "tuitionUsd": 67100,
+      "requiredFeesUsd": 507,
+      "foodAndHousingUsd": 18438
+    }
+  },
+  "ingestedAt": "2026-09-15 17:15:24",
+  "updatedAt": "2026-09-15 17:15:24",
+  "validation": {
+    "school": "University of Notre Dame",
+    "slug": "university-of-notre-dame",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Name: Brandy Rypma Title: IR Specialist Office: Institutional Research, Innovation, &  · University of Notre Dame"
+  }
+}

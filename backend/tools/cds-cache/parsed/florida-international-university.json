@@ -1,0 +1,113 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "florida-international-university",
+  "school": "Florida International University",
+  "year": 2023,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.5466,
+  "yieldRate": 0.2917,
+  "enrolledSAT": {
+    "p25": 1070,
+    "p75": 1250
+  },
+  "enrolledACT": {
+    "p25": 21,
+    "p75": 27
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 4.1
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 32855,
+    "admitted": 17957,
+    "enrolled": 5238
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 13435,
+        "admitted": 7192,
+        "admitRate": 0.5353
+      },
+      "women": {
+        "applied": 19420,
+        "admitted": 10765,
+        "admitRate": 0.5543
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1Fm1ykRIK2RVMenQuPqY7O4SJUdU-Gsq7",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 550,
+        "p50": 600,
+        "p75": 640
+      },
+      "math": {
+        "p25": 520,
+        "p50": 560,
+        "p75": 620
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 21,
+        "p50": 24,
+        "p75": 27
+      },
+      "math": {
+        "p25": 18,
+        "p50": 21,
+        "p75": 25
+      },
+      "reading": {
+        "p25": 23,
+        "p50": 27,
+        "p75": 32
+      },
+      "science": {
+        "p25": 21,
+        "p50": 23,
+        "p75": 26
+      }
+    },
+    "gpa": {
+      "average": 4.1
+    },
+    "applicationFeeUsd": 30,
+    "aid": {
+      "averagePackageFirstYearUsd": 11685
+    },
+    "transfer": {
+      "applied": 11413,
+      "admitted": 8466,
+      "enrolled": 5613
+    },
+    "studentLife": {
+      "outOfStatePct": 4,
+      "onCampusPct": 25
+    }
+  },
+  "ingestedAt": "2026-09-15 17:09:03",
+  "updatedAt": "2026-09-15 17:09:03",
+  "validation": {
+    "school": "Florida International University",
+    "slug": "florida-international-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

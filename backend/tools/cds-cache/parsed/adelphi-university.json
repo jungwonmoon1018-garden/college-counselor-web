@@ -1,0 +1,135 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "adelphi-university",
+  "school": "Adelphi University",
+  "year": 2018,
+  "yearLabel": "2018-19",
+  "tier": null,
+  "overallAdmitRate": 0.7418,
+  "yieldRate": 0.129,
+  "enrolledSAT": {
+    "p25": 1080,
+    "p75": 1270
+  },
+  "enrolledACT": {
+    "p25": 22,
+    "p75": 27
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.5
+  },
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "not_considered",
+    "class_rank": "important",
+    "gpa": "important",
+    "test_scores": "important",
+    "application_essay": "important",
+    "recommendations": "important",
+    "interview": "considered",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "important",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "important",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 13006,
+    "admitted": 9648,
+    "enrolled": 1245
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 4397,
+        "admitted": 3126,
+        "admitRate": 0.7109
+      },
+      "women": {
+        "applied": 8609,
+        "admitted": 6522,
+        "admitRate": 0.7576
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1qpkPRWwieFukaOofJ07eqFd9nSb8Os9W",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "math": {
+        "p25": 540,
+        "p75": 640
+      }
+    },
+    "submitting": {
+      "satPct": 74,
+      "actPct": 20
+    },
+    "classRank": {
+      "topTenthPct": 26,
+      "topQuarterPct": 59,
+      "topHalfPct": 89,
+      "submittedPct": 22
+    },
+    "gpa": {
+      "average": 3.5
+    },
+    "applicationFeeUsd": 40,
+    "earlyDecision": {
+      "applications": 21,
+      "admitted": 21,
+      "admitRate": 1
+    },
+    "dates": {
+      "edNotification": "C21",
+      "aidPriority": {
+        "mmdd": "03-01",
+        "raw": "H9 3/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 22900
+    },
+    "enrollment": {
+      "undergraduates": 5391
+    },
+    "retention": {
+      "firstYearPct": 80.5
+    },
+    "graduation": {
+      "sixYearPct": 70.1,
+      "cohort": 2012
+    },
+    "studentLife": {
+      "outOfStatePct": 8,
+      "onCampusPct": 35
+    },
+    "costs": {
+      "tuitionUsd": 36920
+    }
+  },
+  "ingestedAt": "2026-09-15 17:04:41",
+  "updatedAt": "2026-09-15 17:04:41",
+  "validation": {
+    "school": "Adelphi University",
+    "slug": "adelphi-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

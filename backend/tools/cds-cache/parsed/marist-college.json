@@ -1,0 +1,114 @@
+{
+  "source": "cds",
+  "extractionMethod": "xlsx",
+  "slug": "marist-college",
+  "school": "Marist College",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.5651,
+  "yieldRate": 0.1989,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.62
+  },
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "considered",
+    "interview": "not_considered",
+    "ec": "considered",
+    "talent_ability": "considered",
+    "character": "important",
+    "first_generation": "considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered",
+    "recommendations": "not_considered",
+    "racial_ethnic_status": "not_considered"
+  },
+  "b1": {
+    "applied": 11274,
+    "admitted": 6371,
+    "enrolled": 1267
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 4410,
+        "admitted": 2736,
+        "admitRate": 0.6204
+      },
+      "women": {
+        "applied": 6852,
+        "admitted": 3627,
+        "admitRate": 0.5293
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://docs.google.com/spreadsheets/d/1ZA4I-25m1NYvQfqbc78zBnjifUGGs0u3/export?format=xlsx",
+  "sourceKind": "xlsx",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "actSections": {
+      "english": {
+        "p25": 25,
+        "p75": 25
+      },
+      "reading": {
+        "p25": 25,
+        "p75": 29
+      }
+    },
+    "gpa": {
+      "average": 3.62
+    },
+    "applicationFeeUsd": 50,
+    "earlyDecision": {
+      "applications": 204,
+      "admitted": 164,
+      "admitRate": 0.8039
+    },
+    "dates": {
+      "edNotification": "C2103  2025-12-15 First-Time, First-Year Admission Admission Policies Early Decision Undergraduates First-time, first-year All All All MM-DD"
+    },
+    "enrollment": {
+      "undergraduates": 5551
+    },
+    "waitlist": {
+      "offered": 3867,
+      "accepted": 1014,
+      "admitted": 215
+    },
+    "studentLife": {
+      "outOfStatePct": 53.8,
+      "onCampusPct": 94.8
+    },
+    "aid": {
+      "needMetPct": 78.9
+    }
+  },
+  "ingestedAt": "2026-09-15 17:10:12",
+  "updatedAt": "2026-09-15 17:10:12",
+  "validation": {
+    "school": "Marist College",
+    "slug": "marist-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

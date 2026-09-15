@@ -1,0 +1,436 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-alabama",
+  "school": "University of Alabama",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.7117,
+  "yieldRate": 0.1842,
+  "enrolledSAT": {
+    "p25": 1100,
+    "p75": 1222
+  },
+  "enrolledACT": {
+    "p25": 22,
+    "p75": 26
+  },
+  "enrolledGPA": {
+    "p25": 3.5,
+    "p75": 4,
+    "avg": 3.85
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 123988,
+    "admitted": 88248,
+    "enrolled": 16254
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 25528,
+        "admitted": 17977,
+        "admitRate": 0.7042
+      },
+      "women": {
+        "applied": 36466,
+        "admitted": 26147,
+        "admitRate": 0.717
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://oira.ua.edu/d/sites/all/files/reports26/CDS%202025-26%20FINAL%209Dec2025.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 560,
+        "p50": 620,
+        "p75": 617
+      },
+      "math": {
+        "p25": 530,
+        "p50": 600,
+        "p75": 605
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 21,
+        "p50": 25,
+        "p75": 26
+      },
+      "math": {
+        "p25": 19,
+        "p50": 24,
+        "p75": 24
+      },
+      "reading": {
+        "p25": 23,
+        "p50": 28,
+        "p75": 28
+      },
+      "science": {
+        "p25": 22,
+        "p50": 25,
+        "p75": 26
+      }
+    },
+    "submitting": {
+      "satPct": 19,
+      "actPct": 53
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 21
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 36
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 33
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 10
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 21
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 39
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 33
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 7
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 21
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 31
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 34
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 13
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 1
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 31
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 34
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 30
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 5
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 0
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 33
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 30
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 28
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 8
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 1
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 19
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 37
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 28
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 16
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 45
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 25
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 25
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 5
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 27
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 37
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 31
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 5
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 23,
+      "topQuarterPct": 47.6,
+      "topHalfPct": 78.6,
+      "submittedPct": 37.5
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 40
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 19
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 17
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 12
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 9
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 3
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.85,
+      "submittedPct": 98.9
+    },
+    "applicationFeeUsd": 40,
+    "aid": {
+      "averagePackageFirstYearUsd": 19857
+    },
+    "enrollment": {
+      "undergraduates": 35621
+    },
+    "graduation": {
+      "sixYearPct": 73.7,
+      "cohort": 2019
+    },
+    "transfer": {
+      "applied": 5718,
+      "admitted": 2919,
+      "enrolled": 1257
+    },
+    "studentLife": {
+      "outOfStatePct": 57,
+      "onCampusPct": 94.9
+    },
+    "costs": {
+      "tuitionInStateUsd": 11684,
+      "tuitionOutOfStateUsd": 34542,
+      "requiredFeesUsd": 800,
+      "foodAndHousingUsd": 13616
+    }
+  },
+  "ingestedAt": "2026-09-15 17:13:25",
+  "updatedAt": "2026-09-15 17:13:25",
+  "validation": {
+    "school": "University of Alabama",
+    "slug": "university-of-alabama",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "The University of Alabama: Common Data Set 2025-26 A0 Name: Title: Office: Mailing Address: City/State/Zip/Country: Phone: E-mail Address: A0A A1 Name of Colleg · Mailing"
+  }
+}

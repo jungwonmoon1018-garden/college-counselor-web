@@ -1,4 +1,6 @@
 {
+  "source": "cds",
+  "extractionMethod": "pdfjs",
   "slug": "washington-university-in-st-louis",
   "school": "Washington University in St. Louis",
   "year": 2025,
@@ -47,7 +49,7 @@
   "priorities": [],
   "sourceUrl": "https://washu.edu/app/uploads/2026/06/2025-2026-WashU-CDS.pdf",
   "sourceKind": "pdf_text",
-  "parserVersion": 5,
+  "parserVersion": 6,
   "parserNotes": [],
   "extras": {
     "satSections": {
@@ -223,14 +225,41 @@
     },
     "aid": {
       "averagePackageFirstYearUsd": 81871
+    },
+    "enrollment": {
+      "undergraduates": 8153
+    },
+    "graduation": {
+      "sixYearPct": 93,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "accepted": 3865,
+      "admitted": 327
+    },
+    "transfer": {
+      "applied": 1603,
+      "admitted": 244,
+      "enrolled": 84
+    },
+    "studentLife": {
+      "outOfStatePct": 84,
+      "onCampusPct": 100
+    },
+    "costs": {
+      "tuitionUsd": 71310,
+      "requiredFeesUsd": 1412,
+      "foodAndHousingUsd": 24272
     }
   },
-  "ingestedAt": "2026-09-15 14:04:53",
-  "updatedAt": "2026-09-15 14:04:53",
+  "ingestedAt": "2026-09-15 17:16:58",
+  "updatedAt": "2026-09-15 17:16:58",
   "validation": {
+    "school": "Washington University in St. Louis",
+    "slug": "washington-university-in-st-louis",
     "status": "consistent",
     "discrepancies": [],
     "overrides": {},
-    "validatedAt": "2026-09-15 14:04:53"
+    "scopeFromPDF": "Washington University in St. Louis Common Data Set 2025-2026 A1 Address Information Name of College/University: Washington University in St. Louis Mailing Addre · Washington University in St. Louis"
   }
 }

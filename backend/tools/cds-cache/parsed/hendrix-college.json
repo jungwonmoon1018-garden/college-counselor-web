@@ -1,0 +1,376 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "hendrix-college",
+  "school": "Hendrix College",
+  "year": 2022,
+  "yearLabel": "2022-23",
+  "tier": null,
+  "overallAdmitRate": 0.6028,
+  "yieldRate": 0.2207,
+  "enrolledSAT": {
+    "p25": 1160,
+    "p75": 1310
+  },
+  "enrolledACT": {
+    "p25": 23,
+    "p75": 31
+  },
+  "enrolledGPA": {
+    "p25": 3.5,
+    "p75": 4,
+    "avg": 3.85
+  },
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "important",
+    "gpa": "very_important",
+    "test_scores": "very_important",
+    "application_essay": "very_important",
+    "recommendations": "important",
+    "interview": "important",
+    "ec": "important",
+    "talent_ability": "considered",
+    "character": "not_considered",
+    "first_generation": "not_considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "considered",
+    "volunteer_work": "considered",
+    "work_experience": "not_considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 5458,
+    "admitted": 3290,
+    "enrolled": 726
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 1415,
+        "admitted": 802,
+        "admitRate": 0.5668
+      },
+      "women": {
+        "applied": 2729,
+        "admitted": 1645,
+        "admitRate": 0.6028
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1SEWJhXrR9iT1PjL9W42Hnth_gYIVaIbr",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 580,
+        "p50": 620,
+        "p75": 610
+      },
+      "math": {
+        "p25": 550,
+        "p50": 610,
+        "p75": 660
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 23,
+        "p50": 28,
+        "p75": 33
+      },
+      "math": {
+        "p25": 22,
+        "p50": 25,
+        "p75": 27
+      },
+      "science": {
+        "p25": 23,
+        "p50": 26,
+        "p75": 30
+      }
+    },
+    "submitting": {
+      "satPct": 14.1,
+      "actPct": 63.4
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 11.3
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 47.2
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 41.5
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 11.3
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 54.7
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 34
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 7.6
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 50.9
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 39.6
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 1.9
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 36.5
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 36.1
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 26.5
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 0.9
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 40.9
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 30.4
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 23.9
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 4.8
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 17.8
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 46.5
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 27
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 8.7
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 52.6
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 24.4
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 20.9
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 2.2
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 30
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 41.3
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 26.1
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 2.6
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 33.2,
+      "topQuarterPct": 61.1,
+      "topHalfPct": 93.3,
+      "submittedPct": 53.2
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 38.5
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 21.8
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 22.4
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 11.2
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 4.6
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 1.5
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.85,
+      "submittedPct": 91
+    },
+    "dates": {
+      "eaClosing": {
+        "mmdd": "11-15",
+        "raw": "Nov 15 & Feb 1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 31300
+    },
+    "enrollment": {
+      "undergraduates": 1130
+    },
+    "graduation": {
+      "sixYearPct": 69,
+      "cohort": 2016
+    },
+    "transfer": {
+      "applied": 75,
+      "admitted": 32,
+      "enrolled": 12
+    },
+    "studentLife": {
+      "outOfStatePct": 55.4,
+      "onCampusPct": 98
+    },
+    "costs": {
+      "tuitionUsd": 36300,
+      "requiredFeesUsd": 350,
+      "foodAndHousingUsd": 14300,
+      "academicYear": "2023-2024"
+    }
+  },
+  "ingestedAt": "2026-09-15 17:09:19",
+  "updatedAt": "2026-09-15 17:09:19",
+  "validation": {
+    "school": "Hendrix College",
+    "slug": "hendrix-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2022-2023 A0 Respondent Information (Not for Publication) Name: Veronica Leonard Title: Institutional Research Reporting Coordinator Office: Off · Hendrix College"
+  }
+}

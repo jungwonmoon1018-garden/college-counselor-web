@@ -1,0 +1,101 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "belmont-university",
+  "school": "Belmont University",
+  "year": null,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.9366,
+  "yieldRate": 0.2088,
+  "enrolledSAT": {
+    "p25": 1160,
+    "p75": 1360
+  },
+  "enrolledACT": {
+    "p25": 24,
+    "p75": 30
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.89
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 9138,
+    "admitted": 8559,
+    "enrolled": 1787
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 2881,
+        "admitted": 2644,
+        "admitRate": 0.9177
+      },
+      "women": {
+        "applied": 6257,
+        "admitted": 5915,
+        "admitRate": 0.9453
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.belmont.edu/irsa/_files/data-sets/cds-2025-2026.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 600,
+        "p50": 650,
+        "p75": 700
+      },
+      "math": {
+        "p25": 560,
+        "p50": 610,
+        "p75": 660
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 24,
+        "p50": 28,
+        "p75": 32
+      },
+      "math": {
+        "p25": 22,
+        "p50": 25,
+        "p75": 28
+      }
+    },
+    "gpa": {
+      "average": 3.89
+    },
+    "applicationFeeUsd": 50,
+    "aid": {
+      "averagePackageFirstYearUsd": 37665
+    },
+    "enrollment": {
+      "undergraduates": 7174
+    },
+    "studentLife": {
+      "outOfStatePct": 57,
+      "onCampusPct": 40
+    }
+  },
+  "ingestedAt": "2026-09-15 17:06:06",
+  "updatedAt": "2026-09-15 17:06:06",
+  "validation": {
+    "school": "Belmont University",
+    "slug": "belmont-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

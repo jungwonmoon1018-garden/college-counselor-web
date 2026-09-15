@@ -1,4 +1,6 @@
 {
+  "source": "cds",
+  "extractionMethod": "pdfjs",
   "slug": "university-of-southern-california",
   "school": "University of Southern California",
   "year": 2025,
@@ -31,7 +33,7 @@
   "priorities": [],
   "sourceUrl": "https://oir.usc.edu/wp-content/uploads/sites/3/2026/10/CDS_2025-26_FINAL.pdf",
   "sourceKind": "pdf_text",
-  "parserVersion": 5,
+  "parserVersion": 6,
   "parserNotes": [],
   "extras": {
     "satSections": {
@@ -314,14 +316,40 @@
     },
     "aid": {
       "averagePackageFirstYearUsd": 90648
+    },
+    "enrollment": {
+      "undergraduates": 20768
+    },
+    "retention": {
+      "firstYearPct": 95.2
+    },
+    "graduation": {
+      "sixYearPct": 90.3,
+      "cohort": 2019
+    },
+    "transfer": {
+      "applied": 10827,
+      "admitted": 2929,
+      "enrolled": 1544
+    },
+    "studentLife": {
+      "outOfStatePct": 39,
+      "onCampusPct": 97
+    },
+    "costs": {
+      "tuitionUsd": 66640,
+      "requiredFeesUsd": 2047,
+      "foodAndHousingUsd": 19200
     }
   },
-  "ingestedAt": "2026-09-15 14:04:52",
-  "updatedAt": "2026-09-15 14:04:52",
+  "ingestedAt": "2026-09-15 17:15:56",
+  "updatedAt": "2026-09-15 17:15:56",
   "validation": {
+    "school": "University of Southern California",
+    "slug": "university-of-southern-california",
     "status": "consistent",
     "discrepancies": [],
     "overrides": {},
-    "validatedAt": "2026-09-15 14:04:52"
+    "scopeFromPDF": "Common Data Set 2025-2026 Welcome to the 2025-2026 Common Data Set collection! The Common Data Set (CDS) initiative is a collaborative effort among data provide · University of Southern California"
   }
 }

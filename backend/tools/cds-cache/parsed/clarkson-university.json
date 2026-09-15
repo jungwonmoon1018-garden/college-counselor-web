@@ -1,0 +1,102 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "clarkson-university",
+  "school": "Clarkson University",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.7736,
+  "yieldRate": 0.0949,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "considered",
+    "gpa": "important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "important",
+    "interview": "important",
+    "ec": "important",
+    "talent_ability": "considered",
+    "character": "considered",
+    "first_generation": "considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 6661,
+    "admitted": 5153,
+    "enrolled": 489
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 3572,
+        "admitted": 2837,
+        "admitRate": 0.7942
+      },
+      "women": {
+        "applied": 3063,
+        "admitted": 2300,
+        "admitRate": 0.7509
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1WdWuUHlqhhfHLLRiY9lOmsgQ39It3q7m",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "aid": {
+      "averagePackageFirstYearUsd": 55072
+    },
+    "enrollment": {
+      "undergraduates": 2296
+    },
+    "graduation": {
+      "sixYearPct": 77.8,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 59,
+      "accepted": 37,
+      "admitted": 7
+    },
+    "transfer": {
+      "applied": 269,
+      "admitted": 230,
+      "enrolled": 58
+    },
+    "studentLife": {
+      "outOfStatePct": 27,
+      "onCampusPct": 99
+    },
+    "costs": {
+      "tuitionUsd": 59800,
+      "requiredFeesUsd": 1348,
+      "foodAndHousingUsd": 18762
+    }
+  },
+  "ingestedAt": "2026-09-15 17:07:07",
+  "updatedAt": "2026-09-15 17:07:07",
+  "validation": {
+    "school": "Clarkson University",
+    "slug": "clarkson-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Name: Jasmine Johnson Title: Director of Institutional Research Office: Mailing Addres · Clarkson University"
+  }
+}

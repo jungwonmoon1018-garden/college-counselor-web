@@ -1,0 +1,372 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "binghamton-university",
+  "school": "Binghamton University",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.3861,
+  "yieldRate": 0.1587,
+  "enrolledSAT": {
+    "p25": 1360,
+    "p75": 1480
+  },
+  "enrolledACT": {
+    "p25": 31,
+    "p75": 34
+  },
+  "enrolledGPA": {
+    "p25": 3.75,
+    "p75": 4,
+    "avg": 3.88
+  },
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "important",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "considered",
+    "interview": "not_considered",
+    "ec": "considered",
+    "talent_ability": "considered",
+    "character": "considered",
+    "first_generation": "considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 53007,
+    "admitted": 20464,
+    "enrolled": 3248
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 23527,
+        "admitted": 9217,
+        "admitRate": 0.3918
+      },
+      "women": {
+        "applied": 29452,
+        "admitted": 11233,
+        "admitRate": 0.3814
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1OEtsa2GOsTWIlmYhe3-ZA0fn-n63mtBb",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 660,
+        "p50": 700,
+        "p75": 730
+      },
+      "math": {
+        "p25": 680,
+        "p50": 720,
+        "p75": 760
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 30,
+        "p50": 33,
+        "p75": 35
+      },
+      "math": {
+        "p25": 27,
+        "p50": 30,
+        "p75": 32
+      }
+    },
+    "submitting": {
+      "satPct": 44,
+      "actPct": 9
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 61
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 37
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 1.9
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 53.4
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 43.5
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 3
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0.1
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 61
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 33.9
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 5
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 0.1
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 86.9
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 12.5
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 0.7
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 75.1
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 23.2
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 1.7
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 55
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 42.2
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 2.8
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 89.3
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 9.7
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 1
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 77.2
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 20.8
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 2.1
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 52,
+      "topQuarterPct": 83,
+      "topHalfPct": 98
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 63.4
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 18
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 11.3
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 4.7
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 2.2
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 0.5
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.88,
+      "submittedPct": 100
+    },
+    "applicationFeeUsd": 50,
+    "dates": {
+      "regularClosing": {
+        "mmdd": "04-01",
+        "raw": "4/1"
+      },
+      "eaClosing": {
+        "mmdd": "11-01",
+        "raw": "11/1"
+      },
+      "aidPriority": {
+        "mmdd": "01-15",
+        "raw": "(MM/DD) 1/15"
+      },
+      "aidDeadline": {
+        "mmdd": "05-01",
+        "raw": "(MM/DD) 5/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 18812
+    },
+    "enrollment": {
+      "undergraduates": 14668
+    },
+    "graduation": {
+      "sixYearPct": 82,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 13341,
+      "accepted": 4272,
+      "admitted": 842
+    },
+    "earlyAction": {
+      "applications": 28444,
+      "admitted": 14214,
+      "admitRate": 0.4997
+    },
+    "transfer": {
+      "applied": 4081,
+      "admitted": 1846,
+      "enrolled": 763
+    },
+    "studentLife": {
+      "outOfStatePct": 15,
+      "onCampusPct": 97
+    },
+    "costs": {
+      "tuitionInStateUsd": 7070,
+      "tuitionOutOfStateUsd": 26950,
+      "requiredFeesUsd": 3497
+    }
+  },
+  "ingestedAt": "2026-09-15 17:06:08",
+  "updatedAt": "2026-09-15 17:06:08",
+  "validation": {
+    "school": "Binghamton University",
+    "slug": "binghamton-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

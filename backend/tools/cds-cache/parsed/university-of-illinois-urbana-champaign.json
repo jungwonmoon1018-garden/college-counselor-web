@@ -1,4 +1,6 @@
 {
+  "source": "cds",
+  "extractionMethod": "xlsx",
   "slug": "university-of-illinois-urbana-champaign",
   "school": "University of Illinois Urbana-Champaign",
   "year": null,
@@ -55,15 +57,85 @@
   "priorities": [],
   "sourceUrl": "https://uofi.box.com/shared/static/orx4vnmzkt2drmgoiksxpfs39pr42uor.xlsx",
   "sourceKind": "xlsx",
-  "parserVersion": 5,
+  "parserVersion": 6,
   "parserNotes": [],
-  "extras": null,
-  "ingestedAt": "2026-09-15 16:08:33",
-  "updatedAt": "2026-09-15 16:08:33",
+  "extras": {
+    "actSections": {
+      "english": {
+        "p25": 25,
+        "p75": 32
+      },
+      "math": {
+        "p25": 25,
+        "p75": 29
+      },
+      "science": {
+        "p25": 29,
+        "p50": 32,
+        "p75": 35
+      }
+    },
+    "applicationFeeUsd": 50,
+    "dates": {
+      "edNotification": "Can on-line application fee be waived for applicants with financial need? Yes C.2104  Month First-Time, First-Year Admission Admission Policies Early Decision Undergraduates First-time, first-year All All All MM"
+    },
+    "enrollment": {
+      "undergraduates": 38572
+    },
+    "retention": {
+      "firstYearPct": 95.3
+    },
+    "graduation": {
+      "sixYearPct": 86.3,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 6826,
+      "accepted": 4317,
+      "admitted": 1
+    },
+    "transfer": {
+      "applied": 6639,
+      "admitted": 2882,
+      "enrolled": 1682
+    },
+    "studentLife": {
+      "outOfStatePct": 15.5,
+      "onCampusPct": 99
+    },
+    "costs": {
+      "tuitionUsd": 8094,
+      "tuitionInStateUsd": 12992,
+      "tuitionOutOfStateUsd": 33344,
+      "requiredFeesUsd": 5054,
+      "foodAndHousingUsd": 15184,
+      "academicYear": "2025-2026"
+    },
+    "aid": {
+      "needMetPct": 82
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 552,
+        "10-19": 961,
+        "20-29": 960,
+        "30-39": 509,
+        "40-49": 273,
+        "50-99": 412,
+        "100+": 373,
+        "total": 4040
+      },
+      "under20Pct": 37.5
+    }
+  },
+  "ingestedAt": "2026-09-15 17:17:01",
+  "updatedAt": "2026-09-15 17:17:01",
   "validation": {
+    "school": "University of Illinois Urbana-Champaign",
+    "slug": "university-of-illinois-urbana-champaign",
     "status": "consistent",
     "discrepancies": [],
     "overrides": {},
-    "validatedAt": "2026-09-15 16:08:33"
+    "scopeFromPDF": null
   }
 }

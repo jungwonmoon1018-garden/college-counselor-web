@@ -1,0 +1,430 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "san-jose-state-university",
+  "school": "San Jose State University",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.8039,
+  "yieldRate": 0.1656,
+  "enrolledSAT": {
+    "p25": 1010,
+    "p75": 1270
+  },
+  "enrolledACT": {
+    "p25": 17,
+    "p75": 27
+  },
+  "enrolledGPA": {
+    "p25": 3,
+    "p75": 3.75,
+    "avg": 3.5
+  },
+  "testPolicy": "test_optional",
+  "c7": {},
+  "b1": {
+    "applied": 37124,
+    "admitted": 29845,
+    "enrolled": 4943
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.sjsu.edu/irsa/docs/cds/20260113_CDS%202025%20FINAL.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 500,
+        "p50": 580,
+        "p75": 650
+      },
+      "math": {
+        "p25": 490,
+        "p50": 580,
+        "p75": 640
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 16,
+        "p50": 22,
+        "p75": 27
+      },
+      "math": {
+        "p25": 17,
+        "p50": 21,
+        "p75": 27
+      },
+      "reading": {
+        "p25": 18,
+        "p50": 23,
+        "p75": 32
+      },
+      "science": {
+        "p25": 19,
+        "p50": 23,
+        "p75": 26
+      }
+    },
+    "submitting": {
+      "satPct": 9,
+      "actPct": 1
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 9
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 34
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 34
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 20
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 10
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 31
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 37
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 18
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 4
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 3
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 13
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 31
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 30
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 23
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 3
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 18
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 32
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 24
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 26
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 0
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 18
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 21
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 34
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 21
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 5
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 18
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 29
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 26
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 26
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 29
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 21
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 32
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 18
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 21
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 26
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 42
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 11
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 17.1
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 17.6
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 20
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 18.6
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 13.4
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 12.8
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0.5
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.5,
+      "submittedPct": 99.4
+    },
+    "applicationFeeUsd": 70,
+    "dates": {
+      "regularClosing": {
+        "mmdd": "11-30",
+        "raw": "11/30"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 14983
+    },
+    "enrollment": {
+      "undergraduates": 29890
+    },
+    "retention": {
+      "firstYearPct": 88.6
+    },
+    "graduation": {
+      "sixYearPct": 67.8,
+      "cohort": 2019
+    },
+    "transfer": {
+      "applied": 9242,
+      "admitted": 7662,
+      "enrolled": 3738
+    },
+    "studentLife": {
+      "outOfStatePct": 1.6,
+      "onCampusPct": 47
+    }
+  },
+  "ingestedAt": "2026-09-15 17:11:48",
+  "updatedAt": "2026-09-15 17:11:48",
+  "validation": {
+    "school": "San Jose State University",
+    "slug": "san-jose-state-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "l Common Data Set 2025-2026 Welcome to the 2025-2026 Common Data Set collection! The Common Data Set (CDS) initiative is a collaborative effort among data provi · San José State University"
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "georgia-college",
+  "school": "Georgia College",
+  "year": 2020,
+  "yearLabel": "2019-20",
+  "tier": null,
+  "overallAdmitRate": 0.8594,
+  "yieldRate": 0.3513,
+  "enrolledSAT": {
+    "p25": 1100,
+    "p75": 1245
+  },
+  "enrolledACT": {
+    "p25": 23,
+    "p75": 27
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.52
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 4515,
+    "admitted": 3880,
+    "enrolled": 1363
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 1433,
+        "admitted": 1208,
+        "admitRate": 0.843
+      },
+      "women": {
+        "applied": 3082,
+        "admitted": 2672,
+        "admitRate": 0.867
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1wz0eA4GJ8I9DL4tvQKONqh6nAqcmbSVh",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 560,
+        "p75": 640
+      },
+      "math": {
+        "p25": 540,
+        "p75": 605
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 22,
+        "p75": 28
+      },
+      "math": {
+        "p25": 21,
+        "p75": 26
+      }
+    },
+    "gpa": {
+      "average": 3.52
+    },
+    "applicationFeeUsd": 40,
+    "dates": {
+      "edNotification": "Click or tap here to enter text.",
+      "eaClosing": {
+        "mmdd": "10-15",
+        "raw": "October 15"
+      }
+    },
+    "enrollment": {
+      "undergraduates": 5605
+    },
+    "graduation": {
+      "sixYearPct": 61.7,
+      "cohort": 2014
+    },
+    "waitlist": {
+      "admitted": 0
+    },
+    "transfer": {
+      "applied": 348,
+      "admitted": 293,
+      "enrolled": 195
+    },
+    "studentLife": {
+      "onCampusPct": 1.2
+    }
+  },
+  "ingestedAt": "2026-09-15 17:09:04",
+  "updatedAt": "2026-09-15 17:09:04",
+  "validation": {
+    "school": "Georgia College",
+    "slug": "georgia-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

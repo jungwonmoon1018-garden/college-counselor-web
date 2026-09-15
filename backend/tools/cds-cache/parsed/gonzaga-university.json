@@ -1,0 +1,111 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "gonzaga-university",
+  "school": "Gonzaga University",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.8169,
+  "yieldRate": 0.1749,
+  "enrolledSAT": {
+    "p25": 1200,
+    "p75": 1385
+  },
+  "enrolledACT": {
+    "p25": 27,
+    "p75": 31
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.66
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 8758,
+    "admitted": 7154,
+    "enrolled": 1251
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 3848,
+        "admitted": 3163,
+        "admitRate": 0.822
+      },
+      "women": {
+        "applied": 4847,
+        "admitted": 3946,
+        "admitRate": 0.8141
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=190xggcmt8TabAu-esMgX8_A5asG1Yf4p",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 600,
+        "p50": 650,
+        "p75": 700
+      },
+      "math": {
+        "p25": 590,
+        "p50": 640,
+        "p75": 680
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 25,
+        "p50": 30,
+        "p75": 33
+      },
+      "math": {
+        "p25": 24,
+        "p50": 27,
+        "p75": 30
+      }
+    },
+    "gpa": {
+      "average": 3.66
+    },
+    "applicationFeeUsd": 60,
+    "aid": {
+      "averagePackageFirstYearUsd": 43817
+    },
+    "enrollment": {
+      "undergraduates": 5281
+    },
+    "waitlist": {
+      "offered": 615,
+      "accepted": 243,
+      "admitted": 59
+    },
+    "transfer": {
+      "applied": 400,
+      "admitted": 283,
+      "enrolled": 155
+    },
+    "studentLife": {
+      "outOfStatePct": 48,
+      "onCampusPct": 95
+    }
+  },
+  "ingestedAt": "2026-09-15 17:09:07",
+  "updatedAt": "2026-09-15 17:09:07",
+  "validation": {
+    "school": "Gonzaga University",
+    "slug": "gonzaga-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

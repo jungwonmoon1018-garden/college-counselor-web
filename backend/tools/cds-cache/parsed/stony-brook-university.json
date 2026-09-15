@@ -1,4 +1,6 @@
 {
+  "source": "cds",
+  "extractionMethod": "xlsx",
   "slug": "stony-brook-university",
   "school": "Stony Brook University",
   "year": null,
@@ -47,15 +49,101 @@
   "priorities": [],
   "sourceUrl": "https://www.stonybrook.edu/irpe/_media/Common_data_sets/CDS_2025-2026.xlsx",
   "sourceKind": "xlsx",
-  "parserVersion": 5,
+  "parserVersion": 6,
   "parserNotes": [],
-  "extras": null,
-  "ingestedAt": "2026-09-15 16:08:34",
-  "updatedAt": "2026-09-15 16:08:34",
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 650,
+        "p50": 690,
+        "p75": 730
+      },
+      "math": {
+        "p25": 680,
+        "p50": 720,
+        "p75": 760
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 28,
+        "p50": 33,
+        "p75": 35
+      },
+      "math": {
+        "p25": 28,
+        "p50": 32,
+        "p75": 34
+      },
+      "science": {
+        "p25": 29,
+        "p50": 32,
+        "p75": 34
+      }
+    },
+    "applicationFeeUsd": 50,
+    "dates": {
+      "aidDeadline": {
+        "mmdd": "03-01",
+        "raw": "3/1"
+      }
+    },
+    "enrollment": {
+      "undergraduates": 18615
+    },
+    "retention": {
+      "firstYearPct": 89.4
+    },
+    "graduation": {
+      "sixYearPct": 77.1,
+      "cohort": 2019
+    },
+    "waitlist": {
+      "offered": 10563,
+      "accepted": 5191,
+      "admitted": 3462
+    },
+    "transfer": {
+      "applied": 7021,
+      "admitted": 3094,
+      "enrolled": 1364
+    },
+    "studentLife": {
+      "outOfStatePct": 11,
+      "onCampusPct": 71
+    },
+    "costs": {
+      "tuitionInStateUsd": 7070,
+      "tuitionOutOfStateUsd": 31050,
+      "requiredFeesUsd": 3861,
+      "foodAndHousingUsd": 18874,
+      "academicYear": "2026-2027"
+    },
+    "aid": {
+      "needMetPct": 59.5
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 170,
+        "10-19": 592,
+        "20-29": 491,
+        "30-39": 171,
+        "40-49": 86,
+        "50-99": 264,
+        "100+": 158,
+        "total": 1932
+      },
+      "under20Pct": 39.4
+    }
+  },
+  "ingestedAt": "2026-09-15 17:12:24",
+  "updatedAt": "2026-09-15 17:12:24",
   "validation": {
+    "school": "Stony Brook University",
+    "slug": "stony-brook-university",
     "status": "consistent",
     "discrepancies": [],
     "overrides": {},
-    "validatedAt": "2026-09-15 16:08:34"
+    "scopeFromPDF": null
   }
 }

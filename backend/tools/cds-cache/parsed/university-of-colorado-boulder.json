@@ -1,0 +1,347 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-colorado-boulder",
+  "school": "University of Colorado Boulder",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.7587,
+  "yieldRate": 0.1415,
+  "enrolledSAT": {
+    "p25": 1180,
+    "p75": 1278
+  },
+  "enrolledACT": {
+    "p25": 27,
+    "p75": 30
+  },
+  "enrolledGPA": {
+    "p25": 3.5,
+    "p75": 4,
+    "avg": 3.79
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 69250,
+    "admitted": 52539,
+    "enrolled": 7432
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 34500,
+        "admitted": 24316,
+        "admitRate": 0.7048
+      },
+      "women": {
+        "applied": 34718,
+        "admitted": 28201,
+        "admitRate": 0.8123
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1mt1VGZ8MZpVBVXvruAjglcNTHmOvz5bA",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 590,
+        "p50": 650,
+        "p75": 643
+      },
+      "math": {
+        "p25": 580,
+        "p50": 640,
+        "p75": 635
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 26,
+        "p50": 30,
+        "p75": 30
+      },
+      "math": {
+        "p25": 25,
+        "p50": 28,
+        "p75": 28
+      }
+    },
+    "submitting": {
+      "satPct": 25,
+      "actPct": 7
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 24
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 48
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 22
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 5
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 28
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 47
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 21
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 4
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0
+          },
+          {
+            "low": 400,
+            "high": 599,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 27
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 41
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 26
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 5
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 1
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 59
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 33
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 7
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 1
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 0
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 56
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 31
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 12
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 1
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 36
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 49
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 11
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 4
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 30,
+      "topQuarterPct": 59,
+      "topHalfPct": 89,
+      "submittedPct": 40
+    },
+    "gpa": {
+      "average": 3.79,
+      "submittedPct": 99.6
+    },
+    "applicationFeeUsd": 65,
+    "dates": {
+      "regularClosing": {
+        "mmdd": "01-15",
+        "raw": "January 15"
+      },
+      "edNotification": "__________",
+      "eaClosing": {
+        "mmdd": "11-15",
+        "raw": "November 15"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 24892
+    },
+    "enrollment": {
+      "undergraduates": 33384
+    },
+    "retention": {
+      "firstYearPct": 90
+    },
+    "waitlist": {
+      "offered": 5740,
+      "accepted": 1158,
+      "admitted": 1007
+    },
+    "transfer": {
+      "applied": 4057,
+      "admitted": 2983,
+      "enrolled": 1431
+    },
+    "studentLife": {
+      "outOfStatePct": 46,
+      "onCampusPct": 94
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 285,
+        "10-19": 1151,
+        "20-29": 813,
+        "30-39": 420,
+        "40-49": 245,
+        "50-99": 437,
+        "100+": 284,
+        "total": 3635
+      },
+      "under20Pct": 39.5
+    }
+  },
+  "ingestedAt": "2026-09-15 17:14:04",
+  "updatedAt": "2026-09-15 17:14:04",
+  "validation": {
+    "school": "University of Colorado Boulder",
+    "slug": "university-of-colorado-boulder",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

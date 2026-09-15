@@ -1,0 +1,472 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "duquesne-university",
+  "school": "Duquesne University",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.8356,
+  "yieldRate": 0.1338,
+  "enrolledSAT": {
+    "p25": 1190,
+    "p75": 1330
+  },
+  "enrolledACT": {
+    "p25": 26,
+    "p75": 32
+  },
+  "enrolledGPA": {
+    "p25": 3.5,
+    "p75": 4,
+    "avg": 3.79
+  },
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "important",
+    "gpa": "very_important",
+    "test_scores": "very_important",
+    "application_essay": "considered",
+    "recommendations": "considered",
+    "interview": "considered",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "important",
+    "work_experience": "important",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 12893,
+    "admitted": 10773,
+    "enrolled": 1441
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 4937,
+        "admitted": 4066,
+        "admitRate": 0.8236
+      },
+      "women": {
+        "applied": 7943,
+        "admitted": 6699,
+        "admitRate": 0.8434
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1H7YFLk-rFo0YUUz7qYdz2GjKa4FoMzeY",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 600,
+        "p50": 640,
+        "p75": 670
+      },
+      "math": {
+        "p25": 580,
+        "p50": 620,
+        "p75": 670
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 29,
+        "p50": 30,
+        "p75": 33
+      },
+      "math": {
+        "p25": 25,
+        "p50": 28,
+        "p75": 30
+      },
+      "science": {
+        "p25": 25,
+        "p50": 28,
+        "p75": 32
+      }
+    },
+    "submitting": {
+      "satPct": 20,
+      "actPct": 4
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 10.5
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 63.4
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 24
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 1.7
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 16
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 59.2
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 22.3
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 2.1
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0.4
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 12.5
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 54
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 31
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 2.1
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0.4
+          },
+          {
+            "low": 200,
+            "high": 299,
+            "pct": 0
+          },
+          {
+            "low": 600,
+            "high": 799,
+            "pct": 0.4
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 46.7
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 48.3
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 5
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 0
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 0
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 51.7
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 31.7
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 15
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 1.7
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 31.7
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 53.3
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 13.3
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 1.7
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "reading": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 55
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 38.3
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 5
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 1.7
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "science": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 45
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 45
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 10
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 25,
+      "topQuarterPct": 52,
+      "topHalfPct": 84,
+      "submittedPct": 42
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 34.2
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 21.4
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 20.5
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 12.1
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 7.1
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 4
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0.6
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0.1
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.79,
+      "submittedPct": 94.9
+    },
+    "dates": {
+      "regularClosing": {
+        "mmdd": "08-24",
+        "raw": "8/24"
+      },
+      "eaClosing": {
+        "mmdd": "11-15",
+        "raw": "11/15"
+      },
+      "aidDeadline": {
+        "mmdd": "05-01",
+        "raw": "5/1"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 34694
+    },
+    "enrollment": {
+      "undergraduates": 5371
+    },
+    "graduation": {
+      "sixYearPct": 77,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 560,
+      "accepted": 537,
+      "admitted": 183
+    },
+    "transfer": {
+      "applied": 1116,
+      "admitted": 803,
+      "enrolled": 221
+    },
+    "studentLife": {
+      "outOfStatePct": 26,
+      "onCampusPct": 90
+    },
+    "costs": {
+      "tuitionUsd": 51068,
+      "foodAndHousingUsd": 17070
+    }
+  },
+  "ingestedAt": "2026-09-15 17:08:13",
+  "updatedAt": "2026-09-15 17:08:13",
+  "validation": {
+    "school": "Duquesne University",
+    "slug": "duquesne-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "TABLE OF CONTENTS 2024-2025 Common Data Set Duquesne University Section A"
+  }
+}

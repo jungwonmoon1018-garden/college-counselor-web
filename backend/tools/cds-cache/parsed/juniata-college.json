@@ -1,0 +1,103 @@
+{
+  "source": "cds",
+  "extractionMethod": "xlsx",
+  "slug": "juniata-college",
+  "school": "Juniata College",
+  "year": null,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.7891,
+  "yieldRate": 0.1674,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.6
+  },
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "important",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "important",
+    "interview": "considered",
+    "ec": "important",
+    "talent_ability": "important",
+    "character": "important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered",
+    "racial_ethnic_status": "not_considered"
+  },
+  "b1": {
+    "applied": 2779,
+    "admitted": 2193,
+    "enrolled": 367
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 1268,
+        "admitted": 959,
+        "admitRate": 0.7563
+      },
+      "women": {
+        "applied": 1511,
+        "admitted": 1234,
+        "admitRate": 0.8167
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://docs.google.com/spreadsheets/d/1c4clQ5t8nSgPFv1Wk2pihiGlehC70LuA/export?format=xlsx",
+  "sourceKind": "xlsx",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "gpa": {
+      "average": 3.6
+    },
+    "earlyDecision": {
+      "applications": 91,
+      "admitted": 76,
+      "admitRate": 0.8352
+    },
+    "dates": {
+      "edNotification": "C2103  2025-12-15 First-Time, First-Year Admission Admission Policies Early Decision Undergraduates First-time, first-year All All All MM-DD",
+      "aidPriority": {
+        "mmdd": "03-15",
+        "raw": "H901 3/15 Financial Aid Financial Aid Deadlines All Undergraduate First-year All All All MM-DD"
+      }
+    },
+    "studentFacultyRatio": "11 to 1",
+    "enrollment": {
+      "undergraduates": 1242
+    },
+    "studentLife": {
+      "outOfStatePct": 1,
+      "onCampusPct": 1
+    },
+    "aid": {
+      "needMetPct": 75.8
+    }
+  },
+  "ingestedAt": "2026-09-15 17:09:42",
+  "updatedAt": "2026-09-15 17:09:42",
+  "validation": {
+    "school": "Juniata College",
+    "slug": "juniata-college",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

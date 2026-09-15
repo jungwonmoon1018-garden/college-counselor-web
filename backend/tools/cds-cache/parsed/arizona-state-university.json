@@ -1,0 +1,112 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "arizona-state-university",
+  "school": "Arizona State University",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.8989,
+  "yieldRate": 0.2211,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.53
+  },
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "important",
+    "class_rank": "important",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "not_considered",
+    "recommendations": "not_considered",
+    "interview": "not_considered",
+    "ec": "not_considered",
+    "talent_ability": "not_considered",
+    "character": "not_considered",
+    "first_generation": "not_considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "not_considered",
+    "work_experience": "not_considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 70928,
+    "admitted": 63756,
+    "enrolled": 14099
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 34345,
+        "admitted": 30552,
+        "admitRate": 0.8896
+      },
+      "women": {
+        "applied": 36574,
+        "admitted": 33196,
+        "admitRate": 0.9076
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1MQ9KpAdeaF8NfcNMUjSFwbHlvh7NzmzF",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "classRank": {
+      "topTenthPct": 29.2,
+      "topQuarterPct": 58.7,
+      "topHalfPct": 86.3,
+      "submittedPct": 56.4
+    },
+    "gpa": {
+      "average": 3.53,
+      "submittedPct": 97.1
+    },
+    "dates": {
+      "aidPriority": {
+        "mmdd": "01-15",
+        "raw": "01/15"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 17539
+    },
+    "enrollment": {
+      "undergraduates": 65450
+    },
+    "graduation": {
+      "sixYearPct": 70.1,
+      "cohort": 2018
+    },
+    "transfer": {
+      "applied": 7572,
+      "admitted": 6865,
+      "enrolled": 3749
+    },
+    "studentLife": {
+      "outOfStatePct": 31,
+      "onCampusPct": 69.8
+    }
+  },
+  "ingestedAt": "2026-09-15 17:05:12",
+  "updatedAt": "2026-09-15 17:05:12",
+  "validation": {
+    "school": "Arizona State University",
+    "slug": "arizona-state-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Arizona State University Campus Immersion Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Name: Amy Sonke Title: Data and Reporting An · Arizona State University Campus Immersion"
+  }
+}

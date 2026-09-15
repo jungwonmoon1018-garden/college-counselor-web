@@ -1,0 +1,111 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-south-alabama",
+  "school": "University of South Alabama",
+  "year": null,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.9455,
+  "yieldRate": 0.2182,
+  "enrolledSAT": {
+    "p25": 1010,
+    "p75": 1200
+  },
+  "enrolledACT": {
+    "p25": 20,
+    "p75": 26
+  },
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.75
+  },
+  "testPolicy": "test_optional",
+  "c7": {},
+  "b1": {
+    "applied": 10360,
+    "admitted": 9795,
+    "enrolled": 2137
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 3506,
+        "admitted": 3273,
+        "admitRate": 0.9335
+      },
+      "women": {
+        "applied": 6854,
+        "admitted": 6522,
+        "admitRate": 0.9516
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.southalabama.edu/departments/institutionalresearch/resources/usa-cds-2025-2026.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 520,
+        "p50": 555,
+        "p75": 620
+      },
+      "math": {
+        "p25": 488,
+        "p50": 530,
+        "p75": 583
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 19,
+        "p50": 23,
+        "p75": 27
+      },
+      "math": {
+        "p25": 17,
+        "p50": 20,
+        "p75": 25
+      },
+      "reading": {
+        "p25": 20,
+        "p50": 24,
+        "p75": 29
+      },
+      "science": {
+        "p25": 20,
+        "p50": 23,
+        "p75": 25
+      }
+    },
+    "gpa": {
+      "average": 3.75
+    },
+    "applicationFeeUsd": 45,
+    "aid": {
+      "averagePackageFirstYearUsd": 12517
+    },
+    "enrollment": {
+      "undergraduates": 9530
+    },
+    "studentLife": {
+      "outOfStatePct": 28.3,
+      "onCampusPct": 67.6
+    }
+  },
+  "ingestedAt": "2026-09-15 17:17:19",
+  "updatedAt": "2026-09-15 17:17:19",
+  "validation": {
+    "school": "University of South Alabama",
+    "slug": "university-of-south-alabama",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "University of South Alabama"
+  }
+}

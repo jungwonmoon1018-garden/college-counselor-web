@@ -1,0 +1,136 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "massachusetts-college-of-liberal-arts",
+  "school": "Massachusetts College of Liberal Arts",
+  "year": 2023,
+  "yearLabel": "2023-24",
+  "tier": null,
+  "overallAdmitRate": 0.9235,
+  "yieldRate": 0.134,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": {
+    "p25": 2.5,
+    "p75": 3.75,
+    "avg": 3.31
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 1543,
+    "admitted": 1425,
+    "enrolled": 191
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 497,
+        "admitted": 449,
+        "admitRate": 0.9034
+      },
+      "women": {
+        "applied": 1044,
+        "admitted": 975,
+        "admitRate": 0.9339
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1k38GxY_NKR6mtoL_3ZiTJuNy2YBy9dI2",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "classRank": {
+      "topTenthPct": 10,
+      "topQuarterPct": 35,
+      "topHalfPct": 72,
+      "submittedPct": 30
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 19
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 13
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 11
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 11
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 15
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 23
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 8
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.31,
+      "submittedPct": 100
+    },
+    "dates": {
+      "edNotification": "Click or tap here to enter text."
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 20850
+    },
+    "enrollment": {
+      "undergraduates": 836
+    },
+    "graduation": {
+      "sixYearPct": 49.1,
+      "cohort": 2017
+    },
+    "transfer": {
+      "applied": 248,
+      "admitted": 224,
+      "enrolled": 90
+    },
+    "studentLife": {
+      "outOfStatePct": 43,
+      "onCampusPct": 81
+    }
+  },
+  "ingestedAt": "2026-09-15 17:10:20",
+  "updatedAt": "2026-09-15 17:10:20",
+  "validation": {
+    "school": "Massachusetts College of Liberal Arts",
+    "slug": "massachusetts-college-of-liberal-arts",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Massachusetts College of Liberal Arts Common Data Set 2023-2024 1"
+  }
+}

@@ -1,0 +1,281 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "university-of-san-francisco",
+  "school": "University of San Francisco",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.6171,
+  "yieldRate": 0.0599,
+  "enrolledSAT": {
+    "p25": 1200,
+    "p75": 1380
+  },
+  "enrolledACT": {
+    "p25": 25,
+    "p75": 30
+  },
+  "enrolledGPA": {
+    "p25": 3.25,
+    "p75": 3.75,
+    "avg": 3.62
+  },
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "considered",
+    "interview": "considered",
+    "ec": "considered",
+    "talent_ability": "considered",
+    "character": "important",
+    "first_generation": "considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "important",
+    "work_experience": "considered",
+    "level_of_interest": "considered"
+  },
+  "b1": {
+    "applied": 24888,
+    "admitted": 15358,
+    "enrolled": 920
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 8600,
+        "admitted": 5102,
+        "admitRate": 0.5933
+      },
+      "women": {
+        "applied": 15967,
+        "admitted": 9999,
+        "admitRate": 0.6262
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1zKU2_jGW_cQgxxQ74oHLkKlebIgyrjq3",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "satSections": {
+      "ebrw": {
+        "p25": 610,
+        "p50": 650,
+        "p75": 700
+      },
+      "math": {
+        "p25": 580,
+        "p50": 640,
+        "p75": 690
+      }
+    },
+    "actSections": {
+      "english": {
+        "p25": 26,
+        "p50": 28,
+        "p75": 33
+      },
+      "math": {
+        "p25": 24,
+        "p50": 26,
+        "p75": 28
+      }
+    },
+    "submitting": {
+      "satPct": 12.4,
+      "actPct": 2.6
+    },
+    "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 20.2
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 57
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 21.1
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 1.8
+        }
+      ],
+      "satSections": {
+        "ebrw": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 29.8
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 52.6
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 17.6
+          }
+        ],
+        "math": [
+          {
+            "low": 700,
+            "high": 800,
+            "pct": 21.9
+          },
+          {
+            "low": 600,
+            "high": 699,
+            "pct": 49.1
+          },
+          {
+            "low": 500,
+            "high": 599,
+            "pct": 25.4
+          },
+          {
+            "low": 400,
+            "high": 499,
+            "pct": 2.6
+          },
+          {
+            "low": 300,
+            "high": 399,
+            "pct": 0.9
+          }
+        ]
+      }
+    },
+    "classRank": {
+      "topTenthPct": 44,
+      "topQuarterPct": 75,
+      "topHalfPct": 92,
+      "submittedPct": 28.3
+    },
+    "gpaDistribution": [
+      {
+        "low": 4,
+        "high": 4,
+        "pct": 20.7
+      },
+      {
+        "low": 3.75,
+        "high": 3.99,
+        "pct": 24.2
+      },
+      {
+        "low": 3.5,
+        "high": 3.74,
+        "pct": 19.2
+      },
+      {
+        "low": 3.25,
+        "high": 3.49,
+        "pct": 15.9
+      },
+      {
+        "low": 3,
+        "high": 3.24,
+        "pct": 11.6
+      },
+      {
+        "low": 2.5,
+        "high": 2.99,
+        "pct": 8.3
+      },
+      {
+        "low": 2,
+        "high": 2.49,
+        "pct": 0.1
+      },
+      {
+        "low": 1,
+        "high": 1.99,
+        "pct": 0
+      },
+      {
+        "low": 0,
+        "high": 0.99,
+        "pct": 0
+      }
+    ],
+    "gpa": {
+      "average": 3.62,
+      "submittedPct": 100
+    },
+    "applicationFeeUsd": 70,
+    "earlyDecision": {
+      "applications": 85,
+      "admitted": 42,
+      "admitRate": 0.4941
+    },
+    "dates": {
+      "edNotification": "1-Dec",
+      "aidPriority": {
+        "mmdd": "01-15",
+        "raw": "(MM/DD) 1/15"
+      }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 46144,
+      "needMetPct": 71
+    },
+    "enrollment": {
+      "undergraduates": 5321
+    },
+    "graduation": {
+      "sixYearPct": 69.9,
+      "cohort": 2018
+    },
+    "waitlist": {
+      "offered": 1327,
+      "accepted": 768,
+      "admitted": 364
+    },
+    "transfer": {
+      "applied": 1956,
+      "admitted": 1077,
+      "enrolled": 274
+    },
+    "studentLife": {
+      "outOfStatePct": 30,
+      "onCampusPct": 77
+    },
+    "costs": {
+      "tuitionUsd": 61720,
+      "requiredFeesUsd": 592,
+      "foodAndHousingUsd": 18490
+    }
+  },
+  "ingestedAt": "2026-09-15 17:15:49",
+  "updatedAt": "2026-09-15 17:15:49",
+  "validation": {
+    "school": "University of San Francisco",
+    "slug": "university-of-san-francisco",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 CDS-A Page 1 A. · University of San Francisco"
+  }
+}

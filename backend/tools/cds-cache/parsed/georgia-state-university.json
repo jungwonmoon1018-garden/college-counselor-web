@@ -1,0 +1,91 @@
+{
+  "source": "cds",
+  "extractionMethod": "pdfjs",
+  "slug": "georgia-state-university",
+  "school": "Georgia State University",
+  "year": 2024,
+  "yearLabel": "2024-25",
+  "tier": null,
+  "overallAdmitRate": 0.5543,
+  "yieldRate": 0.2269,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "not_considered",
+    "gpa": "very_important",
+    "test_scores": "very_important",
+    "application_essay": "considered",
+    "recommendations": "considered",
+    "interview": "not_considered",
+    "ec": "not_considered",
+    "talent_ability": "considered",
+    "character": "not_considered",
+    "first_generation": "not_considered",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "not_considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "not_considered",
+    "work_experience": "not_considered",
+    "level_of_interest": "not_considered"
+  },
+  "b1": {
+    "applied": 33455,
+    "admitted": 18545,
+    "enrolled": 4208
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 12411,
+        "admitted": 6726,
+        "admitRate": 0.5419
+      },
+      "women": {
+        "applied": 21036,
+        "admitted": 11817,
+        "admitRate": 0.5618
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://drive.google.com/uc?export=download&id=1Ap8NU-yVvU59DFPiAZjkIhQ0ldcLS6oB",
+  "sourceKind": "pdf_text",
+  "parserVersion": 6,
+  "parserNotes": [],
+  "extras": {
+    "gpa": {
+      "submittedPct": 0
+    },
+    "enrollment": {
+      "undergraduates": 27438
+    },
+    "graduation": {
+      "sixYearPct": 52.9,
+      "cohort": 2018
+    },
+    "transfer": {
+      "applied": 4741,
+      "admitted": 2504,
+      "enrolled": 1264
+    },
+    "studentLife": {
+      "outOfStatePct": 6
+    }
+  },
+  "ingestedAt": "2026-09-15 17:09:08",
+  "updatedAt": "2026-09-15 17:09:08",
+  "validation": {
+    "school": "Georgia State University",
+    "slug": "georgia-state-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": "Common Data Set 2024-2025 A0 Respondent Information (Not for Publication) Name: Ashley Kalle Title: Research Associate Office: Office of Instiutional Research M · Georgia State University--Main"
+  }
+}
