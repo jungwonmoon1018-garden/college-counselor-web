@@ -205,8 +205,9 @@ export async function extractPlainText(input) {
 let _pdfParseRef = null;
 async function loadPdfParse() {
   if (_pdfParseRef) return _pdfParseRef;
-  // pdf-parse ships a CommonJS index that runs a debug self-test when
-  // `require.main === module`; calling via createRequire avoids that path.
+  // pdf-parse 2 exports a PDFParse class (getText() on a loaded document)
+  // where 1.x exported one function; the CommonJS entry is required lazily
+  // because the fallback is rarely reached.
   _pdfParseRef = require("pdf-parse");
   return _pdfParseRef;
 }
@@ -278,13 +279,20 @@ export async function extractPDF(input) {
   }
   // pdf-parse stays as the second reader for a file pdfjs rejects.
   try {
-    const pdfParse = await loadPdfParse();
-    const result = await pdfParse(buf);
-    return {
-      text: String(result?.text || ""),
-      pageCount: Number(result?.numpages || 0) || null,
-      warning: null,
-    };
+    const { PDFParse } = await loadPdfParse();
+    const parser = new PDFParse({ data: new Uint8Array(buf) });
+    try {
+      const result = await parser.getText();
+      // pdf-parse 2 writes a "-- 1 of 3 --" marker between pages; the text
+      // layer read above does not, and the model should not see them.
+      return {
+        text: String(result?.text || "").replace(/^-- \d+ of \d+ --$/gm, "").replace(/\n{3,}/g, "\n\n").trim(),
+        pageCount: Number(result?.total || 0) || null,
+        warning: null,
+      };
+    } finally {
+      try { await parser.destroy(); } catch { /* best-effort */ }
+    }
   } catch (err) {
     const cause = firstError || err;
     throw new ExtractionError("pdf_parse_failed", `PDF extraction failed: ${cause.message}`, cause);

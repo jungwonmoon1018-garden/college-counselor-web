@@ -102,6 +102,24 @@ export function looksLikeImageOnlyPDF(items, numPages) {
 // Cost: roughly 5-10s per page on commodity hardware. A 30-page CDS
 // takes 2-5 minutes to OCR. Fine for offline ingestion, not for
 // interactive paths.
+//
+// The words of a recognition result. tesseract.js 6+ emits only text by
+// default and, asked for blocks, nests words under blocks > paragraphs >
+// lines; earlier versions put a flat `words` array on the result. Both
+// shapes are read here so the OCR items keep their boxes.
+export function ocrWords(data) {
+  if (Array.isArray(data?.words) && data.words.length) return data.words;
+  const out = [];
+  for (const block of data?.blocks || []) {
+    for (const paragraph of block?.paragraphs || []) {
+      for (const line of paragraph?.lines || []) {
+        for (const word of line?.words || []) out.push(word);
+      }
+    }
+  }
+  return out;
+}
+
 export async function extractItemsViaOCR(pdfPath, maxPages = 25) {
   let tesseract, canvasPkg;
   try {
@@ -134,12 +152,12 @@ export async function extractItemsViaOCR(pdfPath, maxPages = 25) {
   // PSM 6 — "Assume a single uniform block of text" — works better for
   // CDS table layouts where columns are tight and rows are dense. Default
   // PSM 3 (auto-segmentation) often splits the C7 table into the wrong
-  // regions and loses row alignment.
-  const recognizeOpts = {
-    logger: () => {},
-    tessedit_pageseg_mode: "6",
-  };
-
+  // regions and loses row alignment. One worker serves every page; the
+  // blocks output carries the word boxes (tesseract.js 6+ omits them
+  // unless asked).
+  const worker = await tesseract.createWorker("eng", 1, { logger: () => {} });
+  try {
+  await worker.setParameters({ tessedit_pageseg_mode: "6" });
   for (let p = 1; p <= pagesToRead; p++) {
     const page = await pdf.getPage(p);
     const viewport = page.getViewport({ scale: SCALE });
@@ -150,8 +168,8 @@ export async function extractItemsViaOCR(pdfPath, maxPages = 25) {
     ctx.fillRect(0, 0, cv.width, cv.height);
     await page.render({ canvasContext: ctx, viewport }).promise;
     const png = cv.toBuffer("image/png");
-    const result = await tesseract.recognize(png, "eng", recognizeOpts);
-    const words = result?.data?.words || [];
+    const result = await worker.recognize(png, {}, { text: true, blocks: true });
+    const words = ocrWords(result?.data);
 
     const pageHeightPx = viewport.height;
     for (const w of words) {
@@ -174,6 +192,9 @@ export async function extractItemsViaOCR(pdfPath, maxPages = 25) {
       });
     }
     page.cleanup();
+  }
+  } finally {
+    try { await worker.terminate(); } catch { /* best-effort */ }
   }
   // pdfjs-dist v6: destroy moved to the loading task (pdf.loadingTask).
   try { await (pdf.destroy?.() ?? pdf.loadingTask?.destroy?.()); } catch { /* cleanup best-effort */ }

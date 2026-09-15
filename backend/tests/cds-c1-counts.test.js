@@ -167,3 +167,12 @@ test("a parenthetical qualifier between the label and its number is not a column
   ]));
   assert.deepEqual(counts, { applied: 11831, admitted: 1511, enrolled: 634 });
 });
+
+test("OCR words are read from tesseract.js 6+ blocks and from the older flat words array", async () => {
+  const { ocrWords } = await import("../cds-pdf-parser.js");
+  const nested = { text: "x", blocks: [{ paragraphs: [{ lines: [{ words: [{ text: "Total", bbox: { x0: 1, x1: 2, y0: 3, y1: 4 } }, { text: "21,054", bbox: { x0: 5, x1: 6, y0: 3, y1: 4 } }] }] }] }, { paragraphs: [] }] };
+  assert.deepEqual(ocrWords(nested).map((w) => w.text), ["Total", "21,054"]);
+  assert.deepEqual(ocrWords({ words: [{ text: "legacy" }] }).map((w) => w.text), ["legacy"]);
+  assert.deepEqual(ocrWords({ text: "nothing else" }), []);
+  assert.deepEqual(ocrWords(undefined), []);
+});

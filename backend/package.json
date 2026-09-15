@@ -20,8 +20,8 @@
     "lint": "eslint . --max-warnings=500"
   },
   "dependencies": {
-    "@napi-rs/canvas": "^0.1.100",
-    "better-sqlite3": "^12.11.1",
+    "@napi-rs/canvas": "^1.0.9",
+    "better-sqlite3": "^13.0.3",
     "cors": "^2.8.5",
     "dotenv": "^17.4.0",
     "exceljs": "^4.4.0",
@@ -30,12 +30,12 @@
     "helmet": "^8.0.0",
     "mammoth": "^1.8.0",
     "multer": "^2.2.0",
-    "pdf-parse": "^1.1.1",
+    "pdf-parse": "^2.4.5",
     "pdfjs-dist": "^6.2.108",
-    "tesseract.js": "^5.1.0"
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
-    "eslint": "^9.0.0"
+    "eslint": "^10.10.0"
   },
   "overrides": {
     "@xmldom/xmldom": "^0.8.13",
