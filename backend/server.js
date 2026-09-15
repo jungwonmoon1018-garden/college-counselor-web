@@ -8121,7 +8121,8 @@ try {
 const publicDir = process.env.PUBLIC_DIR ? path.resolve(process.env.PUBLIC_DIR) : path.join(__dirname, "public");
 if (fs.existsSync(publicDir)) {
   app.use(express.static(publicDir));
-  app.get("*", (req, res) => {
+  // Express 5 (path-to-regexp 8) names its wildcards: "*" became "/{*splat}".
+  app.get("/{*splat}", (req, res) => {
     if (req.path.startsWith("/api/")) return res.status(404).json({ error: "Not found" });
     res.sendFile(path.join(publicDir, "index.html"));
   });
