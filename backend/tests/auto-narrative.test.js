@@ -14,9 +14,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { computeProfileFingerprint } from "../narrative-store.js";
+import { readServerSource } from "./helpers/server-source.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SERVER = fs.readFileSync(path.resolve(__dirname, "../server.js"), "utf8");
+const SERVER = readServerSource();
 const RAG = fs.readFileSync(path.resolve(__dirname, "../rag-engine.js"), "utf8");
 const NARR = fs.readFileSync(path.resolve(__dirname, "../narrative-store.js"), "utf8");
 

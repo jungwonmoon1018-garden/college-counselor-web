@@ -12,6 +12,7 @@ import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { redactProviderPayload, restoreProviderResponse } from "../orchestration-engine.js";
+import { readServerSource } from "./helpers/server-source.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -690,7 +691,7 @@ describe("POST /api/simulations", () => {
   });
 
   it("does not expose simulation routes under actual student/vector prefixes", async () => {
-    const source = fs.readFileSync(path.join(PROJECT_ROOT, "server.js"), "utf8");
+    const source = readServerSource();
     const routeMatches = [...source.matchAll(/app\.(get|post|put|patch|delete)\("([^"]*simulation[^"]*)"/g)]
       .map(match => match[2]);
     assert.ok(routeMatches.length >= 3);

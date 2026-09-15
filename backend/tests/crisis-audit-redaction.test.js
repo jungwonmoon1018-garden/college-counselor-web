@@ -9,9 +9,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readServerSource } from "./helpers/server-source.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SRC = fs.readFileSync(path.resolve(__dirname, "../server.js"), "utf8");
+const SRC = readServerSource();
 
 test("crisis_detected audit rows never persist raw user text", () => {
   // This build routes crisis handling through one unified deterministic path

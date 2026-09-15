@@ -15,6 +15,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { matchMajorBucket, LEXICON } from "../ec-vectorizer.js";
+import { readServerSource } from "./helpers/server-source.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -82,7 +83,7 @@ test("enhancedCollegeMatch source includes narrativeFit weighting", () => {
 
 // ─── F10 ────────────────────────────────────────────────────────────────
 test("server.js exposes GET /api/narrative/drift with a friendly message", () => {
-  const src = fs.readFileSync(path.resolve(__dirname, "../server.js"), "utf8");
+  const src = readServerSource();
   assert.match(src, /app\.get\("\/api\/narrative\/drift"/,
     "GET /api/narrative/drift missing");
   assert.match(src, /staleCount/, "drift response must expose staleCount");
@@ -91,7 +92,7 @@ test("server.js exposes GET /api/narrative/drift with a friendly message", () =>
 });
 
 test("context bundle surfaces narrative.active.drift for UI banners", () => {
-  const src = fs.readFileSync(path.resolve(__dirname, "../server.js"), "utf8");
+  const src = readServerSource();
   assert.match(src, /drift:\s*\{\s*staleCount/,
     "context/bundle narrative.active.drift block missing");
 });

@@ -11,8 +11,9 @@ import {
   securityResponseMiddleware,
   shouldUseSecureAdminCookie,
 } from "../security-hardening.js";
+import { readServerSource } from "./helpers/server-source.mjs";
 
-const SERVER = fs.readFileSync(fileURLToPath(new URL("../server.js", import.meta.url)), "utf8");
+const SERVER = readServerSource();
 
 test("sensitive auth, admin, export, and context responses are marked no-store", () => {
   for (const path of [

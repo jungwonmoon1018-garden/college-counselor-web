@@ -14,9 +14,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readServerSource } from "./helpers/server-source.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SERVER = fs.readFileSync(path.resolve(__dirname, "../server.js"), "utf8");
+const SERVER = readServerSource();
 const LLM_ADAPTER = fs.readFileSync(path.resolve(__dirname, "../llm-adapters/index.js"), "utf8");
 
 // ─── Spike Finder ───────────────────────────────────────────────────────

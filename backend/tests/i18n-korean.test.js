@@ -41,6 +41,7 @@ import {
   deadlines as deadlineApi,
   setLocale as setApiLocale,
 } from "../../frontend/src/api.js";
+import { readServerSource } from "./helpers/server-source.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -299,13 +300,13 @@ test("localizeFriendlyLabels('en-US') preserves the original English", () => {
 
 // ─── 6. server.js wiring — grep-style assertions ───────────────────────
 test("server.js imports resolveLocale + localizeFriendlyLabels from i18n.js", () => {
-  const src = fs.readFileSync(path.resolve(__dirname, "../server.js"), "utf8");
+  const src = readServerSource();
   assert.match(src, /import\s*\{[^}]*resolveLocale[^}]*\}\s*from\s*["']\.\/i18n\.js["']/);
   assert.match(src, /import\s*\{[^}]*localizeFriendlyLabels[^}]*\}\s*from\s*["']\.\/i18n\.js["']/);
 });
 
 test("drift/candidates/deadlines/prestige endpoints route friendlyMessage through t()", () => {
-  const src = fs.readFileSync(path.resolve(__dirname, "../server.js"), "utf8");
+  const src = readServerSource();
   assert.match(src, /t\("drift\.no_active_narrative",\s*locale\)/);
   assert.match(src, /t\("drift\.all_fresh",\s*locale\)/);
   assert.match(src, /t\("drift\.one_stale",\s*locale\)/);
@@ -321,7 +322,7 @@ test("drift/candidates/deadlines/prestige endpoints route friendlyMessage throug
 });
 
 test("context/bundle and /api/ec/strength ship friendlyLegendI18n", () => {
-  const src = fs.readFileSync(path.resolve(__dirname, "../server.js"), "utf8");
+  const src = readServerSource();
   assert.match(src, /friendlyLegendI18n/, "bundle/strength should include friendlyLegendI18n");
   assert.match(src, /localizeFriendlyLabels\(locale\)/, "endpoint should call localizeFriendlyLabels");
 });
@@ -383,7 +384,7 @@ test("current student UI renders its Korean locale and disclosure labels from i1
 });
 
 test("current registration and consent routes request localized consent copy", () => {
-  const src = fs.readFileSync(path.resolve(__dirname, "../server.js"), "utf8");
+  const src = readServerSource();
   assert.match(src, /getOnboardingConsentRequirements\(true,\s*req\.body\?\.locale\s*\|\|\s*"en-US"\)/);
   assert.match(src, /getOnboardingConsentRequirements\(isMinor,\s*locale\)/);
 
