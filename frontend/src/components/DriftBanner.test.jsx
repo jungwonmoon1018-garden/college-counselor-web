@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import DriftBanner from "./DriftBanner.jsx";
 
 // The drift banner keys its display off the server's `status`: nothing to
@@ -42,5 +42,15 @@ describe("DriftBanner", () => {
     render(<DriftBanner locale="en-US" onReview={() => {}} onWriteStory={() => {}} />);
     expect(await screen.findByText("Save your story first.")).toBeInTheDocument();
     expect(screen.queryByText("Review activities")).not.toBeInTheDocument();
+  });
+
+  it("closes from its × in the corner", async () => {
+    restore = stubDrift({ ok: true, status: "one_stale", staleCount: 1, friendlyMessage: "One activity was scored against an older narrative." });
+    render(<DriftBanner locale="en-US" onReview={() => {}} onWriteStory={() => {}} />);
+    expect(await screen.findByText("One activity was scored against an older narrative.")).toBeInTheDocument();
+    const close = screen.getByRole("button", { name: "Dismiss" });
+    expect(close).toHaveTextContent("×");
+    fireEvent.click(close);
+    await waitFor(() => expect(screen.queryByText("One activity was scored against an older narrative.")).not.toBeInTheDocument());
   });
 });

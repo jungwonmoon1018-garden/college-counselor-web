@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { narrative as narrativeApi } from "../api.js";
 import { t } from "../i18n.js";
+import CloseButton from "./CloseButton.jsx";
 
 // ═══════════════════════════════════════════════════════════════════════
 // DriftBanner — surfaces /api/narrative/drift status at the top of CHAT.
@@ -58,7 +59,7 @@ export default function DriftBanner({ locale = "en-US", onReview, onWriteStory, 
           </div>
         )}
       </div>
-      <div style={{ display: "flex", gap: 8 }}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         {drift.status === "no_active_narrative" && onWriteStory ? (
           <button onClick={onWriteStory} style={{
             fontSize: 12, padding: "6px 12px", borderRadius: 8,
@@ -76,12 +77,7 @@ export default function DriftBanner({ locale = "en-US", onReview, onWriteStory, 
             {t(locale, "drift.review")}
           </button>
         )}
-        <button onClick={() => setDismissed(true)} style={{
-          fontSize: 12, padding: "6px 12px", borderRadius: 8,
-          border: "none", background: "transparent", color: "#8a8a9a", cursor: "pointer",
-        }}>
-          {t(locale, "drift.dismiss")}
-        </button>
+        <CloseButton label={t(locale, "drift.dismiss")} onClick={() => setDismissed(true)} />
       </div>
     </div>
   );

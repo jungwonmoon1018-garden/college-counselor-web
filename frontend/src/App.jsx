@@ -1,6 +1,7 @@
 ﻿import { useState, useEffect, useRef, useCallback } from "react";
 import NarrativeEditor from "./components/NarrativeEditor.jsx";
 import DriftBanner from "./components/DriftBanner.jsx";
+import CloseButton from "./components/CloseButton.jsx";
 import CandidateRanker from "./components/CandidateRanker.jsx";
 import DeadlineTracker from "./components/DeadlineTracker.jsx";
 import PrestigeCard from "./components/PrestigeCard.jsx";
@@ -3838,6 +3839,11 @@ export default function App() {
   // True during the last minute before the inactivity sign-out — rendered as a
   // prominent toast so the auto-lock never silently eats a drafted message.
   const [expiryWarning, setExpiryWarning] = useState(false);
+  // The inactivity notice, shown as a toast in both the survey and the chat.
+  const EXPIRY_NOTICE = "Still there? You'll be signed out in about a minute of inactivity — click or type to stay signed in.";
+  // The session notice the student closed with its ×: that exact notice
+  // stays hidden, a different one shows again.
+  const [dismissedNotice, setDismissedNotice] = useState("");
   // Offline-first: true when the vault unlocked locally but the backend was
   // unreachable at sign-in. The student keeps full access to their on-device
   // data; server features (chat, sync) resume when the backend returns. Cleared
@@ -5023,9 +5029,10 @@ export default function App() {
       <main style={{minHeight:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",background:BG,fontFamily:FONT,padding:16}}>
         {/* Inactivity auto-lock warning — the survey is where a silent sign-out
             hurts most (a half-completed transcript entry vanishes). */}
-        {expiryWarning && (
-          <div role="status" aria-live="polite" style={{position:"fixed",top:12,left:"50%",transform:"translateX(-50%)",zIndex:9999,padding:"8px 14px",borderRadius:10,fontSize:12,fontWeight:600,boxShadow:"0 4px 16px rgba(0,0,0,0.3)",background:"rgba(246,173,85,0.22)",border:"1px solid rgba(246,173,85,0.55)",color:"#fbd38d"}}>
-            Still there? You'll be signed out in about a minute of inactivity — click or type to stay signed in.
+        {expiryWarning && dismissedNotice !== EXPIRY_NOTICE && (
+          <div role="status" aria-live="polite" style={{position:"fixed",top:12,left:"50%",transform:"translateX(-50%)",zIndex:9999,padding:"8px 14px",borderRadius:10,fontSize:12,fontWeight:600,boxShadow:"0 4px 16px rgba(0,0,0,0.3)",background:"rgba(246,173,85,0.22)",border:"1px solid rgba(246,173,85,0.55)",color:"#fbd38d",display:"flex",alignItems:"center",gap:10}}>
+            <span>{EXPIRY_NOTICE}</span>
+            <CloseButton label={tt(locale, "chat.modal.close")} onClick={() => setDismissedNotice(EXPIRY_NOTICE)} size={22} style={{marginRight:-6}} />
           </div>
         )}
         <div className="cc-survey-card" style={{width:"min(680px, 100%)",maxHeight:"calc(100dvh - 32px)",padding:"clamp(20px, 4vw, 36px)",borderRadius:8,background:"#151a23",border:"1px solid rgba(255,255,255,0.16)",overflowY:"auto"}}>
@@ -5462,22 +5469,30 @@ export default function App() {
   // ═══════════════════════════════════════════════════════════
   return (
     <div style={{ display:"flex",height:"100dvh",fontFamily:FONT,background:BG,color:"#e8e6e3" }}>
-      {/* Non-blocking session-health toast (offline / re-auth / background-sync status) */}
-      {(expiryWarning || offlineMode || reauthStatus === "attempting" || reauthStatus === "failed" || syncStatus === "failed") && (
+      {/* Non-blocking session-health toast (offline / re-auth / background-sync status). */}
+      {/* Its × hides the current notice only; a different notice still shows.       */}
+      {(() => {
+        const notice = expiryWarning ? EXPIRY_NOTICE
+          : reauthStatus === "attempting" ? "Reconnecting to your counselor…"
+          : reauthStatus === "failed" ? "Session expired — sign out and sign in again."
+          : offlineMode ? "Offline — your data is safe on this device. Counseling features resume when you reconnect."
+          : syncStatus === "failed" ? (syncNote || "Last change didn't sync — will retry.")
+          : null;
+        if (!notice || notice === dismissedNotice) return null;
+        return (
         <div role="status" aria-live="polite" style={{
           position:"fixed", top:12, left:"50%", transform:"translateX(-50%)", zIndex:9999,
           padding:"8px 14px", borderRadius:10, fontSize:12, fontWeight:600, boxShadow:"0 4px 16px rgba(0,0,0,0.3)",
           background: expiryWarning ? "rgba(246,173,85,0.22)" : reauthStatus==="failed" ? "rgba(245,101,101,0.15)" : (offlineMode || syncStatus==="failed") ? "rgba(246,173,85,0.15)" : "rgba(99,179,237,0.15)",
           border:`1px solid ${expiryWarning ? "rgba(246,173,85,0.55)" : reauthStatus==="failed" ? "rgba(245,101,101,0.4)" : (offlineMode || syncStatus==="failed") ? "rgba(246,173,85,0.4)" : "rgba(99,179,237,0.4)"}`,
           color: expiryWarning ? "#fbd38d" : reauthStatus==="failed" ? "#fc8181" : (offlineMode || syncStatus==="failed") ? "#f6ad55" : "#63b3ed",
+          display:"flex", alignItems:"center", gap:10,
         }}>
-          {expiryWarning ? "Still there? You'll be signed out in about a minute of inactivity — click or type to stay signed in."
-            : reauthStatus === "attempting" ? "Reconnecting to your counselor…"
-            : reauthStatus === "failed" ? "Session expired — sign out and sign in again."
-            : offlineMode ? "Offline — your data is safe on this device. Counseling features resume when you reconnect."
-            : (syncNote || "Last change didn't sync — will retry.")}
+          <span>{notice}</span>
+          <CloseButton label={tt(locale, "chat.modal.close")} onClick={() => setDismissedNotice(notice)} size={22} style={{ marginRight:-6 }} />
         </div>
-      )}
+        );
+      })()}
       {/* Sidebar */}
       <aside aria-label="Student profile and planning tools" className={`cc-sidebar-overlay ${sidebarOpen ? "is-open" : "is-closed"}`} style={{ width:sidebarOpen?280:0,overflow:"hidden",transition:"width 0.25s ease",borderRight:sidebarOpen?"1px solid rgba(255,255,255,0.05)":"none",background:"rgba(255,255,255,0.015)",flexShrink:0 }}>
         <div style={{ padding:18,overflowY:"auto",height:"100%",width:280,boxSizing:"border-box" }}>
@@ -6008,10 +6023,7 @@ export default function App() {
                       <span style={{fontSize:10,color:"#6a6a7a",textTransform:"uppercase",letterSpacing:"0.07em"}}>
                         🛠 {tt(locale, toolTitleKey)}
                       </span>
-                      <button onClick={()=>dismissTool(m.id)} title="Dismiss" style={{
-                        background:"transparent", border:"1px solid rgba(255,255,255,0.1)",
-                        color:"#8a8a9a", borderRadius:8, padding:"3px 10px", fontSize:11, cursor:"pointer",
-                      }}>✕</button>
+                      <CloseButton label={tt(locale, "chat.modal.close")} onClick={()=>dismissTool(m.id)} style={{marginTop:-6,marginRight:-8}} />
                     </div>
                     {m.tool==="narrative" && (
                       <NarrativeEditor locale={locale} targetSchools={targetSchools} onSaved={()=>{ setSNarrativeSaved(true); setNarrativeVersion((v) => v + 1); }} />
@@ -6410,13 +6422,8 @@ export default function App() {
             border:"1px solid rgba(255,255,255,0.08)",
             display:"flex", flexDirection:"column", gap:14,
           }}>
-            <div style={{ display:"flex", justifyContent:"flex-end" }}>
-              <button onClick={() => setActivePanel(null)} style={{
-                padding:"6px 14px", borderRadius:8,
-                border:"1px solid rgba(255,255,255,0.1)",
-                background:"transparent", color:"#cbd5e0",
-                fontSize:12, cursor:"pointer",
-              }}>{tt(locale, "chat.modal.close")}</button>
+            <div style={{ display:"flex", justifyContent:"flex-end", margin:"-8px -8px 0 0" }}>
+              <CloseButton label={tt(locale, "chat.modal.close")} onClick={() => setActivePanel(null)} />
             </div>
             {/* narrative / candidates / spike / courses now render INLINE in */}
             {/* the chat (role:"tool" cards). Only deadlines here. */}
