@@ -1,99 +1,96 @@
 {
-  "school": "Harvard University",
   "slug": "harvard-university",
-  "tier": "T20",
-  "year": 2024,
-  "source": "cds",
-  "parserVersion": 4,
-  "testPolicy": "test_required",
-  "b1": {
-    "applied": 54008,
-    "admitted": 1970,
-    "enrolled": 1647
-  },
-  "overallAdmitRate": 0.0365,
-  "yieldRate": 0.836,
+  "school": "Harvard University",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.0418,
+  "yieldRate": 0.8362,
   "enrolledSAT": {
-    "p25": 1510,
-    "p75": 1580
+    "p25": 1450,
+    "p75": 1560
   },
   "enrolledACT": {
-    "p25": 34,
-    "p75": 36
+    "p25": 33,
+    "p75": 35
   },
-  "c7": {},
-  "validation": {
-    "school": "Harvard University",
-    "slug": "harvard-university",
-    "status": "discrepancies",
-    "discrepancies": [
-      {
-        "severity": "high",
-        "field": "enrolledSAT",
-        "parsed": {
-          "p25": 740,
-          "p75": 800
-        },
-        "expected": {
-          "p25": 1510,
-          "p75": 1580
-        },
-        "note": "section_only (parsed values < 800 suggest single-section, not composite)"
-      }
-    ],
-    "overrides": {
-      "enrolledSAT": {
-        "p25": 1510,
-        "p75": 1580
-      }
-    },
-    "scopeFromPDF": null
+  "enrolledGPA": {
+    "p25": 3.75,
+    "p75": 4,
+    "avg": 4.22
   },
-  "_uncorrected": {
-    "overallAdmitRate": 0.0365,
-    "enrolledSAT": {
-      "p25": 740,
-      "p75": 800
-    }
+  "testPolicy": "test_required",
+  "c7": {
+    "rigor": "considered",
+    "class_rank": "not_considered",
+    "gpa": "considered",
+    "test_scores": "considered",
+    "application_essay": "considered",
+    "recommendations": "considered",
+    "interview": "considered",
+    "ec": "considered",
+    "talent_ability": "considered",
+    "character": "considered",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "not_considered",
+    "religious_affiliation": "not_considered",
+    "racial_ethnic_status": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered"
   },
+  "b1": {
+    "applied": 47893,
+    "admitted": 2003,
+    "enrolled": 1675
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://oira.harvard.edu/files/2026/07/CDS_2025-2026.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 5,
+  "parserNotes": [],
   "extras": {
     "satSections": {
       "ebrw": {
-        "p25": 740,
-        "p50": 760,
-        "p75": 780
+        "p25": 720,
+        "p50": 750,
+        "p75": 770
       },
       "math": {
-        "p25": 770,
-        "p50": 790,
-        "p75": 800
+        "p25": 730,
+        "p50": 770,
+        "p75": 790
       }
     },
     "actSections": {
       "english": {
-        "p25": 35,
+        "p25": 34,
         "p50": 35,
         "p75": 36
       },
       "math": {
-        "p25": 32,
-        "p50": 35,
-        "p75": 36
+        "p25": 31,
+        "p50": 34,
+        "p75": 35
       },
       "reading": {
         "p25": 34,
-        "p50": 36,
+        "p50": 35,
         "p75": 36
       },
       "science": {
-        "p25": 33,
-        "p50": 35,
+        "p25": 32,
+        "p50": 34,
         "p75": 36
       }
     },
     "submitting": {
-      "satPct": 54,
-      "actPct": 19
+      "satPct": 79,
+      "actPct": 27
     },
     "scoreDistribution": {
       "satSections": {
@@ -101,34 +98,34 @@
           {
             "low": 700,
             "high": 800,
-            "pct": 95
+            "pct": 84
           },
           {
             "low": 600,
             "high": 699,
-            "pct": 5
+            "pct": 14.2
           },
           {
             "low": 500,
             "high": 599,
-            "pct": 0
+            "pct": 1.8
           }
         ],
         "math": [
           {
             "low": 700,
             "high": 800,
-            "pct": 98
+            "pct": 85.6
           },
           {
             "low": 600,
             "high": 699,
-            "pct": 2
+            "pct": 12.8
           },
           {
             "low": 500,
             "high": 599,
-            "pct": 0
+            "pct": 1.6
           }
         ]
       },
@@ -136,12 +133,17 @@
         {
           "low": 30,
           "high": 36,
-          "pct": 98
+          "pct": 93.3
         },
         {
           "low": 24,
           "high": 29,
-          "pct": 2
+          "pct": 6.2
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 0.4
         }
       ],
       "actSections": {
@@ -149,78 +151,98 @@
           {
             "low": 30,
             "high": 36,
-            "pct": 97
+            "pct": 94.9
           },
           {
             "low": 24,
             "high": 29,
-            "pct": 3
+            "pct": 4.4
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 0.7
           }
         ],
         "math": [
           {
             "low": 30,
             "high": 36,
-            "pct": 90
+            "pct": 82.2
           },
           {
             "low": 24,
             "high": 29,
-            "pct": 9
+            "pct": 16.7
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 1.1
           }
         ],
         "reading": [
           {
             "low": 30,
             "high": 36,
-            "pct": 98
+            "pct": 94.2
           },
           {
             "low": 24,
             "high": 29,
-            "pct": 2
+            "pct": 5.1
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 0.7
           }
         ],
         "science": [
           {
             "low": 30,
             "high": 36,
-            "pct": 93
+            "pct": 88.5
           },
           {
             "low": 24,
             "high": 29,
-            "pct": 6
+            "pct": 11.3
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 0.2
           }
         ]
       }
     },
     "classRank": {
-      "topTenthPct": 94,
+      "topTenthPct": 95,
       "topQuarterPct": 99,
       "topHalfPct": 100,
-      "submittedPct": 29
+      "submittedPct": 25
     },
     "gpaDistribution": [
       {
         "low": 4,
         "high": 4,
-        "pct": 72.4
+        "pct": 74.7
       },
       {
         "low": 3.75,
         "high": 3.99,
-        "pct": 22.2
+        "pct": 20.4
       },
       {
         "low": 3.5,
         "high": 3.74,
-        "pct": 4.1
+        "pct": 3.5
       },
       {
         "low": 3.25,
         "high": 3.49,
-        "pct": 0.6
+        "pct": 1
       },
       {
         "low": 3,
@@ -230,12 +252,12 @@
       {
         "low": 2.5,
         "high": 2.99,
-        "pct": 0.3
+        "pct": 0.2
       },
       {
         "low": 2,
         "high": 2.49,
-        "pct": 0.2
+        "pct": 0.1
       },
       {
         "low": 1,
@@ -249,9 +271,10 @@
       }
     ],
     "gpa": {
-      "average": 4.21
+      "average": 4.22,
+      "submittedPct": 99.1
     },
-    "applicationFeeUsd": 85,
+    "applicationFeeUsd": 90,
     "dates": {
       "regularClosing": {
         "mmdd": "01-01",
@@ -263,13 +286,15 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 74387
+      "averagePackageFirstYearUsd": 75166
     }
   },
-  "enrolledGPA": {
-    "p25": 3.75,
-    "p75": 4,
-    "source": "C11_cumulative",
-    "avg": 4.21
+  "ingestedAt": "2026-09-15 14:05:23",
+  "updatedAt": "2026-09-15 14:05:23",
+  "validation": {
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "validatedAt": "2026-09-15 14:05:23"
   }
 }

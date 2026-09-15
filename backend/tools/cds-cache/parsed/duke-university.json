@@ -1,18 +1,11 @@
 {
-  "school": "Duke University",
   "slug": "duke-university",
-  "tier": "T20",
-  "year": 2024,
-  "source": "cds",
-  "parserVersion": 4,
-  "testPolicy": "test_optional",
-  "b1": {
-    "applied": 51795,
-    "admitted": 2957,
-    "enrolled": 1740
-  },
-  "overallAdmitRate": 0.0571,
-  "yieldRate": 0.5884,
+  "school": "Duke University",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.0524,
+  "yieldRate": 0.601,
   "enrolledSAT": {
     "p25": 1510,
     "p75": 1570
@@ -21,106 +14,66 @@
     "p25": 34,
     "p75": 35
   },
-  "c7": {
-    "rigor": "very_important",
-    "class_rank": "important",
-    "gpa": "very_important",
-    "test_scores": "considered",
-    "application_essay": "considered",
-    "recommendations": "very_important",
-    "interview": "considered",
-    "ec": "very_important",
-    "talent_ability": "very_important",
-    "character": "very_important",
-    "first_generation": "considered",
-    "alumni_relation": "considered",
-    "geographical_residence": "considered",
-    "state_residency": "considered",
-    "religious_affiliation": "not_considered",
-    "racial_ethnic_status": "not_considered",
-    "volunteer_work": "considered",
-    "work_experience": "considered",
-    "level_of_interest": "considered"
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
+  "c7": {},
+  "b1": {
+    "applied": 55541,
+    "admitted": 2910,
+    "enrolled": 1749
   },
-  "validation": {
-    "school": "Duke University",
-    "slug": "duke-university",
-    "status": "discrepancies",
-    "discrepancies": [
-      {
-        "severity": "high",
-        "field": "enrolledSAT",
-        "parsed": {
-          "p25": 740,
-          "p75": 800
-        },
-        "expected": {
-          "p25": 1510,
-          "p75": 1570
-        },
-        "note": "section_only (parsed values < 800 suggest single-section, not composite)"
-      }
-    ],
-    "overrides": {
-      "enrolledSAT": {
-        "p25": 1510,
-        "p75": 1570
-      }
-    },
-    "scopeFromPDF": null
-  },
-  "_uncorrected": {
-    "overallAdmitRate": 0.0571,
-    "enrolledSAT": {
-      "p25": 740,
-      "p75": 800
-    }
-  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://ir.provost.duke.edu/sites/default/files/CDS_PDF_2025-2026-20260622-website-published-version.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 5,
+  "parserNotes": [],
   "extras": {
     "satSections": {
       "ebrw": {
         "p25": 740,
         "p50": 760,
-        "p75": 770
+        "p75": 780
       },
       "math": {
-        "p25": 760,
-        "p50": 780,
-        "p75": 800
+        "p25": 770,
+        "p50": 790,
+        "p75": 790
       }
     },
     "actSections": {
       "english": {
-        "p25": 32,
-        "p50": 35,
-        "p75": 35
+        "p25": 35,
+        "p50": 36,
+        "p75": 36
       },
       "math": {
-        "p25": 35,
+        "p25": 33,
         "p50": 35,
-        "p75": 36
+        "p75": 35
       }
     },
     "submitting": {
       "satPct": 48,
-      "actPct": 30
+      "actPct": 27
     },
     "scoreDistribution": {
       "satComposite": [
         {
           "low": 1400,
           "high": 1600,
-          "pct": 93.7
+          "pct": 96.3
         },
         {
           "low": 1200,
           "high": 1399,
-          "pct": 5.1
+          "pct": 3.1
         },
         {
           "low": 1000,
           "high": 1199,
-          "pct": 1.2
+          "pct": 0.6
         }
       ],
       "satSections": {
@@ -128,140 +81,52 @@
           {
             "low": 700,
             "high": 800,
-            "pct": 92.4
+            "pct": 95.6
           },
           {
             "low": 600,
             "high": 699,
-            "pct": 6.8
+            "pct": 3.3
           },
           {
             "low": 500,
             "high": 599,
-            "pct": 0.9
-          },
-          {
-            "low": 400,
-            "high": 499,
-            "pct": 0
-          },
-          {
-            "low": 300,
-            "high": 399,
-            "pct": 0
-          },
-          {
-            "low": 200,
-            "high": 299,
-            "pct": 0
+            "pct": 1.1
           }
         ],
         "math": [
           {
             "low": 700,
             "high": 800,
-            "pct": 93
+            "pct": 96
           },
           {
             "low": 600,
             "high": 699,
-            "pct": 5.2
+            "pct": 3.2
           },
           {
             "low": 500,
             "high": 599,
-            "pct": 1.5
-          },
-          {
-            "low": 400,
-            "high": 499,
-            "pct": 0.4
-          },
-          {
-            "low": 300,
-            "high": 399,
-            "pct": 0
-          },
-          {
-            "low": 200,
-            "high": 299,
-            "pct": 0
-          }
-        ]
-      },
-      "actComposite": [
-        {
-          "low": 30,
-          "high": 36,
-          "pct": 96.4
-        },
-        {
-          "low": 24,
-          "high": 29,
-          "pct": 3.4
-        },
-        {
-          "low": 18,
-          "high": 23,
-          "pct": 0.2
-        }
-      ],
-      "actSections": {
-        "english": [
-          {
-            "low": 30,
-            "high": 36,
-            "pct": 95.8
-          },
-          {
-            "low": 24,
-            "high": 29,
-            "pct": 3.4
-          },
-          {
-            "low": 18,
-            "high": 23,
             "pct": 0.8
-          }
-        ],
-        "math": [
-          {
-            "low": 30,
-            "high": 36,
-            "pct": 90.1
-          },
-          {
-            "low": 24,
-            "high": 29,
-            "pct": 9.5
-          },
-          {
-            "low": 18,
-            "high": 23,
-            "pct": 0.4
           }
         ]
       }
     },
-    "classRank": {
-      "topTenthPct": 92,
-      "topQuarterPct": 98,
-      "topHalfPct": 99,
-      "submittedPct": 25
-    },
-    "gpa": {
-      "submittedPct": 0
-    },
-    "earlyDecision": {
-      "applications": 6013,
-      "admitted": 1042,
-      "admitRate": 0.1733
-    },
+    "applicationFeeUsd": 85,
     "dates": {
-      "edNotification": "Mid December"
+      "edNotification": "12 months 15 days"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 76028
+      "averagePackageFirstYearUsd": 83513
     }
+  },
+  "ingestedAt": "2026-09-15 14:05:29",
+  "updatedAt": "2026-09-15 14:05:29",
+  "validation": {
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "validatedAt": "2026-09-15 14:05:29"
   }
 }

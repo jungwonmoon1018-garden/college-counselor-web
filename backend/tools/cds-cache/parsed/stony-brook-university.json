@@ -4,8 +4,8 @@
   "year": null,
   "yearLabel": "2025-26",
   "tier": null,
-  "overallAdmitRate": null,
-  "yieldRate": null,
+  "overallAdmitRate": 0.4818,
+  "yieldRate": 0.1282,
   "enrolledSAT": {
     "p25": 1350,
     "p75": 1470
@@ -37,14 +37,25 @@
     "work_experience": "considered",
     "level_of_interest": "considered"
   },
-  "b1": null,
+  "b1": {
+    "applied": 64197,
+    "admitted": 30930,
+    "enrolled": 3964
+  },
   "c1Breakdown": null,
   "majors": {},
   "priorities": [],
   "sourceUrl": "https://www.stonybrook.edu/irpe/_media/Common_data_sets/CDS_2025-2026.xlsx",
   "sourceKind": "xlsx",
-  "parserVersion": 3,
+  "parserVersion": 4,
   "parserNotes": [],
-  "ingestedAt": "2026-08-31 06:56:35",
-  "updatedAt": "2026-08-31 06:56:35"
+  "extras": null,
+  "ingestedAt": "2026-09-15 14:16:57",
+  "updatedAt": "2026-09-15 14:16:57",
+  "validation": {
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "validatedAt": "2026-09-15 14:16:57"
+  }
 }

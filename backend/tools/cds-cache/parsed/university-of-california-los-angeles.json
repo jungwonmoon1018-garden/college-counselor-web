@@ -1,0 +1,59 @@
+{
+  "slug": "university-of-california-los-angeles",
+  "school": "University of California, Los Angeles",
+  "year": null,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.0925,
+  "yieldRate": null,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.94
+  },
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 138587,
+    "admitted": 12820
+  },
+  "c1Breakdown": {
+    "byGender": {
+      "men": {
+        "applied": 65079,
+        "admitted": 5546,
+        "admitRate": 0.0852
+      },
+      "women": {
+        "applied": 73508,
+        "admitted": 7274,
+        "admitRate": 0.099
+      }
+    }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://apb.ucla.edu/file/f8f5c864-93be-4b44-b646-7807a685749f",
+  "sourceKind": "pdf_text",
+  "parserVersion": 5,
+  "parserNotes": [],
+  "extras": {
+    "gpa": {
+      "average": 3.94
+    },
+    "applicationFeeUsd": 70,
+    "aid": {
+      "averagePackageFirstYearUsd": 34312
+    }
+  },
+  "ingestedAt": "2026-09-15 14:16:58",
+  "updatedAt": "2026-09-15 14:16:58",
+  "validation": {
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "validatedAt": "2026-09-15 14:16:58"
+  }
+}

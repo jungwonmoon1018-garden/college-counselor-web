@@ -80,7 +80,7 @@ export async function extractItemsFromXlsx(xlsxPath) {
 export async function parseCDSXlsxFile(xlsxPath) {
   const items = await extractItemsFromXlsx(xlsxPath);
   const allText = items.map((item) => item.str).join(" ");
-  const result = { source: "cds", parserVersion: 3, extractionMethod: "xlsx" };
+  const result = { source: "cds", parserVersion: 4, extractionMethod: "xlsx" };
 
   result.year = extractYear(allText);
   result.testPolicy = extractTestPolicyPositional(items) || extractTestPolicy(allText);

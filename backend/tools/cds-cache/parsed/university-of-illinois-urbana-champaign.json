@@ -4,8 +4,8 @@
   "year": null,
   "yearLabel": "2025-26",
   "tier": null,
-  "overallAdmitRate": null,
-  "yieldRate": null,
+  "overallAdmitRate": 0.3659,
+  "yieldRate": 0.303,
   "enrolledSAT": {
     "p25": 1390,
     "p75": 1520
@@ -17,7 +17,11 @@
   "enrolledGPA": null,
   "testPolicy": "test_required",
   "c7": {},
-  "b1": null,
+  "b1": {
+    "applied": 83045,
+    "admitted": 30384,
+    "enrolled": 9207
+  },
   "c1Breakdown": {
     "byDecisionPlan": {
       "earlyDecision": {
@@ -31,8 +35,15 @@
   "priorities": [],
   "sourceUrl": "https://uofi.box.com/shared/static/orx4vnmzkt2drmgoiksxpfs39pr42uor.xlsx",
   "sourceKind": "xlsx",
-  "parserVersion": 3,
+  "parserVersion": 4,
   "parserNotes": [],
-  "ingestedAt": "2026-08-31 06:56:35",
-  "updatedAt": "2026-08-31 06:56:35"
+  "extras": null,
+  "ingestedAt": "2026-09-15 14:16:56",
+  "updatedAt": "2026-09-15 14:16:56",
+  "validation": {
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "validatedAt": "2026-09-15 14:16:56"
+  }
 }

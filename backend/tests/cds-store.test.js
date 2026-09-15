@@ -14,6 +14,8 @@ import {
   cdsRecordToPositioningResult,
   normalizeCdsTestPolicy,
   slugifySchoolName,
+  isCdsRecordValidated,
+  cdsVerification,
   strictSchoolKey,
   schoolNamesCompatible,
 } from "../cds-store.js";
@@ -230,4 +232,34 @@ test("a parsed file re-parsed by a newer parser version is re-ingested on boot",
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("a consistency-checked record is usable but not verified; an inconsistent one is neither", () => {
+  const db = new Database(":memory:");
+  initRAGTables(db);
+  const stmts = prepareRAGStatements(db);
+  const row = (slug, status) => {
+    stmts.cds.upsert.run(slug, slug, "2025-26", 2025, null, 0.1, 0.4, 1400, 1500, 30, 33, null, null, null, "test_optional", null, null, null, null, null, "https://x", "pdf_text", 5, null, null, slug);
+    stmts.cds.insertValidation.run(slug, status, null, "[]", "{}", "[]");
+  };
+  row("consistent-u", "consistent");
+  row("inconsistent-u", "inconsistent");
+  row("no-truth-u", "no_truth");
+  row("ok-u", "ok");
+  assert.equal(isCdsRecordValidated(stmts, "consistent-u"), true);
+  assert.equal(cdsVerification(stmts, "consistent-u"), "consistent");
+  assert.equal(isCdsRecordValidated(stmts, "inconsistent-u"), false);
+  assert.equal(cdsVerification(stmts, "inconsistent-u"), "unverified");
+  assert.equal(isCdsRecordValidated(stmts, "no-truth-u"), false);
+  assert.equal(isCdsRecordValidated(stmts, "ok-u"), true);
+  assert.equal(cdsVerification(stmts, "ok-u"), "validated");
+  // The adapter labels a consistency-checked record as the school's own
+  // document from the store, not as an unverified live parse.
+  const shaped = cdsRecordToPositioningResult({ slug: "consistent-u", school: "Consistent U", yearLabel: "2025-26", overallAdmitRate: 0.1, c7: {} }, { validated: false, verification: "consistent" });
+  assert.equal(shaped.validated, false);
+  assert.equal(shaped.verification, "consistent");
+  assert.equal(shaped.provenance.kind, "cds_store");
+  assert.equal(shaped.provenance.verification, "consistent");
+  assert.match(shaped.source, /consistency-checked/);
+  db.close();
 });

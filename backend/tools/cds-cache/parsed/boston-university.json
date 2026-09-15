@@ -4,8 +4,8 @@
   "year": null,
   "yearLabel": "2025-26",
   "tier": null,
-  "overallAdmitRate": null,
-  "yieldRate": null,
+  "overallAdmitRate": 0.1283,
+  "yieldRate": 0.35,
   "enrolledSAT": {
     "p25": 1420,
     "p75": 1510
@@ -17,7 +17,6 @@
   "enrolledGPA": {
     "p25": 3.5,
     "p75": 4,
-    "source": "C11_cumulative",
     "avg": 3.86
   },
   "testPolicy": "test_optional",
@@ -42,16 +41,18 @@
     "work_experience": "considered",
     "level_of_interest": "considered"
   },
-  "b1": null,
+  "b1": {
+    "applied": 76776,
+    "admitted": 9853,
+    "enrolled": 3449
+  },
   "c1Breakdown": null,
   "majors": {},
   "priorities": [],
   "sourceUrl": "https://www.bu.edu/asir/files/2026/07/CDS-2025-2026-updated.pdf",
   "sourceKind": "pdf_text",
-  "parserVersion": 4,
+  "parserVersion": 5,
   "parserNotes": [],
-  "ingestedAt": "2026-08-31 04:13:24",
-  "updatedAt": "2026-08-31 04:13:24",
   "extras": {
     "satSections": {
       "ebrw": {
@@ -309,5 +310,13 @@
       "averagePackageFirstYearUsd": 70629
     },
     "studentFacultyRatio": "10 to 1"
+  },
+  "ingestedAt": "2026-09-15 14:04:41",
+  "updatedAt": "2026-09-15 14:04:41",
+  "validation": {
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "validatedAt": "2026-09-15 14:04:41"
   }
 }

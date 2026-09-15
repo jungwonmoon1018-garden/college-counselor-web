@@ -4,8 +4,8 @@
   "year": 2025,
   "yearLabel": "2025-26",
   "tier": null,
-  "overallAdmitRate": null,
-  "yieldRate": null,
+  "overallAdmitRate": 0.1119,
+  "yieldRate": 0.4022,
   "enrolledSAT": {
     "p25": 1470,
     "p75": 1540
@@ -17,21 +17,22 @@
   "enrolledGPA": {
     "p25": 3.75,
     "p75": 4,
-    "source": "C11_cumulative",
     "avg": 3.85
   },
   "testPolicy": "test_optional",
   "c7": {},
-  "b1": null,
+  "b1": {
+    "applied": 83488,
+    "admitted": 9345,
+    "enrolled": 3759
+  },
   "c1Breakdown": null,
   "majors": {},
   "priorities": [],
   "sourceUrl": "https://oir.usc.edu/wp-content/uploads/sites/3/2026/10/CDS_2025-26_FINAL.pdf",
   "sourceKind": "pdf_text",
-  "parserVersion": 4,
+  "parserVersion": 5,
   "parserNotes": [],
-  "ingestedAt": "2026-08-31 04:13:29",
-  "updatedAt": "2026-08-31 04:13:29",
   "extras": {
     "satSections": {
       "ebrw": {
@@ -314,5 +315,13 @@
     "aid": {
       "averagePackageFirstYearUsd": 90648
     }
+  },
+  "ingestedAt": "2026-09-15 14:04:52",
+  "updatedAt": "2026-09-15 14:04:52",
+  "validation": {
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "validatedAt": "2026-09-15 14:04:52"
   }
 }

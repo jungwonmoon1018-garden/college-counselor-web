@@ -12,6 +12,10 @@ import { SCOUT_VERSION } from "../admissions-policy-scout.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, "..");
+// The seeded Stanford record: its C10 top-tenth share is asserted below,
+// so a refreshed document (2023-24 said 97.8, 2025-26 says 97) does not
+// break the pin that the stored value reaches the read.
+const STANFORD_CDS = JSON.parse(fs.readFileSync(path.join(PROJECT_ROOT, "tools", "cds-cache", "parsed", "stanford-university.json"), "utf8"));
 const FETCH_MOCK = path.join(__dirname, "helpers", "mock-openrouter-fetch.mjs");
 
 let baseUrl;
@@ -840,7 +844,7 @@ test("subscores, AP scores and class rank reach the profile, the College Fit rea
   assert.equal(pc.tests.sections.length, 2);
   assert.equal(pc.tests.advice, "submit");
   assert.equal(pc.classRank.bucket, "top10");
-  assert.equal(pc.classRank.school.topTenthPct, 97.8);
+  assert.equal(pc.classRank.school.topTenthPct, STANFORD_CDS.extras.classRank.topTenthPct);
   assert.equal(pc.gpa.placement.band, "3.75–3.99");
   assert.equal(pc.apExams.count, 2);
   assert.equal(target.featureBreakdown.testSubmissionAdvice, "submit");
@@ -861,8 +865,13 @@ test("subscores, AP scores and class rank reach the profile, the College Fit rea
   const wire = JSON.stringify(calls[calls.length - 1].messages);
   assert.match(wire, /ACT 33 \(English 35, Math 31, Reading 34, Science 32\)/);
   assert.match(wire, /Class rank: top 3% \(12 of 400\)/);
-  assert.match(wire, /enrolled ACT sections middle 50%: English 35–36, Math 33–36, Reading 34–36, Science 33–36/);
-  assert.match(wire, /enrolled high-school GPA distribution: 73\.3% had a 4\.0/);
+  // The section ranges and the 4.0 share come from the seeded document.
+  const act = STANFORD_CDS.extras.actSections;
+  const dash = "–";
+  const actLine = `enrolled ACT sections middle 50%: English ${act.english.p25}${dash}${act.english.p75}, Math ${act.math.p25}${dash}${act.math.p75}, Reading ${act.reading.p25}${dash}${act.reading.p75}, Science ${act.science.p25}${dash}${act.science.p75}`;
+  assert.ok(wire.includes(actLine), actLine);
+  const fourPointO = STANFORD_CDS.extras.gpaDistribution.find((r) => r.low === 4 && r.high === 4).pct;
+  assert.ok(wire.includes(`enrolled high-school GPA distribution: ${fourPointO}% had a 4.0`), wire.slice(wire.indexOf("GPA distribution"), wire.indexOf("GPA distribution") + 80));
   assert.equal(turn.data.answer, reply);
 });
 
@@ -1189,7 +1198,7 @@ test("the priorities matrix and the prestige rationale read the whole record: sc
   assert.equal(gpa.evidence[0].detail.average, 3.94);
   const rank = row("Class Rank");
   assert.equal(rank.evidence[0].tone, "strong", JSON.stringify(rank));
-  assert.equal(rank.evidence[0].detail.topTenthPct, 97.8);
+  assert.equal(rank.evidence[0].detail.topTenthPct, STANFORD_CDS.extras.classRank.topTenthPct);
   const rigor = row("Rigor of Secondary School Record");
   assert.ok(rigor.evidence.some((e) => e.kind === "course") && rigor.evidence.some((e) => e.kind === "ap"), JSON.stringify(rigor));
   const essay = row("Application Essay");

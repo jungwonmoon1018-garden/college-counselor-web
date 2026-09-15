@@ -4,8 +4,8 @@
   "year": 2025,
   "yearLabel": "2025-26",
   "tier": null,
-  "overallAdmitRate": null,
-  "yieldRate": null,
+  "overallAdmitRate": 0.0602,
+  "yieldRate": 0.7092,
   "enrolledSAT": {
     "p25": 1440,
     "p75": 1550
@@ -14,6 +14,7 @@
     "p25": 32,
     "p75": 35
   },
+  "enrolledGPA": null,
   "testPolicy": "test_optional",
   "c7": {
     "rigor": "very_important",
@@ -36,16 +37,18 @@
     "work_experience": "considered",
     "level_of_interest": "considered"
   },
-  "b1": null,
+  "b1": {
+    "applied": 28230,
+    "admitted": 1699,
+    "enrolled": 1205
+  },
   "c1Breakdown": null,
   "majors": {},
   "priorities": [],
   "sourceUrl": "https://www.dartmouth.edu/oir/pdfs/cds_2025-26.pdf",
   "sourceKind": "pdf_text",
-  "parserVersion": 4,
+  "parserVersion": 5,
   "parserNotes": [],
-  "ingestedAt": "2026-08-31 04:13:25",
-  "updatedAt": "2026-08-31 04:13:25",
   "extras": {
     "satSections": {
       "ebrw": {
@@ -208,5 +211,13 @@
     "aid": {
       "averagePackageFirstYearUsd": 73208
     }
+  },
+  "ingestedAt": "2026-09-15 14:04:43",
+  "updatedAt": "2026-09-15 14:04:43",
+  "validation": {
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "validatedAt": "2026-09-15 14:04:43"
   }
 }

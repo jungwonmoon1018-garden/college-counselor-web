@@ -1,70 +1,53 @@
 {
-  "school": "New York University",
   "slug": "new-york-university",
-  "tier": "T50",
+  "school": "New York University",
   "year": 2024,
-  "source": "cds",
-  "parserVersion": 4,
-  "testPolicy": "test_optional",
-  "b1": {
-    "applied": 110807,
-    "admitted": 10232,
-    "enrolled": 5666
-  },
-  "overallAdmitRate": 0.0923,
-  "yieldRate": 0.5538,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.0906,
+  "yieldRate": 0.5476,
   "enrolledSAT": {
     "p25": 1480,
-    "p75": 1560
+    "p75": 1550
   },
   "enrolledACT": {
     "p25": 34,
     "p75": 35
   },
-  "c7": {
-    "rigor": "very_important",
-    "class_rank": "not_considered",
-    "gpa": "very_important",
-    "test_scores": "important",
-    "application_essay": "very_important",
-    "recommendations": "very_important",
-    "interview": "not_considered",
-    "ec": "considered",
-    "talent_ability": "considered",
-    "character": "very_important",
-    "first_generation": "considered",
-    "alumni_relation": "not_considered",
-    "geographical_residence": "considered",
-    "state_residency": "not_considered",
-    "religious_affiliation": "not_considered",
-    "racial_ethnic_status": "not_considered",
-    "volunteer_work": "considered",
-    "work_experience": "considered",
-    "level_of_interest": "considered"
+  "enrolledGPA": {
+    "p25": 3.5,
+    "p75": 3.75,
+    "avg": 3.81
   },
-  "validation": {
-    "school": "New York University",
-    "slug": "new-york-university",
-    "status": "ok",
-    "discrepancies": [],
-    "overrides": {},
-    "scopeFromPDF": null
+  "testPolicy": "test_optional",
+  "c7": {},
+  "b1": {
+    "applied": 114125,
+    "admitted": 10340,
+    "enrolled": 5662
   },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.nyu.edu/content/dam/nyu/institutionalResearch/documents/cds-2025-2026/CDS%202025-2026%20FINAL%20(no%20G).pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 5,
+  "parserNotes": [],
   "extras": {
     "satSections": {
       "ebrw": {
-        "p25": 720,
-        "p50": 740,
-        "p75": 760
+        "p25": 730,
+        "p50": 750,
+        "p75": 770
       },
       "math": {
-        "p25": 760,
+        "p25": 750,
         "p50": 780,
-        "p75": 800
+        "p75": 790
       }
     },
     "submitting": {
-      "satPct": 28,
+      "satPct": 27,
       "actPct": 10
     },
     "scoreDistribution": {
@@ -73,39 +56,34 @@
           {
             "low": 700,
             "high": 800,
-            "pct": 89
+            "pct": 91.5
           },
           {
             "low": 600,
             "high": 699,
-            "pct": 10
+            "pct": 8.3
           },
           {
             "low": 500,
             "high": 599,
-            "pct": 1
-          },
-          {
-            "low": 400,
-            "high": 499,
-            "pct": 0
+            "pct": 0.3
           }
         ],
         "math": [
           {
             "low": 700,
             "high": 800,
-            "pct": 95
+            "pct": 94.9
           },
           {
             "low": 600,
             "high": 699,
-            "pct": 4
+            "pct": 4.7
           },
           {
             "low": 500,
             "high": 599,
-            "pct": 1
+            "pct": 0.3
           }
         ]
       },
@@ -113,17 +91,12 @@
         {
           "low": 30,
           "high": 36,
-          "pct": 98
+          "pct": 98.6
         },
         {
           "low": 24,
           "high": 29,
-          "pct": 2
-        },
-        {
-          "low": 18,
-          "high": 23,
-          "pct": 0
+          "pct": 1.4
         }
       ]
     },
@@ -131,22 +104,22 @@
       {
         "low": 4,
         "high": 4,
-        "pct": 18
+        "pct": 17.2
       },
       {
         "low": 3.75,
         "high": 3.99,
-        "pct": 54
+        "pct": 54.7
       },
       {
         "low": 3.5,
         "high": 3.74,
-        "pct": 22
+        "pct": 21.4
       },
       {
         "low": 3.25,
         "high": 3.49,
-        "pct": 5
+        "pct": 5.2
       },
       {
         "low": 3,
@@ -156,12 +129,12 @@
       {
         "low": 2.5,
         "high": 2.99,
-        "pct": 0
+        "pct": 0.4
       },
       {
         "low": 2,
         "high": 2.49,
-        "pct": 0
+        "pct": 0.1
       },
       {
         "low": 1,
@@ -176,9 +149,9 @@
     ],
     "gpa": {
       "average": 3.81,
-      "submittedPct": 99
+      "submittedPct": 100
     },
-    "applicationFeeUsd": 85,
+    "applicationFeeUsd": 100,
     "dates": {
       "regularClosing": {
         "mmdd": "01-05",
@@ -193,12 +166,17 @@
         "mmdd": "01-01",
         "raw": "1/1"
       }
+    },
+    "aid": {
+      "averagePackageFirstYearUsd": 72963
     }
   },
-  "enrolledGPA": {
-    "p25": 3.5,
-    "p75": 3.75,
-    "source": "C11_cumulative",
-    "avg": 3.81
+  "ingestedAt": "2026-09-15 14:05:21",
+  "updatedAt": "2026-09-15 14:05:21",
+  "validation": {
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "validatedAt": "2026-09-15 14:05:21"
   }
 }

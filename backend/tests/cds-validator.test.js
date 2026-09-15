@@ -54,3 +54,34 @@ test("a General Studies document under Columbia's slug is a scope mismatch and i
   assert.notEqual(drift.status, "scope_mismatch");
   assert.ok(drift.discrepancies.some((d) => d.field === "overallAdmitRate"));
 });
+
+// ─── Truth speaks for one cycle ───
+// The registry's figures were read from 2023-24 documents (Columbia's from
+// its 2024-25 set). A record of another cycle keeps only the truth's scope
+// check and is judged on its own consistency, so a 2025-26 admit rate is
+// never "corrected" back to the 2023-24 one.
+test("a record of another cycle is not overridden by the registry's figures and reads as consistent", async () => {
+  const { checkConsistency, persistAndValidate } = await import("../cds-validator.js");
+  const stmts = { cds: { upsert: { run() {} }, insertValidation: { run(...args) { this.last = args; } } } };
+  const record = {
+    slug: "johns-hopkins-university", school: "Johns Hopkins University", yearLabel: "2025-26",
+    overallAdmitRate: 0.058, b1: { applied: 45000, admitted: 2610, enrolled: 1400 },
+    enrolledSAT: { p25: 1530, p75: 1570 }, enrolledACT: { p25: 34, p75: 35 },
+  };
+  const { validation, finalRecord } = await persistAndValidate(stmts, record, {});
+  assert.equal(validation.status, "consistent", JSON.stringify(validation));
+  assert.equal(validation.truthCycle, "2023-24");
+  assert.equal(finalRecord.overallAdmitRate, 0.058);
+  assert.deepEqual(finalRecord.enrolledSAT, { p25: 1530, p75: 1570 });
+  assert.deepEqual(validation.overrides, {});
+  // The same record labeled with the registry's cycle is checked against
+  // it: the 2023-24 rate was 6.44%, so 5.8% is a drift and is overridden.
+  const same = await persistAndValidate(stmts, { ...record, yearLabel: "2023-24" }, {});
+  assert.equal(same.validation.overrides.overallAdmitRate, 0.0644);
+  // Consistency on its own.
+  assert.equal(checkConsistency({ overallAdmitRate: 0.1, b1: { applied: 100, admitted: 10, enrolled: 5 } }).status, "consistent");
+  assert.equal(checkConsistency({ overallAdmitRate: 0.2, b1: { applied: 100, admitted: 10 } }).status, "inconsistent");
+  assert.equal(checkConsistency({ b1: { applied: 100, admitted: 120 } }).status, "inconsistent");
+  assert.equal(checkConsistency({ enrolledSAT: { p25: 740, p75: 800 } }).status, "inconsistent");
+  assert.equal(checkConsistency({ c7: { rigor: "very_important" } }).status, "no_truth");
+});

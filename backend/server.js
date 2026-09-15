@@ -184,6 +184,7 @@ import {
   cdsRecordToPositioningResult,
   slugifySchoolName,
   isCdsRecordValidated,
+  cdsVerification,
   strictSchoolKey,
   schoolNamesCompatible,
 } from "./cds-store.js";
@@ -1179,8 +1180,12 @@ function profileComparisonForSchool(studentId, schoolName) {
     const collegeRow = resolveBaselineCollegeRow(db, { schoolName: wanted });
     const record = resolveStoredCdsRecord(ragStmts, { schoolName: collegeRow?.name || wanted });
     if (!record && !collegeRow) return null;
+    // A usable record (validated, or the school's own current document
+    // reading consistently) supplies the numbers; only an externally
+    // checked one counts as verified for the confidence read.
     const validated = record ? isCdsRecordValidated(ragStmts, record.slug) : false;
-    const cds = record ? cdsRecordToPositioningResult(record, { validated }) : null;
+    const verification = record ? cdsVerification(ragStmts, record.slug) : "unverified";
+    const cds = record ? cdsRecordToPositioningResult(record, { validated: verification === "validated", verification }) : null;
     const pick = (cdsVal, baseVal) => (record && validated ? (cdsVal ?? baseVal) : (baseVal ?? cdsVal));
     const college = {
       name: collegeRow?.name || record?.school || wanted,
@@ -4010,8 +4015,9 @@ async function runPositioning({ studentId, body = {}, bypassCache = false } = {}
         storedCds = await searchAndPersistCdsRecord(lookupName);
       }
       const cdsValidated = storedCds ? isCdsRecordValidated(ragStmts, storedCds.slug) : false;
+      const cdsVerified = storedCds ? cdsVerification(ragStmts, storedCds.slug) : "unverified";
       const effectiveCds = storedCds
-        ? cdsRecordToPositioningResult(storedCds, { liveFallback: cdsResult, unitId: resolvedUnitId, validated: cdsValidated })
+        ? cdsRecordToPositioningResult(storedCds, { liveFallback: cdsResult, unitId: resolvedUnitId, validated: cdsVerified === "validated", verification: cdsVerified })
         : cdsResult;
 
       // Validated CDS admit rate takes precedence over the IPEDS baseline.

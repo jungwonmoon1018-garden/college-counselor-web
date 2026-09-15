@@ -781,7 +781,11 @@ export function scoreInstitutionalSelectivityAdjustment(collegeContext) {
 export function scoreEvidenceConfidence({ cdsResult, collegeContext, majorPolicy, ipedsGrowthAvailable }) {
   const sourceQuality = cdsResult?.sourceUrl ? 0.78 : 0.5;
   const directness = cdsResult?.fetchStatus === "ok" ? 0.82 : cdsResult?.fetchStatus === "listed_without_direct_link" ? 0.35 : 0.2;
-  const recency = cdsResult?.repositoryMatch?.latestAvailableYear?.startsWith("2024") ? 0.85 : 0.68;
+  // The cycle the record reports ("2025-26", "2024", "2023-24"): the
+  // current cycle reads freshest; the rule used to know only "2024", so a
+  // 2025-26 document scored as stale as a 2019 one.
+  const cycleYear = Number(String(cdsResult?.repositoryMatch?.latestAvailableYear || "").slice(0, 4)) || 0;
+  const recency = cycleYear >= 2025 ? 0.9 : cycleYear === 2024 ? 0.85 : 0.68;
   const consistency = collegeContext?.avgGpaAdmitted || collegeContext?.sat25 ? 0.76 : 0.5;
   const missingDataPenalty = [
     cdsResult?.parsed?.c7 ? 0 : 0.08,
@@ -794,13 +798,22 @@ export function scoreEvidenceConfidence({ cdsResult, collegeContext, majorPolicy
   // data but unverified — a positional PDF parse can mis-read a number. Dock
   // confidence and cap it below "High" so an unvalidated record can never
   // present as authoritative as a curated/validated one.
-  const isUnvalidated = cdsResult?.validated === false;
-  const unvalidatedPenalty = isUnvalidated ? 0.12 : 0;
+  // A consistency-checked record (the school's own current document, its
+  // numbers agreeing with each other, no same-cycle truth) is docked less
+  // than an unverified parse, and still never reads "High".
+  const isConsistent = cdsResult?.validated === false && cdsResult?.verification === "consistent";
+  const isUnvalidated = cdsResult?.validated === false && !isConsistent;
+  const unvalidatedPenalty = isUnvalidated ? 0.12 : isConsistent ? 0.05 : 0;
   const raw = sourceQuality * 0.28 + recency * 0.18 + directness * 0.22 + consistency * 0.2 - missingDataPenalty - marketingLanguagePenalty - unvalidatedPenalty;
   let normalized = clamp01(raw);
   if (isUnvalidated) normalized = Math.min(normalized, 0.74); // never "High" while unverified
+  if (isConsistent) normalized = Math.min(normalized, 0.77);
   const label = normalized >= 0.78 ? "High" : normalized >= 0.58 ? "Medium" : normalized >= 0.35 ? "Low" : "Very Low";
-  return { score: round1(normalized * 100), label, normalized: round2(normalized), validated: !isUnvalidated };
+  return {
+    score: round1(normalized * 100), label, normalized: round2(normalized),
+    validated: !isUnvalidated && !isConsistent,
+    verification: isConsistent ? "consistent" : (isUnvalidated ? "unverified" : "validated"),
+  };
 }
 
 const QUANTITATIVE_BUCKETS = new Set(["computer_science", "data_science", "computational_biology", "biomedical_engineering", "engineering", "mathematics", "physics", "chemistry", "economics"]);

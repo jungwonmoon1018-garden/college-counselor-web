@@ -322,7 +322,7 @@ export default function CalibratedFitCard({ collegeValues, positioning, loading,
             const isCds = p.kind === "cds_store" || p.kind === "cds_live" || p.kind === "cds_web";
             const bits = [];
             if (p.kind === "cds_web") bits.push("CDS · AI web-read");
-            else if (isCds) bits.push(p.validated ? "CDS · validated" : "CDS · unverified");
+            else if (isCds) bits.push(p.validated ? "CDS · validated" : p.verification === "consistent" ? "CDS · school document" : "CDS · unverified");
             else if (p.kind === "baseline_only") bits.push("IPEDS baseline");
             if (p.yearLabel || p.year) bits.push(String(p.yearLabel || p.year));
             if (p.admitRatePercent != null) bits.push(`admit ${p.admitRatePercent}%`);

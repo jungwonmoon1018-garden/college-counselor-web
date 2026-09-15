@@ -57,6 +57,16 @@ export async function extractDocumentScope(pdfPath) {
 // ships with a curated seed; production deployments add more entries via
 // `addCorrection({slug, ...})` (see cds-validator-corrections.js if you
 // need to extend without touching this file).
+// Every seeded figure below was read from the schools' 2023-24 documents
+// (Columbia's from its 2024-25 Columbia College and Engineering set), so a
+// truth applies only to a record of that cycle: checked against a 2025-26
+// document it would have "corrected" the new admit rate back to the old
+// one. A record of another cycle keeps the truth's scope check (the wrong
+// unit is wrong in any year) and is otherwise judged on its own
+// consistency (see checkConsistency). An entry without `cycle` is of the
+// default cycle.
+export const DEFAULT_TRUTH_CYCLE = "2023-24";
+
 export const CORRECTIONS = {
   "princeton-university": {
     expectedScope: /Princeton\s+University/i,
@@ -119,6 +129,7 @@ export const CORRECTIONS = {
     // names the institution identically on both documents.
     expectedScope: /Columbia\s+(?:College|Engineering)/i,
     actualScopeWarning: "PDF is the Columbia School of General Studies CDS; its numbers do not describe Columbia College / Columbia Engineering",
+    cycle: "2024-25",
     overallAdmitRate: 0.0386,
     applied: 60247, admitted: 2325, enrolled: 1483,
     enrolledSAT: { p25: 1510, p75: 1560 },
@@ -325,10 +336,55 @@ export function validateRecord(record, truth, scopeFromPDF) {
 // Persist a parsed CDS record + run validation + write everything via
 // rag-engine prepared statements. Idempotent — re-running the same
 // pipeline overwrites the cds_records row and appends to cds_validations.
+// A record with no same-cycle truth is judged on its own numbers: the C1
+// counts must run applied ≥ admitted ≥ enrolled, an admit rate must agree
+// with those counts, a composite SAT band must be a real composite band,
+// and an ACT band a real one. "consistent" is not "validated" — nothing
+// outside the document confirmed it — but it is the school's own current
+// document reading sanely, which the College Fit prefers to an older
+// baseline row. A failed check is "inconsistent" and the record is not
+// used; a record with none of those numbers stays "no_truth".
+export function checkConsistency(record) {
+  const problems = [];
+  const b1 = record?.b1 || null;
+  const applied = Number(b1?.applied) || null;
+  const admitted = Number(b1?.admitted) || null;
+  const enrolled = Number(b1?.enrolled) || null;
+  if (applied && admitted && admitted > applied) problems.push({ severity: "critical", field: "b1", parsed: b1, note: "admitted > applied" });
+  if (admitted && enrolled && enrolled > admitted) problems.push({ severity: "critical", field: "b1", parsed: b1, note: "enrolled > admitted" });
+  const rate = record?.overallAdmitRate;
+  if (rate != null) {
+    if (!(rate > 0 && rate < 1)) problems.push({ severity: "critical", field: "overallAdmitRate", parsed: rate, note: "not a rate between 0 and 1" });
+    else if (applied && admitted && Math.abs(rate - admitted / applied) > 0.005) {
+      problems.push({ severity: "high", field: "overallAdmitRate", parsed: rate, expected: round4(admitted / applied), note: "rate disagrees with the C1 counts" });
+    }
+  }
+  const sat = record?.enrolledSAT;
+  if (sat) {
+    if (!(sat.p25 >= 800 && sat.p75 <= 1600 && sat.p25 <= sat.p75)) problems.push({ severity: "high", field: "enrolledSAT", parsed: sat, note: "not a composite band" });
+  }
+  const act = record?.enrolledACT;
+  if (act) {
+    if (!(act.p25 >= 1 && act.p75 <= 36 && act.p25 <= act.p75)) problems.push({ severity: "high", field: "enrolledACT", parsed: act, note: "not an ACT band" });
+  }
+  const hasNumbers = rate != null || Boolean(sat) || Boolean(applied && admitted);
+  return { status: problems.length ? "inconsistent" : (hasNumbers ? "consistent" : "no_truth"), discrepancies: problems };
+}
+
 export async function persistAndValidate(stmts, parsedRecord, options = {}) {
   const slug = parsedRecord.slug;
   if (!slug) throw new Error("persistAndValidate: parsedRecord.slug is required");
-  const truth = CORRECTIONS[slug] || null;
+  const fullTruth = CORRECTIONS[slug] || null;
+  // A truth speaks for one cycle. For a record of another cycle only its
+  // scope check is kept, and the record is judged on its own consistency.
+  const recordCycle = parsedRecord.yearLabel || options.yearLabel || null;
+  const truthCycle = fullTruth ? (fullTruth.cycle || DEFAULT_TRUTH_CYCLE) : null;
+  const sameCycle = Boolean(fullTruth) && (!recordCycle || recordCycle === truthCycle);
+  const truth = !fullTruth ? null : sameCycle ? fullTruth : {
+    expectedScope: fullTruth.expectedScope,
+    actualScopeWarning: fullTruth.actualScopeWarning,
+    sources: fullTruth.sources,
+  };
 
   // Optional: extract document scope from the source PDF if available.
   let scopeFromPDF = null;
@@ -341,6 +397,12 @@ export async function persistAndValidate(stmts, parsedRecord, options = {}) {
   }
 
   const validation = validateRecord(parsedRecord, truth, scopeFromPDF);
+  if (!sameCycle && (validation.status === "ok" || validation.status === "no_truth")) {
+    const consistency = checkConsistency(parsedRecord);
+    validation.status = consistency.status;
+    validation.discrepancies.push(...consistency.discrepancies);
+    if (fullTruth) validation.truthCycle = truthCycle;
+  }
 
   // Apply overrides into the record going to cds_records.
   const finalRecord = { ...parsedRecord };

@@ -15,6 +15,7 @@ import {
   compareRankToSchool,
   compareApExams,
   compareCourseRigor,
+  scoreEvidenceConfidence,
   actToSat,
   satToAct,
 } from "../positioning-engine.js";
@@ -535,4 +536,19 @@ test("course rigor counts AP exams and their scores, and AP courses by name, aga
   assert.equal(pc.expectation, 7);
   assert.equal(pc.position, "below");
   assert.equal(read.featureBreakdown.courseRigor, pc.score);
+});
+
+test("evidence confidence: a consistency-checked current-cycle record reads above an unverified parse and below High, and a 2025-26 record is not stale", () => {
+  const base = { sourceUrl: "https://x", fetchStatus: "ok", repositoryMatch: { latestAvailableYear: "2025-26" }, parsed: { c7: { rigor: 1 }, admitRatePercent: 9 } };
+  const ctx = { avgGpaAdmitted: 3.8, sat25: 1400, acceptanceRate: 0.09 };
+  const validated = scoreEvidenceConfidence({ cdsResult: { ...base, validated: true, verification: "validated" }, collegeContext: ctx, majorPolicy: {}, ipedsGrowthAvailable: true });
+  const consistent = scoreEvidenceConfidence({ cdsResult: { ...base, validated: false, verification: "consistent" }, collegeContext: ctx, majorPolicy: {}, ipedsGrowthAvailable: true });
+  const unverified = scoreEvidenceConfidence({ cdsResult: { ...base, validated: false, verification: "unverified" }, collegeContext: ctx, majorPolicy: {}, ipedsGrowthAvailable: true });
+  assert.ok(validated.normalized > consistent.normalized && consistent.normalized > unverified.normalized, JSON.stringify({ validated, consistent, unverified }));
+  assert.notEqual(consistent.label, "High");
+  assert.equal(consistent.verification, "consistent");
+  assert.equal(consistent.validated, false);
+  // Recency: a 2025-26 record scores above a 2023-24 one.
+  const older = scoreEvidenceConfidence({ cdsResult: { ...base, repositoryMatch: { latestAvailableYear: "2023-24" }, validated: true }, collegeContext: ctx, majorPolicy: {}, ipedsGrowthAvailable: true });
+  assert.ok(validated.normalized > older.normalized, JSON.stringify({ validated, older }));
 });

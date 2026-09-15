@@ -4,8 +4,8 @@
   "year": 2025,
   "yearLabel": "2025-26",
   "tier": null,
-  "overallAdmitRate": null,
-  "yieldRate": null,
+  "overallAdmitRate": 0.1672,
+  "yieldRate": 0.3993,
   "enrolledSAT": {
     "p25": 1400,
     "p75": 1530
@@ -17,7 +17,6 @@
   "enrolledGPA": {
     "p25": 4,
     "p75": 4,
-    "source": "C11_cumulative",
     "avg": 4.47
   },
   "testPolicy": "test_required",
@@ -42,16 +41,18 @@
     "work_experience": "important",
     "level_of_interest": "not_considered"
   },
-  "b1": null,
+  "b1": {
+    "applied": 76247,
+    "admitted": 12751,
+    "enrolled": 5091
+  },
   "c1Breakdown": null,
   "majors": {},
   "priorities": [],
   "sourceUrl": "https://oira.unc.edu/wp-content/uploads/sites/297/2026/06/CDS_UNCCH_2025-26_20260615.pdf",
   "sourceKind": "pdf_text",
-  "parserVersion": 4,
+  "parserVersion": 5,
   "parserNotes": [],
-  "ingestedAt": "2026-08-31 04:13:33",
-  "updatedAt": "2026-08-31 04:13:33",
   "extras": {
     "satSections": {
       "math": {
@@ -354,5 +355,13 @@
     "aid": {
       "averagePackageFirstYearUsd": 21695
     }
+  },
+  "ingestedAt": "2026-09-15 14:16:54",
+  "updatedAt": "2026-09-15 14:16:54",
+  "validation": {
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "validatedAt": "2026-09-15 14:16:54"
   }
 }

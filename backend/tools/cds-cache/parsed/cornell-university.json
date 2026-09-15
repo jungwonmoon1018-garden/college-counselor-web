@@ -1,73 +1,49 @@
 {
-  "school": "Cornell University",
   "slug": "cornell-university",
-  "tier": "Sub-Ivy",
-  "year": 2023,
-  "source": "cds",
-  "parserVersion": 4,
-  "testPolicy": "test_required",
-  "b1": {
-    "applied": 65612,
-    "admitted": 5516,
-    "enrolled": 3525
-  },
-  "overallAdmitRate": 0.079,
-  "yieldRate": 0.6391,
+  "school": "Cornell University",
+  "year": null,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.0838,
+  "yieldRate": 0.6298,
   "enrolledSAT": {
-    "p25": 1510,
-    "p75": 1560
+    "p25": 1490,
+    "p75": 1550
   },
   "enrolledACT": {
     "p25": 33,
     "p75": 35
   },
-  "c7": {
-    "rigor": "very_important",
-    "class_rank": "important",
-    "gpa": "important",
-    "test_scores": "considered",
-    "application_essay": "very_important",
-    "recommendations": "very_important",
-    "interview": "considered",
-    "ec": "very_important",
-    "talent_ability": "very_important",
-    "character": "very_important",
-    "first_generation": "considered",
-    "alumni_relation": "considered",
-    "geographical_residence": "considered",
-    "state_residency": "considered",
-    "religious_affiliation": "not_considered",
-    "volunteer_work": "considered",
-    "work_experience": "considered",
-    "level_of_interest": "not_considered"
+  "enrolledGPA": null,
+  "testPolicy": "test_required",
+  "c7": {},
+  "b1": {
+    "applied": 72523,
+    "admitted": 6077,
+    "enrolled": 3827
   },
-  "parserNotes": [
-    "merged_form_fields"
-  ],
-  "validation": {
-    "school": "Cornell University",
-    "slug": "cornell-university",
-    "status": "discrepancies",
-    "discrepancies": [
-      {
-        "severity": "high",
-        "field": "overallAdmitRate",
-        "parsed": 0.0841,
-        "expected": 0.079,
-        "delta": 0.0051,
-        "note": "drift_exceeds_tolerance"
+  "c1Breakdown": {
+    "byDecisionPlan": {
+      "earlyDecision": {
+        "applied": 528,
+        "admitted": 2794,
+        "admitRate": 5.2917
       }
-    ],
-    "overrides": {
-      "overallAdmitRate": 0.079
-    },
-    "scopeFromPDF": null
-  },
-  "_uncorrected": {
-    "overallAdmitRate": 0.0841,
-    "enrolledSAT": {
-      "p25": 1510,
-      "p75": 1560
     }
+  },
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://irp.cornell.edu/wp-content/uploads/2026/06/CDS-Cornell-2025-2026-v2.xlsx",
+  "sourceKind": "xlsx",
+  "parserVersion": 4,
+  "parserNotes": [],
+  "extras": null,
+  "ingestedAt": "2026-09-15 14:16:55",
+  "updatedAt": "2026-09-15 14:16:55",
+  "validation": {
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "validatedAt": "2026-09-15 14:16:55"
   }
 }

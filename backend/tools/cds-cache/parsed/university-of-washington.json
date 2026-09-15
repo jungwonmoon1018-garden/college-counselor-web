@@ -14,6 +14,7 @@
     "p25": 30,
     "p75": 34
   },
+  "enrolledGPA": null,
   "testPolicy": "test_required",
   "c7": {
     "rigor": "very_important",
@@ -45,10 +46,17 @@
   "priorities": [],
   "sourceUrl": "https://cdn.uw.edu/wp-content/uploads/sites/162/2026/02/27111247/CDS_2025-2026_Seattle.pdf",
   "sourceKind": "pdf_merged",
-  "parserVersion": 4,
+  "parserVersion": 5,
   "parserNotes": [
     "merged_form_fields"
   ],
-  "ingestedAt": "2026-08-31 04:13:39",
-  "updatedAt": "2026-08-31 04:13:39"
+  "extras": null,
+  "ingestedAt": "2026-09-15 14:04:56",
+  "updatedAt": "2026-09-15 14:04:56",
+  "validation": {
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "validatedAt": "2026-09-15 14:04:56"
+  }
 }

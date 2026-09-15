@@ -4,11 +4,15 @@
   "year": null,
   "yearLabel": "2025-26",
   "tier": null,
-  "overallAdmitRate": null,
-  "yieldRate": null,
+  "overallAdmitRate": 0.1145,
+  "yieldRate": 0.4604,
   "enrolledSAT": null,
   "enrolledACT": null,
-  "enrolledGPA": null,
+  "enrolledGPA": {
+    "p25": null,
+    "p75": null,
+    "avg": 3.9
+  },
   "testPolicy": "test_optional",
   "c7": {
     "rigor": "not_considered",
@@ -31,14 +35,25 @@
     "work_experience": "very_important",
     "level_of_interest": "considered"
   },
-  "b1": null,
+  "b1": {
+    "applied": 126864,
+    "admitted": 14524,
+    "enrolled": 6687
+  },
   "c1Breakdown": null,
   "majors": {},
   "priorities": [],
   "sourceUrl": "https://docs.google.com/spreadsheets/d/1INsGFH6MhaO-MFMBZ1Dngcn84FeN-hc0BLS0-v8TL_k/export?format=xlsx",
   "sourceKind": "xlsx",
-  "parserVersion": 3,
+  "parserVersion": 4,
   "parserNotes": [],
-  "ingestedAt": "2026-08-31 06:56:33",
-  "updatedAt": "2026-08-31 06:56:33"
+  "extras": null,
+  "ingestedAt": "2026-09-15 14:16:56",
+  "updatedAt": "2026-09-15 14:16:56",
+  "validation": {
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "validatedAt": "2026-09-15 14:16:56"
+  }
 }

@@ -237,7 +237,20 @@ export function resolveStoredCdsRecord(ragStmts, { schoolName, slug } = {}) {
 export function isCdsRecordValidated(ragStmts, slug) {
   if (!slug) return false;
   const v = loadLatestValidation(ragStmts, slug);
-  return Boolean(v && v.status && v.status !== "no_truth");
+  // "consistent" (the school's own current document, no same-cycle truth,
+  // its numbers agreeing with each other) is usable; "inconsistent" and
+  // "no_truth" are not.
+  return Boolean(v && v.status && v.status !== "no_truth" && v.status !== "inconsistent");
+}
+
+// Whether the record was checked against figures from outside the document
+// (the corrections registry); a "consistent" record was not, and its
+// evidence confidence says so.
+export function cdsVerification(ragStmts, slug) {
+  if (!slug) return "unverified";
+  const v = loadLatestValidation(ragStmts, slug);
+  if (!v || !v.status || v.status === "no_truth" || v.status === "inconsistent") return "unverified";
+  return v.status === "consistent" ? "consistent" : "validated";
 }
 
 // ─── Adapt: stored record → positioning-engine cdsResult ───────────────
@@ -245,8 +258,11 @@ export function isCdsRecordValidated(ragStmts, slug) {
 // read. Because this is a validated, sourced record, fetchStatus is "ok" and
 // the source URL + reporting year are populated, so evidence confidence now
 // reflects real data instead of a failed live fetch.
-export function cdsRecordToPositioningResult(record, { liveFallback = null, unitId = null, validated = true } = {}) {
+export function cdsRecordToPositioningResult(record, { liveFallback = null, unitId = null, validated = true, verification = null } = {}) {
   if (!record) return liveFallback;
+  // "consistent": the school's own document with no same-cycle truth to
+  // check it against — used for the numbers, confidence kept below High.
+  const consistent = verification === "consistent";
   const admitRatePercent = record.overallAdmitRate != null
     ? Math.round(record.overallAdmitRate * 1000) / 10
     : (liveFallback?.parsed?.admitRatePercent ?? null);
@@ -283,10 +299,12 @@ export function cdsRecordToPositioningResult(record, { liveFallback = null, unit
   // Distinguish how an unverified record was obtained: AI web-read vs a live
   // PDF parse. (Validated curated records are always "cds_store".)
   const isWebRead = record.sourceKind === "web_llm";
-  const provenanceKind = validated ? "cds_store" : (isWebRead ? "cds_web" : "cds_live");
+  const provenanceKind = validated || consistent ? "cds_store" : (isWebRead ? "cds_web" : "cds_live");
   const sourceLabel = validated
     ? "CDS store (validated)"
-    : (isWebRead ? "CDS (AI web-read, unverified)" : "CDS (live, unverified)");
+    : consistent
+      ? "CDS store (school document, consistency-checked)"
+      : (isWebRead ? "CDS (AI web-read, unverified)" : "CDS (live, unverified)");
 
   return {
     unitId: unitId ?? liveFallback?.unitId ?? null,
@@ -301,8 +319,10 @@ export function cdsRecordToPositioningResult(record, { liveFallback = null, unit
     sourceExtraction: liveFallback?.sourceExtraction ?? null,
     fetchStatus: "ok",
     // Read by scoreEvidenceConfidence: unverified records take a confidence
-    // penalty and are capped below "High".
+    // penalty and are capped below "High"; a consistency-checked one a
+    // smaller penalty, also capped.
     validated,
+    verification: validated ? "validated" : (consistent ? "consistent" : "unverified"),
     parsed,
     // Provenance surfaced to the UI / payload so the source is visible/citable.
     provenance: {
@@ -314,6 +334,7 @@ export function cdsRecordToPositioningResult(record, { liveFallback = null, unit
       admitRatePercent,
       sourceUrl: record.sourceUrl || null,
       validated,
+      verification: validated ? "validated" : (consistent ? "consistent" : "unverified"),
     },
   };
 }

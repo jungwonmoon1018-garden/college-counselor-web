@@ -1,52 +1,40 @@
 {
-  "school": "University of Michigan",
   "slug": "university-of-michigan",
-  "tier": "T50",
-  "year": 2024,
-  "source": "cds",
-  "parserVersion": 4,
-  "testPolicy": "test_required",
+  "school": "University of Michigan",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.1642,
+  "yieldRate": 0.4565,
   "enrolledSAT": {
-    "p25": 1360,
-    "p75": 1560
+    "p25": 1370,
+    "p75": 1530
   },
   "enrolledACT": {
-    "p25": 31,
-    "p75": 35
+    "p25": 32,
+    "p75": 34
   },
+  "enrolledGPA": {
+    "p25": 3.75,
+    "p75": 4,
+    "avg": 3.9
+  },
+  "testPolicy": "test_required",
   "c7": {},
-  "validation": {
-    "school": "University of Michigan",
-    "slug": "university-of-michigan",
-    "status": "discrepancies",
-    "discrepancies": [
-      {
-        "severity": "high",
-        "field": "overallAdmitRate",
-        "parsed": null,
-        "expected": 0.2015,
-        "note": "parser_missed"
-      }
-    ],
-    "overrides": {
-      "overallAdmitRate": 0.2015
-    },
-    "scopeFromPDF": null
+  "b1": {
+    "applied": 109112,
+    "admitted": 17915,
+    "enrolled": 8178
   },
-  "_uncorrected": {
-    "enrolledSAT": {
-      "p25": 1360,
-      "p75": 1560
-    }
-  },
-  "overallAdmitRate": 0.2015,
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://obp.umich.edu/wp-content/uploads/pubdata/cds/cds_2025-26_umaa.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 5,
+  "parserNotes": [],
   "extras": {
     "satSections": {
-      "ebrw": {
-        "p25": 680,
-        "p50": 720,
-        "p75": 750
-      },
       "math": {
         "p25": 680,
         "p50": 740,
@@ -66,31 +54,53 @@
       }
     },
     "submitting": {
-      "satPct": 51,
+      "satPct": 55,
       "actPct": 18
     },
     "scoreDistribution": {
+      "satComposite": [
+        {
+          "low": 1400,
+          "high": 1600,
+          "pct": 73.1
+        },
+        {
+          "low": 1200,
+          "high": 1399,
+          "pct": 20.8
+        },
+        {
+          "low": 1000,
+          "high": 1199,
+          "pct": 5.1
+        },
+        {
+          "low": 800,
+          "high": 999,
+          "pct": 1
+        }
+      ],
       "satSections": {
         "ebrw": [
           {
             "low": 700,
             "high": 800,
-            "pct": 66.9
+            "pct": 71.4
           },
           {
             "low": 600,
             "high": 699,
-            "pct": 26.4
+            "pct": 22.9
           },
           {
             "low": 500,
             "high": 599,
-            "pct": 5.8
+            "pct": 4.8
           },
           {
             "low": 400,
             "high": 499,
-            "pct": 0.9
+            "pct": 0.8
           },
           {
             "low": 300,
@@ -117,41 +127,129 @@
           {
             "low": 700,
             "high": 800,
-            "pct": 69.8
+            "pct": 70.8
           },
           {
             "low": 600,
             "high": 699,
-            "pct": 21
+            "pct": 21.6
           },
           {
             "low": 500,
             "high": 599,
-            "pct": 7.8
+            "pct": 5.8
           },
           {
             "low": 400,
             "high": 499,
-            "pct": 1.1
+            "pct": 1.7
           },
           {
             "low": 300,
             "high": 399,
-            "pct": 0.3
+            "pct": 0
           },
           {
             "low": 200,
             "high": 299,
             "pct": 0
+          }
+        ]
+      },
+      "actComposite": [
+        {
+          "low": 30,
+          "high": 36,
+          "pct": 92
+        },
+        {
+          "low": 24,
+          "high": 29,
+          "pct": 6.9
+        },
+        {
+          "low": 18,
+          "high": 23,
+          "pct": 0.8
+        },
+        {
+          "low": 12,
+          "high": 17,
+          "pct": 0.3
+        },
+        {
+          "low": 6,
+          "high": 11,
+          "pct": 0
+        },
+        {
+          "low": 0,
+          "high": 5,
+          "pct": 0
+        }
+      ],
+      "actSections": {
+        "english": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 91
           },
           {
-            "low": 600,
-            "high": 799,
+            "low": 24,
+            "high": 29,
+            "pct": 7.8
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 1
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0.2
+          },
+          {
+            "low": 6,
+            "high": 11,
             "pct": 0
           },
           {
-            "low": 400,
-            "high": 599,
+            "low": 0,
+            "high": 5,
+            "pct": 0
+          }
+        ],
+        "math": [
+          {
+            "low": 30,
+            "high": 36,
+            "pct": 78.9
+          },
+          {
+            "low": 24,
+            "high": 29,
+            "pct": 19.7
+          },
+          {
+            "low": 18,
+            "high": 23,
+            "pct": 1.1
+          },
+          {
+            "low": 12,
+            "high": 17,
+            "pct": 0.3
+          },
+          {
+            "low": 6,
+            "high": 11,
+            "pct": 0
+          },
+          {
+            "low": 0,
+            "high": 5,
             "pct": 0
           }
         ]
@@ -166,17 +264,17 @@
       {
         "low": 3.75,
         "high": 3.99,
-        "pct": 54
+        "pct": 55.1
       },
       {
         "low": 3.5,
         "high": 3.74,
-        "pct": 5.7
+        "pct": 4.8
       },
       {
         "low": 3.25,
         "high": 3.49,
-        "pct": 0.9
+        "pct": 0.7
       },
       {
         "low": 3,
@@ -186,7 +284,7 @@
       {
         "low": 2.5,
         "high": 2.99,
-        "pct": 0
+        "pct": 0.2
       },
       {
         "low": 2,
@@ -206,34 +304,25 @@
     ],
     "gpa": {
       "average": 3.9,
-      "submittedPct": 92.4
+      "submittedPct": 97.8
     },
+    "applicationFeeUsd": 75,
     "dates": {
-      "regularClosing": {
-        "mmdd": "02-01",
-        "raw": "2/1"
-      },
       "eaClosing": {
         "mmdd": "11-01",
         "raw": "11/1"
-      },
-      "aidPriority": {
-        "mmdd": "12-15",
-        "raw": "(MM/DD) 12/15"
-      },
-      "aidDeadline": {
-        "mmdd": "03-31",
-        "raw": "(MM/DD) 3/31"
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 35086
+      "averagePackageFirstYearUsd": 38078
     }
   },
-  "enrolledGPA": {
-    "p25": 3.75,
-    "p75": 4,
-    "source": "C11_cumulative",
-    "avg": 3.9
+  "ingestedAt": "2026-09-15 14:17:00",
+  "updatedAt": "2026-09-15 14:17:00",
+  "validation": {
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "validatedAt": "2026-09-15 14:17:00"
   }
 }

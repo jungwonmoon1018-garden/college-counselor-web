@@ -1,26 +1,25 @@
 {
-  "school": "Princeton University",
   "slug": "princeton-university",
-  "tier": "T20",
-  "year": 2024,
-  "source": "cds",
-  "parserVersion": 4,
-  "testPolicy": "test_optional",
-  "b1": {
-    "applied": 40468,
-    "admitted": 1868,
-    "enrolled": 1410
-  },
-  "overallAdmitRate": 0.0462,
-  "yieldRate": 0.7548,
+  "school": "Princeton University",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.0442,
+  "yieldRate": 0.7537,
   "enrolledSAT": {
-    "p25": 1510,
+    "p25": 1490,
     "p75": 1560
   },
   "enrolledACT": {
     "p25": 34,
-    "p75": 36
+    "p75": 35
   },
+  "enrolledGPA": {
+    "p25": 3.75,
+    "p75": 4,
+    "avg": 3.96
+  },
+  "testPolicy": "test_optional",
   "c7": {
     "rigor": "very_important",
     "class_rank": "very_important",
@@ -42,44 +41,18 @@
     "work_experience": "considered",
     "level_of_interest": "not_considered"
   },
-  "validation": {
-    "school": "Princeton University",
-    "slug": "princeton-university",
-    "status": "discrepancies",
-    "discrepancies": [
-      {
-        "severity": "medium",
-        "field": "enrolledSAT",
-        "parsed": {
-          "p25": 1510,
-          "p75": 1600
-        },
-        "expected": {
-          "p25": 1510,
-          "p75": 1560
-        },
-        "delta": {
-          "p25": 0,
-          "p75": 40
-        },
-        "note": "sat_drift_exceeds_tolerance"
-      }
-    ],
-    "overrides": {
-      "enrolledSAT": {
-        "p25": 1510,
-        "p75": 1560
-      }
-    },
-    "scopeFromPDF": null
+  "b1": {
+    "applied": 42303,
+    "admitted": 1868,
+    "enrolled": 1408
   },
-  "_uncorrected": {
-    "overallAdmitRate": 0.0462,
-    "enrolledSAT": {
-      "p25": 1510,
-      "p75": 1600
-    }
-  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://ir.princeton.edu/sites/g/files/toruqf2041/files/documents/CDS_2526_Princeton_v2.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 5,
+  "parserNotes": [],
   "extras": {
     "satSections": {
       "ebrw": {
@@ -88,7 +61,7 @@
         "p75": 780
       },
       "math": {
-        "p25": 770,
+        "p25": 760,
         "p50": 790,
         "p75": 800
       }
@@ -100,31 +73,36 @@
         "p75": 36
       },
       "math": {
-        "p25": 32,
+        "p25": 33,
         "p50": 35,
+        "p75": 36
+      },
+      "reading": {
+        "p25": 35,
+        "p50": 36,
         "p75": 36
       },
       "science": {
         "p25": 33,
-        "p50": 34,
+        "p50": 35,
         "p75": 36
       }
     },
     "submitting": {
-      "satPct": 56,
-      "actPct": 21
+      "satPct": 60,
+      "actPct": 20
     },
     "scoreDistribution": {
       "satComposite": [
         {
           "low": 1400,
           "high": 1600,
-          "pct": 97
+          "pct": 96
         },
         {
           "low": 1200,
           "high": 1399,
-          "pct": 3
+          "pct": 4
         }
       ],
       "satSections": {
@@ -132,12 +110,12 @@
           {
             "low": 700,
             "high": 800,
-            "pct": 94
+            "pct": 95
           },
           {
             "low": 600,
             "high": 699,
-            "pct": 6
+            "pct": 5
           }
         ],
         "math": [
@@ -157,17 +135,12 @@
         {
           "low": 30,
           "high": 36,
-          "pct": 96.4
+          "pct": 98
         },
         {
           "low": 24,
           "high": 29,
-          "pct": 3
-        },
-        {
-          "low": 18,
-          "high": 23,
-          "pct": 0.7
+          "pct": 2
         }
       ],
       "actSections": {
@@ -175,73 +148,48 @@
           {
             "low": 30,
             "high": 36,
-            "pct": 96
+            "pct": 98
           },
           {
             "low": 24,
             "high": 29,
-            "pct": 3.6
-          },
-          {
-            "low": 18,
-            "high": 23,
-            "pct": 0.3
+            "pct": 2
           }
         ],
         "math": [
           {
             "low": 30,
             "high": 36,
-            "pct": 91.4
+            "pct": 94
           },
           {
             "low": 24,
             "high": 29,
-            "pct": 8.3
-          },
-          {
-            "low": 18,
-            "high": 23,
-            "pct": 0.3
+            "pct": 6
           }
         ],
         "reading": [
           {
             "low": 30,
             "high": 36,
-            "pct": 97.4
+            "pct": 99
           },
           {
             "low": 24,
             "high": 29,
-            "pct": 2
-          },
-          {
-            "low": 18,
-            "high": 23,
-            "pct": 0.7
+            "pct": 1
           }
         ],
         "science": [
           {
             "low": 30,
             "high": 36,
-            "pct": 94.7
+            "pct": 97
           },
           {
             "low": 24,
             "high": 29,
-            "pct": 4.6
-          },
-          {
-            "low": 18,
-            "high": 23,
-            "pct": 0.3
-          },
-          {
-            "low": 12,
-            "high": 17,
-            "pct": 0.3
+            "pct": 3
           }
         ]
       }
@@ -250,32 +198,32 @@
       {
         "low": 4,
         "high": 4,
-        "pct": 68.5
+        "pct": 72
       },
       {
         "low": 3.75,
         "high": 3.99,
-        "pct": 25.5
+        "pct": 24
       },
       {
         "low": 3.5,
         "high": 3.74,
-        "pct": 4.4
+        "pct": 3
       },
       {
         "low": 3.25,
         "high": 3.49,
-        "pct": 1.2
+        "pct": 1
       },
       {
         "low": 3,
         "high": 3.24,
-        "pct": 0.2
+        "pct": 0
       },
       {
         "low": 2.5,
         "high": 2.99,
-        "pct": 0.2
+        "pct": 0
       },
       {
         "low": 2,
@@ -294,10 +242,10 @@
       }
     ],
     "gpa": {
-      "average": 3.95,
-      "submittedPct": 99.3
+      "average": 3.96,
+      "submittedPct": 99
     },
-    "applicationFeeUsd": 70,
+    "applicationFeeUsd": 75,
     "dates": {
       "regularClosing": {
         "mmdd": "01-01",
@@ -309,17 +257,19 @@
       },
       "aidPriority": {
         "mmdd": "02-01",
-        "raw": "2/1"
+        "raw": "X 2/1"
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 71237
+      "averagePackageFirstYearUsd": 79320
     }
   },
-  "enrolledGPA": {
-    "p25": 3.75,
-    "p75": 4,
-    "source": "C11_cumulative",
-    "avg": 3.95
+  "ingestedAt": "2026-09-15 14:16:58",
+  "updatedAt": "2026-09-15 14:16:58",
+  "validation": {
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "validatedAt": "2026-09-15 14:16:58"
   }
 }

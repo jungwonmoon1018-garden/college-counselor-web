@@ -1,26 +1,21 @@
 {
-  "school": "Rice University",
   "slug": "rice-university",
-  "tier": "Sub-Ivy",
-  "year": 2024,
-  "source": "cds",
-  "parserVersion": 4,
-  "testPolicy": "test_optional",
-  "b1": {
-    "applied": 32473,
-    "admitted": 2597,
-    "enrolled": 1148
-  },
-  "overallAdmitRate": 0.08,
-  "yieldRate": 0.442,
+  "school": "Rice University",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.0801,
+  "yieldRate": 0.4284,
   "enrolledSAT": {
     "p25": 1510,
-    "p75": 1600
+    "p75": 1560
   },
   "enrolledACT": {
     "p25": 34,
     "p75": 36
   },
+  "enrolledGPA": null,
+  "testPolicy": "test_optional",
   "c7": {
     "rigor": "very_important",
     "class_rank": "very_important",
@@ -33,7 +28,7 @@
     "talent_ability": "very_important",
     "character": "very_important",
     "first_generation": "considered",
-    "alumni_relation": "not_considered",
+    "alumni_relation": "considered",
     "geographical_residence": "considered",
     "state_residency": "considered",
     "religious_affiliation": "not_considered",
@@ -42,14 +37,18 @@
     "work_experience": "considered",
     "level_of_interest": "considered"
   },
-  "validation": {
-    "school": "Rice University",
-    "slug": "rice-university",
-    "status": "ok",
-    "discrepancies": [],
-    "overrides": {},
-    "scopeFromPDF": null
+  "b1": {
+    "applied": 36791,
+    "admitted": 2948,
+    "enrolled": 1263
   },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://ideas.rice.edu/wp-content/uploads/2026/07/CDS_2025-26_WEBSITE.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 5,
+  "parserNotes": [],
   "extras": {
     "satSections": {
       "ebrw": {
@@ -58,7 +57,7 @@
         "p75": 770
       },
       "math": {
-        "p25": 770,
+        "p25": 760,
         "p50": 790,
         "p75": 800
       }
@@ -72,11 +71,11 @@
       "math": {
         "p25": 33,
         "p50": 35,
-        "p75": 36
+        "p75": 35
       },
       "reading": {
-        "p25": 34,
-        "p50": 35,
+        "p25": 35,
+        "p50": 36,
         "p75": 36
       },
       "science": {
@@ -86,15 +85,15 @@
       }
     },
     "submitting": {
-      "satPct": 48,
-      "actPct": 22
+      "satPct": 59,
+      "actPct": 24
     },
     "scoreDistribution": {
       "satComposite": [
         {
           "low": 1400,
           "high": 1600,
-          "pct": 97.3
+          "pct": 97.7
         },
         {
           "low": 1200,
@@ -104,12 +103,7 @@
         {
           "low": 1000,
           "high": 1199,
-          "pct": 0.4
-        },
-        {
-          "low": 800,
-          "high": 999,
-          "pct": 0.2
+          "pct": 0.1
         }
       ],
       "satSections": {
@@ -117,7 +111,7 @@
           {
             "low": 700,
             "high": 800,
-            "pct": 95.2
+            "pct": 95.7
           },
           {
             "low": 600,
@@ -127,247 +121,53 @@
           {
             "low": 500,
             "high": 599,
-            "pct": 0.6
-          },
-          {
-            "low": 400,
-            "high": 499,
-            "pct": 0
-          },
-          {
-            "low": 300,
-            "high": 399,
-            "pct": 0
-          },
-          {
-            "low": 200,
-            "high": 299,
-            "pct": 0
-          },
-          {
-            "low": 600,
-            "high": 799,
-            "pct": 0
-          },
-          {
-            "low": 400,
-            "high": 599,
-            "pct": 0
+            "pct": 0.1
           }
         ],
         "math": [
           {
             "low": 700,
             "high": 800,
-            "pct": 96.9
+            "pct": 97.7
           },
           {
             "low": 600,
             "high": 699,
-            "pct": 2.6
+            "pct": 1.9
           },
           {
             "low": 500,
             "high": 599,
             "pct": 0.4
-          },
-          {
-            "low": 400,
-            "high": 499,
-            "pct": 0
-          },
-          {
-            "low": 300,
-            "high": 399,
-            "pct": 0.2
-          },
-          {
-            "low": 200,
-            "high": 299,
-            "pct": 0
-          }
-        ]
-      },
-      "actComposite": [
-        {
-          "low": 30,
-          "high": 36,
-          "pct": 99.6
-        },
-        {
-          "low": 24,
-          "high": 29,
-          "pct": 0.4
-        },
-        {
-          "low": 18,
-          "high": 23,
-          "pct": 0
-        },
-        {
-          "low": 12,
-          "high": 17,
-          "pct": 0
-        },
-        {
-          "low": 6,
-          "high": 11,
-          "pct": 0
-        },
-        {
-          "low": 0,
-          "high": 5,
-          "pct": 0
-        }
-      ],
-      "actSections": {
-        "english": [
-          {
-            "low": 30,
-            "high": 36,
-            "pct": 98.8
-          },
-          {
-            "low": 24,
-            "high": 29,
-            "pct": 1.2
-          },
-          {
-            "low": 18,
-            "high": 23,
-            "pct": 0
-          },
-          {
-            "low": 12,
-            "high": 17,
-            "pct": 0
-          },
-          {
-            "low": 6,
-            "high": 11,
-            "pct": 0
-          },
-          {
-            "low": 0,
-            "high": 5,
-            "pct": 0
-          }
-        ],
-        "math": [
-          {
-            "low": 30,
-            "high": 36,
-            "pct": 92.7
-          },
-          {
-            "low": 24,
-            "high": 29,
-            "pct": 7.3
-          },
-          {
-            "low": 18,
-            "high": 23,
-            "pct": 0
-          },
-          {
-            "low": 12,
-            "high": 17,
-            "pct": 0
-          },
-          {
-            "low": 6,
-            "high": 11,
-            "pct": 0
-          },
-          {
-            "low": 0,
-            "high": 5,
-            "pct": 0
-          }
-        ],
-        "reading": [
-          {
-            "low": 30,
-            "high": 36,
-            "pct": 99.6
-          },
-          {
-            "low": 24,
-            "high": 29,
-            "pct": 0.4
-          },
-          {
-            "low": 18,
-            "high": 23,
-            "pct": 0
-          },
-          {
-            "low": 12,
-            "high": 17,
-            "pct": 0
-          },
-          {
-            "low": 6,
-            "high": 11,
-            "pct": 0
-          },
-          {
-            "low": 0,
-            "high": 5,
-            "pct": 0
-          }
-        ],
-        "science": [
-          {
-            "low": 30,
-            "high": 36,
-            "pct": 98.8
-          },
-          {
-            "low": 24,
-            "high": 29,
-            "pct": 1.2
-          },
-          {
-            "low": 18,
-            "high": 23,
-            "pct": 0
-          },
-          {
-            "low": 12,
-            "high": 17,
-            "pct": 0
-          },
-          {
-            "low": 6,
-            "high": 11,
-            "pct": 0
-          },
-          {
-            "low": 0,
-            "high": 5,
-            "pct": 0
           }
         ]
       }
     },
     "classRank": {
-      "topTenthPct": 89,
-      "topQuarterPct": 96,
-      "topHalfPct": 100,
-      "submittedPct": 44
+      "topTenthPct": 90,
+      "topQuarterPct": 97,
+      "topHalfPct": 99.6,
+      "submittedPct": 40
     },
     "applicationFeeUsd": 75,
     "earlyDecision": {
-      "applications": 3087,
-      "admitted": 519,
-      "admitRate": 0.1681
+      "applications": 5748,
+      "admitted": 647,
+      "admitRate": 0.1126
     },
     "dates": {
       "edNotification": "15-Dec"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 71698
+      "averagePackageFirstYearUsd": 75643
     }
+  },
+  "ingestedAt": "2026-09-15 14:05:17",
+  "updatedAt": "2026-09-15 14:05:17",
+  "validation": {
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "validatedAt": "2026-09-15 14:05:17"
   }
 }
