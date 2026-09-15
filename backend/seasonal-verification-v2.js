@@ -7,7 +7,9 @@ import { fileURLToPath } from 'node:url';
 
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const CDS_CACHE_DIR = path.join(MODULE_DIR, 'tools', 'cds-cache');
-const PDFS_DIR = path.join(CDS_CACHE_DIR, 'pdfs');
+// Documents live in the download cache on the persistent disk; the tracked
+// folder under tools holds only the hand-fetched 2025-26 documents.
+const PDF_DIRS = [path.join(MODULE_DIR, 'data', 'cds-cache', 'pdfs'), path.join(CDS_CACHE_DIR, 'pdfs')];
 const PARSED_DIR = path.join(CDS_CACHE_DIR, 'parsed');
 const CACHED_SCRAPE_STALE_DAYS = 90;
 
@@ -42,10 +44,13 @@ async function readLensA(slug, field) {
 }
 
 async function findCdsPdf(slug) {
-  if (!fs.existsSync(PDFS_DIR)) return null;
-  const entries = await fs.promises.readdir(PDFS_DIR);
-  const match = entries.find((entry) => entry.startsWith(`${slug}.`) && entry.endsWith('.pdf'));
-  return match ? path.join(PDFS_DIR, match) : null;
+  for (const dir of PDF_DIRS) {
+    if (!fs.existsSync(dir)) continue;
+    const entries = await fs.promises.readdir(dir);
+    const match = entries.find((entry) => entry.startsWith(`${slug}.`) && entry.endsWith('.pdf'));
+    if (match) return path.join(dir, match);
+  }
+  return null;
 }
 
 function extractFieldFromParsedCDS(parsed, field) {

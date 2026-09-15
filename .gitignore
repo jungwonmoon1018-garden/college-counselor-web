@@ -54,3 +54,7 @@ eng.traineddata
 # OS noise
 .DS_Store
 Thumbs.db
+
+# CDS documents are fetched into backend/data/cds-cache/pdfs at run time; the
+# parsed records under backend/tools/cds-cache/parsed are the tracked seed.
+backend/tools/cds-cache/pdfs/
