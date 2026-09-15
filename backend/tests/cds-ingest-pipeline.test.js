@@ -29,3 +29,18 @@ test("isOlderCycle: a fallback download from an earlier cycle must not replace a
   assert.equal(isOlderCycle("2024-25", null), false);
   assert.equal(isOlderCycle(null, "2025-26"), false);
 });
+
+test("refreshHoldReasons: a parse that thins the stored record is held back, a fuller or equal one is not", async () => {
+  const { refreshHoldReasons } = await import("../cds-ingest-pipeline.js");
+  const stored = { yearLabel: "2025-26", overallAdmitRate: 0.061, enrolledSAT: { p25: 1530, p75: 1565 }, enrolledACT: { p25: 34, p75: 35 }, b1: { applied: 50259, admitted: 3072 }, c7: { rigor: "very_important", interview: "not_considered" } };
+  assert.deepEqual(refreshHoldReasons(null, { overallAdmitRate: null }), []);
+  assert.deepEqual(refreshHoldReasons(stored, { ...stored }), []);
+  assert.deepEqual(refreshHoldReasons(stored, { ...stored, yearLabel: "2026-27", overallAdmitRate: 0.058 }), []);
+  assert.deepEqual(
+    refreshHoldReasons(stored, { yearLabel: "2025-26", overallAdmitRate: null, enrolledSAT: null, b1: null, c7: { rigor: "not_considered" } }),
+    ["admit rate lost", "SAT band lost", "ACT band lost", "C1 counts lost", "C7 weights lost"],
+  );
+  assert.deepEqual(refreshHoldReasons(stored, { ...stored, overallAdmitRate: 0.5 }), ["admit rate moved 6.1% → 50.0% within 2025-26"]);
+  // A new cycle may legitimately move the rate; only a thinner record is held.
+  assert.deepEqual(refreshHoldReasons(stored, { ...stored, yearLabel: "2026-27", overallAdmitRate: 0.5 }), []);
+});

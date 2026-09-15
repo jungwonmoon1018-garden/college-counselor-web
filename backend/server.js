@@ -638,6 +638,12 @@ if (process.env.CDS_DAILY_REFRESH !== "0") {
     const concurrency = Number(process.env.CDS_REFRESH_CONCURRENCY || 3) || 3;
     const r = await refreshAllCds(ragStmts, { concurrency });
     console.log(`[BATCH] cds_daily_refresh: ${r.total} schools`, JSON.stringify(r.byStatus));
+    // Every record the refresh refused to overwrite goes to the audit log,
+    // one event per school, so the counselor's log shows what needs a look.
+    for (const held of r.heldBack || []) {
+      console.warn(`[BATCH] cds_daily_refresh held back ${held.slug} (${held.year} over stored ${held.storedYear}): ${held.reasons.join("; ")}`);
+      try { stmts.insertAudit.run(crypto.randomUUID(), new Date().toISOString(), "cds_refresh_held_back", held.slug.slice(0, 12), `${held.slug} ${held.year} over ${held.storedYear}: ${held.reasons.join("; ")}`.slice(0, 500), null); } catch (err) { console.warn("[BATCH] audit write failed:", err.message); }
+    }
     return { changed: true, ...r };
   }, 24 * 60 * 60 * 1000, { enabled: true, runOnStartup: false });
   console.log("[BOOT] CDS daily refresh scheduled (active June 1+; CDS_DAILY_REFRESH=0 to disable).");

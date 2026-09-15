@@ -324,6 +324,44 @@ export function isOlderCycle(candidate, stored) {
   return a != null && b != null && a < b;
 }
 
+// A fresh parse must not thin the record it replaces. The daily refresh
+// re-parses every school; a document whose layout the parser does not read
+// yet (five C1 layouts were unread on 2026-09-16) would otherwise replace
+// a good record with one missing its admit rate, SAT band, C7 weights or
+// counts, and an admit rate that moves more than 15 points within the same
+// cycle is a misread, not news. Returns the reasons to hold the parse back,
+// or an empty list when it may be persisted.
+export function refreshHoldReasons(stored, parsed) {
+  if (!stored) return [];
+  const reasons = [];
+  const lost = (label, before, after) => { if (before != null && after == null) reasons.push(`${label} lost`); };
+  lost("admit rate", stored.overallAdmitRate, parsed.overallAdmitRate);
+  lost("SAT band", stored.enrolledSAT?.p25, parsed.enrolledSAT?.p25);
+  lost("ACT band", stored.enrolledACT?.p25, parsed.enrolledACT?.p25);
+  lost("C1 counts", stored.b1?.applied, parsed.b1?.applied);
+  const c7Before = Object.values(stored.c7 || {}).filter((v) => v && v !== "not_considered").length;
+  const c7After = Object.values(parsed.c7 || {}).filter((v) => v && v !== "not_considered").length;
+  if (c7Before > 0 && c7After === 0) reasons.push("C7 weights lost");
+  const sameCycle = stored.yearLabel && parsed.yearLabel && stored.yearLabel === parsed.yearLabel;
+  if (sameCycle && stored.overallAdmitRate != null && parsed.overallAdmitRate != null && Math.abs(stored.overallAdmitRate - parsed.overallAdmitRate) > 0.15) {
+    reasons.push(`admit rate moved ${(stored.overallAdmitRate * 100).toFixed(1)}% → ${(parsed.overallAdmitRate * 100).toFixed(1)}% within ${stored.yearLabel}`);
+  }
+  return reasons;
+}
+
+function storedRecordForHold(stmts, slug) {
+  const row = stmts.cds.getBySlug.get(slug);
+  if (!row) return null;
+  return {
+    yearLabel: row.year_label,
+    overallAdmitRate: row.overall_admit_rate,
+    enrolledSAT: row.enrolled_sat_p25 != null ? { p25: row.enrolled_sat_p25, p75: row.enrolled_sat_p75 } : null,
+    enrolledACT: row.enrolled_act_p25 != null ? { p25: row.enrolled_act_p25, p75: row.enrolled_act_p75 } : null,
+    c7: row.c7_json ? safeJSON(row.c7_json, {}) : {},
+    b1: row.b1_json ? safeJSON(row.b1_json, null) : null,
+  };
+}
+
 // ─── Single-school ingest ─────────────────────────────────────────────
 // Fetches, parses, validates, and persists ONE school's CDS. Returns a
 // summary the server can render or log.
@@ -368,6 +406,16 @@ export async function ingestOne(stmts, schoolName, options = {}) {
     }
   } catch (e) {
     return { school: entry.name, slug: entry.slug, status: "parse_failed", error: String(e.message).slice(0, 200) };
+  }
+
+  // The stored record stays when this parse would thin it (see
+  // refreshHoldReasons); `force` overrides, as for the cycle guard above.
+  if (!force) {
+    const stored = storedRecordForHold(stmts, entry.slug);
+    const reasons = refreshHoldReasons(stored, { ...parsed, yearLabel: dl.year });
+    if (reasons.length) {
+      return { school: entry.name, slug: entry.slug, status: "held_back", year: dl.year, storedYear: stored.yearLabel, reasons };
+    }
   }
 
   const recordForValidator = {
@@ -438,7 +486,12 @@ export async function refreshAllCds(stmts, { concurrency = 3, year = null } = {}
   const results = await ingestBulk(stmts, targets, { concurrency, year });
   const byStatus = {};
   for (const r of results) byStatus[r.status] = (byStatus[r.status] || 0) + 1;
-  return { total: results.length, byStatus };
+  // What the refresh refused to overwrite, for the job log and the audit
+  // trail: the operator reviews these by hand (re-run with force, or fix the
+  // parser for that layout).
+  const heldBack = results.filter((r) => r.status === "held_back").map((r) => ({ slug: r.slug, year: r.year, storedYear: r.storedYear, reasons: r.reasons }));
+  const keptNewer = results.filter((r) => r.status === "kept_newer").map((r) => ({ slug: r.slug, year: r.year, storedYear: r.storedYear }));
+  return { total: results.length, byStatus, heldBack, keptNewer };
 }
 
 // ─── Re-validate without re-fetching ──────────────────────────────────
