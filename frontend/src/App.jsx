@@ -2,6 +2,8 @@
 import NarrativeEditor from "./components/NarrativeEditor.jsx";
 import DriftBanner from "./components/DriftBanner.jsx";
 import CloseButton from "./components/CloseButton.jsx";
+import SidebarSection from "./components/SidebarSection.jsx";
+import { filedChatDocuments, mergeDocuments } from "./chat-documents.js";
 import CandidateRanker from "./components/CandidateRanker.jsx";
 import DeadlineTracker from "./components/DeadlineTracker.jsx";
 import PrestigeCard from "./components/PrestigeCard.jsx";
@@ -4680,22 +4682,14 @@ export default function App() {
         await refreshThreadList();
       }
 
-      // FIX P2: Only persist file metadata AFTER successful processing (not rejected/cancelled)
-      if (attachment && !result.blocked && !result.uploadRejected) {
-        const safeName = sanitizeFilename(attachment.name);
-        const docCategory = safeName.toLowerCase().includes("report") ? "Report Card"
-          : safeName.toLowerCase().includes("score") ? "Score Report"
-          : safeName.toLowerCase().includes("transcript") ? "Transcript"
-          : "Document";
-        setData(prev => ({
-          ...prev,
-          documents: [...(prev.documents||[]), {
-            name: safeName,
-            type: attachment.type.includes("pdf") ? "pdf" : "image",
-            category: docCategory,
-            uploadedAt: new Date().toISOString()
-          }]
-        }));
+      // Every file the student attached this turn is filed under Documents in
+      // the sidebar once the turn passed screening (not when rejected or
+      // cancelled). The wider picker used to file only the one binary promoted
+      // to the legacy slot, so text files and second attachments never
+      // appeared there; a re-sent file (same name and size) is not filed twice.
+      if (!result.blocked && !result.uploadRejected) {
+        const filed = filedChatDocuments([...(pendingFile ? [pendingFile] : []), ...textChatFiles, ...binaryChatFiles]);
+        if (filed.length) setData(prev => ({ ...prev, documents: mergeDocuments(prev.documents, filed) }));
       }
     } catch (err) {
       // FIX P2: On cancel/error, no file metadata is saved
@@ -5514,14 +5508,13 @@ export default function App() {
           )}
 
           {/* ─── Chat history (multi-thread) ─────────────────────────── */}
-          <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8 }}>
-            <div style={{ fontSize:11,fontWeight:600,color:"#6a6a7a",textTransform:"uppercase",letterSpacing:"0.06em" }}>Chats</div>
+          <SidebarSection id="chats" title="Chats" action={
             <button onClick={() => newThread()}
               title="Start a new conversation"
               style={{ padding:"3px 8px",borderRadius:6,border:"1px solid rgba(55,138,221,0.25)",background:"rgba(55,138,221,0.08)",color:"#63b3ed",fontSize:11,fontWeight:600,cursor:"pointer" }}>
               + New
             </button>
-          </div>
+          }>
           <input
             placeholder="Search chats…"
             value={threadSearchQ}
@@ -5585,7 +5578,8 @@ export default function App() {
           </div>
 
           {/* ─── College values + fit ────────────────────────────────── */}
-          <div style={{ fontSize:11,fontWeight:600,color:"#6a6a7a",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:8 }}>College fit</div>
+          </SidebarSection>
+          <SidebarSection id="college-fit" title="College fit">
           <div style={{display:"flex",gap:6,marginBottom:8}}>
             <input
               placeholder="e.g. UC Berkeley, Princeton, Texas A&M College Station"
@@ -5677,7 +5671,8 @@ export default function App() {
             </div>
           )}
 
-          <div style={{ fontSize:11,fontWeight:600,color:"#6a6a7a",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:10 }}>Profile</div>
+          </SidebarSection>
+          <SidebarSection id="profile" title="Profile">
           <div style={{display:"flex",gap:8,marginBottom:12}}>
             <button onClick={()=>openProfileEditor(0)} style={{padding:"7px 10px",borderRadius:8,border:"1px solid rgba(55,138,221,0.18)",background:"rgba(55,138,221,0.08)",color:"#63b3ed",fontSize:11,cursor:"pointer"}}>Edit profile</button>
             {Object.keys(data?.chatMemory || {}).length > 0 && (
@@ -5789,8 +5784,9 @@ export default function App() {
             </button>
           )}
 
-          {profile.courses?.length > 0 && <>
-            <div style={{ fontSize:11,fontWeight:600,color:"#6a6a7a",textTransform:"uppercase",letterSpacing:"0.06em",margin:"14px 0 6px" }}>Courses ({profile.courses.length})</div>
+          </SidebarSection>
+          {profile.courses?.length > 0 && (
+            <SidebarSection id="courses" title="Courses" count={profile.courses.length}>
             {(showAllCourses ? profile.courses : profile.courses.slice(0,5)).map((c,i)=>(
               editingField === `course:${i}` ? (
                 <div key={i} style={{ display:"flex",gap:6,alignItems:"center",padding:"4px 0",borderBottom:"1px solid rgba(255,255,255,0.03)" }}>
@@ -5815,11 +5811,12 @@ export default function App() {
                 {showAllCourses ? "Show less" : `Show all ${profile.courses.length}`}
               </button>
             )}
-          </>}
+            </SidebarSection>
+          )}
 
           {/* AP exam scores: editable in place (exam, score, year), removable,
               and addable — no survey round-trip. */}
-          <div style={{ fontSize:11,fontWeight:600,color:"#6a6a7a",textTransform:"uppercase",letterSpacing:"0.06em",margin:"14px 0 6px" }}>AP exam scores ({(profile.apScores || []).length})</div>
+          <SidebarSection id="ap-scores" title="AP exam scores" count={(profile.apScores || []).length}>
           {(profile.apScores || []).map((x,i)=>(
             editingField === `ap:${i}` ? (
               <ApScoreEditor key={i} initial={x}
@@ -5847,7 +5844,8 @@ export default function App() {
             </button>
           )}
 
-          <div style={{ fontSize:11,fontWeight:600,color:"#6a6a7a",textTransform:"uppercase",letterSpacing:"0.06em",margin:"16px 0 6px" }}>ECs ({activities.length})</div>
+          </SidebarSection>
+          <SidebarSection id="ecs" title="ECs" count={activities.length}>
           {/* Files attached in chat (certificates, letters, write-ups) are
               filed to the activity they name as they arrive; this reads the
               older ones in and says what was linked. */}
@@ -5883,9 +5881,10 @@ export default function App() {
             </button>
           )}
 
-          {/* Uploaded documents */}
-          {(data.documents||[]).length > 0 && <>
-            <div style={{ fontSize:11,fontWeight:600,color:"#6a6a7a",textTransform:"uppercase",letterSpacing:"0.06em",margin:"16px 0 6px" }}>Documents ({data.documents.length})</div>
+          </SidebarSection>
+          {/* Uploaded documents: the survey transcript and every file attached in chat. */}
+          {(data.documents||[]).length > 0 && (
+            <SidebarSection id="documents" title="Documents" count={data.documents.length}>
             {data.documents.map((doc,i)=>(
               <div key={i} style={{ fontSize:12,padding:"6px 0",borderBottom:"1px solid rgba(255,255,255,0.03)",display:"flex",alignItems:"center",gap:8 }}>
                 <span style={{ fontSize:14 }}>{doc.type==="pdf"?"📄":doc.type==="image"?"🖼️":"📋"}</span>
@@ -5896,14 +5895,15 @@ export default function App() {
                 <button onClick={()=>{setData(prev=>({...prev,documents:(prev.documents||[]).filter((_,j)=>j!==i)}));}} style={{ background:"none",border:"none",color:"#555",cursor:"pointer",fontSize:11,padding:"2px 4px" }}>✕</button>
               </div>
             ))}
-          </>}
+            </SidebarSection>
+          )}
 
           {/* ─── Target schools (shared across the chat tools) ─── */}
           {/* Named universities the student is aiming for. Read by Rank EC   */}
           {/* ideas, Edit your story, and Course plan to tailor output to     */}
           {/* what these schools value. The survey only captures college      */}
           {/* TYPES, so named targets live here (persisted per account).      */}
-          <div style={{ fontSize:11,fontWeight:600,color:"#6a6a7a",textTransform:"uppercase",letterSpacing:"0.06em",margin:"18px 0 8px" }}>🎯 Target schools</div>
+          <SidebarSection id="targets" title="🎯 Target schools">
           <div style={{ fontSize:10,color:"#555",marginBottom:8,lineHeight:1.5 }}>Used to tailor Rank EC ideas, Edit your story &amp; Course plan.</div>
           <div style={{ display:"flex",flexWrap:"wrap",gap:6,marginBottom:8 }}>
             {targetSchools.length === 0 && (
@@ -5944,7 +5944,8 @@ export default function App() {
           {/* Three buttons that pop a full panel into <activePanel/>. The     */}
           {/* student stays in the chat — the panel renders as an overlay so  */}
           {/* they don't lose their conversation context.                     */}
-          <div style={{ fontSize:11,fontWeight:600,color:"#6a6a7a",textTransform:"uppercase",letterSpacing:"0.06em",margin:"18px 0 8px" }}>Tools</div>
+          </SidebarSection>
+          <SidebarSection id="tools" title="Tools">
           {/* Edit story / Rank ECs / Spike / Course plan now launch INLINE  */}
           {/* in the chat (see the launcher row above the composer). Only    */}
           {/* Deadlines remains as a sidebar modal.                          */}
@@ -5961,7 +5962,8 @@ export default function App() {
           {/* Persists to localStorage; api.js reads from there for every    */}
           {/* request, so backend friendlyMessage / friendlyLegendI18n flips */}
           {/* immediately on the next call.                                   */}
-          <div style={{ fontSize:11,fontWeight:600,color:"#6a6a7a",textTransform:"uppercase",letterSpacing:"0.06em",margin:"18px 0 8px" }}>{tt(locale, "locale.label")}</div>
+          </SidebarSection>
+          <SidebarSection id="language" title={tt(locale, "locale.label")}>
           <div style={{ display:"flex",gap:6 }}>
             <button onClick={()=>setLocale("en-US")} style={{ ...localeBtn, ...(locale==="en-US"?localeBtnActive:{}) }}>
               {tt(locale, "locale.en")}
@@ -5970,6 +5972,7 @@ export default function App() {
               {tt(locale, "locale.ko")}
             </button>
           </div>
+          </SidebarSection>
 
         </div>
       </aside>
