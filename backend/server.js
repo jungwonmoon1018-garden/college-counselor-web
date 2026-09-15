@@ -8172,14 +8172,27 @@ app.listen(PORT, HOST, () => {
 // ═══════════════════════════════════════════════════════════
 // GRACEFUL SHUTDOWN
 // ═══════════════════════════════════════════════════════════
+// Whatever happens below, the process exits: Render and the route tests both
+// wait for it. db.close() throws while the boot-time CDS seeding still has a
+// statement running (a SIGTERM two seconds after boot, as in a route test's
+// teardown), and with the rejection guard below that no longer ends the
+// process by itself — CI hung on it on 2026-09-16 (Windows kills the child
+// outright, so local runs never reach this handler).
 async function shutdown(signal) {
   console.log(`\n[SHUTDOWN] ${signal} received. Stopping jobs and closing databases...`);
-  stopAllJobs();
-  db.close();
-  piiVault.close();
-  vectorStore.close();
-  console.log("[SHUTDOWN] All databases closed. Exiting.");
-  process.exit(0);
+  const forceExit = setTimeout(() => process.exit(1), 5000);
+  forceExit.unref();
+  try {
+    stopAllJobs();
+    for (const [name, close] of [["counselor.db", () => db.close()], ["pii-vault.db", () => piiVault.close()], ["vectors.db", () => vectorStore.close()]]) {
+      try { close(); } catch (err) { console.warn(`[SHUTDOWN] ${name} did not close cleanly: ${err.message}`); }
+    }
+    console.log("[SHUTDOWN] All databases closed. Exiting.");
+    process.exit(0);
+  } catch (err) {
+    console.error("[SHUTDOWN] failed:", err.message);
+    process.exit(1);
+  }
 }
 
 // A rejected promise nobody awaits would end the process (Node's default).
