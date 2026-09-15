@@ -11,6 +11,8 @@ concurrency:
 
 jobs:
   backend:
+    # A job past fifteen minutes is a hang (the backend job takes about 40 s).
+    timeout-minutes: 15
     name: Backend
     runs-on: ubuntu-latest
     defaults:
@@ -35,6 +37,8 @@ jobs:
       - run: npm audit --audit-level=high
 
   frontend:
+    # A job past fifteen minutes is a hang (the backend job takes about 40 s).
+    timeout-minutes: 15
     name: Frontend
     runs-on: ubuntu-latest
     defaults:
@@ -53,6 +57,8 @@ jobs:
       - run: npm audit --audit-level=high
 
   web:
+    # A job past fifteen minutes is a hang (the backend job takes about 40 s).
+    timeout-minutes: 15
     name: Native Node web build
     runs-on: ubuntu-latest
     steps:

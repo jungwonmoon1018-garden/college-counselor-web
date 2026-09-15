@@ -91,11 +91,13 @@ before(async () => {
 after(async () => {
   if (serverProcess && serverProcess.exitCode == null) {
     serverProcess.kill("SIGTERM");
-    await new Promise(resolve => serverProcess.once("exit", resolve));
+    await Promise.race([new Promise(resolve => serverProcess.once("exit", resolve)), new Promise(resolve => setTimeout(resolve, 5000))]);
+    if (serverProcess.exitCode == null) serverProcess.kill("SIGKILL"); // a server that will not exit must not hang the runner
   }
   if (sidecarProcess && sidecarProcess.exitCode == null) {
     sidecarProcess.kill("SIGTERM");
-    await new Promise(resolve => sidecarProcess.once("exit", resolve));
+    await Promise.race([new Promise(resolve => sidecarProcess.once("exit", resolve)), new Promise(resolve => setTimeout(resolve, 5000))]);
+    if (sidecarProcess.exitCode == null) sidecarProcess.kill("SIGKILL"); // a server that will not exit must not hang the runner
   }
 
   for (const suffix of ["", "-shm", "-wal"]) {

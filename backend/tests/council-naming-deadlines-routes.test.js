@@ -161,6 +161,7 @@ after(async () => {
       new Promise((resolve) => serverProcess.once("exit", resolve)),
       delay(5_000),
     ]);
+    if (serverProcess.exitCode == null) serverProcess.kill("SIGKILL"); // a server that will not exit must not hang the runner
   }
 
   const resolved = testDataDir ? path.resolve(testDataDir) : "";

@@ -94,5 +94,6 @@ test("website launcher gates students and protects first counselor bootstrap", {
       new Promise((resolve) => child.once("exit", resolve)),
       new Promise((resolve) => setTimeout(resolve, 5000)),
     ]);
+    if (child.exitCode == null) child.kill("SIGKILL"); // a server that will not exit must not hang the runner
   }
 });

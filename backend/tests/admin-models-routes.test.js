@@ -120,6 +120,7 @@ after(async () => {
       new Promise((resolve) => serverProcess.once("exit", resolve)),
       delay(5000),
     ]);
+    if (serverProcess.exitCode == null) serverProcess.kill("SIGKILL"); // a server that will not exit must not hang the runner
   }
   if (testDataDir) fs.rmSync(testDataDir, { recursive: true, force: true });
 });

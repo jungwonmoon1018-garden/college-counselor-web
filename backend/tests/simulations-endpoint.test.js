@@ -86,13 +86,15 @@ async function withServers(fn) {
     } finally {
       if (server.exitCode == null) {
         server.kill("SIGTERM");
-        await new Promise(resolve => server.once("exit", resolve));
+        await Promise.race([new Promise(resolve => server.once("exit", resolve)), new Promise(resolve => setTimeout(resolve, 5000))]);
+        if (server.exitCode == null) server.kill("SIGKILL"); // a server that will not exit must not hang the runner
       }
     }
   } finally {
     if (sidecar.exitCode == null) {
       sidecar.kill("SIGTERM");
-      await new Promise(resolve => sidecar.once("exit", resolve));
+      await Promise.race([new Promise(resolve => sidecar.once("exit", resolve)), new Promise(resolve => setTimeout(resolve, 5000))]);
+      if (sidecar.exitCode == null) sidecar.kill("SIGKILL"); // a sidecar that will not exit must not hang the runner
     }
     clean();
   }
