@@ -19,10 +19,7 @@ import MethodologyPanel from "./MethodologyPanel.jsx";
 import { detectLocale, t as tt } from "./i18n.js";
 import { fitProfileFingerprint, fitReadIsStale } from "./fit-refresh.js";
 import { serverDateToISO } from "./dates.js";
-import {
-  TEST_ORDER, TEST_SCORE_LIMITS, testLabel, sectionDefs, formatSections, validateTestEntry,
-  blankTestForm, entryToForm, formToEntry, withSection, normalizeClassRank, formatClassRank,
-} from "./test-scores.js";
+import { TEST_SCORE_LIMITS, testLabel, formatSections, validateTestEntry, blankTestForm, entryToForm, formToEntry, normalizeClassRank, formatClassRank } from "./test-scores.js";
 import {
   COUNCIL_DECISION_OPTIONS,
   councilErrorMessage,
@@ -32,15 +29,12 @@ import {
 } from "./strategy-council.js";
 import Sidebar from "./Sidebar.jsx";
 import { AP_EXAM_LIST, GRADE_SCALE } from "./app-shared.js";
-
-
-const gradeLabel = (g) => {
-  const found = GRADE_SCALE.find(e => e.grade === g);
-  if (found) return found.label;
-  if (g === "IP") return "In Progress";
-  if (g === "W")  return "Withdrawn";
-  return g || "—";
-};
+import SurveyScreen from "./SurveyScreen.jsx";
+import { BG, FONT, GLOBAL_CSS, inputStyle } from "./app-shared.js";
+import LoginScreen from "./LoginScreen.jsx";
+import { S, dots } from "./app-shared.js";
+import CreateAccountScreen from "./CreateAccountScreen.jsx";
+import { getEmailDomain } from "./app-shared.js";
 
 
 // ═══════════════════════════════════════════════════════════
@@ -62,40 +56,6 @@ async function decrypt(blob, pw, userSalt) {
   } catch { return null; }
 }
 
-// ═══════════════════════════════════════════════════════════
-// SCHOOL EMAIL VALIDATION
-// ═══════════════════════════════════════════════════════════
-const EDU_DOMAINS = [
-  ".edu", ".ac.uk", ".ac.kr", ".ac.jp", ".edu.au", ".edu.cn", ".edu.sg",
-  ".edu.my", ".edu.ph", ".edu.hk", ".edu.tw", ".edu.br", ".edu.mx",
-  ".edu.co", ".edu.ar", ".ac.in", ".ac.id", ".ac.th", ".ac.nz",
-  ".edu.tr", ".edu.sa", ".edu.eg", ".edu.ng", ".edu.za",
-  ".k12.us", ".k12.", ".school.", ".sch.",  // K-12 school domains
-  // Korean school domains (specific suffixes only — bare .kr is too broad)
-  ".or.kr",   // Korean organizational/school domains
-  ".hs.kr", ".ms.kr", ".es.kr",  // Korean high/middle/elementary school domains
-  ".go.kr",   // Korean government education offices
-  ".kr",      // General Korean domains (e.g. school.kr, academy.kr)
-  ".org",     // Non-profit / organization school domains
-];
-
-function isSchoolEmail(email) {
-  if (!email || !email.includes("@")) return false;
-  const domain = email.toLowerCase().split("@")[1];
-  if (!domain) return false;
-  return EDU_DOMAINS.some(suffix => {
-    if (suffix.endsWith(".")) {
-      // Mid-domain suffixes like ".k12." — require it to appear as a domain segment boundary
-      const idx = domain.indexOf(suffix);
-      return idx >= 0 && (idx === 0 || domain[idx - 1] === ".");
-    }
-    return domain.endsWith(suffix);
-  });
-}
-
-function getEmailDomain(email) {
-  return email?.split("@")[1] || "";
-}
 
 // ═══════════════════════════════════════════════════════════
 // Encrypted cache storage. Account identity and session metadata are never
@@ -346,63 +306,6 @@ function resolveTargetUnitId(name) {
   return exact?.unitId || TARGET_UNIT_ID_ALIASES.get(key) || null;
 }
 
-// ═══════════════════════════════════════════════════════════
-// AP COURSE RIGOR DATA (Source: CollegeBoard AP Score Distributions 2026 (preliminary))
-// Difficulty tier based on % scoring 5 and mean score — lower pass rate = harder
-// ═══════════════════════════════════════════════════════════
-// Common App's 30-category Activities taxonomy (verbatim from the official
-// "Activity Type" dropdown on the Activities section). The `value` is the
-// stable slug stored in the profile + sent over the wire; `label` is what
-// the student sees. Order matches the Common App's own dropdown order so
-// students can scan-match.
-const EC_CATEGORIES = [
-  { value: "academic",            label: "Academic" },
-  { value: "art",                 label: "Art" },
-  { value: "athletics_club",      label: "Athletics: Club" },
-  { value: "athletics_varsity",   label: "Athletics: JV/Varsity" },
-  { value: "career_oriented",     label: "Career Oriented" },
-  { value: "community_service",   label: "Community Service (Volunteer)" },
-  { value: "computer_tech",       label: "Computer/Technology" },
-  { value: "cultural",            label: "Cultural" },
-  { value: "dance",               label: "Dance" },
-  { value: "debate_speech",       label: "Debate/Speech" },
-  { value: "environmental",       label: "Environmental" },
-  { value: "family_responsibilities", label: "Family Responsibilities" },
-  { value: "foreign_exchange",    label: "Foreign Exchange" },
-  { value: "foreign_language",    label: "Foreign Language" },
-  { value: "internship",          label: "Internship" },
-  { value: "journalism",          label: "Journalism/Publication" },
-  { value: "jrotc",               label: "Junior ROTC" },
-  { value: "lgbt",                label: "LGBT" },
-  { value: "music_instrumental",  label: "Music: Instrumental" },
-  { value: "music_vocal",         label: "Music: Vocal" },
-  { value: "religious",           label: "Religious" },
-  { value: "research",            label: "Research" },
-  { value: "robotics",            label: "Robotics" },
-  { value: "school_spirit",       label: "School Spirit" },
-  { value: "science_math",        label: "Science/Math" },
-  { value: "social_justice",      label: "Social Justice" },
-  { value: "student_govt",        label: "Student Government/Politics" },
-  { value: "theater_drama",       label: "Theater/Drama" },
-  { value: "work_paid",           label: "Work (paid)" },
-  { value: "other",               label: "Other Club/Activity" },
-];
-const EC_CATEGORY_LABEL = Object.fromEntries(EC_CATEGORIES.map(c => [c.value, c.label]));
-
-// Migration shim — old categories ("club", "varsity", "arts", "work")
-// stored before the Common App expansion. Re-mapped at display time so
-// existing profiles don't show a blank category chip.
-const EC_LEGACY_TO_NEW = {
-  club:               "other",
-  varsity:            "athletics_varsity",
-  arts:               "art",
-  work:               "work_paid",
-};
-function ecCategoryLabel(value) {
-  if (!value) return "";
-  const mapped = EC_LEGACY_TO_NEW[value] || value;
-  return EC_CATEGORY_LABEL[mapped] || value.replace(/_/g, " ");
-}
 
 const AP_RIGOR = {
   "Physics C: E&M":       {tier:1,label:"Extremely Hard",pct5:24,pct3plus:75,meanScore:3.39,note:"Calculus-based E&M. Smallest exam population, self-selected."},
@@ -2574,48 +2477,6 @@ function renderInlineSafe(text) {
   return parts.length > 0 ? parts : text;
 }
 
-// ═══════════════════════════════════════════════════════════
-// SHARED STYLES
-// ═══════════════════════════════════════════════════════════
-const FONT = "'Segoe UI',system-ui,sans-serif";
-const BG = "#0a0e17";
-const inputStyle = { width:"100%",padding:"12px 14px",minHeight:44,borderRadius:8,border:"1px solid rgba(255,255,255,0.22)",background:"rgba(255,255,255,0.04)",color:"#f1f5f9",fontSize:15,boxSizing:"border-box",transition:"border-color 0.2s" };
-const labelStyle = { fontSize:12,fontWeight:600,color:"#b4bfcc",display:"block",marginBottom:6,letterSpacing:0 };
-const btnPrimary = { padding:"12px 16px",minHeight:44,borderRadius:8,border:"none",background:"#2f86cf",color:"#fff",fontSize:15,fontWeight:700,cursor:"pointer",width:"100%",transition:"opacity 0.2s" };
-const cardStyle = { width:"min(440px, calc(100vw - 32px))",padding:"clamp(24px, 5vw, 40px)",borderRadius:8,background:"#151a23",border:"1px solid rgba(255,255,255,0.16)" };
-const dots = ["#E24B4A","#378ADD","#BA7517","#D4537E","#7F77DD","#1D9E75"];
-
-
-const GLOBAL_CSS = `html,body,#root{height:100%;margin:0} body{min-width:320px}
-@keyframes pulse2{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1.2)}}
-@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-@keyframes spin{to{transform:rotate(360deg)}}
-input::placeholder,textarea::placeholder{color:#8b96a5} *{box-sizing:border-box}
-button,input,select,textarea{font-family:inherit} button{min-height:40px}
-button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible,[role="button"]:focus-visible{outline:3px solid #69b8ff!important;outline-offset:2px!important}
-/* Match every <select> in the app to the dark system theme.
-   color-scheme tells Chrome/Firefox/Safari to render the OPEN popup
-   list using the dark scheme — the simplest cross-browser dark-mode
-   for native selects. We also override the OS chevron with a tinted
-   SVG that matches the rest of the UI (#6a8ab5). */
-select{color-scheme:dark;appearance:none;-webkit-appearance:none;-moz-appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'><path d='M1 1L6 6L11 1' stroke='%236a8ab5' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");background-repeat:no-repeat;background-position:right 12px center;background-size:10px 6px;padding-right:32px!important}
-select:focus{border-color:rgba(55,138,221,0.40)!important}
-select option{background:#0d1117;color:#e8e6e3}
-select option:hover, select option:focus, select option:checked{background:rgba(55,138,221,0.20)}
-::-webkit-scrollbar{width:5px} ::-webkit-scrollbar-track{background:transparent} ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.06);border-radius:3px}
-@media(max-width:768px){
-.cc-create-card{width:100%!important;max-width:440px!important;padding:24px!important}
-.cc-survey-card{width:100%!important;max-width:580px!important;padding:20px!important}
-.cc-sidebar-overlay{position:fixed!important;top:0!important;left:0!important;height:100dvh!important;width:min(90vw,320px)!important;z-index:1000!important;background:rgba(10,14,23,0.98)!important;box-shadow:18px 0 40px rgba(0,0,0,0.35)!important;border-right:1px solid rgba(255,255,255,0.16)!important;transition:transform 0.25s ease,opacity 0.25s ease!important}
-.cc-sidebar-overlay.is-open{transform:translateX(0)!important;opacity:1!important;pointer-events:auto!important}
-.cc-sidebar-overlay.is-closed{transform:translateX(-105%)!important;opacity:0!important;pointer-events:none!important}
-.cc-chat-main{width:100%!important}
-.cc-quick-actions{overflow-x:auto!important;flex-wrap:nowrap!important;padding-bottom:4px!important}
-.cc-quick-actions button{flex:0 0 auto!important}
-}`;
-
-
-const S = { LOADING:0, CREATE:1, LOGIN:2, SURVEY:3, CHAT:4 };
 
 export default function App() {
   const [screen, setScreen] = useState(S.LOADING);
@@ -4510,119 +4371,12 @@ export default function App() {
   // CREATE ACCOUNT SCREEN
   // ═══════════════════════════════════════════════════════════
   if (screen === S.CREATE) {
+    // Everything CreateAccountScreen reads from this component (see CreateAccountScreen.jsx).
+    const createAccountProps = {
+      authBusy, cAgeAttest, cConsentAI, cConsentData, cEmail, cError, cFirst, cGrade, cLast, cPass, cPass2, createPassStrength, handleCreate, runAuthGuarded, setCAgeAttest, setCConsentAI, setCConsentData, setCEmail, setCError, setCFirst, setCGrade, setCLast, setCPass, setCPass2, setScreen, setShowCreatePass, setShowCreatePass2, showCreatePass, showCreatePass2,
+    };
     return (
-      <main style={{ minHeight:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",background:BG,fontFamily:FONT,padding:"20px 0" }}>
-        <div className="cc-create-card" style={cardStyle}>
-          <div style={{ textAlign:"center",marginBottom:32 }}>
-            <div style={{ display:"flex",justifyContent:"center",gap:6,marginBottom:14 }}>
-              {dots.map((c,i)=>(<div key={i} style={{width:10,height:10,borderRadius:"50%",background:c,animation:`pulse2 2s ease-in-out ${i*0.15}s infinite`}} />))}
-            </div>
-            <h1 style={{ fontSize:24,fontWeight:700,color:"#e8e6e3",margin:0,letterSpacing:"-0.03em" }}>Create your account</h1>
-            <p style={{ fontSize:13,color:"#6a6a7a",marginTop:8 }}>Email required · data encrypted on your device</p>
-          </div>
-
-          <form onSubmit={(event)=>{event.preventDefault();runAuthGuarded(handleCreate, setCError);}} style={{ display:"flex",flexDirection:"column",gap:14 }}>
-            <div style={{ display:"flex",gap:10 }}>
-              <div style={{ flex:1 }}>
-                <label htmlFor="create-first" style={labelStyle}>First name</label>
-                <input id="create-first" value={cFirst} onChange={e=>setCFirst(e.target.value)} placeholder="Alex"
-                       name="given-name" autoComplete="given-name" autoCapitalize="words" style={inputStyle} />
-              </div>
-              <div style={{ flex:1 }}>
-                <label htmlFor="create-last" style={labelStyle}>Last name</label>
-                <input id="create-last" value={cLast} onChange={e=>setCLast(e.target.value)} placeholder="Kim"
-                       name="family-name" autoComplete="family-name" autoCapitalize="words" style={inputStyle} />
-              </div>
-            </div>
-            <div>
-              <label htmlFor="create-email" style={labelStyle}>School or organizational email</label>
-              <input id="create-email" type="email" autoComplete="email" value={cEmail} onChange={e=>setCEmail(e.target.value)} placeholder="alex.kim@school.edu" style={inputStyle} />
-              {cEmail && cEmail.includes("@") && isSchoolEmail(cEmail) && (
-                <div style={{ fontSize:11,color:"#68d391",marginTop:4 }}>
-                  ✓ {getEmailDomain(cEmail)} recognized as a school domain
-                </div>
-              )}
-              {cEmail && cEmail.includes("@") && !isSchoolEmail(cEmail) && (
-                <div style={{ fontSize:11,color:"#8a8a9a",marginTop:4 }}>
-                  Any email works — school or organizational emails recommended
-                </div>
-              )}
-            </div>
-            <fieldset style={{border:0,padding:0,margin:0}}>
-              <legend style={labelStyle}>Grade level</legend>
-              <div style={{ display:"flex",gap:8 }}>
-                {["Freshman","Sophomore","Junior","Senior"].map(g=>(
-                  <button type="button" key={g} aria-pressed={cGrade===g} onClick={()=>setCGrade(g)} style={{
-                    flex:1,padding:"10px 0",borderRadius:10,border:`1px solid ${cGrade===g?"rgba(55,138,221,0.5)":"rgba(255,255,255,0.08)"}`,
-                    background:cGrade===g?"rgba(55,138,221,0.12)":"rgba(255,255,255,0.02)",
-                    color:cGrade===g?"#63b3ed":"#8a8a9a",fontSize:12,fontWeight:cGrade===g?600:400,cursor:"pointer",transition:"all 0.15s"
-                  }}>{g}</button>
-                ))}
-              </div>
-            </fieldset>
-            <div>
-              <label htmlFor="create-passphrase" style={labelStyle}>Passphrase (encrypts your vault and signs you in)</label>
-              <div style={{display:"flex",gap:8}}>
-                <input id="create-passphrase" type={showCreatePass ? "text" : "password"} autoComplete="new-password" value={cPass} onChange={e=>setCPass(e.target.value)} placeholder="At least 12 characters" minLength={12} style={{...inputStyle,flex:1}} />
-                <button onClick={()=>setShowCreatePass(v=>!v)} type="button" style={{padding:"0 14px",borderRadius:12,border:"1px solid rgba(255,255,255,0.08)",background:"rgba(255,255,255,0.02)",color:"#8a8a9a",cursor:"pointer"}}>{showCreatePass ? "Hide" : "Show"}</button>
-              </div>
-              <div style={{marginTop:8}}>
-                <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#8a8a9a",marginBottom:6}}>
-                  <span>Use a long, memorable phrase.</span>
-                  <span>{cPass.length} chars</span>
-                </div>
-                <div style={{height:6,borderRadius:999,background:"rgba(255,255,255,0.06)",overflow:"hidden"}}>
-                  <div style={{height:"100%",width:createPassStrength.fill,background:createPassStrength.color,transition:"width 0.2s ease"}} />
-                </div>
-                <div style={{fontSize:12,color:createPassStrength.color,marginTop:6}}>{createPassStrength.label} · Minimum 12 characters</div>
-              </div>
-            </div>
-            <div>
-              <label htmlFor="create-confirm" style={labelStyle}>Confirm passphrase</label>
-              <div style={{display:"flex",gap:8}}>
-                <input id="create-confirm" type={showCreatePass2 ? "text" : "password"} autoComplete="new-password" value={cPass2} onChange={e=>setCPass2(e.target.value)} placeholder="Type it again" minLength={12} style={{...inputStyle,flex:1}} />
-                <button onClick={()=>setShowCreatePass2(v=>!v)} type="button" style={{padding:"0 14px",borderRadius:12,border:"1px solid rgba(255,255,255,0.08)",background:"rgba(255,255,255,0.02)",color:"#8a8a9a",cursor:"pointer"}}>{showCreatePass2 ? "Hide" : "Show"}</button>
-              </div>
-            </div>
-
-            <div style={{ display:"flex",flexDirection:"column",gap:8,marginTop:4,padding:"12px 14px",borderRadius:10,background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.04)" }}>
-              <div style={{ fontSize:10,fontWeight:600,color:"#6a6a7a",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:2 }}>Required consents</div>
-              <div style={{ display:"flex",alignItems:"flex-start",gap:8 }}>
-                <input type="checkbox" id="ageAttest" checked={cAgeAttest} onChange={e=>setCAgeAttest(e.target.checked)} style={{ marginTop:3,accentColor:"#378ADD",flexShrink:0 }} />
-                <label htmlFor="ageAttest" style={{ fontSize:11,color:"#8a8a9a",lineHeight:1.5,cursor:"pointer" }}>I confirm I am a high school student (ages 14-18), or I have parental/guardian consent to use this tool. I understand this is an AI assistant, not a licensed counselor.</label>
-              </div>
-              <div style={{ display:"flex",alignItems:"flex-start",gap:8 }}>
-                <input type="checkbox" id="consentAI" checked={cConsentAI} onChange={e=>setCConsentAI(e.target.checked)} style={{ marginTop:3,accentColor:"#378ADD",flexShrink:0 }} />
-                <label htmlFor="consentAI" style={{ fontSize:11,color:"#8a8a9a",lineHeight:1.5,cursor:"pointer" }}>I understand my questions are processed by an AI system: redacted content is sent to an external AI provider (OpenRouter), which may process it in another country. Responses are advisory only and may contain errors. For official information, I should verify with school counselors and official sources.</label>
-              </div>
-              <div style={{ display:"flex",alignItems:"flex-start",gap:8 }}>
-                <input type="checkbox" id="consentData" checked={cConsentData} onChange={e=>setCConsentData(e.target.checked)} style={{ marginTop:3,accentColor:"#378ADD",flexShrink:0 }} />
-                <label htmlFor="consentData" style={{ fontSize:11,color:"#8a8a9a",lineHeight:1.5,cursor:"pointer" }}>I consent to my academic data being processed to provide personalized guidance. My data is encrypted, never sold, and I can export or delete it at any time.</label>
-              </div>
-            </div>
-
-            {cError && <div role="alert" style={{ fontSize:13,color:"#ffb4ba",background:"rgba(245,101,101,0.12)",padding:"10px 14px",borderRadius:8,animation:"fadeIn 0.2s ease" }}>{cError}</div>}
-
-            <button type="submit" disabled={authBusy} style={{...btnPrimary,marginTop:4,opacity:authBusy?0.65:1,cursor:authBusy?"default":"pointer"}}>{authBusy ? "Creating account…" : "Create account"}</button>
-          </form>
-
-          <div style={{ textAlign:"center",marginTop:20 }}>
-            <button onClick={()=>{setScreen(S.LOGIN);setCError("");}} style={{ background:"none",border:"none",color:"#6a6a7a",fontSize:13,cursor:"pointer",textDecoration:"underline",textUnderlineOffset:3 }}>
-              Already have an account? Sign in
-            </button>
-          </div>
-
-          <div style={{textAlign:"center",marginTop:10}}><a href="/admin.html" style={{color:"#9ed1ff",fontSize:13}}>Device administrator</a></div>
-
-          <p style={{ fontSize:10,color:"#333",textAlign:"center",marginTop:16,lineHeight:1.6 }}>
-            Your personal vault is encrypted in your browser with your passphrase (AES-256-GCM) before it is stored, and we cannot recover a lost passphrase.
-            Your profile, chat history and deadlines are also stored on this service's server so the counselor can use them and they survive across devices; chat messages and personal identifiers are encrypted there.
-            Questions you ask are sent over HTTPS to the AI provider (OpenRouter) after names and other personal details are redacted; nothing is sold.
-            You can export or delete everything from Settings.
-          </p>
-        </div>
-        <style>{GLOBAL_CSS}</style>
-      </main>
+      <CreateAccountScreen {...createAccountProps} />
     );
   }
 
@@ -4794,373 +4548,12 @@ export default function App() {
     };
     const tab = (a,fn,l,cnt) => (<button key={typeof l === "string" ? l : undefined} onClick={fn} style={{padding:"8px 14px",borderRadius:"8px 8px 0 0",border:"none",borderBottom:a?"2px solid #378ADD":"2px solid transparent",background:a?"rgba(55,138,221,0.08)":"transparent",color:a?"#63b3ed":"#6a6a7a",fontSize:12,fontWeight:a?600:400,cursor:"pointer"}}>{l}{cnt!==undefined?` (${cnt})`:""}</button>);
 
+    // Everything SurveyScreen reads from this component (see SurveyScreen.jsx).
+    const surveyProps = {
+      AP_COURSES, COURSE_GRADES, EXPIRY_NOTICE, RIGOR, STEPS, YEARS, addAP, addCourse, addEC, addTest, chip, dismissedNotice, expiryWarning, formatApLabel, importTranscript, isFreshman, locale, nxt, pill, prv, sAPInput, sAPScores, sClassRank, sCourseInput, sCourseYear, sCourses, sECInput, sECs, sGoals, sGpaUw, sGpaW, sImportBusy, sImportNote, sMajorInterest, sNoGpaYet, sNoTestsYet, sTestCategory, sTestInput, sTests, scoreHint, setDismissedNotice, setSAPInput, setSAPScores, setSClassRank, setSCourseInput, setSCourseYear, setSCourses, setSECInput, setSECs, setSGoals, setSGpaUw, setSGpaW, setSNoGpaYet, setSNoTestsYet, setSTestCategory, setSTestInput, setSTests, setStudentRecoveryCode, setSurveyError, setSurveyStep, setsMajorInterest, sl, st, stepRequired, studentRecoveryCode, surveyError, surveyStep, tab, testLimit, total, user, ylbl,
+    };
     return (
-      <main style={{minHeight:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",background:BG,fontFamily:FONT,padding:16}}>
-        {/* Inactivity auto-lock warning — the survey is where a silent sign-out
-            hurts most (a half-completed transcript entry vanishes). */}
-        {expiryWarning && dismissedNotice !== EXPIRY_NOTICE && (
-          <div role="status" aria-live="polite" style={{position:"fixed",top:12,left:"50%",transform:"translateX(-50%)",zIndex:9999,padding:"8px 14px",borderRadius:10,fontSize:12,fontWeight:600,boxShadow:"0 4px 16px rgba(0,0,0,0.3)",background:"rgba(246,173,85,0.22)",border:"1px solid rgba(246,173,85,0.55)",color:"#fbd38d",display:"flex",alignItems:"center",gap:10}}>
-            <span>{EXPIRY_NOTICE}</span>
-            <CloseButton label={tt(locale, "chat.modal.close")} onClick={() => setDismissedNotice(EXPIRY_NOTICE)} size={22} style={{marginRight:-6}} />
-          </div>
-        )}
-        <div className="cc-survey-card" style={{width:"min(680px, 100%)",maxHeight:"calc(100dvh - 32px)",padding:"clamp(20px, 4vw, 36px)",borderRadius:8,background:"#151a23",border:"1px solid rgba(255,255,255,0.16)",overflowY:"auto"}}>
-          {studentRecoveryCode && (
-            <div role="status" style={{marginBottom:18,padding:14,borderRadius:8,border:"1px solid rgba(246,173,85,0.55)",background:"rgba(246,173,85,0.10)",color:"#ffe0a3",fontSize:13,lineHeight:1.5}}>
-              <strong>Save your one-time account recovery code offline.</strong>
-              <code style={{display:"block",marginTop:8,overflowWrap:"anywhere",userSelect:"all"}}>{studentRecoveryCode}</code>
-              <button type="button" onClick={()=>setStudentRecoveryCode("")} style={{marginTop:10,padding:"8px 12px",borderRadius:6,border:"1px solid rgba(246,173,85,0.45)",background:"transparent",color:"#ffe0a3",cursor:"pointer"}}>I saved it</button>
-            </div>
-          )}
-          <div style={{display:"flex",gap:4,marginBottom:22}}>{STEPS.map((_,i)=>(<div key={i} style={{flex:1,height:3,borderRadius:2,background:i<=surveyStep?"#378ADD":"rgba(255,255,255,0.06)",transition:"background 0.3s"}} />))}</div>
-          <div style={{fontSize:11,color:"#555",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4,display:"flex",justifyContent:"space-between"}}>
-            <span>Step {surveyStep+1}/{total} {"\u00b7"} {user?.name}</span>
-            {stepRequired?<span style={{color:"#E24B4A",fontSize:10}}>Required</span>:<span style={{color:"#68d391",fontSize:10}}>{isFreshman && surveyStep <= 2 ? "Optional for freshmen" : "Optional"}</span>}
-          </div>
-          <h2 style={{fontSize:22,fontWeight:700,color:"#e8e6e3",margin:"0 0 4px"}}>{st.title}</h2>
-          <p style={{fontSize:13,color:"#6a6a7a",margin:"0 0 20px"}}>{st.sub}</p>
-
-          {/* STEP 0: GPA */}
-          {surveyStep===0 && (<div style={{display:"flex",flexDirection:"column",gap:14}}>
-            <div>
-              <label style={labelStyle}>Unweighted GPA (4.0 scale) {stepRequired?"*":""}</label>
-              <input type="number" step="0.01" min="0" max="4" value={sGpaUw} onChange={e=>{setSGpaUw(e.target.value); if (e.target.value) setSNoGpaYet(false);}} placeholder={isFreshman?"Not yet available":"e.g. 3.75"} disabled={sNoGpaYet} style={{...inputStyle,opacity:sNoGpaYet?0.6:1,cursor:sNoGpaYet?"not-allowed":"text"}} />
-              <div style={{ display:"flex",alignItems:"center",gap:8,marginTop:8 }}>
-                <input type="checkbox" id="noGpaYet" checked={sNoGpaYet} onChange={e=>{setSNoGpaYet(e.target.checked); if (e.target.checked) { setSGpaUw(""); setSGpaW(""); }}} style={{ accentColor:"#378ADD" }} />
-                <label htmlFor="noGpaYet" style={{ fontSize:12,color:"#8a8a9a",cursor:"pointer" }}>I don't have a GPA yet</label>
-              </div>
-              {isFreshman && <div style={{fontSize:10,color:"#68d391",marginTop:4}}>Freshmen can continue without GPA, transcript, or test data.</div>}
-            </div>
-            <div><label style={labelStyle}>Weighted GPA (optional)</label><input type="number" step="0.01" min="0" max="5.5" value={sGpaW} onChange={e=>{setSGpaW(e.target.value); if (e.target.value) setSNoGpaYet(false);}} placeholder="e.g. 4.2" disabled={sNoGpaYet} style={{...inputStyle,opacity:sNoGpaYet?0.6:1,cursor:sNoGpaYet?"not-allowed":"text"}} /></div>
-            <div>
-              <label style={labelStyle}>Class rank (optional)</label>
-              <div style={{display:"flex",gap:8}}>
-                <input aria-label="Class rank" type="number" min="1" value={sClassRank.rank} onChange={e=>setSClassRank(p=>({...p,rank:e.target.value}))} placeholder="Rank (e.g. 12)" style={inputStyle} />
-                <input aria-label="Class size" type="number" min="1" value={sClassRank.size} onChange={e=>setSClassRank(p=>({...p,size:e.target.value}))} placeholder="Class size (e.g. 400)" style={inputStyle} />
-                <input aria-label="Top percent" type="number" min="0.1" max="100" step="0.1" value={sClassRank.topPercent} onChange={e=>setSClassRank(p=>({...p,topPercent:e.target.value}))} placeholder="or top %" style={inputStyle} />
-              </div>
-              <div style={{fontSize:10,color:"#555",marginTop:4}}>Colleges compare this with the share of their enrolled class that ranked in the top tenth or quarter (Common Data Set C10). Leave blank if your school does not rank.</div>
-            </div>
-            <div style={{fontSize:11,color:"#555",padding:12,borderRadius:8,background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.04)"}}>Course rigor (CollegeBoard): AP/IB/Dual Enrollment +1.0 weighted. Honors +0.5. Standard weights used by most colleges.</div>
-
-            {/* Grading scale reference */}
-            <div style={{padding:12,borderRadius:10,background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.04)"}}>
-              <div style={{...labelStyle,marginBottom:2}}>Grading Scale</div>
-              <div style={{fontSize:11,color:"#8a8a9a",marginBottom:8}}>Used to interpret letter-grade entries below.</div>
-              <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
-                {GRADE_SCALE.map(e=>(
-                  <div key={e.grade} style={{fontSize:10,padding:"3px 8px",borderRadius:6,background:"rgba(255,255,255,0.05)",color:"#8a8a9a",whiteSpace:"nowrap"}}>
-                    {e.grade}&nbsp;<span style={{color:"#6a6a7a"}}>{e.min===e.max?`${e.min}%`:e.max===100?`${e.min}%+`:`${e.min}–${e.max}%`}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>)}
-
-          {/* STEP 1: TRANSCRIPT per year */}
-          {surveyStep===1 && (<div>
-            <div style={{display:"flex",gap:2,marginBottom:14,borderBottom:"1px solid rgba(255,255,255,0.05)"}}>{YEARS.map(y=>tab(sCourseYear===y,()=>setSCourseYear(y),ylbl(y),sCourses[y]?.length))}</div>
-            {/* Transcript file import — extracts + parses courses for review */}
-            <div style={{marginBottom:12}}>
-              <input type="file" id="transcriptImportInput" accept=".pdf,.png,.jpg,.jpeg,.webp,.docx" style={{display:"none"}}
-                onChange={e=>{ const f=e.target.files?.[0]; e.target.value=""; if (f) importTranscript(f); }} />
-              <button
-                onClick={()=>document.getElementById("transcriptImportInput")?.click()}
-                disabled={sImportBusy}
-                style={{width:"100%",padding:"10px 14px",borderRadius:10,border:"1px dashed rgba(99,179,237,0.4)",background:sImportBusy?"rgba(255,255,255,0.03)":"rgba(55,138,221,0.08)",color:sImportBusy?"#666":"#63b3ed",fontSize:12,fontWeight:600,cursor:sImportBusy?"default":"pointer"}}
-              >{sImportBusy ? "Reading transcript…" : "📄 Import courses from a transcript (PDF, image, or DOCX)"}</button>
-              {sImportNote && <div style={{marginTop:6,fontSize:11,color:"#68d391",lineHeight:1.5}}>{sImportNote}</div>}
-              {!sImportNote && <div style={{marginTop:6,fontSize:10,color:"#6a6a7a"}}>Parsed courses land in the year tabs above for you to review — nothing is saved until you finish the survey.</div>}
-            </div>
-            {(sCourses[sCourseYear]||[]).length>0 && (<div style={{marginBottom:12,display:"flex",flexWrap:"wrap"}}>{sCourses[sCourseYear].map((c,i)=>{
-              const bg=c.type==="ap"?"rgba(246,173,85,0.15)":c.type==="ib"?"rgba(127,119,221,0.15)":c.type==="honors"?"rgba(99,179,237,0.15)":c.type==="dual_enrollment"?"rgba(29,158,117,0.15)":c.type==="elective"?"rgba(218,165,109,0.12)":"";
-              // Double-click loads the course into the input form below
-              // and removes it from the list, so the student can adjust
-              // any field (name / type / grade / semester) and re-Add.
-              const editCourse = () => {
-                setSCourseInput({
-                  name: c.name || "",
-                  type: c.type || "regular",
-                  grade: c.grade || "A",
-                  semester: c.semester || "full_year",
-                });
-                setSCourses(p=>({...p,[sCourseYear]:p[sCourseYear].filter((_,j)=>j!==i)}));
-              };
-              const label = `${c.type==="ap"?formatApLabel(c.name):c.type==="ib"?"IB "+c.name:c.name} \u2014 ${gradeLabel(c.grade)}`;
-              return (
-                <div
-                  key={i}
-                  onDoubleClick={editCourse}
-                  title="Double-click to edit"
-                  style={{display:"inline-flex",alignItems:"center",gap:6,padding:"5px 10px",borderRadius:8,background:bg||"rgba(55,138,221,0.08)",border:`1px solid ${bg?"rgba(255,255,255,0.08)":"rgba(55,138,221,0.15)"}`,fontSize:11,color:bg?"#e8e6e3":"#63b3ed",margin:"0 5px 5px 0",cursor:"pointer",userSelect:"none"}}
-                >
-                  {label}
-                  <button
-                    onClick={(e)=>{ e.stopPropagation(); setSCourses(p=>({...p,[sCourseYear]:p[sCourseYear].filter((_,j)=>j!==i)})); }}
-                    title="Remove"
-                    style={{background:"none",border:"none",color:bg?"#aaa":"#6a8ab5",cursor:"pointer",fontSize:12,padding:0}}
-                  >{"\u2715"}</button>
-                </div>
-              );
-            })}</div>)}
-            <div style={{display:"flex",gap:8,marginBottom:8}}>
-              <div style={{flex:2}}><input value={sCourseInput.name} onChange={e=>setSCourseInput(p=>({...p,name:e.target.value}))} placeholder={sCourseInput.type==="ap"?"Choose an AP course below":"Course name"} onKeyDown={e=>e.key==="Enter"&&addCourse()} readOnly={sCourseInput.type==="ap"} style={{...inputStyle,opacity:sCourseInput.type==="ap"?0.72:1,cursor:sCourseInput.type==="ap"?"pointer":"text"}} /></div>
-              <div style={{flex:1}}><select value={sCourseInput.type} onChange={e=>setSCourseInput(p=>({...p,type:e.target.value,name:(e.target.value==="ap" || p.type==="ap") ? "" : p.name}))} style={sl}><option value="regular">Regular</option><option value="elective">Elective</option><option value="honors">Honors</option><option value="ap">AP</option><option value="ib">IB</option><option value="dual_enrollment">Dual Enroll</option></select></div>
-            </div>
-            {sCourseInput.type && <div style={{fontSize:10,color:"#6a8ab5",marginBottom:8}}>{RIGOR[sCourseInput.type]}</div>}
-            {sCourseInput.type==="ap" && (<div style={{marginBottom:8}}><select value={sCourseInput.name} onChange={e=>setSCourseInput(p=>({...p,name:e.target.value}))} style={sl}><option value="">Select AP course (CollegeBoard)</option>{AP_COURSES.map(c=>(<option key={c} value={c}>{`AP ${c}`}</option>))}</select></div>)}
-            <div style={{display:"flex",gap:8}}>
-              <div style={{flex:1}}><select value={sCourseInput.grade} onChange={e=>setSCourseInput(p=>({...p,grade:e.target.value}))} style={sl}>{COURSE_GRADES.map(g=>(<option key={g} value={g}>{gradeLabel(g)}</option>))}<option value="IP">In Progress</option></select></div>
-              <div style={{flex:1}}><select value={sCourseInput.semester||"full_year"} onChange={e=>setSCourseInput(p=>({...p,semester:e.target.value}))} style={sl}><option value="fall">Fall</option><option value="spring">Spring</option><option value="full_year">Full Year</option></select></div>
-              <button onClick={addCourse} style={{padding:"0 20px",borderRadius:12,border:"none",background:sCourseInput.name.trim()?"linear-gradient(135deg,#378ADD,#667eea)":"rgba(255,255,255,0.03)",color:sCourseInput.name.trim()?"#fff":"#444",fontSize:14,fontWeight:600,cursor:sCourseInput.name.trim()?"pointer":"default"}}>Add</button>
-            </div>
-            {Object.values(sCourses).flat().length>0 && (<div style={{marginTop:14,padding:10,borderRadius:8,background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.04)",fontSize:11,color:"#6a6a7a"}}>Total: {Object.values(sCourses).flat().length} courses {"\u00b7"} {Object.values(sCourses).flat().filter(c=>c.type==="ap").length} AP {"\u00b7"} {Object.values(sCourses).flat().filter(c=>c.type==="honors").length} Honors {"\u00b7"} {Object.values(sCourses).flat().filter(c=>c.type==="ib").length} IB</div>)}
-          </div>)}
-
-          {/* STEP 2: TESTS & AP EXAMS */}
-          {surveyStep===2 && (<div>
-            <div style={{display:"flex",gap:2,marginBottom:14,borderBottom:"1px solid rgba(255,255,255,0.05)"}}>{tab(sTestCategory!=="ap_exam",()=>setSTestCategory("sat"),"Standardized tests",sTests.length)}{tab(sTestCategory==="ap_exam",()=>setSTestCategory("ap_exam"),"AP exam scores",sAPScores.length)}</div>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
-              <input type="checkbox" id="noTestsYet" checked={sNoTestsYet} onChange={e=>setSNoTestsYet(e.target.checked)} style={{ accentColor:"#378ADD" }} />
-              <label htmlFor="noTestsYet" style={{ fontSize:12,color:"#8a8a9a",cursor:"pointer" }}>I haven't taken standardized tests yet</label>
-            </div>
-
-            {sTestCategory!=="ap_exam" ? (<div>
-              {sTests.length>0 && <div style={{marginBottom:12,display:"flex",flexWrap:"wrap"}}>{sTests.map((t,i)=>{ const sections = formatSections(formToEntry(t), { short: true }); return pill(`${testLabel(t.test)}${t.subject?` (${t.subject})`:""}: ${t.totalScore}${sections?` (${sections})`:""}${t.date?` \u00b7 ${t.date}`:""}`,()=>setSTests(p=>p.filter((_,j)=>j!==i))); })}</div>}
-              <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
-                {TEST_ORDER.map(([k,l])=>chip(sTestInput.test===k,()=>setSTestInput(p=>({...blankTestForm(k),subject:k==="sat_subject"?p.subject:""})),l))}
-              </div>
-              {sTestInput.test==="sat_subject" && <div style={{marginBottom:8}}><input value={sTestInput.subject||""} onChange={e=>setSTestInput(p=>({...p,subject:e.target.value}))} placeholder="Subject (e.g. Math Level 2)" style={inputStyle} /></div>}
-              {sectionDefs(sTestInput.test).length > 0 && (
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
-                  {/* Section scores are optional; once every section that counts toward
-                      the total is filled in, the total follows from them. */}
-                  {sectionDefs(sTestInput.test).map(d => (
-                    <input key={d.key} aria-label={`${testLabel(sTestInput.test)} ${d.label}`} type="number" min={d.min} max={d.max} step={d.step} value={sTestInput.sections?.[d.key] ?? ""} onChange={e=>setSTestInput(p=>withSection(p, d.key, e.target.value))} placeholder={`${d.label} (${d.min}-${d.max})`} style={inputStyle} />
-                  ))}
-                </div>
-              )}
-              <div style={{display:"flex",gap:8}}>
-                <div style={{flex:1}}><input type="number" min={testLimit?.min} max={testLimit?.max} step={testLimit?.step ?? "any"} value={sTestInput.totalScore} onChange={e=>setSTestInput(p=>({...p,totalScore:e.target.value}))} placeholder={sTestInput.test==="sat"?"Total (400-1600)":(scoreHint[sTestInput.test]||"Score")} style={inputStyle} /></div>
-                <div style={{flex:1}}><input type="month" value={sTestInput.date||""} onChange={e=>setSTestInput(p=>({...p,date:e.target.value}))} style={inputStyle} /></div>
-                <button onClick={addTest} style={{padding:"0 20px",borderRadius:12,border:"none",background:sTestInput.totalScore?"linear-gradient(135deg,#378ADD,#667eea)":"rgba(255,255,255,0.03)",color:sTestInput.totalScore?"#fff":"#444",fontSize:14,fontWeight:600,cursor:sTestInput.totalScore?"pointer":"default"}}>Add</button>
-              </div>
-              <div style={{fontSize:10,color:"#555",marginTop:6}}>Valid range for {sTestInput.test.toUpperCase()}: {testLimit?.label || scoreHint[sTestInput.test] || "See official source"}.</div>
-            </div>) : (<div>
-              {sAPScores.length>0 && <div style={{marginBottom:12,display:"flex",flexWrap:"wrap"}}>{sAPScores.map((a,i)=>pill(`${formatApLabel(a.subject)}: ${a.score} (${a.year})`,()=>setSAPScores(p=>p.filter((_,j)=>j!==i)),"rgba(246,173,85,0.12)"))}</div>}
-              <div style={{display:"flex",gap:8,marginBottom:8}}>
-                <div style={{flex:2}}><select value={sAPInput.subject} onChange={e=>setSAPInput(p=>({...p,subject:e.target.value}))} style={sl}><option value="">Select AP exam (CollegeBoard)</option>{AP_COURSES.map(c=>(<option key={c} value={c}>{`AP ${c}`}</option>))}</select></div>
-                <div style={{flex:1}}><select value={sAPInput.score} onChange={e=>setSAPInput(p=>({...p,score:e.target.value}))} style={sl}>{["5","4","3","2","1"].map(s=>(<option key={s} value={s}>{s}</option>))}</select></div>
-              </div>
-              <div style={{display:"flex",gap:8}}>
-                <div style={{flex:1}}><input type="number" min="2020" max="2030" value={sAPInput.year} onChange={e=>setSAPInput(p=>({...p,year:e.target.value}))} placeholder="Year" style={inputStyle} /></div>
-                <button onClick={addAP} style={{padding:"0 20px",borderRadius:12,border:"none",background:sAPInput.subject?"linear-gradient(135deg,#378ADD,#667eea)":"rgba(255,255,255,0.03)",color:sAPInput.subject?"#fff":"#444",fontSize:14,fontWeight:600,cursor:sAPInput.subject?"pointer":"default"}}>Add</button>
-              </div>
-              <div style={{fontSize:10,color:"#555",marginTop:6}}>AP scores 1-5 (CollegeBoard). Score of 3+ generally qualifies for college credit.</div>
-            </div>)}
-          </div>)}
-
-          {/* STEP 3: ECs (optional) */}
-          {surveyStep===3 && (<div>
-            <div style={{fontSize:12,color:"#68d391",marginBottom:12,padding:"8px 12px",borderRadius:8,background:"rgba(104,211,145,0.06)",border:"1px solid rgba(104,211,145,0.12)"}}>This step is optional {"\u2014"} you can skip and add activities later.</div>
-            {sECs.length>0 && (
-              <div style={{marginBottom:12,display:"flex",flexDirection:"column",gap:8}}>
-                {sECs.map((ec,i) => {
-                  // Double-click loads the EC into the input form below
-                  // (name / category / role / hours / weeks / grades /
-                  // timing / description) and removes the card. The
-                  // student edits any field and re-clicks "Add EC" to
-                  // re-insert. The card border tints amber while
-                  // editing so it's obvious which item is being edited
-                  // (we surface that via title until a save).
-                  const editEC = () => {
-                    setSECInput({
-                      name: ec.name || "",
-                      category: ec.category || "club",
-                      role: ec.role || "",
-                      hoursPerWeek: ec.hoursPerWeek != null ? String(ec.hoursPerWeek) : "",
-                      weeksPerYear: ec.weeksPerYear != null ? String(ec.weeksPerYear) : "",
-                      description: ec.description || "",
-                      grades: Array.isArray(ec.grades) ? [...ec.grades] : [],
-                      timing: ec.timing || "school_year",
-                    });
-                    setSECs(p => p.filter((_, j) => j !== i));
-                    // Scroll the editor into view so the student sees
-                    // where the values landed.
-                    setTimeout(() => {
-                      const el = document.querySelector('input[placeholder="Activity name"]');
-                      if (el && typeof el.scrollIntoView === "function") {
-                        el.scrollIntoView({ behavior: "smooth", block: "center" });
-                        try { el.focus(); } catch {}
-                      }
-                    }, 0);
-                  };
-                  return (
-                  <div
-                    key={i}
-                    onDoubleClick={editEC}
-                    title="Double-click to edit"
-                    style={{padding:"10px 12px",borderRadius:10,background:"rgba(55,138,221,0.06)",border:"1px solid rgba(55,138,221,0.12)",position:"relative",cursor:"pointer",userSelect:"none"}}
-                  >
-                    <button onClick={(e)=>{ e.stopPropagation(); setSECs(p=>p.filter((_,j)=>j!==i)); }} title="Remove" style={{position:"absolute",top:8,right:8,background:"none",border:"none",color:"#6a8ab5",cursor:"pointer",fontSize:12,padding:0,opacity:0.6}}>{"\u2715"}</button>
-                    <div style={{fontSize:13,fontWeight:600,color:"#cfe5ff",marginBottom:2,paddingRight:20}}>{ec.name}</div>
-                    <div style={{fontSize:11,color:"#8ab2dd",marginBottom:ec.description?6:0}}>
-                      {ec.role}
-                      {ec.hoursPerWeek ? <span style={{color:"#6a8ab5"}}> {"\u00b7"} {ec.hoursPerWeek} hrs/wk</span> : null}
-                      {ec.weeksPerYear ? <span style={{color:"#6a8ab5"}}> {"\u00b7"} {ec.weeksPerYear} wks/yr</span> : null}
-                      {ec.category ? <span style={{color:"#6a8ab5"}}> {"\u00b7"} {ecCategoryLabel(ec.category)}</span> : null}
-                    </div>
-                    {(Array.isArray(ec.grades) && ec.grades.length > 0) || ec.timing ? (
-                      <div style={{fontSize:10,color:"#6a8ab5",marginBottom:ec.description?6:0,display:"flex",gap:6,flexWrap:"wrap"}}>
-                        {Array.isArray(ec.grades) && ec.grades.length > 0 && (
-                          <span style={{padding:"2px 7px",borderRadius:10,background:"rgba(55,138,221,0.10)"}}>
-                            {ec.grades.map(g => ({freshman:"9",sophomore:"10",junior:"11",senior:"12"}[g])).filter(Boolean).join("/")}
-                            {ec.grades.length === 1 ? "th" : ""} grade
-                          </span>
-                        )}
-                        {ec.timing && (
-                          <span style={{padding:"2px 7px",borderRadius:10,background:"rgba(104,211,145,0.10)",color:"#9ce5b6"}}>
-                            {ec.timing === "school_year" ? "School year" : ec.timing === "school_break" ? "School breaks" : "Year-round"}
-                          </span>
-                        )}
-                      </div>
-                    ) : null}
-                    {ec.description && <div style={{fontSize:11,color:"#a8a8b8",fontStyle:"italic",lineHeight:1.45,paddingTop:4,borderTop:"1px solid rgba(255,255,255,0.04)"}}>{ec.description}</div>}
-                  </div>
-                  );
-                })}
-              </div>
-            )}
-            <div style={{display:"flex",gap:8,marginBottom:8}}>
-              <div style={{flex:2}}><input value={sECInput.name} onChange={e=>setSECInput(p=>({...p,name:e.target.value}))} placeholder="Activity name" style={inputStyle} /></div>
-              <div style={{flex:1}}><select value={sECInput.category} onChange={e=>setSECInput(p=>({...p,category:e.target.value}))} style={sl}>
-                {EC_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-              </select></div>
-            </div>
-            <div style={{display:"flex",gap:8,marginBottom:8}}>
-              <div style={{flex:2}}><input value={sECInput.role} onChange={e=>setSECInput(p=>({...p,role:e.target.value}))} placeholder="Your role" style={inputStyle} /></div>
-              <div style={{flex:1}}><input type="number" min="0" max="60" value={sECInput.hoursPerWeek} onChange={e=>setSECInput(p=>({...p,hoursPerWeek:e.target.value}))} placeholder="Hrs/wk" style={inputStyle} /></div>
-              <div style={{flex:1}}><input type="number" min="0" max="52" value={sECInput.weeksPerYear} onChange={e=>setSECInput(p=>({...p,weeksPerYear:e.target.value}))} placeholder="Wks/yr" style={inputStyle} /></div>
-            </div>
-
-            {/* Participation grade levels — multi-select chips (Common App
-                lets students check 9 / 10 / 11 / 12 for each activity). */}
-            <div style={{marginBottom:8}}>
-              <div style={{fontSize:10,color:"#6a6a7a",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>Participated in grade</div>
-              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                {[
-                  { val:"freshman",  label:"9th"  },
-                  { val:"sophomore", label:"10th" },
-                  { val:"junior",    label:"11th" },
-                  { val:"senior",    label:"12th" },
-                ].map(g => {
-                  const on = sECInput.grades.includes(g.val);
-                  return (
-                    <button key={g.val} type="button"
-                      onClick={() => setSECInput(p => ({
-                        ...p,
-                        grades: on ? p.grades.filter(x => x !== g.val) : [...p.grades, g.val],
-                      }))}
-                      style={{
-                        padding:"6px 12px",borderRadius:18,
-                        border:`1px solid ${on?"rgba(55,138,221,0.45)":"rgba(255,255,255,0.08)"}`,
-                        background:on?"rgba(55,138,221,0.14)":"rgba(255,255,255,0.02)",
-                        color:on?"#cfe5ff":"#8a8a9a",
-                        fontSize:11,fontWeight:on?600:400,cursor:"pointer",transition:"all 0.15s",
-                      }}
-                    >{g.label}</button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Timing of participation — when in the calendar this happens.
-                Matches the Common App's "School Year / School Break / All
-                year" toggle. Useful for the EC strategist to distinguish a
-                summer-only research program from a year-round club. */}
-            <div style={{marginBottom:8}}>
-              <div style={{fontSize:10,color:"#6a6a7a",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>When</div>
-              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                {[
-                  { val:"school_year",  label:"School year" },
-                  { val:"school_break", label:"School breaks" },
-                  { val:"both",         label:"Year-round" },
-                ].map(t => {
-                  const on = sECInput.timing === t.val;
-                  return (
-                    <button key={t.val} type="button"
-                      onClick={() => setSECInput(p => ({ ...p, timing: t.val }))}
-                      style={{
-                        padding:"6px 12px",borderRadius:8,
-                        border:`1px solid ${on?"rgba(104,211,145,0.40)":"rgba(255,255,255,0.08)"}`,
-                        background:on?"rgba(104,211,145,0.12)":"rgba(255,255,255,0.02)",
-                        color:on?"#9ce5b6":"#8a8a9a",
-                        fontSize:11,fontWeight:on?600:400,cursor:"pointer",transition:"all 0.15s",
-                      }}
-                    >{t.label}</button>
-                  );
-                })}
-              </div>
-            </div>
-            {/* Description (Common App-style, 150-char hard cap). This is the
-                field where the student actually *shines* \u2014 concrete impact,
-                numbers, distinct contribution. Show a live counter so the
-                discipline of fitting in 150 chars is visible. */}
-            <div style={{marginBottom:8}}>
-              <textarea
-                value={sECInput.description}
-                onChange={e => setSECInput(p => ({ ...p, description: e.target.value.slice(0, 150) }))}
-                onKeyDown={e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) addEC(); }}
-                placeholder="Describe the impact you had. Mirrors the Common App: concrete, specific, with numbers when possible. Max 150 chars."
-                rows={3}
-                style={{
-                  width:"100%",boxSizing:"border-box",
-                  padding:"10px 12px",borderRadius:12,
-                  border:"1px solid rgba(255,255,255,0.08)",
-                  background:"rgba(255,255,255,0.03)",
-                  color:"#e8e6e3",fontSize:13,outline:"none",
-                  resize:"vertical",minHeight:64,
-                  fontFamily:"inherit",lineHeight:1.45,
-                }}
-              />
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:4,fontSize:10,color:"#6a6a7a"}}>
-                <span>Common App-style: lead with action verbs, name a result, quantify if you can.</span>
-                <span style={{color:sECInput.description.length > 130 ? "#f6ad55" : sECInput.description.length >= 150 ? "#fc8181" : "#6a6a7a",fontVariantNumeric:"tabular-nums"}}>{sECInput.description.length}/150</span>
-              </div>
-            </div>
-            <div style={{display:"flex",justifyContent:"flex-end"}}>
-              <button onClick={addEC}
-                disabled={!sECInput.name.trim() || !sECInput.role.trim()}
-                style={{padding:"10px 22px",borderRadius:12,border:"none",
-                  background:(sECInput.name.trim()&&sECInput.role.trim())?"linear-gradient(135deg,#378ADD,#667eea)":"rgba(255,255,255,0.03)",
-                  color:(sECInput.name.trim()&&sECInput.role.trim())?"#fff":"#444",
-                  fontSize:14,fontWeight:600,
-                  cursor:(sECInput.name.trim()&&sECInput.role.trim())?"pointer":"default"}}>
-                Add activity
-              </button>
-            </div>
-          </div>)}
-
-          {/* STEP 4: GOALS */}
-          {surveyStep===4 && (<div style={{display:"flex",flexDirection:"column",gap:16}}>
-            <div><label style={labelStyle}>College types *</label><div style={{display:"flex",flexWrap:"wrap",gap:8}}>{["Ivy League / T20","Large state school","Small liberal arts","STEM-focused","Art / Design","Community college","International"].map(g=>chip(sGoals.includes(g),()=>setSGoals(p=>p.includes(g)?p.filter(x=>x!==g):[...p,g]),g))}</div></div>
-            <div><label style={labelStyle}>Intended major</label><input value={sMajorInterest} onChange={e=>setsMajorInterest(e.target.value)} placeholder="e.g. Computer Science, Pre-Med..." style={inputStyle} /></div>
-            <div><label style={labelStyle}>What matters most?</label><div style={{display:"flex",flexWrap:"wrap",gap:8}}>{["Strong academics","Campus life","Financial aid","Location","Research","Diversity","Athletics","Small classes"].map(g=>chip(sGoals.includes(g),()=>setSGoals(p=>p.includes(g)?p.filter(x=>x!==g):[...p,g]),g))}</div></div>
-          </div>)}
-
-
-          {surveyError && <div style={{marginTop:14,fontSize:13,color:"#f56565",background:"rgba(245,101,101,0.08)",padding:"10px 14px",borderRadius:10}}>{surveyError}</div>}
-
-          <div style={{display:"flex",gap:10,marginTop:22,alignItems:"center"}}>
-            {surveyStep>0 && <button onClick={prv} style={{padding:"12px 20px",borderRadius:12,border:"1px solid rgba(255,255,255,0.08)",background:"transparent",color:"#8a8a9a",fontSize:14,cursor:"pointer"}}>Back</button>}
-            <div style={{flex:1}} />
-            {!stepRequired && surveyStep<total-1 && <button onClick={()=>{setSurveyError("");setSurveyStep(surveyStep+1)}} style={{padding:"12px 16px",borderRadius:12,border:"none",background:"transparent",color:"#6a6a7a",fontSize:13,cursor:"pointer"}}>Skip</button>}
-            <button onClick={nxt} style={{padding:"12px 28px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#378ADD,#667eea)",color:"#fff",fontSize:14,fontWeight:600,cursor:"pointer"}}>{surveyStep===total-1?"Finish setup":"Continue"}</button>
-          </div>
-          <p style={{fontSize:10,color:"#333",textAlign:"center",marginTop:14}}>You can update this later by chatting with your counselor.</p>
-        </div>
-        <style>{GLOBAL_CSS}</style>
-      </main>
+      <SurveyScreen {...surveyProps} />
     );
   }
 
@@ -5168,68 +4561,12 @@ export default function App() {
   // LOGIN SCREEN
   // ═══════════════════════════════════════════════════════════
   if (screen === S.LOGIN) {
+    // Everything LoginScreen reads from this component (see LoginScreen.jsx).
+    const loginProps = {
+      authBusy, handleLogin, handleStudentRecovery, lEmail, lError, lPass, runAuthGuarded, setLEmail, setLError, setLPass, setScreen, setShowLoginPass, setStudentRecoveryInput, setStudentRecoveryMessage, setStudentRecoveryOpen, setStudentRecoveryPassword, showLoginPass, studentRecoveryBusy, studentRecoveryInput, studentRecoveryMessage, studentRecoveryOpen, studentRecoveryPassword,
+    };
     return (
-      <main style={{ minHeight:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",background:BG,fontFamily:FONT,padding:"20px 0" }}>
-        <div style={cardStyle}>
-          <div style={{ textAlign:"center",marginBottom:32 }}>
-            <div style={{ display:"flex",justifyContent:"center",gap:6,marginBottom:14 }}>
-              {dots.map((c,i)=>(<div key={i} style={{width:10,height:10,borderRadius:"50%",background:c,animation:`pulse2 2s ease-in-out ${i*0.15}s infinite`}} />))}
-            </div>
-            <h1 style={{ fontSize:24,fontWeight:700,color:"#e8e6e3",margin:0,letterSpacing:"-0.03em" }}>Welcome back</h1>
-            <p style={{ fontSize:13,color:"#6a6a7a",marginTop:8 }}>Sign in to your encrypted vault</p>
-          </div>
-
-          <form onSubmit={(event)=>{event.preventDefault();runAuthGuarded(handleLogin, setLError);}} style={{ display:"flex",flexDirection:"column",gap:14 }}>
-            <div>
-              <label htmlFor="login-email" style={labelStyle}>Email</label>
-              <input id="login-email" type="email" autoComplete="email" value={lEmail} onChange={e=>setLEmail(e.target.value)} placeholder="alex.kim@school.edu" style={inputStyle} />
-            </div>
-            <div>
-              <label htmlFor="login-passphrase" style={labelStyle}>Passphrase</label>
-              <div style={{display:"flex",gap:8}}>
-                <input id="login-passphrase" type={showLoginPass ? "text" : "password"} autoComplete="current-password" value={lPass} onChange={e=>setLPass(e.target.value)} placeholder="Your vault passphrase" style={{...inputStyle,flex:1}} />
-                <button onClick={()=>setShowLoginPass(v=>!v)} type="button" style={{padding:"0 14px",borderRadius:12,border:"1px solid rgba(255,255,255,0.08)",background:"rgba(255,255,255,0.02)",color:"#8a8a9a",cursor:"pointer"}}>{showLoginPass ? "Hide" : "Show"}</button>
-              </div>
-            </div>
-
-            {lError && <div role="alert" style={{ fontSize:13,color:"#ffb4ba",background:"rgba(245,101,101,0.12)",padding:"10px 14px",borderRadius:8,animation:"fadeIn 0.2s ease" }}>{lError}</div>}
-
-            <button type="submit" disabled={authBusy} style={{...btnPrimary,marginTop:4,opacity:authBusy?0.65:1,cursor:authBusy?"default":"pointer"}}>{authBusy ? "Signing in…" : "Sign in"}</button>
-          </form>
-
-          <div style={{marginTop:14}}>
-            <button type="button" onClick={()=>{setStudentRecoveryOpen((value)=>!value);setStudentRecoveryMessage(null);}} style={{width:"100%",padding:"9px 12px",borderRadius:6,border:"1px solid rgba(255,255,255,0.16)",background:"transparent",color:"#b7c1ce",cursor:"pointer"}}>
-              {studentRecoveryOpen ? "Cancel recovery" : "Recover account"}
-            </button>
-            {studentRecoveryOpen && (
-              <form onSubmit={handleStudentRecovery} style={{display:"grid",gap:12,marginTop:12,padding:14,border:"1px solid rgba(255,255,255,0.14)",borderRadius:8}}>
-                <p style={{fontSize:12,color:"#b7c1ce",lineHeight:1.5,margin:0}}>Recovery replaces the unreadable local vault. Data previously synced to this device's service will be restored after sign-in.</p>
-                <div>
-                  <label htmlFor="student-recovery-code" style={labelStyle}>Recovery code</label>
-                  <input id="student-recovery-code" value={studentRecoveryInput} onChange={(event)=>setStudentRecoveryInput(event.target.value)} autoComplete="off" style={inputStyle} required />
-                </div>
-                <div>
-                  <label htmlFor="student-recovery-password" style={labelStyle}>New passphrase</label>
-                  <input id="student-recovery-password" type="password" value={studentRecoveryPassword} onChange={(event)=>setStudentRecoveryPassword(event.target.value)} autoComplete="new-password" minLength={12} style={inputStyle} required />
-                </div>
-                <button type="submit" disabled={studentRecoveryBusy} style={btnPrimary}>{studentRecoveryBusy ? "Resetting..." : "Reset passphrase"}</button>
-              </form>
-            )}
-            {studentRecoveryMessage && <p role={studentRecoveryMessage.type==="error"?"alert":"status"} style={{fontSize:13,color:studentRecoveryMessage.type==="error"?"#ffb4ba":"#a9edce"}}>{studentRecoveryMessage.text}</p>}
-          </div>
-
-          {/* No account quick-pick: this device keeps no registry of who has an
-              account, so there is nothing to enumerate on a shared machine. */}
-
-          <div style={{ textAlign:"center",marginTop:16 }}>
-            <button onClick={()=>{setScreen(S.CREATE);setLError("");}} style={{ background:"none",border:"none",color:"#6a6a7a",fontSize:13,cursor:"pointer",textDecoration:"underline",textUnderlineOffset:3 }}>
-              New student? Create account
-            </button>
-          </div>
-          <div style={{textAlign:"center",marginTop:10}}><a href="/admin.html" style={{color:"#9ed1ff",fontSize:13}}>Device administrator</a></div>
-        </div>
-        <style>{GLOBAL_CSS}</style>
-      </main>
+      <LoginScreen {...loginProps} />
     );
   }
 
