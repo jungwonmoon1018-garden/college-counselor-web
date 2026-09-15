@@ -143,4 +143,19 @@ describe("Dashboard profile editing", () => {
       expect(lastSync()?.profile?.classRank).toEqual({ topPercent: 3, rank: 12, size: 400 });
     }, { timeout: 5000 });
   }, 40000);
+
+  it("folds a sidebar section from its heading and remembers the fold on the device", async () => {
+    await signIn();
+    // The AP exam scores section holds the recovered Statistics 4.
+    const heading = screen.getByRole("button", { name: "AP exam scores (1)" });
+    expect(heading).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Statistics")).toBeVisible();
+    fireEvent.click(heading);
+    expect(heading).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByText("Statistics")).not.toBeVisible();
+    expect(JSON.parse(window.localStorage.getItem("cc.sidebar.collapsed"))).toEqual({ "ap-scores": true });
+    // The other sections are untouched, and the Chats heading keeps its action.
+    expect(screen.getByRole("button", { name: "Profile" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "+ New" })).toBeInTheDocument();
+  }, 40000);
 });
