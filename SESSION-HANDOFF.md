@@ -6,31 +6,43 @@ it. Read `CLAUDE.md` first: it is the edit-time harness (invariants, how to
 prove a change, how to land it). This file says where things stand, what
 changed recently and why, what was verified live, and what is open.
 
-## Where things stand (2026-09-13)
+## Where things stand (2026-09-16)
 
-- **Deployed:** `main` at `9ec5edc`, live at
+- **Deployed:** `main` at `5f4e207`, live at
   https://college-counselor-web.onrender.com. Confirmed by CI run
-  34763205856 (success) and `/` serving `assets/main-Bj7IFpMZ.js` with
-  `/api/health` 200 at 14:39 UTC on 2026-09-13. Earlier that day:
-  `3c5f10b` (backend-only, CI run 34762384550, blip 14:22 UTC), `0caa68e`
-  (bundle `main-BGY9a-V4.js`, CI run 34762088537), `58b28fb` (bundle
-  `main-B9Hm9u2i.js`, CI run 34760878050); the 2026-09-11 builds:
-  `95f5116` CI run 34603951260, `651f7ac` CI run 34602871341, `6a29565`
-  bundle `main-CEBZ2mnd.js`, `fa6c5b1` bundle `main-bsyCx_FV.js`). CI runs
-  backend lint, syntax, tests and `npm audit --audit-level=high`, then
-  frontend tests and build; Render redeploys after it passes, with a few
-  seconds of 502s.
-- **Tests (run after the last code edit, 2026-09-13 ~14:33 UTC):** backend
-  `npm test` 718 tests, 714 pass, 4 skipped, 0 fail (last full run after
-  `3c5f10b`'s edits; `9ec5edc` touched the frontend only, and CI ran both
-  suites green); `npm run lint` 0 errors, 70 warnings (CI cap 500);
-  frontend `npx vitest run` 15 files, 47 tests; `npm run build` clean.
-- **Working tree:** 37 phantom CRLF-only diffs (never stage them; a file
-  whose committed blob still carries CRLF shows a whole-file diff the first
-  time it has to change — `git diff --cached --ignore-cr-at-eol --stat`
-  shows the real change) and two untracked files not made by any session
-  (`backend/kor.traineddata`, a Tesseract Korean model; `AGENTS.md`, a copy
-  of `CLAUDE.md` with "Claude" changed to "Codex").
+  35005431519 (success) and by the bundle hash
+  and by behaviour at 18:09:24 UTC on 2026-09-15 (see *Verified live*). Earlier in
+  this session: `2f287de`, `40b1ee6` and `dacc220` (their own CI run 35000625447 hung twice and was cancelled — see the change log — so they deployed with `5f4e207`), `ef1d56e`
+  (backend-only, CI run 34993176954, 16:10 UTC 2026-09-15), `0af239e`
+  and `72f2509` (CI run 34982389053; `/` serves
+  `assets/main-rc4QTNwr.js` since 14:34:55 UTC 2026-09-15, after a 502
+  blip at 14:34:23). Before that: `3a8fdc3` (CI run 34763637850, bundle
+  `main-DNKi9XlM.js`, 14:48 UTC 2026-09-13), `9ec5edc` (CI run
+  34763205856), `3c5f10b` (CI run 34762384550), `0caa68e` (CI run
+  34762088537), `58b28fb` (CI run 34760878050); the 2026-09-11 builds
+  `95f5116` CI run 34603951260, `651f7ac` CI run 34602871341,
+  `6a29565`, `fa6c5b1`. CI runs backend lint, syntax, tests and
+  `npm audit --audit-level=high`, then frontend tests and build; Render
+  redeploys after it passes, with a few seconds of 502s.
+- **Tests (full run 2026-09-15 ~17:40 UTC, before `5f4e207`, whose only change is the shutdown handler; CI ran the whole suite on `5f4e207` in run 35005431519, backend job 41 s):**
+  backend `npm test` 737 tests, 733 pass, 4 skipped, 0 fail;
+  `npm run lint` 0 errors, 70 warnings (CI cap 500); frontend
+  `npx vitest run` 18 files, 53 tests; `npm run build` clean
+  (local bundle `main-B6X5y47h.js`; Render builds it as `main-DmeQgzda.js`).
+- **Working tree:** the same phantom CRLF-only diffs (never stage them;
+  `git diff --cached --ignore-cr-at-eol --stat` shows the real change),
+  the two untracked files not made by any session (`backend/kor.traineddata`,
+  `AGENTS.md`), and the local download cache
+  `backend/data/cds-cache/pdfs/` (gitignored, ~330 documents fetched by
+  the refresh on 2026-09-16; the tracked seed is
+  `backend/tools/cds-cache/parsed/`).
+- **The CDS cache now covers 298 schools** (was 36): 118 on
+  2025-26 documents, 141 on 2024-25, the rest on the newest cycle
+  the school has published. Every record carries the section read
+  (parser version 6). The server re-ingests all of them at boot from the
+  parsed directory (`ensureCdsStoreSeeded`: newer parser version or a
+  changed cycle label), so the first boot after a deploy runs ~300
+  `persistAndValidate` calls.
 - **Standing authorizations from the user:** push straight to `main`;
   create and delete throwaway `probe-*@example.test` accounts on
   production for live checks. Never ask for or use the counselor's
@@ -57,11 +69,187 @@ changed recently and why, what was verified live, and what is open.
 
 ## What changed, newest first
 
+The user's asks on 2026-09-15/16, verbatim, in order: "Reload the tab
+and check Course plan and update college fit sections to apply the
+2025-2026 CDS" (the Course plan check landed in `3a8fdc3`'s handoff) —
+"Also, make a closing button similar to the claude code interface." —
+"Also, update all of the other school's CDS to the newest versions." —
+"Also, ingest all the other sections." — "read chat uploads into uploads
+section is defective and can we have a collappse section at the sidebar?"
+
+**Every chat attachment is filed under Documents, and the sidebar folds
+into sections (2026-09-16)** — `dacc220`. Files attached through
+the chat picker reached the sidebar's Documents list only when one of them
+was the binary promoted to the legacy attachment slot (`send` in
+`App.jsx` filed `attachment` alone): a resume or essay draft (text), a
+second PDF, or an image sent beside a PDF never appeared. `chat-documents.js`
+(`filedChatDocuments`, `mergeDocuments`) files every attached file once
+the turn has passed screening — a type from the media type or extension, a
+category from the name (score report, report card, transcript, resume,
+essay, letter, certificate), the size — and a re-sent file (same name and
+size) is not filed twice; the list lives in the encrypted vault with the
+rest of `data`. The sidebar's headings (Chats, College fit, Profile,
+Courses, AP exam scores, ECs, Documents, Target schools, Tools, Language)
+are `SidebarSection` headings now: a button with a chevron that folds the
+section away (`hidden` content, `aria-expanded`), remembered per section
+in `localStorage` (`cc.sidebar.collapsed`); the Chats heading keeps its
+"+ New" action. `chat-documents.test.js` and `SidebarSection.test.jsx`
+pin both; the sidebar itself was not looked at in a browser. Also in this
+session's backend: `server.js` logs an unhandled promise rejection
+instead of exiting (Node's default) — pdfjs rejected one after a document
+was torn down during the whole-index refresh ("AbortException: Value is
+none of these types"), which would have taken the counselor down during
+the daily CDS refresh. That guard first hung CI for 36 minutes
+(`5f4e207` fixed it): a route test sends SIGTERM two seconds after
+boot, while the seeding of 298 records still has a statement running, so
+`db.close()` threw inside the async `shutdown`; before the guard the
+rejection ended the process and the test moved on, with it the process
+stayed alive and the test waited on its exit forever. Windows kills the
+child outright, so local runs never reach the handler. `shutdown` now
+closes each database inside its own try, exits in every path, and arms a
+five-second forced exit first. The backend CI job normally takes about
+40 seconds; a run past three minutes is a hang, and `gh run cancel`
+makes its partial log readable.
+
+**The remaining CDS sections reach the model, and every school reads its
+newest document (2026-09-16)** — `40b1ee6` (code), `2f287de`
+(data). `cds-sections.js` reads what the parser left alone: B
+(undergraduate headcount, first-year retention, the six-year graduation
+rate of the most recent cohort), C2 (wait list offered / accepted /
+admitted), C22 (Early Action volume), D2 (transfer applied / admitted /
+enrolled), F1 (shares of first-year students from out of state and living
+on campus), G1 (tuition, required fees, food and housing for the academic
+year the document names), H2 (average share of need met) and I3 (class
+sections by size, summarized as the share under 20). The layouts differ:
+Indiana and the workbooks put the numbers on the label's line, Harvard and
+Stanford wrap them to the next line, the workbooks print ratios (0.71)
+where PDFs print percentages, Harvard's graduation grid holds ratios
+beside Indiana's percentages; the reader accepts all of these and keeps the
+first-year column. Both parsers merge the sections into `extras` (the
+workbook parser read no extras at all before), parser version 6 makes the
+store re-ingest every record at boot, and `cdsExtrasParts`
+(`chat-grounding.js`) writes the facts into the VERIFIED DATA block with
+money as "10,622 USD" (the provider-side redactor masks dollar signs).
+`extractC1Counts` also reads Indiana's Men / Women / Another / Unknown
+columns with no total (summed; "in Fall 2024" between label and numbers
+ignored; "students who applied" and "who admitted" tolerated) and
+Middlebury's "(September only)" qualifier, which had made its admitted
+count 2. Then the whole index: all 345 schools in the merged operator +
+repository index went through the pipeline (a scratch SQLite database
+built with `initRAGTables` + `prepareRAGStatements`, `ingestBulk` at
+concurrency 3 preferring 2025-26 and falling back to the newest live
+cycle, then `loadValidatedRecord` + `loadLatestValidation` dumped to
+`tools/cds-cache/parsed/<slug>.json` for the statuses ok / consistent /
+discrepancies / ok_with_overrides). Result: 298 records; skipped 22
+schools with no link, 24 whose document yields nothing checkable
+(`no_truth`), 3 parse failures (Syracuse and the Air Force Academy
+workbooks throw in exceljs, Yeshiva's workbook has broken XML), Brown
+(scope mismatch on its 2023-24 document; its committed record stays) and
+Alfred. None of the 36 earlier records lost a field; seven moved to a
+newer cycle (Caltech relabeled 2023-24; Michigan State, Northwestern,
+Purdue, Penn, UVA and Wisconsin to 2024-25; Penn's admit rate 5.87% →
+5.4%, UVA gained its C7). The operator index lost a bogus "col9" cycle key
+(Agnes Scott, Alfred, UMass Lowell). The route tests' "school with no
+data" helper now skips any school with a parsed record. Tests:
+`cds-sections.test.js` (both layouts, an empty document),
+`chat-grounding.test.js` (the block), `cds-c1-counts.test.js` (Indiana,
+Middlebury), `cds-xlsx-parser.test.js` (version 6).
+Coverage across the 298 records: undergraduate headcount 218,
+retention 66, graduation 184, wait list
+167, Early Decision 112, Early Action 5,
+transfer 192, student life 230, costs 119,
+aid 224, class size 39. Two reads were corrected after
+the first whole-index pass: an amount must not be the digits of a coded
+item id ("G.201" follows the G1 labels in the workbooks' coded view and
+had read as a 201-dollar tuition for Cornell, Kenyon, Rhodes and
+Allegheny), and a six-year graduation rate under 5% is a stray cell
+(Austin College, UC Davis), both pinned in `cds-sections.test.js`.
+
+**The workbook C7 read and the newer-cycle guard (2026-09-15)** —
+`ef1d56e`. Cornell's and Illinois's 2025-26 workbooks put the form view
+and a coded data view on the same sheet rows, so the C7 X grid read as all
+not_considered and Cornell lost the admissions-factor weights its 2023-24
+PDF had. `extractC7Labelled` (`cds-xlsx-parser.js`) reads the coded rows
+(factor label cell, then the rating as text) when the grid read is empty.
+And the daily June-onward refresh (`refreshAllCds`, registered in
+`server.js`) falls back to an older cycle when the newest link fails —
+Cloudflare blocks the JHU document for a Node fetch — which would have
+replaced the seeded 2025-26 record and made the next boot flip it back
+from the parsed cache; `ingestOne` now compares the downloaded cycle with
+the stored one (`isOlderCycle`) and reports `kept_newer` instead of
+persisting, unless forced.
+
+**Every dismissible surface closes from a × in its corner, like the
+Claude Code interface (2026-09-15)** — `0af239e`. The tool cards (Edit
+story, Rank EC ideas, Spike Finder, Course plan) had a bordered "✕" pill,
+the drift banner a text "Dismiss" button, the deadlines dialog a text
+"Close" button, and the session toasts (inactivity warning, reconnecting,
+session expired, offline, unsynced change) no close at all.
+`CloseButton.jsx` is the one control they share: a bare "×" at the
+corner, muted until hovered or focused, a full-size hit target, an
+accessible name from the existing "Close" / "Dismiss" strings in both
+languages; a closed session toast hides that notice only, a different
+notice still shows. `CloseButton.test.jsx` and a `DriftBanner` case pin
+it. Not checked in a browser: the Chrome tab group of the earlier session
+was gone after the context reset and the user was not asked to sign in
+again; the bundle hash confirms the deploy.
+
+**College Fit reads the 2025-26 Common Data Set (2026-09-15)** —
+`72f2509`. The 2025-26 template renamed the C1 rows (males, females,
+students of unknown sex), UNC and CMU publish C1 as one row per count with
+Men / Women / Unknown / Total columns and no gender word, and the Cornell
+and Illinois workbooks carry every label twice; ten of the eleven cached
+2025-26 documents had no counts and no admit rate, and the workbooks
+summed to 184,557 applicants. `extractC1Counts` now reads only the
+numbers right after each label, counts each distinct label once, prefers
+gender rows and otherwise takes the first no-gender row (the residency
+table repeats those labels). Validation was pinned to 2023-24 ground
+truth, so a 2025-26 record failed against last cycle's figures or lost to
+the IPEDS baseline; the corrections registry is cycle-aware
+(`DEFAULT_TRUTH_CYCLE`, Columbia's entry is 2024-25), a record from
+another cycle keeps only the scope checks and passes
+`checkConsistency` (monotonic counts, rate within 0.005 of
+admitted/applied, SAT 800–1600 and ACT 1–36 with p25 ≤ p75) into the new
+`consistent` status; the store treats it as usable and reports
+`cdsVerification` (unverified / consistent / validated), the engine docks
+confidence 0.05 (cap 0.77) for it and counts a 2025-26 cycle as current,
+the fit card labels it "CDS · school document". Twenty-four schools got
+2025-26 records; the Princeton, Michigan and Georgia Tech links in the
+operator index were dead and are replaced; the download user agent is
+Chrome/140 (UCLA rejects Chrome/120); the JHU document was fetched by hand
+(curl with a browser user agent, a referer and `Accept: application/pdf`;
+Cloudflare returns 403 to Node's fetch whatever the headers). The Stanford
+route pins read the seeded record instead of the 2023-24 numbers.
+`scripts/export-parsed-cds.mjs` dumps validated rows to the parsed
+directory by slug or year.
+
 The user's asks on 2026-09-13, verbatim, in order: "The chat file uploads
 do not work. Also, check for additional UI defects by playing with it.
 Use claude in chrome to do that." — "Also fix the Spike Finder tier label
 and the concept mastery display." — "Reload the tab and check Spike
-Finder and Course plan" — "Fix the double fetch in Spike Finder too".
+Finder and Course plan" — "Fix the double fetch in Spike Finder too" —
+"Also apply the same fix to Course plan and Rank EC ideas and verify
+that other things do not have this defect".
+
+**The Course plan and the calendar read fetch once when the target list
+arrives (2026-09-13)** — `3a8fdc3`. Same shape as the Spike Finder's
+double fetch, same remedy: `CourseSequencer.jsx` keeps `tunedForRef`
+against the `targetSchools` the recommendations route reports and skips
+the refetch when the list that arrives matches (aborting a superseded
+request; `api.js recommendations` takes a `signal`), and the app-level
+calendar effect in `App.jsx` (`/api/calendar/context` on entering chat
+and on every target-list change) does the same with
+`calendarTunedForRef`. Audit of everything else that fetches:
+`CandidateRanker` ("Rank EC ideas") fetches only on the student's own
+clicks (generate ideas, rank) with the list current at that moment, so
+it had no automatic double fetch — its only duplication was the extra
+card per button click, fixed in `9ec5edc`; `NarrativeEditor` reads the
+active story once on mount and uses the target list only for the draft
+button; `DriftBanner`, `DeadlineTracker`, `EcEvidence` and
+`PrestigeCard` key their reads on a refresh counter or an activity name,
+never the target list; in `App.jsx` the remaining fetching effects are
+the auto-sync (keyed on the vault data by design) and the 30-second
+profile poll. `CourseSequencer.test.jsx` pins the single fetch.
 
 **Spike Finder fetches once per open, and a tool button brings its open
 card into view (2026-09-13)** — `9ec5edc`. Opening Spike Finder cost two
@@ -384,6 +572,44 @@ each deleted afterwards (200), except the browser session of 2026-09-13,
 which the user signed into with their own account in their own Chrome;
 nothing from that account is recorded here.
 
+- **After `5f4e207` (bundle `main-DmeQgzda.js`, 18:09:24 UTC 2026-09-15):**
+  a fresh account (grade 11, three consents, a small
+  profile) asked `/api/positioning/targets` for Indiana University
+  Bloomington, Middlebury College and Stony Brook University with
+  `searchCds: false`: all three came from `cds_store` with verification
+  `consistent` — Indiana on its 2024-25 document (admit 78.2%, SAT
+  1180–1390), Middlebury on 2025-26 (12.8%, 1460–1530: the "(September
+  only)" fix), Stony Brook on 2025-26 (48.2%, 1350–1470). One `/api/chat`
+  turn ("For Indiana University Bloomington, what are the in-state and
+  out-of-state tuition figures, and how many students were offered a
+  place on its wait list? Just the numbers from your verified data.")
+  answered "10,622 USD; 40,369 USD; 7,524 students." with
+  `verifiedData: true` (topic high_stakes, medium tier), so the G1 and C2
+  sections reach the model. Account deleted (200). The Documents list and
+  the folded sidebar were not looked at in a browser.
+- **After `ef1d56e` (backend-only; CI success 16:10 UTC 2026-09-15):** a
+  fresh account's College Fit read of Cornell carried 19 admissions factors
+  (0 before) and JHU 19, both on their 2025-26 documents with verification
+  `consistent`; `/api/colleges/values` for Cornell answered from its
+  curated values (5 rows, no `fallback`), so the C7 fix shows there only
+  for schools without curated values. Account deleted (200).
+- **After `0af239e` (bundle `main-rc4QTNwr.js`, 14:34:55 UTC
+  2026-09-15):** a fresh account (grade 11, three consents, a small
+  profile) asked `/api/positioning/targets` for JHU, Princeton, UNC and
+  Cornell with `searchCds: false`: every read came from `cds_store` with
+  `yearLabel "2025-26"`, `verification "consistent"`, `validated false`
+  and the school's own 2025-26 document as `sourceUrl`; admit 6.1% / 4.4%
+  / 16.7% / 8.4%; the enrolled SAT bands 1530–1565, 1490–1560, 1400–1530,
+  1490–1550; JHU's class-rank top-tenth share 100 (23.4% submitting).
+  `/api/colleges/values` for JHU: `fallback cds_admission_factors`, 10
+  rows, locale en-US. Account deleted (200). The close button was not
+  looked at in a browser.
+- **After `3a8fdc3` (bundle `main-DNKi9XlM.js`, 14:48 UTC 2026-09-13), in
+  the user's own tab, reloaded and signed in by the user:** one
+  `/api/calendar/context` call after sign-in; the Course plan opened with
+  one `/api/courses/recommendations` request carrying the five targets
+  and no bare call, and rendered "AP exam 5 · concepts solid (chat read
+  0.43)" rows as before.
 - **After `9ec5edc` (bundle `main-Bj7IFpMZ.js`, 14:39 UTC 2026-09-13), in
   the user's own tab, reloaded and signed in by the user:** the network
   log was cleared, the Spike Finder button was clicked twice three
@@ -512,6 +738,54 @@ nothing from that account is recorded here.
 
 ## Open items and things to watch
 
+- **Five records carry no C1 counts** (College of the Holy Cross,
+  New College of Florida, Occidental, Trinity College, Kansas — Kansas uses
+  its own template, "Section A1. General Information …"), so their admit
+  rate comes from the IPEDS baseline while their SAT bands and C7 come from
+  the CDS. Dump their C1 region with `extractItems` + `groupByLine` and
+  add the layout to `extractC1Counts` with a case in
+  `cds-c1-counts.test.js`.
+- **Sections the reader misses on some documents:** Harvard's class-size
+  table (its "CLASS SECTIONS" label is split across lines), Indiana's
+  headcount ("Total undergraduate", numbers on the next line) and
+  retention (the value sits several lines below the question), and the H2
+  "average percentage of need met" on the PDFs whose values sit in a
+  separate column (Harvard, Stanford, JHU, Indiana read no `needMetPct`;
+  the workbooks do). `sections-check`-style spot reads: parse a document
+  with `parseCDSPositional` and print `extras`.
+- **104 records carry no C7 weights** (the school's document has no
+  readable grid or labelled rows), so their priorities matrix falls back
+  as before; and 44 carry no SAT band (test-blind schools among them).
+- **Cycles still behind:** Columbia has no 2025-26 link (its 2024-25
+  record validates `ok`); Caltech (2023-24), Northwestern and UChicago
+  stay on the newest cycle the scrape offers; the page-only 2025-26 links
+  (Brown, MIT, Penn, UVA, Wisconsin, Purdue, Michigan State, Georgetown)
+  fall back to the newest Drive copy. Brown's committed record has no
+  `yearLabel` (the 2023-24 document; the refresh hit `scope_mismatch`).
+  Penn's tracked "2023-24" PDF holds fall-2024 figures; its record is the
+  2024-25 document now anyway.
+- **JHU needs a hand-fetched document each cycle.** Cloudflare on
+  `oira.jhu.edu` returns 403 to Node's fetch (any user agent, referer or
+  accept header); curl with a Chrome user agent, a referer and
+  `Accept: application/pdf` gets the PDF. The daily refresh keeps the
+  stored 2025-26 record (`kept_newer`), so nothing regresses, but a
+  2026-27 JHU document will need the same manual fetch into
+  `backend/data/cds-cache/pdfs/<slug>.<cycle>.pdf` (and the tracked
+  folder) before a run.
+- **`scripts/refresh-cds.mjs` fails on this machine** ("no such column:
+  class_rank_json": the local `backend/data/counselor.db` predates the
+  schema). The refresh was run against a scratch database instead — see
+  *Quick verification recipes*.
+- **Re-parsing older documents moves a few counts slightly** (Caltech
+  13,847 → 13,856 applicants, Michigan State and Northwestern by tens):
+  rows the old reader skipped. The registry truths cover rates only.
+- **Rendering of the new sections:** they reach the model's VERIFIED
+  DATA block only; the fit card and the values matrix do not show costs,
+  wait list, transfer or class size yet. `CalibratedFitCard.jsx` reads
+  `provenance`/`parsed`; the sections would come through
+  `cdsRecordToPositioningResult` (`extras` is on the record).
+- **`tools/cds-validator.js`** is an older duplicate of the root
+  `cds-validator.js` and was left untouched.
 - **pdfjs returns only text inside the page box.** The probe PDF's one
   line runs past the 612-point page width and came back cut at "…and
   qu"; pdf-parse returned the whole string. Real documents wrap, the
@@ -537,9 +811,8 @@ nothing from that account is recorded here.
   and 120 s (the client's cap) on the user's account with five targets and
   three panels open at once; with one panel per open (`9ec5edc`) that
   should ease, but the re-rank's own latency was not looked into.
-  `CourseSequencer` and `CandidateRanker` still refetch on every
-  target-list change, including the first load after sign-in; the same
-  `tunedForRef` pattern would apply if their calls turn out to cost.
+  `CourseSequencer` and the calendar read got the same `tunedForRef`
+  treatment in `3a8fdc3`; `CandidateRanker` fetches only on clicks.
 - **Tool panels open inline in the chat column** (Course plan, Spike
   Finder, story editor) with a ✕ but no keyboard close; Escape did not
   close the story editor.
@@ -631,6 +904,23 @@ nothing from that account is recorded here.
   StudentAid.gov footer.
 
 ## Quick verification recipes
+
+Refreshing the CDS cache without the local database (the way the
+2026-09-16 refresh ran): in a scratch folder, open a fresh SQLite file
+with `better-sqlite3`, `initRAGTables(db)` and
+`prepareRAGStatements(db)` from `rag-engine.js`, take the names from
+`getRepositoryIndex()`, run `ingestBulk(stmts, names, { concurrency: 3,
+year: "2025-26" })` from `cds-ingest-pipeline.js` (downloads land in
+`backend/data/cds-cache/pdfs/`, cached by slug and cycle), then for each
+result whose status is ok / consistent / discrepancies / ok_with_overrides
+write `{ source: "cds", extractionMethod, ...loadValidatedRecord(stmts,
+slug), validation: { school, slug, status, discrepancies, overrides,
+scopeFromPDF } }` (from `loadLatestValidation`) to
+`tools/cds-cache/parsed/<slug>.json`. Review the summary by status and
+cycle, scan for implausible counts (applied under 300, admitted above
+applied, a rate outside 2–99%), compare the previously committed records
+for lost fields, and run `npm test` before committing the parsed
+directory with explicit paths. A single school: the same with one name.
 
 Unit tests for this session's modules and their neighbours:
 
