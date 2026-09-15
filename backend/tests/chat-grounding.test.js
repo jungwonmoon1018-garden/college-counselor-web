@@ -318,3 +318,36 @@ test("the wider CDS read renders ACT sections, score distributions and the GPA d
   assert.match(block, /97\.8% of enrolled students ranked in the top tenth of their class \(100% top quarter\); 18\.8% of enrolled students submitted a class rank/);
   assert.match(block, /enrolled high-school GPA distribution: 73\.3% had a 4\.0, 89\.8% had 3\.75 or higher, 96\.5% had 3\.50 or higher \(68\.1% of enrolled students submitted a GPA\)/);
 });
+
+test("the remaining CDS sections reach the model as verified data, with money in USD", () => {
+  const block = formatVerifiedDataBlock({
+    schools: [{
+      name: "Indiana University Bloomington", baseline: null,
+      cds: {
+        school: "Indiana University Bloomington", yearLabel: "2024-25", overallAdmitRate: 0.7821, sourceUrl: "https://iu.edu/cds.pdf",
+        extras: {
+          enrollment: { undergraduates: 36833 },
+          retention: { firstYearPct: 91.3 },
+          graduation: { sixYearPct: 80.2, cohort: 2018 },
+          waitlist: { offered: 7524, accepted: 3059, admitted: 3041 },
+          earlyAction: { applications: 41200, admitted: 30100, admitRate: 0.7306 },
+          transfer: { applied: 4130, admitted: 2921, enrolled: 1462 },
+          studentLife: { outOfStatePct: 43.2, onCampusPct: 98 },
+          costs: { tuitionInStateUsd: 10622, tuitionOutOfStateUsd: 40369, requiredFeesUsd: 1522, foodAndHousingUsd: 13984, academicYear: "2025-2026" },
+          aid: { averagePackageFirstYearUsd: 14100, needMetPct: 63.2 },
+          classSize: { under20Pct: 34.7 },
+        },
+      },
+      cdsValidated: false,
+    }],
+  });
+  assert.match(block, /36,833 undergraduates; first-year retention 91\.3% per the CDS; six-year graduation rate 80\.2% \(2018 cohort\)/);
+  assert.match(block, /wait list: 7,524 offered a place, 3,059 accepted it, 3,041 admitted from it/);
+  assert.match(block, /Early Action: 41,200 applied, 30,100 admitted \(73\.1%\)/);
+  assert.match(block, /transfer students: 4,130 applied, 2,921 admitted, 1,462 enrolled/);
+  assert.match(block, /43\.2% of first-year students come from out of state; 98% of first-year students live on campus/);
+  assert.match(block, /tuition in-state 10,622 USD \/ out-of-state 40,369 USD, required fees 1,522 USD, food and housing 13,984 USD \(2025-2026 academic year, per the CDS\)/);
+  assert.match(block, /average first-year need-based aid package 14,100 USD/);
+  assert.match(block, /average share of financial need met 63\.2%; 34\.7% of class sections have fewer than 20 students/);
+  assert.doesNotMatch(block, /\$/);
+});

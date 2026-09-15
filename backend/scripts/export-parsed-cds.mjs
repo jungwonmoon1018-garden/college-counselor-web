@@ -38,7 +38,7 @@ const records = loadAllValidatedRecords(stmts).filter((r) => (slugs.length ? slu
 let written = 0;
 for (const record of records) {
   const validation = loadLatestValidation(stmts, record.slug);
-  const out = { ...record, validation: validation ? { status: validation.status, discrepancies: validation.discrepancies, overrides: validation.overrides, validatedAt: validation.validatedAt } : null };
+  const out = { source: "cds", extractionMethod: record.sourceKind === "xlsx" ? "xlsx" : ((record.parserNotes || []).some((n) => /^ocr/.test(n)) ? "ocr" : "pdfjs"), ...record, validation: validation ? { school: record.school, slug: record.slug, status: validation.status, discrepancies: validation.discrepancies, overrides: validation.overrides, scopeFromPDF: validation.scopeFromPDF } : null };
   fs.writeFileSync(path.join(DEFAULT_PARSED_CDS_DIR, `${record.slug}.json`), JSON.stringify(out, null, 2) + "\n");
   written += 1;
   console.log(`${record.slug} | ${record.yearLabel || record.year || "?"} | v${record.parserVersion} | admit ${record.overallAdmitRate ?? "-"} | SAT ${record.enrolledSAT ? `${record.enrolledSAT.p25}-${record.enrolledSAT.p75}` : "-"} | ${validation?.status || "no validation"}`);

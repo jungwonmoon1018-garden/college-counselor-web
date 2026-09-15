@@ -132,3 +132,38 @@ test("a workbook export: two labels per sheet row, every label twice, coded resi
   ]));
   assert.deepEqual(counts, { applied: 72523, admitted: 6077, enrolled: 3827 });
 });
+
+test("Men / Women / Another / Unknown columns with no total, and an 'in Fall 2024' phrase between label and numbers", () => {
+  // Indiana University Bloomington, 2024-25: the label is split across
+  // items, the admitted numbers wrap to the next line, and the four columns
+  // have no Total column, so they are summed.
+  const counts = extractC1Counts(table([
+    ["Another"],
+    ["Men", "Women", "Unknown"],
+    ["Gender"],
+    ["Total", "first-time, first-year students who", "applied", "in Fall 2024", "32,676", "34,951", "20", "0"],
+    ["Total", "first-time, first-year students who", "admitted", "in Fall"],
+    ["24,933", "27,962", "12", "0"],
+    ["Total", "full-time, first-time, first-year students who", "enrolled", "in Fall 2024", "4,865", "5,241", "2", "0"],
+  ]));
+  assert.deepEqual(counts, { applied: 67647, admitted: 52907, enrolled: 10108 });
+});
+
+test("a parenthetical qualifier between the label and its number is not a column", () => {
+  // Middlebury, 2025-26: "(September only)" follows the admitted labels, and
+  // the unknown-sex row wraps its 2 to the next line above another qualifier.
+  const counts = extractC1Counts(table([
+    ["Total first-time, first-year males who applied", "5311"],
+    ["Total first-time, first-year females who applied", "6506"],
+    ["Total first-time, first-year students of unknown sex who applied", "14"],
+    ["First-Time, First-Year Student Admits", "Total", "Admit Rate (Sept Only) =", "12.8%"],
+    ["Total first-time, first-year males who were admitted (September only)", "775"],
+    ["Total first-time, first-year females who were admitted (September only)", "734"],
+    ["Total first-time, first-year students of unknown sex who were admitted"],
+    ["2"],
+    ["(September only)"],
+    ["Total full-time, first-time, first-year males who enrolled", "316"],
+    ["Total full-time, first-time, first-year females who enrolled", "318"],
+  ]));
+  assert.deepEqual(counts, { applied: 11831, admitted: 1511, enrolled: 634 });
+});

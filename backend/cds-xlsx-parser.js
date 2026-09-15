@@ -10,9 +10,11 @@
 // C7 grid matching is more reliable here than on PDFs.
 
 import { createRequire } from "node:module";
+import { extractSections, lineStringsFromGroups } from "./cds-sections.js";
 import {
   C7_FACTOR_PATTERNS,
   groupByLine,
+  extractExtras,
   extractC7Positional,
   extractC1Counts,
   extractC1SubBreakdowns,
@@ -82,7 +84,7 @@ export async function extractItemsFromXlsx(xlsxPath) {
 export async function parseCDSXlsxFile(xlsxPath) {
   const items = await extractItemsFromXlsx(xlsxPath);
   const allText = items.map((item) => item.str).join(" ");
-  const result = { source: "cds", parserVersion: 5, extractionMethod: "xlsx" };
+  const result = { source: "cds", parserVersion: 6, extractionMethod: "xlsx" };
 
   result.year = extractYear(allText);
   result.testPolicy = extractTestPolicyPositional(items) || extractTestPolicy(allText);
@@ -102,6 +104,16 @@ export async function parseCDSXlsxFile(xlsxPath) {
   }
   const c1Sub = extractC1SubBreakdowns(items);
   if (c1Sub) result.c1Breakdown = c1Sub;
+  // The wider read and the remaining sections, as for a PDF; workbook
+  // records carried neither until parser version 6.
+  try {
+    const extras = extractExtras(items);
+    const sections = extractSections(lineStringsFromGroups(groupByLine(items, 2.5)));
+    const merged = { ...extras, ...sections, ...(extras.aid || sections.aid ? { aid: { ...(extras.aid || {}), ...(sections.aid || {}) } } : {}) };
+    if (Object.keys(merged).length) result.extras = merged;
+  } catch (e) {
+    result.parserNotes = (result.parserNotes || []).concat("extras_failed: " + String(e.message).slice(0, 60));
+  }
   const c7 = extractC7Positional(items);
   if (c7 && Object.values(c7).some((v) => v !== "not_considered")) result.c7 = c7;
   if (!result.c7) result.c7 = extractC7Labelled(items) || {};

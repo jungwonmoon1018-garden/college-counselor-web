@@ -760,6 +760,27 @@ export function cdsExtrasParts(extras) {
   if (extras.applicationFeeUsd != null) parts.push(`application fee ${formatNumber(extras.applicationFeeUsd)} USD`);
   if (extras.aid?.averagePackageFirstYearUsd != null) parts.push(`average first-year need-based aid package ${formatNumber(extras.aid.averagePackageFirstYearUsd)} USD`);
   if (extras.studentFacultyRatio) parts.push(`student-to-faculty ratio ${extras.studentFacultyRatio}`);
+  // The remaining sections (cds-sections.js): enrollment, retention and
+  // graduation as the school reports them, the wait list, Early Action,
+  // transfer volume, where first-year students come from and live, the
+  // year's sticker costs, the share of need met, and class size.
+  if (extras.enrollment?.undergraduates) parts.push(`${formatNumber(extras.enrollment.undergraduates)} undergraduates`);
+  if (extras.retention?.firstYearPct != null) parts.push(`first-year retention ${plainPercent(extras.retention.firstYearPct)}% per the CDS`);
+  if (extras.graduation?.sixYearPct != null) parts.push(`six-year graduation rate ${plainPercent(extras.graduation.sixYearPct)}%${extras.graduation.cohort ? ` (${extras.graduation.cohort} cohort)` : ""}`);
+  const waitlist = extras.waitlist && typeof extras.waitlist === "object" ? extras.waitlist : {};
+  const waitlistParts = [waitlist.offered != null ? `${formatNumber(waitlist.offered)} offered a place` : null, waitlist.accepted != null ? `${formatNumber(waitlist.accepted)} accepted it` : null, waitlist.admitted != null ? `${formatNumber(waitlist.admitted)} admitted from it` : null].filter(Boolean);
+  if (waitlistParts.length) parts.push(`wait list: ${waitlistParts.join(", ")}`);
+  if (extras.earlyAction?.applications && extras.earlyAction?.admitted) parts.push(`Early Action: ${formatNumber(extras.earlyAction.applications)} applied, ${formatNumber(extras.earlyAction.admitted)} admitted (${percent(extras.earlyAction.admitRate)})`);
+  const transfer = extras.transfer && typeof extras.transfer === "object" ? extras.transfer : {};
+  if (transfer.applied) parts.push(`transfer students: ${[`${formatNumber(transfer.applied)} applied`, transfer.admitted != null ? `${formatNumber(transfer.admitted)} admitted` : null, transfer.enrolled != null ? `${formatNumber(transfer.enrolled)} enrolled` : null].filter(Boolean).join(", ")}`);
+  if (extras.studentLife?.outOfStatePct != null) parts.push(`${plainPercent(extras.studentLife.outOfStatePct)}% of first-year students come from out of state`);
+  if (extras.studentLife?.onCampusPct != null) parts.push(`${plainPercent(extras.studentLife.onCampusPct)}% of first-year students live on campus`);
+  const costs = extras.costs && typeof extras.costs === "object" ? extras.costs : {};
+  const tuitionParts = [costs.tuitionUsd != null ? `${formatNumber(costs.tuitionUsd)} USD` : null, costs.tuitionInStateUsd != null ? `in-state ${formatNumber(costs.tuitionInStateUsd)} USD` : null, costs.tuitionOutOfStateUsd != null ? `out-of-state ${formatNumber(costs.tuitionOutOfStateUsd)} USD` : null].filter(Boolean);
+  const costParts = [tuitionParts.length ? `tuition ${tuitionParts.join(" / ")}` : null, costs.requiredFeesUsd != null ? `required fees ${formatNumber(costs.requiredFeesUsd)} USD` : null, costs.foodAndHousingUsd != null ? `food and housing ${formatNumber(costs.foodAndHousingUsd)} USD` : null].filter(Boolean);
+  if (costParts.length) parts.push(`${costParts.join(", ")} (${costs.academicYear ? `${costs.academicYear} academic year, ` : ""}per the CDS)`);
+  if (extras.aid?.needMetPct != null) parts.push(`average share of financial need met ${plainPercent(extras.aid.needMetPct)}%`);
+  if (extras.classSize?.under20Pct != null) parts.push(`${plainPercent(extras.classSize.under20Pct)}% of class sections have fewer than 20 students`);
   const dates = extras.dates && typeof extras.dates === "object" ? extras.dates : {};
   const dateParts = Object.entries(CDS_DATE_LABELS)
     .map(([key, label]) => (dates[key]?.mmdd ? `${label} ${dates[key].mmdd.replace("-", "/")}` : null))

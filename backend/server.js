@@ -8182,5 +8182,13 @@ async function shutdown(signal) {
   process.exit(0);
 }
 
+// A rejected promise nobody awaits would end the process (Node's default).
+// pdfjs can reject one after a document is torn down while the daily CDS
+// refresh parses hundreds of files (seen on the 2026-09-16 whole-index run:
+// "AbortException: Value is none of these types"), which must not take the
+// counselor down; the pipeline already reports per-school failures. Log it.
+process.on("unhandledRejection", (reason) => {
+  console.error("[UNHANDLED REJECTION]", reason && reason.message ? reason.message : String(reason));
+});
 process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));

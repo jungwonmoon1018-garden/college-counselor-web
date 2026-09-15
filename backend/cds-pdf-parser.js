@@ -18,6 +18,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 
 import fs from "fs";
+import { extractSections, lineStringsFromGroups } from "./cds-sections.js";
 // pdfjs-dist v4 ships ESM only. Import the legacy build which is more
 // compatible with Node (no DOM dependencies).
 const pdfjsLib = await import("pdfjs-dist/legacy/build/pdf.mjs");
@@ -410,16 +411,16 @@ export function extractC7Positional(items) {
 // CDS C1 comes in two layouts. The classic one has a row per gender under
 // three headers ("Total first-time, first-year men who applied … 21,054"),
 // each ending with the Total column, and the gender rows are summed. The
-// other (UNC, CMU, the 2025-26 template's own table) has one row per count
-// with Men / Women / Another / Unknown / Total columns and no gender word in
-// the label, so the last number of the run after the label is the total.
-// Workbook exports complicate both: the form view and a coded data view
-// share spreadsheet rows, so one line carries several labels each followed
-// by its own number, and every label appears twice. Hence a number is only
-// ever read from the tokens immediately after its label, and each distinct
-// label counts once. The residency table repeats the no-gender labels with
-// other numbers, which is why gender rows win when present and only the
-// first occurrence of a no-gender label counts. Before this, Cornell's and
+// other (UNC, CMU, Indiana, the 2025-26 template's own table) has one row
+// per count with Men / Women / Another / Unknown columns, with or without a
+// Total column, and no gender word in the label. Workbook exports
+// complicate both: the form view and a coded data view share spreadsheet
+// rows, so one line carries several labels each followed by its own
+// number, and every label appears twice. Hence a number is only ever read
+// from the tokens immediately after its label, and each distinct label
+// counts once. The residency table repeats the no-gender labels with other
+// numbers, which is why gender rows win when present and only the first
+// occurrence of a no-gender label counts. Before this, Cornell's and
 // Illinois's workbooks summed to 184,557 applicants and UNC and CMU read no
 // counts at all.
 export function extractC1Counts(items) {
@@ -430,12 +431,17 @@ export function extractC1Counts(items) {
   // Numeric tokens right after a label: the rest of the label's own item,
   // then the following items, until something non-numeric (a "-" cell, the
   // next label) ends the run. `blocked` reports that something non-numeric
-  // followed, which rules out the wrapped-number fallback.
+  // followed, which rules out the wrapped-number fallback. Indiana writes
+  // "who applied in Fall 2024" between the label and the numbers; that
+  // phrase is not a column.
   function numbersAfter(lineItems, itemIndex, tail) {
-    const tokens = String(tail || "").split(/\s+/);
-    for (let j = itemIndex + 1; j < lineItems.length; j++) tokens.push(...lineItems[j].str.split(/\s+/));
+    const rest = [String(tail || ""), ...lineItems.slice(itemIndex + 1).map((it) => it.str)]
+      .join(" ")
+      .replace(/\bin\s+fall\b\s*(?:\d{4})?\.?/gi, " ")
+      // Middlebury qualifies its rows: "who were admitted (September only) 775".
+      .replace(/\([^)]*\)/g, " ");
     const nums = [];
-    for (const raw of tokens) {
+    for (const raw of rest.split(/\s+/)) {
       const s = raw.trim().replace(/^:+$/, "");
       if (!s) continue;
       if (!NUMERIC.test(s)) return { nums, blocked: true };
@@ -444,10 +450,21 @@ export function extractC1Counts(items) {
     return { nums, blocked: false };
   }
 
+  // A row with one number is that number. A row with several is either
+  // Men / Women / … / Total, where the last number is the total and the
+  // others add up to it, or Men / Women / Another / Unknown with no total
+  // column (Indiana), where the numbers are summed.
+  function rowTotal(nums) {
+    if (nums.length === 1) return nums[0];
+    const last = nums[nums.length - 1];
+    const rest = nums.slice(0, -1).reduce((a, b) => a + b, 0);
+    return rest === last ? last : rest + last;
+  }
+
   // Match canonical CDS labels and the UPenn-style "(freshman)" parenthetical.
   // Also tolerate optional "of " before "another gender" / "unknown gender"
   // (Cornell uses "of another gender", Princeton uses "another gender").
-  const FROSH = "first-time,?\\s+first-year(?:\\s*\\(freshman\\))?";
+  const FROSH = "first-time,?\\s+first-year,?(?:\\s*\\(freshman\\))?";
   // The 2025-26 template renamed the rows: "males", "females" and "students
   // of unknown sex" (or "of another sex") replace "men", "women", "another
   // gender" and "unknown gender". Ten of the eleven 2025-26 documents in the
@@ -474,11 +491,11 @@ export function extractC1Counts(items) {
         const k = ends.findIndex((e) => e >= end);
         let { nums, blocked } = numbersAfter(lineItems, k, text.slice(end, ends[k]));
         if (nums.length === 0 && !blocked && i + 1 < lines.length) {
-          // UPenn- and UNC-style documents wrap the numbers to the following
-          // y-line. Only adopt them when that line is not itself a labeled
-          // row (otherwise the wrong row's count would be read). OCR often
-          // prepends a bracket "[" to row text, so strip leading non-letters
-          // before the "starts with Total" check.
+          // UPenn-, UNC- and Indiana-style documents wrap the numbers to the
+          // following y-line. Only adopt them when that line is not itself a
+          // labeled row (otherwise the wrong row's count would be read). OCR
+          // often prepends a bracket "[" to row text, so strip leading
+          // non-letters before the "starts with Total" check.
           const next = lines[i + 1];
           const nextText = next.items.map((it) => it.str).join(" ").replace(/^[^A-Za-z]+/, "");
           if (!/^Total\s+(first-time|full-time|part-time)/i.test(nextText)) nums = numbersAfter(next.items, -1, "").nums;
@@ -486,9 +503,9 @@ export function extractC1Counts(items) {
         if (nums.length === 0) continue;
         // Workbooks spell the same row with and without "who" in the two
         // views, so the key drops it along with punctuation and case.
-        const key = m[0].toLowerCase().replace(/[,:]|\(freshman\)|\bwho\b/g, "").replace(/\s+/g, " ").trim();
+        const key = m[0].toLowerCase().replace(/[,:]|\(freshman\)|\bwho\b|\bstudents\b/g, "").replace(/\s+/g, " ").trim();
         const bucket = GENDER_WORD.test(m[0]) ? byGender : plain;
-        if (!bucket.has(key)) bucket.set(key, nums[nums.length - 1]);
+        if (!bucket.has(key)) bucket.set(key, rowTotal(nums));
       }
     }
     const use = byGender.size ? byGender : plain;
@@ -498,10 +515,13 @@ export function extractC1Counts(items) {
     return sum;
   }
 
-  const applied = total(new RegExp(`\\bTotal\\s+${FROSH}(?:\\s+${GENDER})?\\s+(?:who\\s+)?applied`, "i"));
-  const admitted = total(new RegExp(`\\bTotal\\s+${FROSH}(?:\\s+${GENDER})?\\s+(?:who\\s+)?were\\s+admitted`, "i"));
+  // "students who applied" (Indiana, and the all-students rows of the
+  // workbooks) and "who admitted" (Indiana) are tolerated beside the
+  // canonical "who applied" / "who were admitted".
+  const applied = total(new RegExp(`\\bTotal\\s+${FROSH}(?:\\s+${GENDER})?\\s+(?:students\\s+)?(?:who\\s+)?applied`, "i"));
+  const admitted = total(new RegExp(`\\bTotal\\s+${FROSH}(?:\\s+${GENDER})?\\s+(?:students\\s+)?(?:who\\s+)?(?:were\\s+)?admitted`, "i"));
   // Enrollees row uses "Total full-time/part-time, first-time, first-year <gender> who enrolled"
-  const enrolled = total(new RegExp(`\\bTotal\\s+(?:full-time|part-time),?\\s+${FROSH}(?:\\s+${GENDER})?\\s+(?:who\\s+)?enrolled`, "i"));
+  const enrolled = total(new RegExp(`\\bTotal\\s+(?:full-time|part-time),?\\s+${FROSH}(?:\\s+${GENDER})?\\s+(?:students\\s+)?(?:who\\s+)?enrolled`, "i"));
 
   if (applied) result.applied = applied;
   if (admitted) result.admitted = admitted;
@@ -1199,8 +1219,10 @@ export async function parseCDSPositional(pdfPath, { method = "auto" } = {}) {
   // decimals of every percentage; version 5 reads the 2025-26 template's
   // C1 rows ("males" / "females" / "students of unknown sex"). The store
   // re-ingests records whose parsed file carries a newer version than the
-  // row.
-  const positional = { source: "cds", parserVersion: 5 };
+  // row. Version 6 adds the remaining sections (cds-sections.js): B
+  // enrollment, retention and graduation, the wait list, Early Action,
+  // transfer volume, student life, the year's costs, need met, class size.
+  const positional = { source: "cds", parserVersion: 6 };
   // Surface the actual extraction source so the validator and the AI
   // assistant can caveat numbers with lower confidence when OCR was used.
   if (items._source === "tesseract") {
@@ -1223,6 +1245,8 @@ export async function parseCDSPositional(pdfPath, { method = "auto" } = {}) {
   let extras = null;
   try {
     extras = extractExtras(items);
+    const sections = extractSections(lineStringsFromGroups(groupByLine(items, 2.5)));
+    extras = { ...extras, ...sections, ...(extras.aid || sections.aid ? { aid: { ...(extras.aid || {}), ...(sections.aid || {}) } } : {}) };
     if (Object.keys(extras).length) positional.extras = extras;
   } catch (e) {
     positional.parserNotes = (positional.parserNotes || []).concat("extras_failed: " + String(e.message).slice(0, 60));
