@@ -47,15 +47,15 @@
   "priorities": [],
   "sourceUrl": "https://www.stonybrook.edu/irpe/_media/Common_data_sets/CDS_2025-2026.xlsx",
   "sourceKind": "xlsx",
-  "parserVersion": 4,
+  "parserVersion": 5,
   "parserNotes": [],
   "extras": null,
-  "ingestedAt": "2026-09-15 14:16:57",
-  "updatedAt": "2026-09-15 14:16:57",
+  "ingestedAt": "2026-09-15 16:08:34",
+  "updatedAt": "2026-09-15 16:08:34",
   "validation": {
     "status": "consistent",
     "discrepancies": [],
     "overrides": {},
-    "validatedAt": "2026-09-15 14:16:57"
+    "validatedAt": "2026-09-15 16:08:34"
   }
 }

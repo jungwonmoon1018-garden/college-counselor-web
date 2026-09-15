@@ -11,6 +11,8 @@
 
 import { createRequire } from "node:module";
 import {
+  C7_FACTOR_PATTERNS,
+  groupByLine,
   extractC7Positional,
   extractC1Counts,
   extractC1SubBreakdowns,
@@ -80,7 +82,7 @@ export async function extractItemsFromXlsx(xlsxPath) {
 export async function parseCDSXlsxFile(xlsxPath) {
   const items = await extractItemsFromXlsx(xlsxPath);
   const allText = items.map((item) => item.str).join(" ");
-  const result = { source: "cds", parserVersion: 4, extractionMethod: "xlsx" };
+  const result = { source: "cds", parserVersion: 5, extractionMethod: "xlsx" };
 
   result.year = extractYear(allText);
   result.testPolicy = extractTestPolicyPositional(items) || extractTestPolicy(allText);
@@ -102,8 +104,39 @@ export async function parseCDSXlsxFile(xlsxPath) {
   if (c1Sub) result.c1Breakdown = c1Sub;
   const c7 = extractC7Positional(items);
   if (c7 && Object.values(c7).some((v) => v !== "not_considered")) result.c7 = c7;
-  if (!result.c7) result.c7 = {};
+  if (!result.c7) result.c7 = extractC7Labelled(items) || {};
   return result;
 }
 
 function round4(v) { return Math.round(v * 10000) / 10000; }
+
+const C7_RATING_TEXT = [
+  ["very_important", /^very\s+important$/i],
+  ["important", /^important$/i],
+  ["considered", /^considered$/i],
+  ["not_considered", /^not\s+considered$/i],
+];
+
+// The 2025-26 workbooks from Cornell and Illinois carry a coded data view
+// whose rows spell each C7 factor beside its rating as text ("C.701 |
+// Rigor of secondary school record | Very Important"), while the form
+// view's X grid shares sheet rows with unrelated coded cells and reads as
+// all not_considered. Read the labelled rows instead: a factor label cell
+// followed by a rating cell; the first sighting of each factor wins and
+// factors the sheet does not list read as not_considered, as on a PDF.
+export function extractC7Labelled(items) {
+  const lines = groupByLine(items, 2.5);
+  const ratings = {};
+  for (const line of lines) {
+    const cells = line.items;
+    for (let k = 0; k + 1 < cells.length; k++) {
+      const rating = C7_RATING_TEXT.find(([, re]) => re.test(cells[k + 1].str.trim()));
+      if (!rating) continue;
+      const factor = C7_FACTOR_PATTERNS.find(([, re]) => re.test(cells[k].str.trim()));
+      if (factor && ratings[factor[0]] == null) ratings[factor[0]] = rating[0];
+    }
+  }
+  if (Object.keys(ratings).length === 0) return null;
+  for (const [factor] of C7_FACTOR_PATTERNS) if (ratings[factor] == null) ratings[factor] = "not_considered";
+  return ratings;
+}

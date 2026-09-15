@@ -45,15 +45,15 @@
   "priorities": [],
   "sourceUrl": "https://docs.google.com/spreadsheets/d/1INsGFH6MhaO-MFMBZ1Dngcn84FeN-hc0BLS0-v8TL_k/export?format=xlsx",
   "sourceKind": "xlsx",
-  "parserVersion": 4,
+  "parserVersion": 5,
   "parserNotes": [],
   "extras": null,
-  "ingestedAt": "2026-09-15 14:16:56",
-  "updatedAt": "2026-09-15 14:16:56",
+  "ingestedAt": "2026-09-15 16:08:33",
+  "updatedAt": "2026-09-15 16:08:33",
   "validation": {
     "status": "consistent",
     "discrepancies": [],
     "overrides": {},
-    "validatedAt": "2026-09-15 14:16:56"
+    "validatedAt": "2026-09-15 16:08:33"
   }
 }

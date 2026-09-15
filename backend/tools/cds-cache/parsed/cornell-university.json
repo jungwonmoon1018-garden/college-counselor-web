@@ -16,7 +16,27 @@
   },
   "enrolledGPA": null,
   "testPolicy": "test_required",
-  "c7": {},
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "important",
+    "gpa": "important",
+    "test_scores": "considered",
+    "application_essay": "very_important",
+    "recommendations": "very_important",
+    "interview": "considered",
+    "ec": "very_important",
+    "talent_ability": "very_important",
+    "character": "very_important",
+    "first_generation": "considered",
+    "alumni_relation": "considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered",
+    "racial_ethnic_status": "not_considered"
+  },
   "b1": {
     "applied": 72523,
     "admitted": 6077,
@@ -35,15 +55,15 @@
   "priorities": [],
   "sourceUrl": "https://irp.cornell.edu/wp-content/uploads/2026/06/CDS-Cornell-2025-2026-v2.xlsx",
   "sourceKind": "xlsx",
-  "parserVersion": 4,
+  "parserVersion": 5,
   "parserNotes": [],
   "extras": null,
-  "ingestedAt": "2026-09-15 14:16:55",
-  "updatedAt": "2026-09-15 14:16:55",
+  "ingestedAt": "2026-09-15 16:08:32",
+  "updatedAt": "2026-09-15 16:08:32",
   "validation": {
     "status": "consistent",
     "discrepancies": [],
     "overrides": {},
-    "validatedAt": "2026-09-15 14:16:55"
+    "validatedAt": "2026-09-15 16:08:32"
   }
 }

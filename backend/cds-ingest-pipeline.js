@@ -314,6 +314,16 @@ function enrichIndex(entries) {
   });
 }
 
+// A CDS cycle label ("2025-26") is older than another when its starting
+// year is smaller. Used to keep a newer stored record when a refresh can
+// only download an older cycle.
+export function isOlderCycle(candidate, stored) {
+  const start = (label) => { const m = /^(\d{4})/.exec(String(label || "")); return m ? Number(m[1]) : null; };
+  const a = start(candidate);
+  const b = start(stored);
+  return a != null && b != null && a < b;
+}
+
 // ─── Single-school ingest ─────────────────────────────────────────────
 // Fetches, parses, validates, and persists ONE school's CDS. Returns a
 // summary the server can render or log.
@@ -334,6 +344,16 @@ export async function ingestOne(stmts, schoolName, options = {}) {
   }
   if (dl.kind !== "pdf" && dl.kind !== "xlsx") {
     return { school: entry.name, slug: entry.slug, status: "non_pdf", kind: dl.kind, year: dl.year };
+  }
+  // The daily refresh falls back to an older cycle when the newest link
+  // fails (Cloudflare blocks the JHU document for a Node fetch); that
+  // download must not replace a newer record already in the store, or
+  // the seeded 2025-26 records would flip back and forth with every boot.
+  if (!force) {
+    const stored = stmts.cds.getBySlug.get(entry.slug);
+    if (stored && isOlderCycle(dl.year, stored.year_label)) {
+      return { school: entry.name, slug: entry.slug, status: "kept_newer", year: dl.year, storedYear: stored.year_label };
+    }
   }
 
   let parsed;

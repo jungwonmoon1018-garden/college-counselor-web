@@ -16,7 +16,27 @@
   },
   "enrolledGPA": null,
   "testPolicy": "test_required",
-  "c7": {},
+  "c7": {
+    "rigor": "very_important",
+    "class_rank": "not_considered",
+    "gpa": "very_important",
+    "test_scores": "considered",
+    "application_essay": "important",
+    "recommendations": "not_considered",
+    "interview": "not_considered",
+    "ec": "very_important",
+    "talent_ability": "very_important",
+    "character": "very_important",
+    "first_generation": "very_important",
+    "alumni_relation": "not_considered",
+    "geographical_residence": "considered",
+    "state_residency": "considered",
+    "religious_affiliation": "not_considered",
+    "volunteer_work": "considered",
+    "work_experience": "considered",
+    "level_of_interest": "not_considered",
+    "racial_ethnic_status": "not_considered"
+  },
   "b1": {
     "applied": 83045,
     "admitted": 30384,
@@ -35,15 +55,15 @@
   "priorities": [],
   "sourceUrl": "https://uofi.box.com/shared/static/orx4vnmzkt2drmgoiksxpfs39pr42uor.xlsx",
   "sourceKind": "xlsx",
-  "parserVersion": 4,
+  "parserVersion": 5,
   "parserNotes": [],
   "extras": null,
-  "ingestedAt": "2026-09-15 14:16:56",
-  "updatedAt": "2026-09-15 14:16:56",
+  "ingestedAt": "2026-09-15 16:08:33",
+  "updatedAt": "2026-09-15 16:08:33",
   "validation": {
     "status": "consistent",
     "discrepancies": [],
     "overrides": {},
-    "validatedAt": "2026-09-15 14:16:56"
+    "validatedAt": "2026-09-15 16:08:33"
   }
 }

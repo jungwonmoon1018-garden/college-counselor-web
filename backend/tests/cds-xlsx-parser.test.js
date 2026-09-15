@@ -59,3 +59,45 @@ test("parseCDSXlsxFile produces the positional-parser output shape", async () =>
   assert.ok(parsed.c7 && typeof parsed.c7 === "object");
   fs.rmSync(path.dirname(file), { recursive: true, force: true });
 });
+
+test("a workbook whose C7 grid is unreadable is read from its labelled coded rows", async () => {
+  const { extractC7Labelled } = await import("../cds-xlsx-parser.js");
+  const row = (y, strs) => strs.map((str, i) => ({ page: 1, x: 60 + i * 60, y, str }));
+  const items = [
+    ...row(700, ["C4", "Does your institution require a college-preparatory program?", "C.701", "Rigor of secondary school record", "Very Important", "First-Time, First-Year Admission"]),
+    ...row(680, ["Require", "C.702", "Class rank", "Not Considered", "First-Time, First-Year Admission"]),
+    ...row(660, ["Recommend", "C.703", "Academic GPA", "Important", "First-Time, First-Year Admission"]),
+    ...row(640, ["Total academic units", "15", "24", "C.708", "Extracurricular activities", "Very Important"]),
+    ...row(620, ["Academic", "Very Important", "Important", "Considered", "Not Considered", "C.8G05", "Institutional Exam", "x"]),
+    ...row(600, ["Rigor of secondary school record", "x", "C.8G06", "State Exam (specify):"]),
+    ...row(580, ["335", "C.701", "Q111_1", "c7_rigor_of_secondary_school_record_very_important", "Rigor of secondary school record", "Very Important"]),
+  ];
+  const c7 = extractC7Labelled(items);
+  assert.equal(c7.rigor, "very_important");
+  assert.equal(c7.class_rank, "not_considered");
+  assert.equal(c7.gpa, "important");
+  assert.equal(c7.ec, "very_important");
+  assert.equal(c7.interview, "not_considered");
+  assert.equal(Object.keys(c7).length, 19);
+});
+
+test("parseCDSXlsxFile falls back to the labelled C7 rows", async () => {
+  const ExcelJS = require("exceljs");
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet("CDS");
+  sheet.getCell("A1").value = "Common Data Set 2025-2026";
+  sheet.getCell("C3").value = "C.701";
+  sheet.getCell("D3").value = "Rigor of secondary school record";
+  sheet.getCell("E3").value = "Very Important";
+  sheet.getCell("C4").value = "C.702";
+  sheet.getCell("D4").value = "Class rank";
+  sheet.getCell("E4").value = "Considered";
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "cds-xlsx-c7-")), "labelled.xlsx");
+  await workbook.xlsx.writeFile(file);
+  const parsed = await parseCDSXlsxFile(file);
+  assert.equal(parsed.parserVersion, 5);
+  assert.equal(parsed.c7.rigor, "very_important");
+  assert.equal(parsed.c7.class_rank, "considered");
+  assert.equal(parsed.c7.gpa, "not_considered");
+  fs.rmSync(path.dirname(file), { recursive: true, force: true });
+});

@@ -205,7 +205,7 @@ export function groupByLine(items, yTolerance = 2.0) {
 //      "Considered", "Not Considered") and record their X centers.
 //   3. For each factor row, find the X mark in that row and assign it
 //      to the nearest column.
-const C7_FACTOR_PATTERNS = [
+export const C7_FACTOR_PATTERNS = [
   ["rigor",            /rigor\s+of\s+secondary\s+school\s+record/i],
   ["class_rank",       /class\s+rank/i],
   ["gpa",              /academic\s+gpa/i],

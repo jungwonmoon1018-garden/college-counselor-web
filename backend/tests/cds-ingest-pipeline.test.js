@@ -19,3 +19,13 @@ test("shouldRunCdsRefresh: idle Jan–May, active Jun–Dec", () => {
 test("refreshAllCds is exported as an async function", () => {
   assert.equal(typeof refreshAllCds, "function");
 });
+
+test("isOlderCycle: a fallback download from an earlier cycle must not replace a newer stored record", async () => {
+  const { isOlderCycle } = await import("../cds-ingest-pipeline.js");
+  assert.equal(isOlderCycle("2024-25", "2025-26"), true);
+  assert.equal(isOlderCycle("2023-24", "2025-26"), true);
+  assert.equal(isOlderCycle("2025-26", "2025-26"), false);
+  assert.equal(isOlderCycle("2026-27", "2025-26"), false);
+  assert.equal(isOlderCycle("2024-25", null), false);
+  assert.equal(isOlderCycle(null, "2025-26"), false);
+});
