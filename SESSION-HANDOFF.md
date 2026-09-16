@@ -8,41 +8,59 @@ changed recently and why, what was verified live, and what is open.
 
 ## Where things stand (2026-09-16)
 
-- **Deployed:** `main` at `5f4e207`, live at
+- **Deployed:** `main` at `b0c035b`, live at
   https://college-counselor-web.onrender.com. Confirmed by CI run
-  35005431519 (success) and by the bundle hash
-  and by behaviour at 18:09:24 UTC on 2026-09-15 (see *Verified live*). Earlier in
-  this session: `2f287de`, `40b1ee6` and `dacc220` (their own CI run 35000625447 hung twice and was cancelled — see the change log — so they deployed with `5f4e207`), `ef1d56e`
-  (backend-only, CI run 34993176954, 16:10 UTC 2026-09-15), `0af239e`
-  and `72f2509` (CI run 34982389053; `/` serves
-  `assets/main-rc4QTNwr.js` since 14:34:55 UTC 2026-09-15, after a 502
-  blip at 14:34:23). Before that: `3a8fdc3` (CI run 34763637850, bundle
-  `main-DNKi9XlM.js`, 14:48 UTC 2026-09-13), `9ec5edc` (CI run
-  34763205856), `3c5f10b` (CI run 34762384550), `0caa68e` (CI run
-  34762088537), `58b28fb` (CI run 34760878050); the 2026-09-11 builds
-  `95f5116` CI run 34603951260, `651f7ac` CI run 34602871341,
-  `6a29565`, `fa6c5b1`. CI runs backend lint, syntax, tests and
-  `npm audit --audit-level=high`, then frontend tests and build; Render
-  redeploys after it passes, with a few seconds of 502s.
-- **Tests (full run 2026-09-15 ~17:40 UTC, before `5f4e207`, whose only change is the shutdown handler; CI ran the whole suite on `5f4e207` in run 35005431519, backend job 41 s):**
-  backend `npm test` 737 tests, 733 pass, 4 skipped, 0 fail;
-  `npm run lint` 0 errors, 70 warnings (CI cap 500); frontend
-  `npx vitest run` 18 files, 53 tests; `npm run build` clean
-  (local bundle `main-B6X5y47h.js`; Render builds it as `main-DmeQgzda.js`).
-- **Working tree:** the same phantom CRLF-only diffs (never stage them;
-  `git diff --cached --ignore-cr-at-eol --stat` shows the real change),
-  the two untracked files not made by any session (`backend/kor.traineddata`,
-  `AGENTS.md`), and the local download cache
-  `backend/data/cds-cache/pdfs/` (gitignored, ~330 documents fetched by
-  the refresh on 2026-09-16; the tracked seed is
-  `backend/tools/cds-cache/parsed/`).
-- **The CDS cache now covers 298 schools** (was 36): 118 on
-  2025-26 documents, 141 on 2024-25, the rest on the newest cycle
-  the school has published. Every record carries the section read
-  (parser version 6). The server re-ingests all of them at boot from the
-  parsed directory (`ensureCdsStoreSeeded`: newer parser version or a
-  changed cycle label), so the first boot after a deploy runs ~300
-  `persistAndValidate` calls.
+  35055266482 (success) and by behaviour at 04:23:38 UTC (see
+  *Verified live*). The day's commits, newest first: `b0c035b` (the
+  refreshed CDS cache after the section-reader fixes, the refactoring
+  tools under `backend/scripts/refactor`), `dbdc6b8` (survey, login and
+  create-account screens out of App.jsx), `5ce0056` (the route families out
+  of server.js; CI run 35010896388), `697a7c0` (the sidebar out of
+  App.jsx), `50f5d8a` (better-sqlite3 13, pdf-parse 2, tesseract.js 7,
+  canvas 1, eslint 10; CI run 35009766926), `6a276b9` (React 19, jsdom 29,
+  jest-dom 7), `bd5650e` (Express 5), `2928c43` (dashboard sidebar-fold
+  test), `3e9f57f` (RUNBOOK.md, .nvmrc), `c08c12c` (CDS PDFs out of git),
+  `db883b0` (refresh hold-back guard), `957205c` (CI timeouts, SIGKILL
+  teardown, stale tools removed), `d120ab5` (line endings renormalized),
+  `7391bf9` (the previous handoff), and the morning's CDS, close-button
+  and sections work (`5f4e207` back to `72f2509`, see the change log).
+  CI runs backend lint, syntax, tests and `npm audit --audit-level=high`,
+  then frontend tests and build, then the web-launcher build; every job
+  times out at 15 minutes and Render redeploys after a green run, with a
+  few seconds of 502s.
+- **Tests (run after the last code edit, 2026-09-16 04:15 UTC):**
+  backend `npm test` 741 tests, 737 pass, 4 skipped, 0 fail;
+  `npm run lint` 0 errors, 46 warnings (CI cap 500; 7 of them in
+  `server.js` and `routes/`); frontend `npx vitest run` 18 files, 54 tests;
+  `npm run build` clean.
+- **Working tree:** clean apart from the two untracked files not made by
+  any session (`backend/kor.traineddata`, `AGENTS.md`) and the local
+  download cache `backend/data/cds-cache/pdfs/` (gitignored). The phantom
+  CRLF diffs are gone: the 37 blobs stored with CRLF were renormalized to
+  LF on 2026-09-16, so `git add -A` is safe again (`.gitattributes` still
+  keeps four legacy files as CRLF).
+- **Shape of the code now:** `backend/server.js` is 3,323 lines of
+  setup, middleware, helpers and the health route; the 120 route handlers
+  live in `backend/routes/<family>.js` (23 files) as
+  `register<Family>Routes(app, deps)`, reading the server's bindings
+  through the `routeDeps` getters built in server.js. `frontend/src/App.jsx`
+  is 5,078 lines; `Sidebar.jsx`, `SurveyScreen.jsx`, `LoginScreen.jsx`
+  and `CreateAccountScreen.jsx` hold those screens, `app-shared.js` the
+  constants both sides use. The tools that did the moves are in
+  `backend/scripts/refactor/` (README there); the chat screen (the rest of
+  App.jsx) and `/api/chat` (436 lines in `routes/chat.js`) are the next
+  candidates.
+- **The CDS cache covers 298 schools** (parser version 6, section
+  reader with the 2026-09-16 evening fixes): 118 on 2025-26
+  documents, 141 on 2024-25, the rest on the newest cycle the school
+  has published. The server re-ingests them at boot (`ensureCdsStoreSeeded`)
+  in about two seconds.
+- **Dependencies:** every major that was pending is taken (Express 5,
+  better-sqlite3 13, pdf-parse 2, tesseract.js 7, @napi-rs/canvas 1, eslint
+  10, React 19, jsdom 29, jest-dom 7). `npm outdated` shows only patch and
+  minor drift now; `npm audit` is clean in both packages. `npm fund` lists
+  55 backend and 25 frontend packages seeking support (nothing was
+  donated or changed).
 - **Standing authorizations from the user:** push straight to `main`;
   create and delete throwaway `probe-*@example.test` accounts on
   production for live checks. Never ask for or use the counselor's
@@ -68,6 +86,89 @@ changed recently and why, what was verified live, and what is open.
   declaration was kept because nothing tests the project on 25.
 
 ## What changed, newest first
+
+The user's asks on 2026-09-16 (evening UTC), verbatim: "/engineering:tech-debt
+then do a npm fund on that thing" (the audit and the fund listing were
+given in chat) — "do all these things" (every item of the audit's plan).
+What follows is that plan carried out, newest first.
+
+**The section reader's missed layouts, and the cache refreshed again
+(2026-09-16)** — `b0c035b`. The first whole-index pass left four
+layouts unread: Harvard stacks the class-size table as "CLASS" / numbers /
+"SECTIONS" (the reader now takes the first counts row after the size
+header, in any layout, and only a row of seven counts or eight whose last
+is their sum — Hofstra prefixes the row with "Fall 2024", Penn's stray
+rows fail the check); Indiana writes "Total undergraduate" with the eight
+sex × attendance columns on the next line and no total (summed, only when
+the sum is a student body; the primary read skips Wellesley's footnote
+mark the same way); Indiana's retention question wraps over five lines
+with the value beside "what percentage" above the sentence the reader
+anchored on (an eight-line window, years stripped); and on the PDFs the
+H2 "percentage of need met" values sit up to four lines below the label
+(a five-line window, a share under 5% is a stray cell). All pinned in
+`cds-sections.test.js`. The whole index was re-run on the cached
+documents (about 12 minutes): 298 records, coverage now
+headcount 219, retention 122, graduation
+184, wait list 167, Early Decision 112,
+Early Action 5, transfer 192, student life
+230, costs 119, aid 225, class size 180.
+Cornell, Kenyon and UC Merced lost a bogus 1% need-met figure and Kenyon
+and Penn a bogus class-size row, which is the point of the guards. The
+refactoring tools moved into `backend/scripts/refactor/` with a README.
+
+**The survey, login and create-account screens leave App.jsx
+(2026-09-16)** — `dbdc6b8`. `SurveyScreen.jsx` (523 lines, 72 props: the
+survey state, its step helpers, the constants declared inside the survey
+branch), `LoginScreen.jsx` (99 lines, 22 props) and
+`CreateAccountScreen.jsx` (186 lines, 29 props) hold the JSX App()
+returned for those screens plus the module-level helpers only they used;
+BG, FONT, GLOBAL_CSS, inputStyle and labelStyle join GRADE_SCALE and
+AP_EXAM_LIST in `app-shared.js`. Same tool as the sidebar, widened so a
+binding declared in a block enclosing the screen (the survey's STEPS)
+becomes a prop — the first attempt shipped without STEPS and the returning-
+login test caught it; `undef-check.mjs` now runs after every move.
+
+**The route families leave server.js (2026-09-16)** — `5ce0056`.
+`extract-routes.mjs` (espree + eslint-scope) moved the 23 families into
+`routes/<family>.js`: each handler verbatim with its comments, every
+reference to a server binding rewritten to `deps.<name>`, every import
+re-imported, no handler assigning a server binding (checked). server.js
+builds `routeDeps` as live getters (a binding declared or reassigned later
+is current at request time, no temporal dead zone) and registers the
+families where the routes ended: after the middleware, before the health
+route, the pillar mount, the static files and the error handler; order
+within a family is unchanged, and no path-less `app.use` sat between
+routes. 137 import specifiers whose only users moved were pruned. Eight
+tests read server.js as text; `tests/helpers/server-source.mjs` now
+appends every route module with `deps.` and `../` normalized back, so
+their pins hold. server.js: 8,215 → 3,323 lines.
+
+**The sidebar leaves App.jsx (2026-09-16)** — `697a7c0`. `Sidebar.jsx`
+holds the 490-line aside and the seventeen helpers, styles and in-place
+editors only it used (TestScoreEditor, ApScoreEditor, ClassRankEditor, the
+GPA calculator); App passes the 61 bindings it reads as `sidebarProps`.
+The dashboard tests (in-place edits, the sidebar fold) pass unchanged.
+
+**Every pending dependency major (2026-09-16)** — `bd5650e` (Express 5:
+only the SPA fallback `app.get("*")` needed `"/{*splat}"`), `6a276b9`
+(React 19, jsdom 29, jest-dom 7: no code change), `50f5d8a` (pdf-parse 2's
+`PDFParse` class replaces the function in the second PDF reader, its
+"-- 1 of 3 --" page markers stripped; tesseract.js 7 emits only text
+unless asked, so the CDS OCR path runs one worker per document with the
+blocks output and `ocrWords()` flattens blocks > paragraphs > lines >
+words; better-sqlite3 13, canvas 1 and eslint 10 needed nothing).
+
+**Phase 1 and 2 of the audit (2026-09-16)** — `957205c` (CI jobs time out
+at fifteen minutes; the five spawning test files send SIGKILL five seconds
+after SIGTERM; the eight stale copies under `backend/tools` are gone),
+`d120ab5` (37 CRLF blobs renormalized to LF, no content change),
+`db883b0` (`refreshHoldReasons`: the daily refresh reports `held_back`
+instead of persisting a parse that would lose the admit rate, SAT/ACT
+band, C1 counts or C7 weights, or move the rate more than 15 points within
+a cycle; one `cds_refresh_held_back` audit event per school), `c08c12c`
+(the 48 tracked CDS documents leave git; `seasonal-verification-v2.js`
+looks in the download cache first), `3e9f57f` (`RUNBOOK.md`, `.nvmrc`),
+`2928c43` (the dashboard test folds a sidebar section).
 
 The user's asks on 2026-09-15/16, verbatim, in order: "Reload the tab
 and check Course plan and update college fit sections to apply the
@@ -572,6 +673,19 @@ each deleted afterwards (200), except the browser session of 2026-09-13,
 which the user signed into with their own account in their own Chrome;
 nothing from that account is recorded here.
 
+- **After `b0c035b` (with `5ce0056` and `dbdc6b8` deployed before it;
+  04:23:38 UTC 2026-09-16):** the same probe as before (a fresh
+  account, three consents, a small profile): `/api/positioning/targets` for
+  Indiana University Bloomington (2024-25, consistent, admit 78.2%, SAT
+  1180–1390), Middlebury (2025-26, 12.8%, 1460–1530) and Stony Brook
+  (2025-26, 48.2%, 1350–1470), all from `cds_store` on the split server; the
+  Indiana chat question answered "10,622 USD; 40,369 USD; 7,524." with
+  `verifiedData: true`. Account deleted (200). Bundle `main-STCk67U8.js`
+  (the screens moved out of App.jsx). The same probe passed at 19:05 UTC
+  the day before on `5ce0056` + `697a7c0` (bundle `main-Frejt2Tl.js`).
+  Not looked at in a browser: the sidebar, the survey, login and
+  create-account screens after their moves (the dashboard and boot tests
+  render them; the production bundle serves them).
 - **After `5f4e207` (bundle `main-DmeQgzda.js`, 18:09:24 UTC 2026-09-15):**
   a fresh account (grade 11, three consents, a small
   profile) asked `/api/positioning/targets` for Indiana University
@@ -738,6 +852,20 @@ nothing from that account is recorded here.
 
 ## Open items and things to watch
 
+- **The chat screen and `/api/chat` are the remaining large pieces:**
+  App.jsx keeps the chat screen (~5,078 lines with the hooks and
+  handlers), `routes/chat.js` is 436 lines and `routes/ec.js` 1,281. The
+  tools in `backend/scripts/refactor/` do the moves; the chat screen's
+  handlers (`send`, the thread and vault effects) are App() bindings and
+  would travel as props like the sidebar's.
+- **`routeDeps` is a flat bag of 107 getters.** It works and is
+  cheap, but each route module names what it uses in its header comment
+  only; a next step is per-family deps objects so a module's needs are
+  explicit at the call site.
+- **Local Node is still 25.** `.nvmrc` and `.node-version` say 22.22; this
+  machine has no version manager, so native modules are built for 25 and
+  `npx node@22` cannot load them. Installing nvm-windows and rebuilding
+  once would let the suite run on the production Node locally.
 - **Five records carry no C1 counts** (College of the Holy Cross,
   New College of Florida, Occidental, Trinity College, Kansas — Kansas uses
   its own template, "Section A1. General Information …"), so their admit
@@ -774,8 +902,8 @@ nothing from that account is recorded here.
   folder) before a run.
 - **`scripts/refresh-cds.mjs` fails on this machine** ("no such column:
   class_rank_json": the local `backend/data/counselor.db` predates the
-  schema). The refresh was run against a scratch database instead — see
-  *Quick verification recipes*.
+  schema). The refresh runs against a scratch database instead — see
+  *Quick verification recipes* and RUNBOOK.md.
 - **Re-parsing older documents moves a few counts slightly** (Caltech
   13,847 → 13,856 applicants, Michigan State and Northwestern by tens):
   rows the old reader skipped. The registry truths cover rates only.
@@ -784,8 +912,6 @@ nothing from that account is recorded here.
   wait list, transfer or class size yet. `CalibratedFitCard.jsx` reads
   `provenance`/`parsed`; the sections would come through
   `cdsRecordToPositioningResult` (`extras` is on the record).
-- **`tools/cds-validator.js`** is an older duplicate of the root
-  `cds-validator.js` and was left untouched.
 - **pdfjs returns only text inside the page box.** The probe PDF's one
   line runs past the 612-point page width and came back cut at "…and
   qu"; pdf-parse returned the whole string. Real documents wrap, the
