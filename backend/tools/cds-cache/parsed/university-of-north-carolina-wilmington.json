@@ -240,7 +240,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 11920
+      "averagePackageFirstYearUsd": 11920,
+      "needMetPct": 57
     },
     "enrollment": {
       "undergraduates": 16131
@@ -252,10 +253,23 @@
     "studentLife": {
       "outOfStatePct": 13.7,
       "onCampusPct": 95
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 149,
+        "10-19": 439,
+        "20-29": 641,
+        "30-39": 262,
+        "40-49": 119,
+        "50-99": 125,
+        "100+": 49,
+        "total": 1784
+      },
+      "under20Pct": 33
     }
   },
-  "ingestedAt": "2026-09-15 17:15:25",
-  "updatedAt": "2026-09-15 17:15:25",
+  "ingestedAt": "2026-09-16 04:17:52",
+  "updatedAt": "2026-09-16 04:17:52",
   "validation": {
     "school": "University of North Carolina Wilmington",
     "slug": "university-of-north-carolina-wilmington",

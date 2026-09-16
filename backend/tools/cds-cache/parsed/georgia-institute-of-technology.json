@@ -425,7 +425,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 19981
+      "averagePackageFirstYearUsd": 19981,
+      "needMetPct": 61.2
     },
     "enrollment": {
       "undergraduates": 21028
@@ -455,10 +456,23 @@
       "tuitionInStateUsd": 618,
       "tuitionOutOfStateUsd": 604,
       "foodAndHousingUsd": 628
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 243,
+        "10-19": 474,
+        "20-29": 453,
+        "30-39": 255,
+        "40-49": 145,
+        "50-99": 386,
+        "100+": 237,
+        "total": 2193
+      },
+      "under20Pct": 32.7
     }
   },
-  "ingestedAt": "2026-09-15 17:09:04",
-  "updatedAt": "2026-09-15 17:09:04",
+  "ingestedAt": "2026-09-15 19:24:57",
+  "updatedAt": "2026-09-15 19:24:57",
   "validation": {
     "school": "Georgia Institute of Technology",
     "slug": "georgia-institute-of-technology",

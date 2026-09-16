@@ -401,7 +401,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 15031
+      "averagePackageFirstYearUsd": 15031,
+      "needMetPct": 66
     },
     "enrollment": {
       "undergraduates": 31253
@@ -423,10 +424,23 @@
     "studentLife": {
       "outOfStatePct": 44,
       "onCampusPct": 87
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 147,
+        "10-19": 346,
+        "20-29": 554,
+        "30-39": 221,
+        "40-49": 161,
+        "50-99": 194,
+        "100+": 188,
+        "total": 1811
+      },
+      "under20Pct": 27.2
     }
   },
-  "ingestedAt": "2026-09-15 17:11:01",
-  "updatedAt": "2026-09-15 17:11:01",
+  "ingestedAt": "2026-09-15 19:26:33",
+  "updatedAt": "2026-09-15 19:26:33",
   "validation": {
     "school": "Oregon State University",
     "slug": "oregon-state-university",

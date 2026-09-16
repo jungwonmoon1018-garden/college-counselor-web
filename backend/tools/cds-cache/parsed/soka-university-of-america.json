@@ -267,10 +267,23 @@
       "tuitionUsd": 34382,
       "requiredFeesUsd": 2326,
       "foodAndHousingUsd": 13892
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 57,
+        "10-19": 102,
+        "20-29": 3,
+        "30-39": 1,
+        "40-49": 0,
+        "50-99": 0,
+        "100+": 0,
+        "total": 163
+      },
+      "under20Pct": 97.5
     }
   },
-  "ingestedAt": "2026-09-15 17:12:01",
-  "updatedAt": "2026-09-15 17:12:01",
+  "ingestedAt": "2026-09-15 19:27:19",
+  "updatedAt": "2026-09-15 19:27:19",
   "validation": {
     "school": "Soka University of America",
     "slug": "soka-university-of-america",

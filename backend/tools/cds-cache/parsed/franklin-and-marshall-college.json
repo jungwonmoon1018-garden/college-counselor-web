@@ -185,10 +185,23 @@
       "requiredFeesUsd": 438,
       "foodAndHousingUsd": 6654,
       "academicYear": "2025-2026"
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 69,
+        "10-19": 203,
+        "20-29": 143,
+        "30-39": 10,
+        "40-49": 3,
+        "50-99": 3,
+        "100+": 0,
+        "total": 431
+      },
+      "under20Pct": 63.1
     }
   },
-  "ingestedAt": "2026-09-15 17:08:39",
-  "updatedAt": "2026-09-15 17:08:39",
+  "ingestedAt": "2026-09-15 19:24:39",
+  "updatedAt": "2026-09-15 19:24:39",
   "validation": {
     "school": "Franklin and Marshall College",
     "slug": "franklin-and-marshall-college",

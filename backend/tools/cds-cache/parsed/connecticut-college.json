@@ -206,7 +206,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 54336
+      "averagePackageFirstYearUsd": 54336,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 1953
@@ -231,10 +232,23 @@
     "studentLife": {
       "outOfStatePct": 88,
       "onCampusPct": 100
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 37,
+        "10-19": 184,
+        "20-29": 109,
+        "30-39": 21,
+        "40-49": 7,
+        "50-99": 4,
+        "100+": 0,
+        "total": 362
+      },
+      "under20Pct": 61
     }
   },
-  "ingestedAt": "2026-09-15 17:07:40",
-  "updatedAt": "2026-09-15 17:07:40",
+  "ingestedAt": "2026-09-15 19:23:50",
+  "updatedAt": "2026-09-15 19:23:50",
   "validation": {
     "school": "Connecticut College",
     "slug": "connecticut-college",

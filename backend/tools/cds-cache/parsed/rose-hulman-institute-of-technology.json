@@ -173,10 +173,13 @@
     "studentLife": {
       "outOfStatePct": 65.1,
       "onCampusPct": 96.9
+    },
+    "aid": {
+      "needMetPct": 69
     }
   },
-  "ingestedAt": "2026-09-15 17:11:37",
-  "updatedAt": "2026-09-15 17:11:37",
+  "ingestedAt": "2026-09-15 19:27:01",
+  "updatedAt": "2026-09-15 19:27:01",
   "validation": {
     "school": "Rose-Hulman Institute of Technology",
     "slug": "rose-hulman-institute-of-technology",

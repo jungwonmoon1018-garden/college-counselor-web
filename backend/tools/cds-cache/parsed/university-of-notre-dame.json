@@ -147,7 +147,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 67855
+      "averagePackageFirstYearUsd": 67855,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 8880
@@ -174,10 +175,23 @@
       "tuitionUsd": 67100,
       "requiredFeesUsd": 507,
       "foodAndHousingUsd": 18438
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 363,
+        "10-19": 840,
+        "20-29": 283,
+        "30-39": 206,
+        "40-49": 155,
+        "50-99": 110,
+        "100+": 62,
+        "total": 2019
+      },
+      "under20Pct": 59.6
     }
   },
-  "ingestedAt": "2026-09-15 17:15:24",
-  "updatedAt": "2026-09-15 17:15:24",
+  "ingestedAt": "2026-09-16 04:17:54",
+  "updatedAt": "2026-09-16 04:17:54",
   "validation": {
     "school": "University of Notre Dame",
     "slug": "university-of-notre-dame",

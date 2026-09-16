@@ -375,7 +375,8 @@
       "edNotification": "15-Dec"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 70506
+      "averagePackageFirstYearUsd": 70506,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 1431
@@ -397,10 +398,23 @@
     "studentLife": {
       "outOfStatePct": 86,
       "onCampusPct": 99
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 146,
+        "10-19": 144,
+        "20-29": 71,
+        "30-39": 29,
+        "40-49": 13,
+        "50-99": 2,
+        "100+": 405,
+        "total": 810
+      },
+      "under20Pct": 35.8
     }
   },
-  "ingestedAt": "2026-09-15 17:09:16",
-  "updatedAt": "2026-09-15 17:09:16",
+  "ingestedAt": "2026-09-15 19:25:06",
+  "updatedAt": "2026-09-15 19:25:06",
   "validation": {
     "school": "Haverford College",
     "slug": "haverford-college",

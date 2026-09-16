@@ -338,7 +338,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 31300
+      "averagePackageFirstYearUsd": 31300,
+      "needMetPct": 85.9
     },
     "enrollment": {
       "undergraduates": 1130
@@ -361,10 +362,23 @@
       "requiredFeesUsd": 350,
       "foodAndHousingUsd": 14300,
       "academicYear": "2023-2024"
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 65,
+        "10-19": 142,
+        "20-29": 73,
+        "30-39": 22,
+        "40-49": 1,
+        "50-99": 2,
+        "100+": 0,
+        "total": 305
+      },
+      "under20Pct": 67.9
     }
   },
-  "ingestedAt": "2026-09-15 17:09:19",
-  "updatedAt": "2026-09-15 17:09:19",
+  "ingestedAt": "2026-09-15 19:25:09",
+  "updatedAt": "2026-09-15 19:25:09",
   "validation": {
     "school": "Hendrix College",
     "slug": "hendrix-college",

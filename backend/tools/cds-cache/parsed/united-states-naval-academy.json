@@ -262,10 +262,23 @@
     "studentLife": {
       "outOfStatePct": 24,
       "onCampusPct": 0
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 55,
+        "10-19": 916,
+        "20-29": 374,
+        "30-39": 14,
+        "40-49": 3,
+        "50-99": 6,
+        "100+": 1368,
+        "total": 2736
+      },
+      "under20Pct": 35.5
     }
   },
-  "ingestedAt": "2026-09-15 17:13:21",
-  "updatedAt": "2026-09-15 17:13:21",
+  "ingestedAt": "2026-09-15 19:28:37",
+  "updatedAt": "2026-09-15 19:28:37",
   "validation": {
     "school": "United States Naval Academy",
     "slug": "united-states-naval-academy",

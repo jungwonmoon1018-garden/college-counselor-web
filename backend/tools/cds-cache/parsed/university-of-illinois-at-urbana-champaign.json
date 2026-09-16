@@ -77,6 +77,9 @@
     "enrollment": {
       "undergraduates": 37140
     },
+    "retention": {
+      "firstYearPct": 94.8
+    },
     "waitlist": {
       "offered": 2794,
       "accepted": 1874,
@@ -90,8 +93,8 @@
       "needMetPct": 78
     }
   },
-  "ingestedAt": "2026-09-15 17:14:17",
-  "updatedAt": "2026-09-15 17:14:17",
+  "ingestedAt": "2026-09-15 19:29:45",
+  "updatedAt": "2026-09-15 19:29:45",
   "validation": {
     "school": "University of Illinois at Urbana-Champaign",
     "slug": "university-of-illinois-at-urbana-champaign",

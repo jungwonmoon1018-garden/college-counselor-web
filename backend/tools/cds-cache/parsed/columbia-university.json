@@ -228,7 +228,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 78824
+      "averagePackageFirstYearUsd": 78824,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 9164
@@ -260,8 +261,8 @@
       "under20Pct": 57.6
     }
   },
-  "ingestedAt": "2026-09-15 17:07:35",
-  "updatedAt": "2026-09-15 17:07:35",
+  "ingestedAt": "2026-09-15 19:23:47",
+  "updatedAt": "2026-09-15 19:23:47",
   "validation": {
     "school": "Columbia University",
     "slug": "columbia-university",

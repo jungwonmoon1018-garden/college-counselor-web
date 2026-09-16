@@ -102,7 +102,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 22900
+      "averagePackageFirstYearUsd": 22900,
+      "needMetPct": 44.4
     },
     "enrollment": {
       "undergraduates": 5391
@@ -122,8 +123,8 @@
       "tuitionUsd": 36920
     }
   },
-  "ingestedAt": "2026-09-15 17:04:41",
-  "updatedAt": "2026-09-15 17:04:41",
+  "ingestedAt": "2026-09-15 19:21:29",
+  "updatedAt": "2026-09-15 19:21:29",
   "validation": {
     "school": "Adelphi University",
     "slug": "adelphi-university",

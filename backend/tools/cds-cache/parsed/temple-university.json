@@ -344,7 +344,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 20728
+      "averagePackageFirstYearUsd": 20728,
+      "needMetPct": 63.9
     },
     "enrollment": {
       "undergraduates": 21031
@@ -364,10 +365,23 @@
     "studentLife": {
       "outOfStatePct": 34.7,
       "onCampusPct": 64.4
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 423,
+        "10-19": 1129,
+        "20-29": 930,
+        "30-39": 661,
+        "40-49": 274,
+        "50-99": 154,
+        "100+": 46,
+        "total": 3617
+      },
+      "under20Pct": 42.9
     }
   },
-  "ingestedAt": "2026-09-15 17:12:44",
-  "updatedAt": "2026-09-15 17:12:44",
+  "ingestedAt": "2026-09-15 19:28:01",
+  "updatedAt": "2026-09-15 19:28:01",
   "validation": {
     "school": "Temple University",
     "slug": "temple-university",

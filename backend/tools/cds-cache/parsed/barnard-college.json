@@ -80,7 +80,8 @@
       "edNotification": "C2103  15-Dec"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 69370
+      "averagePackageFirstYearUsd": 69370,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 3269
@@ -95,8 +96,8 @@
       "onCampusPct": 96
     }
   },
-  "ingestedAt": "2026-09-15 17:06:01",
-  "updatedAt": "2026-09-15 17:06:01",
+  "ingestedAt": "2026-09-15 19:22:32",
+  "updatedAt": "2026-09-15 19:22:32",
   "validation": {
     "school": "Barnard College",
     "slug": "barnard-college",

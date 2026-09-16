@@ -101,7 +101,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 14373
+      "averagePackageFirstYearUsd": 14373,
+      "needMetPct": 12
     },
     "enrollment": {
       "undergraduates": 36588
@@ -115,8 +116,8 @@
       "onCampusPct": 75
     }
   },
-  "ingestedAt": "2026-09-15 17:11:37",
-  "updatedAt": "2026-09-15 17:11:37",
+  "ingestedAt": "2026-09-15 19:27:02",
+  "updatedAt": "2026-09-15 19:27:02",
   "validation": {
     "school": "Rutgers University-New Brunswick",
     "slug": "rutgers-university-new-brunswick",

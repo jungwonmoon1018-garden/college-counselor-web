@@ -207,7 +207,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 53669
+      "averagePackageFirstYearUsd": 53669,
+      "needMetPct": 78.6
     },
     "enrollment": {
       "undergraduates": 11152
@@ -236,10 +237,23 @@
     "costs": {
       "tuitionUsd": 66520,
       "foodAndHousingUsd": 18780
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 183,
+        "10-19": 635,
+        "20-29": 648,
+        "30-39": 427,
+        "40-49": 124,
+        "50-99": 111,
+        "100+": 33,
+        "total": 2161
+      },
+      "under20Pct": 37.9
     }
   },
-  "ingestedAt": "2026-09-15 17:12:55",
-  "updatedAt": "2026-09-15 17:12:55",
+  "ingestedAt": "2026-09-15 19:28:01",
+  "updatedAt": "2026-09-15 19:28:01",
   "validation": {
     "school": "Texas Christian University",
     "slug": "texas-christian-university",

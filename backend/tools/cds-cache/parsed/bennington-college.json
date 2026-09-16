@@ -95,7 +95,8 @@
       "edNotification": "12 15"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 70577
+      "averagePackageFirstYearUsd": 70577,
+      "needMetPct": 92.5
     },
     "enrollment": {
       "undergraduates": 708
@@ -113,10 +114,23 @@
     "studentLife": {
       "outOfStatePct": 92.5,
       "onCampusPct": 98.8
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 9,
+        "10-19": 155,
+        "20-29": 69,
+        "30-39": 10,
+        "40-49": 1,
+        "50-99": 3,
+        "100+": 2,
+        "total": 249
+      },
+      "under20Pct": 65.9
     }
   },
-  "ingestedAt": "2026-09-15 17:06:38",
-  "updatedAt": "2026-09-15 17:06:38",
+  "ingestedAt": "2026-09-15 19:23:01",
+  "updatedAt": "2026-09-15 19:23:01",
   "validation": {
     "school": "Bennington College",
     "slug": "bennington-college",

@@ -105,7 +105,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 47282
+      "averagePackageFirstYearUsd": 47282,
+      "needMetPct": 92.1
     },
     "retention": {
       "firstYearPct": 84.7
@@ -129,8 +130,8 @@
       "onCampusPct": 99
     }
   },
-  "ingestedAt": "2026-09-15 17:09:38",
-  "updatedAt": "2026-09-15 17:09:38",
+  "ingestedAt": "2026-09-15 19:25:24",
+  "updatedAt": "2026-09-15 19:25:24",
   "validation": {
     "school": "Ithaca College",
     "slug": "ithaca-college",

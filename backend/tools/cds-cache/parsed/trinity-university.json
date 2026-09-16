@@ -377,7 +377,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 52568
+      "averagePackageFirstYearUsd": 52568,
+      "needMetPct": 95.2
     },
     "enrollment": {
       "undergraduates": 2518
@@ -405,10 +406,23 @@
       "requiredFeesUsd": 324,
       "foodAndHousingUsd": 14750,
       "academicYear": "2025-2026"
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 116,
+        "10-19": 252,
+        "20-29": 126,
+        "30-39": 29,
+        "40-49": 10,
+        "50-99": 3,
+        "100+": 0,
+        "total": 536
+      },
+      "under20Pct": 68.7
     }
   },
-  "ingestedAt": "2026-09-15 17:13:04",
-  "updatedAt": "2026-09-15 17:13:04",
+  "ingestedAt": "2026-09-15 19:28:15",
+  "updatedAt": "2026-09-15 19:28:15",
   "validation": {
     "school": "Trinity University",
     "slug": "trinity-university",

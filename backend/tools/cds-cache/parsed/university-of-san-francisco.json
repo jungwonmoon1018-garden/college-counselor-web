@@ -244,6 +244,9 @@
     "enrollment": {
       "undergraduates": 5321
     },
+    "retention": {
+      "firstYearPct": 83.7
+    },
     "graduation": {
       "sixYearPct": 69.9,
       "cohort": 2018
@@ -266,10 +269,23 @@
       "tuitionUsd": 61720,
       "requiredFeesUsd": 592,
       "foodAndHousingUsd": 18490
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 101,
+        "10-19": 297,
+        "20-29": 287,
+        "30-39": 179,
+        "40-49": 64,
+        "50-99": 4,
+        "100+": 0,
+        "total": 932
+      },
+      "under20Pct": 42.7
     }
   },
-  "ingestedAt": "2026-09-15 17:15:49",
-  "updatedAt": "2026-09-15 17:15:49",
+  "ingestedAt": "2026-09-16 04:18:05",
+  "updatedAt": "2026-09-16 04:18:05",
   "validation": {
     "school": "University of San Francisco",
     "slug": "university-of-san-francisco",

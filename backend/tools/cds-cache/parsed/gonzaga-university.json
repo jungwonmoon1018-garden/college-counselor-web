@@ -78,7 +78,8 @@
     },
     "applicationFeeUsd": 60,
     "aid": {
-      "averagePackageFirstYearUsd": 43817
+      "averagePackageFirstYearUsd": 43817,
+      "needMetPct": 85
     },
     "enrollment": {
       "undergraduates": 5281
@@ -96,10 +97,23 @@
     "studentLife": {
       "outOfStatePct": 48,
       "onCampusPct": 95
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 36,
+        "10-19": 190,
+        "20-29": 283,
+        "30-39": 471,
+        "40-49": 174,
+        "50-99": 39,
+        "100+": 7,
+        "total": 1200
+      },
+      "under20Pct": 18.8
     }
   },
-  "ingestedAt": "2026-09-15 17:09:07",
-  "updatedAt": "2026-09-15 17:09:07",
+  "ingestedAt": "2026-09-15 19:25:02",
+  "updatedAt": "2026-09-15 19:25:02",
   "validation": {
     "school": "Gonzaga University",
     "slug": "gonzaga-university",

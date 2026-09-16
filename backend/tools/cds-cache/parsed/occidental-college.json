@@ -184,10 +184,14 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 56806
+      "averagePackageFirstYearUsd": 56806,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 1881
+    },
+    "retention": {
+      "firstYearPct": 92
     },
     "graduation": {
       "sixYearPct": 80.9,
@@ -213,8 +217,8 @@
       "foodAndHousingUsd": 19252
     }
   },
-  "ingestedAt": "2026-09-15 17:10:55",
-  "updatedAt": "2026-09-15 17:10:55",
+  "ingestedAt": "2026-09-15 19:26:27",
+  "updatedAt": "2026-09-15 19:26:27",
   "validation": {
     "school": "Occidental College",
     "slug": "occidental-college",

@@ -98,7 +98,8 @@
       "edNotification": "12 1"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 64823
+      "averagePackageFirstYearUsd": 64823,
+      "needMetPct": 92
     },
     "enrollment": {
       "undergraduates": 14145
@@ -111,10 +112,23 @@
     "studentLife": {
       "outOfStatePct": 59.1,
       "onCampusPct": 95
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 364,
+        "10-19": 734,
+        "20-29": 416,
+        "30-39": 445,
+        "40-49": 134,
+        "50-99": 120,
+        "100+": 39,
+        "total": 2252
+      },
+      "under20Pct": 48.8
     }
   },
-  "ingestedAt": "2026-09-15 17:11:32",
-  "updatedAt": "2026-09-15 17:11:32",
+  "ingestedAt": "2026-09-15 19:26:58",
+  "updatedAt": "2026-09-15 19:26:58",
   "validation": {
     "school": "Rochester Institute of Technology",
     "slug": "rochester-institute-of-technology",

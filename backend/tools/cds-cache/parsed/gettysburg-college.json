@@ -132,7 +132,8 @@
       "edNotification": "15-Dec"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 60856
+      "averagePackageFirstYearUsd": 60856,
+      "needMetPct": 90
     },
     "enrollment": {
       "undergraduates": 1993
@@ -162,10 +163,23 @@
       "tuitionUsd": 71730,
       "foodAndHousingUsd": 17340,
       "academicYear": "2026-2027"
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 83,
+        "10-19": 227,
+        "20-29": 125,
+        "30-39": 38,
+        "40-49": 2,
+        "50-99": 1,
+        "100+": 0,
+        "total": 476
+      },
+      "under20Pct": 65.1
     }
   },
-  "ingestedAt": "2026-09-15 17:09:12",
-  "updatedAt": "2026-09-15 17:09:12",
+  "ingestedAt": "2026-09-15 19:25:01",
+  "updatedAt": "2026-09-15 19:25:01",
   "validation": {
     "school": "Gettysburg College",
     "slug": "gettysburg-college",

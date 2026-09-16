@@ -225,10 +225,14 @@
       "edNotification": "15-Dec"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 36892
+      "averagePackageFirstYearUsd": 36892,
+      "needMetPct": 89.2
     },
     "enrollment": {
       "undergraduates": 1636
+    },
+    "retention": {
+      "firstYearPct": 87.5
     },
     "graduation": {
       "sixYearPct": 69,
@@ -247,10 +251,23 @@
     "studentLife": {
       "outOfStatePct": 29,
       "onCampusPct": 5
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 78,
+        "10-19": 189,
+        "20-29": 86,
+        "30-39": 34,
+        "40-49": 5,
+        "50-99": 1,
+        "100+": 0,
+        "total": 393
+      },
+      "under20Pct": 67.9
     }
   },
-  "ingestedAt": "2026-09-15 17:08:04",
-  "updatedAt": "2026-09-15 17:08:04",
+  "ingestedAt": "2026-09-15 19:24:11",
+  "updatedAt": "2026-09-15 19:24:11",
   "validation": {
     "school": "Drew University",
     "slug": "drew-university",

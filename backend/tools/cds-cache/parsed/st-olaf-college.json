@@ -416,10 +416,23 @@
     "costs": {
       "tuitionUsd": 62700,
       "foodAndHousingUsd": 14300
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 36,
+        "10-19": 197,
+        "20-29": 274,
+        "30-39": 42,
+        "40-49": 15,
+        "50-99": 10,
+        "100+": 0,
+        "total": 574
+      },
+      "under20Pct": 40.6
     }
   },
-  "ingestedAt": "2026-09-15 17:12:09",
-  "updatedAt": "2026-09-15 17:12:09",
+  "ingestedAt": "2026-09-15 19:27:27",
+  "updatedAt": "2026-09-15 19:27:27",
   "validation": {
     "school": "St Olaf College",
     "slug": "st-olaf-college",

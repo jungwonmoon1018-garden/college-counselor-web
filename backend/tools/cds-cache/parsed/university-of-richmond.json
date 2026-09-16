@@ -258,7 +258,8 @@
       "edNotification": "15-Dec"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 63291
+      "averagePackageFirstYearUsd": 63291,
+      "needMetPct": 99.7
     },
     "enrollment": {
       "undergraduates": 3055
@@ -290,10 +291,23 @@
       "tuitionUsd": 67840,
       "foodAndHousingUsd": 18010,
       "academicYear": "2025-2026"
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 289,
+        "10-19": 451,
+        "20-29": 221,
+        "30-39": 4,
+        "40-49": 1,
+        "50-99": 1,
+        "100+": 0,
+        "total": 967
+      },
+      "under20Pct": 76.5
     }
   },
-  "ingestedAt": "2026-09-15 17:15:43",
-  "updatedAt": "2026-09-15 17:15:43",
+  "ingestedAt": "2026-09-16 04:18:04",
+  "updatedAt": "2026-09-16 04:18:04",
   "validation": {
     "school": "University of Richmond",
     "slug": "university-of-richmond",

@@ -104,7 +104,8 @@
       "edNotification": "Click or tap here to enter text."
     },
     "aid": {
-      "averagePackageFirstYearUsd": 20850
+      "averagePackageFirstYearUsd": 20850,
+      "needMetPct": 88.3
     },
     "enrollment": {
       "undergraduates": 836
@@ -123,8 +124,8 @@
       "onCampusPct": 81
     }
   },
-  "ingestedAt": "2026-09-15 17:10:20",
-  "updatedAt": "2026-09-15 17:10:20",
+  "ingestedAt": "2026-09-15 19:26:01",
+  "updatedAt": "2026-09-15 19:26:01",
   "validation": {
     "school": "Massachusetts College of Liberal Arts",
     "slug": "massachusetts-college-of-liberal-arts",

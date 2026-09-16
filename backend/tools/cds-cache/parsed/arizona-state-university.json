@@ -80,7 +80,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 17539
+      "averagePackageFirstYearUsd": 17539,
+      "needMetPct": 61
     },
     "enrollment": {
       "undergraduates": 65450
@@ -97,10 +98,23 @@
     "studentLife": {
       "outOfStatePct": 31,
       "onCampusPct": 69.8
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 754,
+        "10-19": 1907,
+        "20-29": 1684,
+        "30-39": 742,
+        "40-49": 462,
+        "50-99": 786,
+        "100+": 416,
+        "total": 6751
+      },
+      "under20Pct": 39.4
     }
   },
-  "ingestedAt": "2026-09-15 17:05:12",
-  "updatedAt": "2026-09-15 17:05:12",
+  "ingestedAt": "2026-09-15 19:21:53",
+  "updatedAt": "2026-09-15 19:21:53",
   "validation": {
     "school": "Arizona State University",
     "slug": "arizona-state-university",

@@ -166,7 +166,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 57912
+      "averagePackageFirstYearUsd": 57912,
+      "needMetPct": 99
     },
     "graduation": {
       "sixYearPct": 92,
@@ -187,8 +188,8 @@
       "onCampusPct": 100
     }
   },
-  "ingestedAt": "2026-09-15 17:08:42",
-  "updatedAt": "2026-09-15 17:08:42",
+  "ingestedAt": "2026-09-15 19:24:40",
+  "updatedAt": "2026-09-15 19:24:40",
   "validation": {
     "school": "Franklin W. Olin College of Engineering",
     "slug": "franklin-w-olin-college-of-engineering",

@@ -190,10 +190,23 @@
       "tuitionUsd": 71170,
       "requiredFeesUsd": 984,
       "foodAndHousingUsd": 20530
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 281,
+        "10-19": 416,
+        "20-29": 168,
+        "30-39": 89,
+        "40-49": 64,
+        "50-99": 89,
+        "100+": 25,
+        "total": 1132
+      },
+      "under20Pct": 61.6
     }
   },
-  "ingestedAt": "2026-09-15 17:11:25",
-  "updatedAt": "2026-09-15 17:11:25",
+  "ingestedAt": "2026-09-15 19:26:53",
+  "updatedAt": "2026-09-15 19:26:53",
   "validation": {
     "school": "Rice University",
     "slug": "rice-university",

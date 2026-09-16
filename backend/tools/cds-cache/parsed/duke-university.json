@@ -120,7 +120,8 @@
       "edNotification": "12 months 15 days"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 83513
+      "averagePackageFirstYearUsd": 83513,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 6525
@@ -141,10 +142,23 @@
       "tuitionUsd": 73740,
       "requiredFeesUsd": 2635,
       "foodAndHousingUsd": 20222
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 464,
+        "10-19": 651,
+        "20-29": 178,
+        "30-39": 113,
+        "40-49": 47,
+        "50-99": 76,
+        "100+": 42,
+        "total": 1571
+      },
+      "under20Pct": 71
     }
   },
-  "ingestedAt": "2026-09-15 17:08:10",
-  "updatedAt": "2026-09-15 17:08:10",
+  "ingestedAt": "2026-09-15 19:24:15",
+  "updatedAt": "2026-09-15 19:24:15",
   "validation": {
     "school": "Duke University",
     "slug": "duke-university",

@@ -374,10 +374,26 @@
       "tuitionOutOfStateUsd": 44574,
       "requiredFeesUsd": 640,
       "foodAndHousingUsd": 15968
+    },
+    "aid": {
+      "needMetPct": 68.6
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 530,
+        "10-19": 1122,
+        "20-29": 1497,
+        "30-39": 540,
+        "40-49": 552,
+        "50-99": 512,
+        "100+": 412,
+        "total": 5165
+      },
+      "under20Pct": 32
     }
   },
-  "ingestedAt": "2026-09-15 17:11:03",
-  "updatedAt": "2026-09-15 17:11:03",
+  "ingestedAt": "2026-09-15 19:26:34",
+  "updatedAt": "2026-09-15 19:26:34",
   "validation": {
     "school": "Pennsylvania State University - University Park",
     "slug": "pennsylvania-state-university-university-park",

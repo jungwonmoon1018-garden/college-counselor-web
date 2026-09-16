@@ -134,7 +134,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 20547
+      "averagePackageFirstYearUsd": 20547,
+      "needMetPct": 78.4
     },
     "studentFacultyRatio": "1 to 1",
     "enrollment": {
@@ -144,10 +145,23 @@
       "applied": 2337,
       "admitted": 1973,
       "enrolled": 1158
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 175,
+        "10-19": 548,
+        "20-29": 532,
+        "30-39": 171,
+        "40-49": 106,
+        "50-99": 201,
+        "100+": 142,
+        "total": 1875
+      },
+      "under20Pct": 38.6
     }
   },
-  "ingestedAt": "2026-09-15 17:14:27",
-  "updatedAt": "2026-09-15 17:14:27",
+  "ingestedAt": "2026-09-15 19:29:50",
+  "updatedAt": "2026-09-15 19:29:50",
   "validation": {
     "school": "University of Kansas",
     "slug": "university-of-kansas",

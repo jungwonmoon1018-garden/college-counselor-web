@@ -383,7 +383,8 @@
     },
     "applicationFeeUsd": 40,
     "aid": {
-      "averagePackageFirstYearUsd": 10694
+      "averagePackageFirstYearUsd": 10694,
+      "needMetPct": 46.2
     },
     "enrollment": {
       "undergraduates": 12100
@@ -409,10 +410,23 @@
       "tuitionOutOfStateUsd": 29820,
       "requiredFeesUsd": 500,
       "foodAndHousingUsd": 14720
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 202,
+        "10-19": 319,
+        "20-29": 265,
+        "30-39": 92,
+        "40-49": 72,
+        "50-99": 101,
+        "100+": 42,
+        "total": 1093
+      },
+      "under20Pct": 47.7
     }
   },
-  "ingestedAt": "2026-09-15 17:13:32",
-  "updatedAt": "2026-09-15 17:13:32",
+  "ingestedAt": "2026-09-15 19:28:44",
+  "updatedAt": "2026-09-15 19:28:44",
   "validation": {
     "school": "University of Alabama at Birmingham",
     "slug": "university-of-alabama-at-birmingham",

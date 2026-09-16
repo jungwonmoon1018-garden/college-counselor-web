@@ -88,6 +88,9 @@
     "enrollment": {
       "undergraduates": 5551
     },
+    "retention": {
+      "firstYearPct": 86.1
+    },
     "waitlist": {
       "offered": 3867,
       "accepted": 1014,
@@ -101,8 +104,8 @@
       "needMetPct": 78.9
     }
   },
-  "ingestedAt": "2026-09-15 17:10:12",
-  "updatedAt": "2026-09-15 17:10:12",
+  "ingestedAt": "2026-09-15 19:25:55",
+  "updatedAt": "2026-09-15 19:25:55",
   "validation": {
     "school": "Marist College",
     "slug": "marist-college",

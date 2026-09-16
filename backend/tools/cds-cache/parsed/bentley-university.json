@@ -386,7 +386,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 47713
+      "averagePackageFirstYearUsd": 47713,
+      "needMetPct": 88
     },
     "enrollment": {
       "undergraduates": 4526
@@ -413,10 +414,23 @@
       "tuitionUsd": 61000,
       "foodAndHousingUsd": 20140,
       "academicYear": "2025-2026"
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 16,
+        "10-19": 163,
+        "20-29": 258,
+        "30-39": 371,
+        "40-49": 0,
+        "50-99": 0,
+        "100+": 0,
+        "total": 808
+      },
+      "under20Pct": 22.2
     }
   },
-  "ingestedAt": "2026-09-15 17:06:06",
-  "updatedAt": "2026-09-15 17:06:06",
+  "ingestedAt": "2026-09-15 19:22:35",
+  "updatedAt": "2026-09-15 19:22:35",
   "validation": {
     "school": "Bentley University",
     "slug": "bentley-university",

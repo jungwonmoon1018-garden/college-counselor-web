@@ -438,7 +438,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 63336
+      "averagePackageFirstYearUsd": 63336,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 2675
@@ -468,10 +469,23 @@
       "tuitionUsd": 70486,
       "requiredFeesUsd": 1110,
       "foodAndHousingUsd": 20896
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 88,
+        "10-19": 291,
+        "20-29": 142,
+        "30-39": 55,
+        "40-49": 8,
+        "50-99": 3,
+        "100+": 0,
+        "total": 587
+      },
+      "under20Pct": 64.6
     }
   },
-  "ingestedAt": "2026-09-15 17:09:51",
-  "updatedAt": "2026-09-15 17:09:51",
+  "ingestedAt": "2026-09-15 19:25:35",
+  "updatedAt": "2026-09-15 19:25:35",
   "validation": {
     "school": "Lafayette College",
     "slug": "lafayette-college",

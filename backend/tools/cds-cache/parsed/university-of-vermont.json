@@ -363,7 +363,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 33353
+      "averagePackageFirstYearUsd": 33353,
+      "needMetPct": 82.7
     },
     "enrollment": {
       "undergraduates": 12159
@@ -393,10 +394,23 @@
       "tuitionInStateUsd": 16606,
       "tuitionOutOfStateUsd": 44646,
       "requiredFeesUsd": 2908
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 310,
+        "10-19": 420,
+        "20-29": 365,
+        "30-39": 170,
+        "40-49": 139,
+        "50-99": 183,
+        "100+": 106,
+        "total": 1693
+      },
+      "under20Pct": 43.1
     }
   },
-  "ingestedAt": "2026-09-15 17:16:04",
-  "updatedAt": "2026-09-15 17:16:04",
+  "ingestedAt": "2026-09-16 04:18:12",
+  "updatedAt": "2026-09-16 04:18:12",
   "validation": {
     "school": "University of Vermont",
     "slug": "university-of-vermont",

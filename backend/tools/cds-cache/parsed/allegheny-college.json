@@ -111,20 +111,20 @@
     },
     "classSize": {
       "sections": {
-        "2-9": 99,
-        "10-19": 183,
-        "20-29": 44,
-        "30-39": 2,
+        "2-9": 7,
+        "10-19": 14,
+        "20-29": 3,
+        "30-39": 0,
         "40-49": 0,
         "50-99": 0,
         "100+": 0,
-        "total": 328
+        "total": 24
       },
-      "under20Pct": 86
+      "under20Pct": 87.5
     }
   },
-  "ingestedAt": "2026-09-15 17:04:47",
-  "updatedAt": "2026-09-15 17:04:47",
+  "ingestedAt": "2026-09-15 19:21:34",
+  "updatedAt": "2026-09-15 19:21:34",
   "validation": {
     "school": "Allegheny College",
     "slug": "allegheny-college",

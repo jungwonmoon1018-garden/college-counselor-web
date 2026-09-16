@@ -67,7 +67,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 20219
+      "averagePackageFirstYearUsd": 20219,
+      "needMetPct": 80.4
     },
     "enrollment": {
       "undergraduates": 43165
@@ -88,10 +89,23 @@
     "costs": {
       "tuitionOutOfStateUsd": 44908,
       "foodAndHousingUsd": 14828
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 424,
+        "10-19": 1241,
+        "20-29": 1128,
+        "30-39": 355,
+        "40-49": 282,
+        "50-99": 708,
+        "100+": 391,
+        "total": 4529
+      },
+      "under20Pct": 36.8
     }
   },
-  "ingestedAt": "2026-09-15 17:16:01",
-  "updatedAt": "2026-09-15 17:16:01",
+  "ingestedAt": "2026-09-16 04:18:10",
+  "updatedAt": "2026-09-16 04:18:10",
   "validation": {
     "school": "University of Texas at Austin",
     "slug": "university-of-texas-at-austin",

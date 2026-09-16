@@ -325,10 +325,14 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 18812
+      "averagePackageFirstYearUsd": 18812,
+      "needMetPct": 76
     },
     "enrollment": {
       "undergraduates": 14668
+    },
+    "retention": {
+      "firstYearPct": 89.5
     },
     "graduation": {
       "sixYearPct": 82,
@@ -357,10 +361,23 @@
       "tuitionInStateUsd": 7070,
       "tuitionOutOfStateUsd": 26950,
       "requiredFeesUsd": 3497
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 398,
+        "10-19": 579,
+        "20-29": 422,
+        "30-39": 158,
+        "40-49": 73,
+        "50-99": 135,
+        "100+": 130,
+        "total": 1895
+      },
+      "under20Pct": 51.6
     }
   },
-  "ingestedAt": "2026-09-15 17:06:08",
-  "updatedAt": "2026-09-15 17:06:08",
+  "ingestedAt": "2026-09-15 19:22:37",
+  "updatedAt": "2026-09-15 19:22:37",
   "validation": {
     "school": "Binghamton University",
     "slug": "binghamton-university",

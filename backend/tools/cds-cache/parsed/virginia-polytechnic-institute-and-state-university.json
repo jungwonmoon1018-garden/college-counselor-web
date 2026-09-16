@@ -83,6 +83,9 @@
     "enrollment": {
       "undergraduates": 31035
     },
+    "retention": {
+      "firstYearPct": 93
+    },
     "waitlist": {
       "offered": 17659,
       "accepted": 11067,
@@ -96,8 +99,8 @@
       "needMetPct": 54.5
     }
   },
-  "ingestedAt": "2026-09-15 17:16:29",
-  "updatedAt": "2026-09-15 17:16:29",
+  "ingestedAt": "2026-09-16 04:18:42",
+  "updatedAt": "2026-09-16 04:18:42",
   "validation": {
     "school": "Virginia Polytechnic Institute and State University",
     "slug": "virginia-polytechnic-institute-and-state-university",

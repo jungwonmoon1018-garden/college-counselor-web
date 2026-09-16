@@ -127,10 +127,23 @@
       "requiredFeesUsd": 3749,
       "foodAndHousingUsd": 20771,
       "academicYear": "2025-2026"
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 111,
+        "10-19": 396,
+        "20-29": 1257,
+        "30-39": 546,
+        "40-49": 154,
+        "50-99": 153,
+        "100+": 44,
+        "total": 2661
+      },
+      "under20Pct": 19.1
     }
   },
-  "ingestedAt": "2026-09-15 17:13:37",
-  "updatedAt": "2026-09-15 17:13:37",
+  "ingestedAt": "2026-09-15 19:28:53",
+  "updatedAt": "2026-09-15 19:28:53",
   "validation": {
     "school": "University of California, Davis",
     "slug": "university-of-california-davis",

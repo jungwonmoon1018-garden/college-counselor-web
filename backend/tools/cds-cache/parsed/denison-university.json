@@ -78,7 +78,8 @@
       "edNotification": "12 15"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 63434
+      "averagePackageFirstYearUsd": 63434,
+      "needMetPct": 100
     },
     "waitlist": {
       "offered": 1376,
@@ -93,10 +94,23 @@
     "studentLife": {
       "outOfStatePct": 72,
       "onCampusPct": 100
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 162,
+        "10-19": 314,
+        "20-29": 199,
+        "30-39": 11,
+        "40-49": 3,
+        "50-99": 2,
+        "100+": 691,
+        "total": 1382
+      },
+      "under20Pct": 34.4
     }
   },
-  "ingestedAt": "2026-09-15 17:08:18",
-  "updatedAt": "2026-09-15 17:08:18",
+  "ingestedAt": "2026-09-15 19:24:20",
+  "updatedAt": "2026-09-15 19:24:20",
   "validation": {
     "school": "Denison University",
     "slug": "denison-university",

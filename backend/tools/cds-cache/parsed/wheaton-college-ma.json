@@ -275,10 +275,14 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 49406
+      "averagePackageFirstYearUsd": 49406,
+      "needMetPct": 87.2
     },
     "enrollment": {
       "undergraduates": 1669
+    },
+    "retention": {
+      "firstYearPct": 87.4
     },
     "graduation": {
       "sixYearPct": 77.5,
@@ -302,10 +306,23 @@
       "tuitionUsd": 57700,
       "requiredFeesUsd": 480,
       "foodAndHousingUsd": 14670
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 53,
+        "10-19": 134,
+        "20-29": 59,
+        "30-39": 53,
+        "40-49": 15,
+        "50-99": 4,
+        "100+": 2,
+        "total": 320
+      },
+      "under20Pct": 58.4
     }
   },
-  "ingestedAt": "2026-09-15 17:16:47",
-  "updatedAt": "2026-09-15 17:16:47",
+  "ingestedAt": "2026-09-16 04:18:31",
+  "updatedAt": "2026-09-16 04:18:31",
   "validation": {
     "school": "Wheaton College, MA",
     "slug": "wheaton-college-ma",

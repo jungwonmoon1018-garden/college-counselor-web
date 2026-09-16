@@ -412,7 +412,8 @@
       "submittedPct": 99.9
     },
     "aid": {
-      "averagePackageFirstYearUsd": 46999
+      "averagePackageFirstYearUsd": 46999,
+      "needMetPct": 84.6
     },
     "enrollment": {
       "undergraduates": 12538
@@ -437,10 +438,23 @@
       "tuitionUsd": 54530,
       "requiredFeesUsd": 1530,
       "foodAndHousingUsd": 17330
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 152,
+        "10-19": 641,
+        "20-29": 464,
+        "30-39": 548,
+        "40-49": 247,
+        "50-99": 34,
+        "100+": 23,
+        "total": 2109
+      },
+      "under20Pct": 37.6
     }
   },
-  "ingestedAt": "2026-09-15 17:10:12",
-  "updatedAt": "2026-09-15 17:10:12",
+  "ingestedAt": "2026-09-15 19:25:54",
+  "updatedAt": "2026-09-15 19:25:54",
   "validation": {
     "school": "Loyola University Chicago",
     "slug": "loyola-university-chicago",

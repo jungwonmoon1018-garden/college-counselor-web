@@ -86,7 +86,8 @@
       "edNotification": "12 5"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 10043
+      "averagePackageFirstYearUsd": 10043,
+      "needMetPct": 58.7
     },
     "enrollment": {
       "undergraduates": 5444
@@ -106,8 +107,8 @@
       "onCampusPct": 51.2
     }
   },
-  "ingestedAt": "2026-09-15 17:11:18",
-  "updatedAt": "2026-09-15 17:11:18",
+  "ingestedAt": "2026-09-15 19:26:46",
+  "updatedAt": "2026-09-15 19:26:46",
   "validation": {
     "school": "Ramapo College of New Jersey",
     "slug": "ramapo-college-of-new-jersey",

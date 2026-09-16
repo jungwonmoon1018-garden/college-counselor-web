@@ -308,7 +308,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 17049
+      "averagePackageFirstYearUsd": 17049,
+      "needMetPct": 69
     },
     "enrollment": {
       "undergraduates": 21858
@@ -331,10 +332,23 @@
       "tuitionOutOfStateUsd": 36139,
       "requiredFeesUsd": 4005,
       "foodAndHousingUsd": 15125
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 105,
+        "10-19": 438,
+        "20-29": 402,
+        "30-39": 352,
+        "40-49": 302,
+        "50-99": 483,
+        "100+": 158,
+        "total": 2240
+      },
+      "under20Pct": 24.2
     }
   },
-  "ingestedAt": "2026-09-15 17:16:02",
-  "updatedAt": "2026-09-15 17:16:02",
+  "ingestedAt": "2026-09-16 04:18:12",
+  "updatedAt": "2026-09-16 04:18:12",
   "validation": {
     "school": "University of Texas at Dallas",
     "slug": "university-of-texas-at-dallas",

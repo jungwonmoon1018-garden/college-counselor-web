@@ -88,7 +88,8 @@
     },
     "applicationFeeUsd": 65,
     "aid": {
-      "averagePackageFirstYearUsd": 17699
+      "averagePackageFirstYearUsd": 17699,
+      "needMetPct": 63
     },
     "waitlist": {
       "offered": 4334,
@@ -105,8 +106,8 @@
       "onCampusPct": 96.1
     }
   },
-  "ingestedAt": "2026-09-15 17:10:29",
-  "updatedAt": "2026-09-15 17:10:29",
+  "ingestedAt": "2026-09-15 19:26:08",
+  "updatedAt": "2026-09-15 19:26:08",
   "validation": {
     "school": "Michigan State University",
     "slug": "michigan-state-university",

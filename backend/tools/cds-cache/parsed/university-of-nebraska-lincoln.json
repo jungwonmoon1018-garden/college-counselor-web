@@ -103,6 +103,9 @@
     "enrollment": {
       "undergraduates": 19701
     },
+    "retention": {
+      "firstYearPct": 86.3
+    },
     "transfer": {
       "applied": 1958,
       "admitted": 1093,
@@ -125,8 +128,8 @@
       "under20Pct": 30.8
     }
   },
-  "ingestedAt": "2026-09-15 17:14:58",
-  "updatedAt": "2026-09-15 17:14:58",
+  "ingestedAt": "2026-09-16 04:17:40",
+  "updatedAt": "2026-09-16 04:17:40",
   "validation": {
     "school": "University of Nebraska-Lincoln",
     "slug": "university-of-nebraska-lincoln",

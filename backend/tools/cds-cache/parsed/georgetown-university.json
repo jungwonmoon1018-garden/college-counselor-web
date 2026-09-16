@@ -361,7 +361,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 60931
+      "averagePackageFirstYearUsd": 60931,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 7833
@@ -389,10 +390,23 @@
       "requiredFeesUsd": 202,
       "foodAndHousingUsd": 21202,
       "academicYear": "2025-2026"
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 389,
+        "10-19": 831,
+        "20-29": 310,
+        "30-39": 150,
+        "40-49": 91,
+        "50-99": 73,
+        "100+": 30,
+        "total": 1874
+      },
+      "under20Pct": 65.1
     }
   },
-  "ingestedAt": "2026-09-15 17:08:58",
-  "updatedAt": "2026-09-15 17:08:58",
+  "ingestedAt": "2026-09-15 19:24:55",
+  "updatedAt": "2026-09-15 19:24:55",
   "validation": {
     "school": "Georgetown University",
     "slug": "georgetown-university",

@@ -236,10 +236,23 @@
     "costs": {
       "tuitionUsd": 67427,
       "requiredFeesUsd": 463
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 57,
+        "10-19": 218,
+        "20-29": 110,
+        "30-39": 22,
+        "40-49": 6,
+        "50-99": 2,
+        "100+": 0,
+        "total": 415
+      },
+      "under20Pct": 66.3
     }
   },
-  "ingestedAt": "2026-09-15 17:12:05",
-  "updatedAt": "2026-09-15 17:12:05",
+  "ingestedAt": "2026-09-15 19:27:23",
+  "updatedAt": "2026-09-15 19:27:23",
   "validation": {
     "school": "St Lawrence University",
     "slug": "st-lawrence-university",

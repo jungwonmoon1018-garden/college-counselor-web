@@ -210,7 +210,11 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 16873
+      "averagePackageFirstYearUsd": 16873,
+      "needMetPct": 55
+    },
+    "retention": {
+      "firstYearPct": 83
     },
     "graduation": {
       "sixYearPct": 62.9,
@@ -221,8 +225,8 @@
       "onCampusPct": 99
     }
   },
-  "ingestedAt": "2026-09-15 17:10:33",
-  "updatedAt": "2026-09-15 17:10:33",
+  "ingestedAt": "2026-09-15 19:26:11",
+  "updatedAt": "2026-09-15 19:26:11",
   "validation": {
     "school": "Mississippi State University",
     "slug": "mississippi-state-university",

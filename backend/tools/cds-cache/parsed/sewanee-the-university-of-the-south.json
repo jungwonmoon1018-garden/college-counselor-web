@@ -293,7 +293,8 @@
       "edNotification": "early December"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 49729
+      "averagePackageFirstYearUsd": 49729,
+      "needMetPct": 95
     },
     "enrollment": {
       "undergraduates": 1615
@@ -321,10 +322,23 @@
       "requiredFeesUsd": 298,
       "foodAndHousingUsd": 16028,
       "academicYear": "2024-2025"
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 93,
+        "10-19": 174,
+        "20-29": 129,
+        "30-39": 5,
+        "40-49": 1,
+        "50-99": 3,
+        "100+": 405,
+        "total": 810
+      },
+      "under20Pct": 33
     }
   },
-  "ingestedAt": "2026-09-15 17:11:55",
-  "updatedAt": "2026-09-15 17:11:55",
+  "ingestedAt": "2026-09-15 19:27:15",
+  "updatedAt": "2026-09-15 19:27:15",
   "validation": {
     "school": "Sewanee: The University of the South",
     "slug": "sewanee-the-university-of-the-south",

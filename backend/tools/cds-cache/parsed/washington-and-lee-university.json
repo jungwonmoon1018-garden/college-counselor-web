@@ -202,7 +202,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 80346
+      "averagePackageFirstYearUsd": 80346,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 1916
@@ -232,10 +233,23 @@
       "tuitionUsd": 73575,
       "requiredFeesUsd": 1285,
       "foodAndHousingUsd": 20575
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 94,
+        "10-19": 334,
+        "20-29": 83,
+        "30-39": 2,
+        "40-49": 0,
+        "50-99": 0,
+        "100+": 0,
+        "total": 513
+      },
+      "under20Pct": 83.4
     }
   },
-  "ingestedAt": "2026-09-15 17:16:35",
-  "updatedAt": "2026-09-15 17:16:35",
+  "ingestedAt": "2026-09-16 04:18:24",
+  "updatedAt": "2026-09-16 04:18:24",
   "validation": {
     "school": "Washington and Lee University",
     "slug": "washington-and-lee-university",

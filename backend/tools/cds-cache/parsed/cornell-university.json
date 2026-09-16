@@ -114,25 +114,22 @@
       "foodAndHousingUsd": 21348,
       "academicYear": "2026-2027"
     },
-    "aid": {
-      "needMetPct": 1
-    },
     "classSize": {
       "sections": {
-        "2-9": 345,
-        "10-19": 921,
-        "20-29": 321,
-        "30-39": 180,
-        "40-49": 143,
-        "50-99": 295,
-        "100+": 186,
-        "total": 2391
+        "2-9": 149,
+        "10-19": 576,
+        "20-29": 538,
+        "30-39": 124,
+        "40-49": 61,
+        "50-99": 38,
+        "100+": 8,
+        "total": 1494
       },
-      "under20Pct": 52.9
+      "under20Pct": 48.5
     }
   },
-  "ingestedAt": "2026-09-15 17:07:40",
-  "updatedAt": "2026-09-15 17:07:40",
+  "ingestedAt": "2026-09-15 19:23:50",
+  "updatedAt": "2026-09-15 19:23:50",
   "validation": {
     "school": "Cornell University",
     "slug": "cornell-university",

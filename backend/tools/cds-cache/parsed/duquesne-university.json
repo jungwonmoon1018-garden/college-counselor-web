@@ -431,7 +431,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 34694
+      "averagePackageFirstYearUsd": 34694,
+      "needMetPct": 69.5
     },
     "enrollment": {
       "undergraduates": 5371
@@ -457,10 +458,23 @@
     "costs": {
       "tuitionUsd": 51068,
       "foodAndHousingUsd": 17070
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 168,
+        "10-19": 336,
+        "20-29": 333,
+        "30-39": 162,
+        "40-49": 59,
+        "50-99": 80,
+        "100+": 18,
+        "total": 1156
+      },
+      "under20Pct": 43.6
     }
   },
-  "ingestedAt": "2026-09-15 17:08:13",
-  "updatedAt": "2026-09-15 17:08:13",
+  "ingestedAt": "2026-09-15 19:24:18",
+  "updatedAt": "2026-09-15 19:24:18",
   "validation": {
     "school": "Duquesne University",
     "slug": "duquesne-university",

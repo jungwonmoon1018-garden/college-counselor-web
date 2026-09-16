@@ -65,6 +65,9 @@
     "enrollment": {
       "undergraduates": 27438
     },
+    "retention": {
+      "firstYearPct": 77.8
+    },
     "graduation": {
       "sixYearPct": 52.9,
       "cohort": 2018
@@ -76,10 +79,23 @@
     },
     "studentLife": {
       "outOfStatePct": 6
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 212,
+        "10-19": 440,
+        "20-29": 821,
+        "30-39": 344,
+        "40-49": 367,
+        "50-99": 452,
+        "100+": 162,
+        "total": 2798
+      },
+      "under20Pct": 23.3
     }
   },
-  "ingestedAt": "2026-09-15 17:09:08",
-  "updatedAt": "2026-09-15 17:09:08",
+  "ingestedAt": "2026-09-15 19:25:00",
+  "updatedAt": "2026-09-15 19:25:00",
   "validation": {
     "school": "Georgia State University",
     "slug": "georgia-state-university",

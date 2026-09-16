@@ -360,7 +360,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 57609
+      "averagePackageFirstYearUsd": 57609,
+      "needMetPct": 93
     },
     "enrollment": {
       "undergraduates": 3928
@@ -390,10 +391,23 @@
       "tuitionUsd": 72600,
       "requiredFeesUsd": 900,
       "foodAndHousingUsd": 18380
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 134,
+        "10-19": 348,
+        "20-29": 286,
+        "30-39": 63,
+        "40-49": 6,
+        "50-99": 4,
+        "100+": 5,
+        "total": 846
+      },
+      "under20Pct": 57
     }
   },
-  "ingestedAt": "2026-09-15 17:06:28",
-  "updatedAt": "2026-09-15 17:06:28",
+  "ingestedAt": "2026-09-15 19:22:53",
+  "updatedAt": "2026-09-15 19:22:53",
   "validation": {
     "school": "Bucknell University",
     "slug": "bucknell-university",

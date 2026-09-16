@@ -60,7 +60,8 @@
   "parserNotes": [],
   "extras": {
     "aid": {
-      "averagePackageFirstYearUsd": 55072
+      "averagePackageFirstYearUsd": 55072,
+      "needMetPct": 81.5
     },
     "enrollment": {
       "undergraduates": 2296
@@ -87,10 +88,23 @@
       "tuitionUsd": 59800,
       "requiredFeesUsd": 1348,
       "foodAndHousingUsd": 18762
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 83,
+        "10-19": 189,
+        "20-29": 135,
+        "30-39": 63,
+        "40-49": 28,
+        "50-99": 62,
+        "100+": 11,
+        "total": 571
+      },
+      "under20Pct": 47.6
     }
   },
-  "ingestedAt": "2026-09-15 17:07:07",
-  "updatedAt": "2026-09-15 17:07:07",
+  "ingestedAt": "2026-09-15 19:23:26",
+  "updatedAt": "2026-09-15 19:23:26",
   "validation": {
     "school": "Clarkson University",
     "slug": "clarkson-university",

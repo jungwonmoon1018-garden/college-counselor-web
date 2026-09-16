@@ -89,6 +89,9 @@
     "enrollment": {
       "undergraduates": 1346
     },
+    "retention": {
+      "firstYearPct": 87
+    },
     "graduation": {
       "sixYearPct": 76.2,
       "cohort": 2018
@@ -103,8 +106,8 @@
       "onCampusPct": 98
     }
   },
-  "ingestedAt": "2026-09-15 17:11:21",
-  "updatedAt": "2026-09-15 17:11:21",
+  "ingestedAt": "2026-09-15 19:26:49",
+  "updatedAt": "2026-09-15 19:26:49",
   "validation": {
     "school": "Reed College",
     "slug": "reed-college",

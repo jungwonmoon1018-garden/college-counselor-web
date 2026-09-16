@@ -431,7 +431,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 63315
+      "averagePackageFirstYearUsd": 63315,
+      "needMetPct": 90
     },
     "enrollment": {
       "undergraduates": 1626
@@ -461,10 +462,23 @@
       "tuitionUsd": 67550,
       "requiredFeesUsd": 638,
       "foodAndHousingUsd": 17140
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 96,
+        "10-19": 198,
+        "20-29": 116,
+        "30-39": 14,
+        "40-49": 4,
+        "50-99": 2,
+        "100+": 0,
+        "total": 430
+      },
+      "under20Pct": 68.4
     }
   },
-  "ingestedAt": "2026-09-15 17:15:34",
-  "updatedAt": "2026-09-15 17:15:34",
+  "ingestedAt": "2026-09-16 04:17:59",
+  "updatedAt": "2026-09-16 04:17:59",
   "validation": {
     "school": "University of Puget Sound",
     "slug": "university-of-puget-sound",

@@ -325,7 +325,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 64085
+      "averagePackageFirstYearUsd": 64085,
+      "needMetPct": 97.1
     },
     "enrollment": {
       "undergraduates": 1468
@@ -352,8 +353,8 @@
       "onCampusPct": 99
     }
   },
-  "ingestedAt": "2026-09-15 17:16:50",
-  "updatedAt": "2026-09-15 17:16:50",
+  "ingestedAt": "2026-09-16 04:18:31",
+  "updatedAt": "2026-09-16 04:18:31",
   "validation": {
     "school": "Whitman College",
     "slug": "whitman-college",

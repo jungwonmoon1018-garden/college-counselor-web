@@ -288,7 +288,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 75166
+      "averagePackageFirstYearUsd": 75166,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 6738
@@ -311,10 +312,23 @@
     "studentLife": {
       "outOfStatePct": 86,
       "onCampusPct": 100
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 482,
+        "10-19": 303,
+        "20-29": 84,
+        "30-39": 42,
+        "40-49": 28,
+        "50-99": 78,
+        "100+": 49,
+        "total": 1066
+      },
+      "under20Pct": 73.6
     }
   },
-  "ingestedAt": "2026-09-15 17:09:13",
-  "updatedAt": "2026-09-15 17:09:13",
+  "ingestedAt": "2026-09-15 19:25:05",
+  "updatedAt": "2026-09-15 19:25:05",
   "validation": {
     "school": "Harvard University",
     "slug": "harvard-university",

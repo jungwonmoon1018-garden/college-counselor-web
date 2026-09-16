@@ -398,10 +398,14 @@
     },
     "applicationFeeUsd": 75,
     "aid": {
-      "averagePackageFirstYearUsd": 82308
+      "averagePackageFirstYearUsd": 82308,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 7519
+    },
+    "retention": {
+      "firstYearPct": 99
     },
     "graduation": {
       "sixYearPct": 95.9,
@@ -420,10 +424,23 @@
       "tuitionUsd": 71325,
       "requiredFeesUsd": 2637,
       "foodAndHousingUsd": 20835
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 758,
+        "10-19": 545,
+        "20-29": 182,
+        "30-39": 45,
+        "40-49": 32,
+        "50-99": 86,
+        "100+": 26,
+        "total": 1674
+      },
+      "under20Pct": 77.8
     }
   },
-  "ingestedAt": "2026-09-15 17:13:49",
-  "updatedAt": "2026-09-15 17:13:49",
+  "ingestedAt": "2026-09-15 19:29:17",
+  "updatedAt": "2026-09-15 19:29:17",
   "validation": {
     "school": "University of Chicago",
     "slug": "university-of-chicago",

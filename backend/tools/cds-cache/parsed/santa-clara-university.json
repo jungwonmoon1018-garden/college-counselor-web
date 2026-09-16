@@ -96,10 +96,26 @@
     "studentLife": {
       "outOfStatePct": 38,
       "onCampusPct": 94
+    },
+    "aid": {
+      "needMetPct": 87.1
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 124,
+        "10-19": 407,
+        "20-29": 415,
+        "30-39": 269,
+        "40-49": 36,
+        "50-99": 10,
+        "100+": 0,
+        "total": 1261
+      },
+      "under20Pct": 42.1
     }
   },
-  "ingestedAt": "2026-09-15 17:11:47",
-  "updatedAt": "2026-09-15 17:11:47",
+  "ingestedAt": "2026-09-15 19:27:10",
+  "updatedAt": "2026-09-15 19:27:10",
   "validation": {
     "school": "Santa Clara University",
     "slug": "santa-clara-university",

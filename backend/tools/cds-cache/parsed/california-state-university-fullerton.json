@@ -77,6 +77,9 @@
     "enrollment": {
       "undergraduates": 38597
     },
+    "retention": {
+      "firstYearPct": 82.4
+    },
     "graduation": {
       "sixYearPct": 71.8,
       "cohort": 2018
@@ -114,8 +117,8 @@
       "under20Pct": 21.9
     }
   },
-  "ingestedAt": "2026-09-15 17:06:48",
-  "updatedAt": "2026-09-15 17:06:48",
+  "ingestedAt": "2026-09-15 19:23:09",
+  "updatedAt": "2026-09-15 19:23:09",
   "validation": {
     "school": "California State University, Fullerton",
     "slug": "california-state-university-fullerton",

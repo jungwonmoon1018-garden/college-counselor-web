@@ -359,7 +359,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 75903
+      "averagePackageFirstYearUsd": 75903,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 3805
@@ -381,10 +382,23 @@
     "studentLife": {
       "outOfStatePct": 90,
       "onCampusPct": 100
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 207,
+        "10-19": 392,
+        "20-29": 122,
+        "30-39": 54,
+        "40-49": 19,
+        "50-99": 8,
+        "100+": 3,
+        "total": 805
+      },
+      "under20Pct": 74.4
     }
   },
-  "ingestedAt": "2026-09-15 17:16:39",
-  "updatedAt": "2026-09-15 17:16:39",
+  "ingestedAt": "2026-09-16 04:18:28",
+  "updatedAt": "2026-09-16 04:18:28",
   "validation": {
     "school": "Wesleyan University",
     "slug": "wesleyan-university",

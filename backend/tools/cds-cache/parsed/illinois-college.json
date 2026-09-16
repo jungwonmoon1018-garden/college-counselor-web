@@ -105,6 +105,9 @@
     "enrollment": {
       "undergraduates": 1028
     },
+    "retention": {
+      "firstYearPct": 72.3
+    },
     "graduation": {
       "sixYearPct": 67.4,
       "cohort": 2016
@@ -141,8 +144,8 @@
       "under20Pct": 65.6
     }
   },
-  "ingestedAt": "2026-09-15 17:09:26",
-  "updatedAt": "2026-09-15 17:09:26",
+  "ingestedAt": "2026-09-15 19:25:15",
+  "updatedAt": "2026-09-15 19:25:15",
   "validation": {
     "school": "Illinois College",
     "slug": "illinois-college",

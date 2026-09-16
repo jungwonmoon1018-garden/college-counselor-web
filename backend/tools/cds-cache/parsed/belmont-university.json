@@ -78,7 +78,8 @@
     },
     "applicationFeeUsd": 50,
     "aid": {
-      "averagePackageFirstYearUsd": 37665
+      "averagePackageFirstYearUsd": 37665,
+      "needMetPct": 77.5
     },
     "enrollment": {
       "undergraduates": 7174
@@ -86,10 +87,23 @@
     "studentLife": {
       "outOfStatePct": 57,
       "onCampusPct": 40
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 324,
+        "10-19": 692,
+        "20-29": 717,
+        "30-39": 156,
+        "40-49": 2,
+        "50-99": 2,
+        "100+": 1,
+        "total": 1894
+      },
+      "under20Pct": 53.6
     }
   },
-  "ingestedAt": "2026-09-15 17:06:06",
-  "updatedAt": "2026-09-15 17:06:06",
+  "ingestedAt": "2026-09-15 19:22:35",
+  "updatedAt": "2026-09-15 19:22:35",
   "validation": {
     "school": "Belmont University",
     "slug": "belmont-university",

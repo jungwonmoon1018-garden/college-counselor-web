@@ -295,7 +295,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 70593
+      "averagePackageFirstYearUsd": 70593,
+      "needMetPct": 97
     },
     "enrollment": {
       "undergraduates": 6096
@@ -325,10 +326,23 @@
       "tuitionUsd": 71750,
       "requiredFeesUsd": 1622,
       "foodAndHousingUsd": 21572
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 396,
+        "10-19": 440,
+        "20-29": 119,
+        "30-39": 80,
+        "40-49": 37,
+        "50-99": 100,
+        "100+": 27,
+        "total": 1199
+      },
+      "under20Pct": 69.7
     }
   },
-  "ingestedAt": "2026-09-15 17:15:45",
-  "updatedAt": "2026-09-15 17:15:45",
+  "ingestedAt": "2026-09-16 04:18:05",
+  "updatedAt": "2026-09-16 04:18:05",
   "validation": {
     "school": "University of Rochester",
     "slug": "university-of-rochester",

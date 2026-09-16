@@ -266,7 +266,8 @@
     },
     "applicationFeeUsd": 50,
     "aid": {
-      "averagePackageFirstYearUsd": 14989
+      "averagePackageFirstYearUsd": 14989,
+      "needMetPct": 69
     },
     "enrollment": {
       "undergraduates": 3902
@@ -290,10 +291,23 @@
       "requiredFeesUsd": 1965,
       "foodAndHousingUsd": 16634,
       "academicYear": "2025-2026"
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 68,
+        "10-19": 152,
+        "20-29": 167,
+        "30-39": 102,
+        "40-49": 67,
+        "50-99": 48,
+        "100+": 5,
+        "total": 609
+      },
+      "under20Pct": 36.1
     }
   },
-  "ingestedAt": "2026-09-15 17:12:33",
-  "updatedAt": "2026-09-15 17:12:33",
+  "ingestedAt": "2026-09-15 19:27:46",
+  "updatedAt": "2026-09-15 19:27:46",
   "validation": {
     "school": "SUNY College at Geneseo",
     "slug": "suny-college-at-geneseo",

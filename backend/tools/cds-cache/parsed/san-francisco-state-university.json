@@ -257,6 +257,9 @@
     "enrollment": {
       "undergraduates": 24025
     },
+    "retention": {
+      "firstYearPct": 81
+    },
     "transfer": {
       "applied": 15752,
       "admitted": 12522,
@@ -270,10 +273,23 @@
       "tuitionInStateUsd": 5742,
       "tuitionOutOfStateUsd": 17622,
       "requiredFeesUsd": 1742
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 111,
+        "10-19": 549,
+        "20-29": 950,
+        "30-39": 669,
+        "40-49": 435,
+        "50-99": 283,
+        "100+": 75,
+        "total": 3072
+      },
+      "under20Pct": 21.5
     }
   },
-  "ingestedAt": "2026-09-15 17:11:44",
-  "updatedAt": "2026-09-15 17:11:44",
+  "ingestedAt": "2026-09-15 19:27:07",
+  "updatedAt": "2026-09-15 19:27:07",
   "validation": {
     "school": "San Francisco State University",
     "slug": "san-francisco-state-university",

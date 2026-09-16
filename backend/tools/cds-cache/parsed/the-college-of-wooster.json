@@ -95,7 +95,8 @@
       "edNotification": "11 15"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 59425
+      "averagePackageFirstYearUsd": 59425,
+      "needMetPct": 95
     },
     "transfer": {
       "applied": 168,
@@ -104,10 +105,23 @@
     },
     "studentLife": {
       "onCampusPct": 30
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 95,
+        "10-19": 176,
+        "20-29": 115,
+        "30-39": 36,
+        "40-49": 1,
+        "50-99": 1,
+        "100+": 0,
+        "total": 424
+      },
+      "under20Pct": 63.9
     }
   },
-  "ingestedAt": "2026-09-15 17:13:01",
-  "updatedAt": "2026-09-15 17:13:01",
+  "ingestedAt": "2026-09-15 19:28:13",
+  "updatedAt": "2026-09-15 19:28:13",
   "validation": {
     "school": "The College of Wooster",
     "slug": "the-college-of-wooster",

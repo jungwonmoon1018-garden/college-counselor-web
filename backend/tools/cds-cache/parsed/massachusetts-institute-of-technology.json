@@ -108,6 +108,9 @@
     "enrollment": {
       "undergraduates": 4535
     },
+    "retention": {
+      "firstYearPct": 99
+    },
     "graduation": {
       "sixYearPct": 96,
       "cohort": 2018
@@ -136,8 +139,8 @@
       "under20Pct": 67.8
     }
   },
-  "ingestedAt": "2026-09-15 17:10:21",
-  "updatedAt": "2026-09-15 17:10:21",
+  "ingestedAt": "2026-09-15 19:26:03",
+  "updatedAt": "2026-09-15 19:26:03",
   "validation": {
     "school": "Massachusetts Institute of Technology",
     "slug": "massachusetts-institute-of-technology",

@@ -408,10 +408,23 @@
       "tuitionOutOfStateUsd": 28010,
       "requiredFeesUsd": 784,
       "foodAndHousingUsd": 10030
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 1117,
+        "10-19": 1158,
+        "20-29": 1041,
+        "30-39": 682,
+        "40-49": 447,
+        "50-99": 692,
+        "100+": 447,
+        "total": 5584
+      },
+      "under20Pct": 40.7
     }
   },
-  "ingestedAt": "2026-09-15 17:11:13",
-  "updatedAt": "2026-09-15 17:11:13",
+  "ingestedAt": "2026-09-15 19:26:42",
+  "updatedAt": "2026-09-15 19:26:42",
   "validation": {
     "school": "Purdue University",
     "slug": "purdue-university",

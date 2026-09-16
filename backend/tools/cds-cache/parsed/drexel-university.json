@@ -84,10 +84,14 @@
       "edNotification": "15-Dec"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 53305
+      "averagePackageFirstYearUsd": 53305,
+      "needMetPct": 82
     },
     "enrollment": {
       "undergraduates": 12318
+    },
+    "retention": {
+      "firstYearPct": 88.5
     },
     "graduation": {
       "sixYearPct": 76.3,
@@ -98,8 +102,8 @@
       "onCampusPct": 75
     }
   },
-  "ingestedAt": "2026-09-15 17:08:07",
-  "updatedAt": "2026-09-15 17:08:07",
+  "ingestedAt": "2026-09-15 19:24:13",
+  "updatedAt": "2026-09-15 19:24:13",
   "validation": {
     "school": "Drexel University",
     "slug": "drexel-university",

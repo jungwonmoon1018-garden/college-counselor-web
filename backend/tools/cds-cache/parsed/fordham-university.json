@@ -291,7 +291,8 @@
       "edNotification": "20-Dec"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 41525
+      "averagePackageFirstYearUsd": 41525,
+      "needMetPct": 71.2
     },
     "enrollment": {
       "undergraduates": 10098
@@ -322,20 +323,20 @@
     },
     "classSize": {
       "sections": {
-        "2-9": 164,
-        "10-19": 938,
-        "20-29": 358,
-        "30-39": 643,
-        "40-49": 13,
-        "50-99": 12,
-        "100+": 4,
-        "total": 2132
+        "2-9": 13,
+        "10-19": 55,
+        "20-29": 37,
+        "30-39": 6,
+        "40-49": 6,
+        "50-99": 0,
+        "100+": 0,
+        "total": 117
       },
-      "under20Pct": 51.7
+      "under20Pct": 58.1
     }
   },
-  "ingestedAt": "2026-09-15 17:08:36",
-  "updatedAt": "2026-09-15 17:08:36",
+  "ingestedAt": "2026-09-15 19:24:37",
+  "updatedAt": "2026-09-15 19:24:37",
   "validation": {
     "school": "Fordham University",
     "slug": "fordham-university",

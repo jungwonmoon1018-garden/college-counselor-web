@@ -87,7 +87,8 @@
       "average": 3.61
     },
     "aid": {
-      "averagePackageFirstYearUsd": 43919
+      "averagePackageFirstYearUsd": 43919,
+      "needMetPct": 85.6
     },
     "enrollment": {
       "undergraduates": 8045
@@ -105,10 +106,23 @@
     "studentLife": {
       "outOfStatePct": 65,
       "onCampusPct": 90
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 176,
+        "10-19": 296,
+        "20-29": 403,
+        "30-39": 199,
+        "40-49": 72,
+        "50-99": 91,
+        "100+": 41,
+        "total": 1278
+      },
+      "under20Pct": 36.9
     }
   },
-  "ingestedAt": "2026-09-15 17:10:18",
-  "updatedAt": "2026-09-15 17:10:18",
+  "ingestedAt": "2026-09-15 19:25:59",
+  "updatedAt": "2026-09-15 19:25:59",
   "validation": {
     "school": "Marquette University",
     "slug": "marquette-university",

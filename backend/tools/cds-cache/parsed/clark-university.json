@@ -368,7 +368,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 49545
+      "averagePackageFirstYearUsd": 49545,
+      "needMetPct": 95
     },
     "enrollment": {
       "undergraduates": 2266
@@ -390,10 +391,23 @@
     "studentLife": {
       "outOfStatePct": 64,
       "onCampusPct": 95
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 69,
+        "10-19": 190,
+        "20-29": 95,
+        "30-39": 46,
+        "40-49": 9,
+        "50-99": 9,
+        "100+": 0,
+        "total": 418
+      },
+      "under20Pct": 62
     }
   },
-  "ingestedAt": "2026-09-15 17:07:06",
-  "updatedAt": "2026-09-15 17:07:06",
+  "ingestedAt": "2026-09-15 19:23:25",
+  "updatedAt": "2026-09-15 19:23:25",
   "validation": {
     "school": "Clark University",
     "slug": "clark-university",

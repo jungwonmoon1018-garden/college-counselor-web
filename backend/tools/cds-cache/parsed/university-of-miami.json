@@ -439,10 +439,14 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 60263
+      "averagePackageFirstYearUsd": 60263,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 13250
+    },
+    "retention": {
+      "firstYearPct": 94
     },
     "graduation": {
       "sixYearPct": 84,
@@ -461,10 +465,23 @@
     "studentLife": {
       "outOfStatePct": 70,
       "onCampusPct": 89
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 312,
+        "10-19": 901,
+        "20-29": 285,
+        "30-39": 296,
+        "40-49": 340,
+        "50-99": 107,
+        "100+": 54,
+        "total": 2295
+      },
+      "under20Pct": 52.9
     }
   },
-  "ingestedAt": "2026-09-15 17:14:51",
-  "updatedAt": "2026-09-15 17:14:51",
+  "ingestedAt": "2026-09-16 04:17:35",
+  "updatedAt": "2026-09-16 04:17:35",
   "validation": {
     "school": "University of Miami",
     "slug": "university-of-miami",

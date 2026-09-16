@@ -81,6 +81,9 @@
     "enrollment": {
       "undergraduates": 7063
     },
+    "retention": {
+      "firstYearPct": 95
+    },
     "waitlist": {
       "offered": 4232,
       "accepted": 2063,
@@ -94,8 +97,8 @@
       "needMetPct": 82
     }
   },
-  "ingestedAt": "2026-09-15 17:07:25",
-  "updatedAt": "2026-09-15 17:07:25",
+  "ingestedAt": "2026-09-15 19:23:41",
+  "updatedAt": "2026-09-15 19:23:41",
   "validation": {
     "school": "College of William and Mary",
     "slug": "college-of-william-and-mary",

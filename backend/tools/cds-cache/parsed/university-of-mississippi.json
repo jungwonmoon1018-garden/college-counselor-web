@@ -334,6 +334,9 @@
     "enrollment": {
       "undergraduates": 21585
     },
+    "retention": {
+      "firstYearPct": 87.2
+    },
     "graduation": {
       "sixYearPct": 72,
       "cohort": 2018
@@ -353,10 +356,23 @@
       "requiredFeesUsd": 160,
       "foodAndHousingUsd": 12600,
       "academicYear": "2025-2026"
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 603,
+        "10-19": 960,
+        "20-29": 724,
+        "30-39": 343,
+        "40-49": 205,
+        "50-99": 445,
+        "100+": 94,
+        "total": 3374
+      },
+      "under20Pct": 46.3
     }
   },
-  "ingestedAt": "2026-09-15 17:14:56",
-  "updatedAt": "2026-09-15 17:14:56",
+  "ingestedAt": "2026-09-16 04:17:39",
+  "updatedAt": "2026-09-16 04:17:39",
   "validation": {
     "school": "University of Mississippi",
     "slug": "university-of-mississippi",

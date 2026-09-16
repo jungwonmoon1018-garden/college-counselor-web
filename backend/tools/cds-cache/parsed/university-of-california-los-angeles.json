@@ -47,7 +47,8 @@
     },
     "applicationFeeUsd": 70,
     "aid": {
-      "averagePackageFirstYearUsd": 34312
+      "averagePackageFirstYearUsd": 34312,
+      "needMetPct": 91
     },
     "enrollment": {
       "undergraduates": 33534
@@ -60,10 +61,23 @@
     "studentLife": {
       "outOfStatePct": 15,
       "onCampusPct": 98.9
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 647,
+        "10-19": 538,
+        "20-29": 429,
+        "30-39": 196,
+        "40-49": 126,
+        "50-99": 295,
+        "100+": 334,
+        "total": 2565
+      },
+      "under20Pct": 46.2
     }
   },
-  "ingestedAt": "2026-09-15 17:13:41",
-  "updatedAt": "2026-09-15 17:13:41",
+  "ingestedAt": "2026-09-15 19:28:56",
+  "updatedAt": "2026-09-15 19:28:56",
   "validation": {
     "school": "University of California, Los Angeles",
     "slug": "university-of-california-los-angeles",

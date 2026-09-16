@@ -315,7 +315,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 90648
+      "averagePackageFirstYearUsd": 90648,
+      "needMetPct": 99.4
     },
     "enrollment": {
       "undergraduates": 20768
@@ -340,10 +341,23 @@
       "tuitionUsd": 66640,
       "requiredFeesUsd": 2047,
       "foodAndHousingUsd": 19200
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 534,
+        "10-19": 1394,
+        "20-29": 398,
+        "30-39": 229,
+        "40-49": 246,
+        "50-99": 282,
+        "100+": 108,
+        "total": 3191
+      },
+      "under20Pct": 60.4
     }
   },
-  "ingestedAt": "2026-09-15 17:15:56",
-  "updatedAt": "2026-09-15 17:15:56",
+  "ingestedAt": "2026-09-16 04:18:08",
+  "updatedAt": "2026-09-16 04:18:08",
   "validation": {
     "school": "University of Southern California",
     "slug": "university-of-southern-california",

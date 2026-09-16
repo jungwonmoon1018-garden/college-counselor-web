@@ -88,7 +88,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 51231
+      "averagePackageFirstYearUsd": 51231,
+      "needMetPct": 91.5
     },
     "enrollment": {
       "undergraduates": 1582
@@ -110,10 +111,23 @@
       "tuitionUsd": 59226,
       "requiredFeesUsd": 204,
       "academicYear": "2025-2026"
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 85,
+        "10-19": 163,
+        "20-29": 109,
+        "30-39": 25,
+        "40-49": 3,
+        "50-99": 4,
+        "100+": 0,
+        "total": 389
+      },
+      "under20Pct": 63.8
     }
   },
-  "ingestedAt": "2026-09-15 17:09:29",
-  "updatedAt": "2026-09-15 17:09:29",
+  "ingestedAt": "2026-09-15 19:25:18",
+  "updatedAt": "2026-09-15 19:25:18",
   "validation": {
     "school": "Illinois Wesleyan University",
     "slug": "illinois-wesleyan-university",

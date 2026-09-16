@@ -98,6 +98,9 @@
     "enrollment": {
       "undergraduates": 1556
     },
+    "retention": {
+      "firstYearPct": 84.9
+    },
     "graduation": {
       "sixYearPct": 72.5,
       "cohort": 2015
@@ -138,8 +141,8 @@
       "under20Pct": 63.6
     }
   },
-  "ingestedAt": "2026-09-15 17:16:18",
-  "updatedAt": "2026-09-15 17:16:18",
+  "ingestedAt": "2026-09-16 04:18:18",
+  "updatedAt": "2026-09-16 04:18:18",
   "validation": {
     "school": "Ursinus College",
     "slug": "ursinus-college",

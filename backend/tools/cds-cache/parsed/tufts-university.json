@@ -167,10 +167,14 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 59574
+      "averagePackageFirstYearUsd": 59574,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 7126
+    },
+    "retention": {
+      "firstYearPct": 95.5
     },
     "graduation": {
       "sixYearPct": 94,
@@ -189,10 +193,23 @@
     "studentLife": {
       "outOfStatePct": 76,
       "onCampusPct": 100
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 168,
+        "10-19": 616,
+        "20-29": 248,
+        "30-39": 125,
+        "40-49": 60,
+        "50-99": 64,
+        "100+": 45,
+        "total": 1326
+      },
+      "under20Pct": 59.1
     }
   },
-  "ingestedAt": "2026-09-15 17:13:10",
-  "updatedAt": "2026-09-15 17:13:10",
+  "ingestedAt": "2026-09-15 19:28:18",
+  "updatedAt": "2026-09-15 19:28:18",
   "validation": {
     "school": "Tufts University",
     "slug": "tufts-university",

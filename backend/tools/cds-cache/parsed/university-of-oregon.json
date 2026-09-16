@@ -338,7 +338,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 15408
+      "averagePackageFirstYearUsd": 15408,
+      "needMetPct": 55
     },
     "enrollment": {
       "undergraduates": 20622
@@ -362,10 +363,23 @@
       "tuitionOutOfStateUsd": 41865,
       "requiredFeesUsd": 2733,
       "foodAndHousingUsd": 16611
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 102,
+        "10-19": 399,
+        "20-29": 444,
+        "30-39": 123,
+        "40-49": 75,
+        "50-99": 140,
+        "100+": 110,
+        "total": 1393
+      },
+      "under20Pct": 36
     }
   },
-  "ingestedAt": "2026-09-15 17:15:28",
-  "updatedAt": "2026-09-15 17:15:28",
+  "ingestedAt": "2026-09-16 04:17:56",
+  "updatedAt": "2026-09-16 04:17:56",
   "validation": {
     "school": "University of Oregon",
     "slug": "university-of-oregon",

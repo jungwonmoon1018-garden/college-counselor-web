@@ -283,10 +283,23 @@
     "costs": {
       "tuitionUsd": 51308,
       "requiredFeesUsd": 210
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 64,
+        "10-19": 98,
+        "20-29": 81,
+        "30-39": 18,
+        "40-49": 1,
+        "50-99": 1,
+        "100+": 0,
+        "total": 263
+      },
+      "under20Pct": 61.6
     }
   },
-  "ingestedAt": "2026-09-15 17:05:16",
-  "updatedAt": "2026-09-15 17:05:16",
+  "ingestedAt": "2026-09-15 19:21:57",
+  "updatedAt": "2026-09-15 19:21:57",
   "validation": {
     "school": "Austin College",
     "slug": "austin-college",

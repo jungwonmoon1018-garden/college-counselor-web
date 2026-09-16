@@ -101,7 +101,7 @@
       "undergraduates": 27907
     },
     "retention": {
-      "firstYearPct": 94.7
+      "firstYearPct": 97
     },
     "graduation": {
       "sixYearPct": 82,
@@ -133,8 +133,8 @@
       "under20Pct": 33.9
     }
   },
-  "ingestedAt": "2026-09-15 17:05:12",
-  "updatedAt": "2026-09-15 17:05:12",
+  "ingestedAt": "2026-09-15 19:21:54",
+  "updatedAt": "2026-09-15 19:21:54",
   "validation": {
     "school": "Auburn University",
     "slug": "auburn-university",

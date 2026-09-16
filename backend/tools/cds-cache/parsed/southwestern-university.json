@@ -348,7 +348,8 @@
       "edNotification": "1st Tuesday of December"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 53757
+      "averagePackageFirstYearUsd": 53757,
+      "needMetPct": 92.6
     },
     "enrollment": {
       "undergraduates": 1431
@@ -378,10 +379,23 @@
       "tuitionUsd": 59648,
       "requiredFeesUsd": 750,
       "foodAndHousingUsd": 17432
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 62,
+        "10-19": 168,
+        "20-29": 98,
+        "30-39": 15,
+        "40-49": 2,
+        "50-99": 0,
+        "100+": 0,
+        "total": 345
+      },
+      "under20Pct": 66.7
     }
   },
-  "ingestedAt": "2026-09-15 17:12:02",
-  "updatedAt": "2026-09-15 17:12:02",
+  "ingestedAt": "2026-09-15 19:27:21",
+  "updatedAt": "2026-09-15 19:27:21",
   "validation": {
     "school": "Southwestern University",
     "slug": "southwestern-university",

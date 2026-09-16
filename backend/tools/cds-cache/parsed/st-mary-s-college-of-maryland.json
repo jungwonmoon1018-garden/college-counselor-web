@@ -117,7 +117,8 @@
       "edNotification": "12 1"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 23401
+      "averagePackageFirstYearUsd": 23401,
+      "needMetPct": 88
     },
     "waitlist": {
       "offered": 364,
@@ -132,10 +133,23 @@
     "studentLife": {
       "outOfStatePct": 13,
       "onCampusPct": 93
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 64,
+        "10-19": 222,
+        "20-29": 95,
+        "30-39": 7,
+        "40-49": 10,
+        "50-99": 1,
+        "100+": 0,
+        "total": 399
+      },
+      "under20Pct": 71.7
     }
   },
-  "ingestedAt": "2026-09-15 17:12:25",
-  "updatedAt": "2026-09-15 17:12:25",
+  "ingestedAt": "2026-09-15 19:27:39",
+  "updatedAt": "2026-09-15 19:27:39",
   "validation": {
     "school": "St. Mary's College of Maryland",
     "slug": "st-mary-s-college-of-maryland",

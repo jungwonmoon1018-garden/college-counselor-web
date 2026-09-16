@@ -78,7 +78,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 29751
+      "averagePackageFirstYearUsd": 29751,
+      "needMetPct": 85.5
     },
     "enrollment": {
       "undergraduates": 30204
@@ -106,10 +107,23 @@
       "tuitionOutOfStateUsd": 51204,
       "requiredFeesUsd": 2852,
       "foodAndHousingUsd": 19653
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 577,
+        "10-19": 493,
+        "20-29": 568,
+        "30-39": 123,
+        "40-49": 80,
+        "50-99": 240,
+        "100+": 263,
+        "total": 2344
+      },
+      "under20Pct": 45.6
     }
   },
-  "ingestedAt": "2026-09-15 17:13:39",
-  "updatedAt": "2026-09-15 17:13:39",
+  "ingestedAt": "2026-09-15 19:28:54",
+  "updatedAt": "2026-09-15 19:28:54",
   "validation": {
     "school": "University of California, Irvine",
     "slug": "university-of-california-irvine",

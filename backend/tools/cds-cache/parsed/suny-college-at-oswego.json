@@ -104,10 +104,23 @@
     "studentLife": {
       "outOfStatePct": 5,
       "onCampusPct": 89
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 126,
+        "10-19": 360,
+        "20-29": 466,
+        "30-39": 128,
+        "40-49": 43,
+        "50-99": 33,
+        "100+": 11,
+        "total": 1167
+      },
+      "under20Pct": 41.6
     }
   },
-  "ingestedAt": "2026-09-15 17:12:29",
-  "updatedAt": "2026-09-15 17:12:29",
+  "ingestedAt": "2026-09-15 19:27:43",
+  "updatedAt": "2026-09-15 19:27:43",
   "validation": {
     "school": "SUNY College at Oswego",
     "slug": "suny-college-at-oswego",

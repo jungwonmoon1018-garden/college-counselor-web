@@ -446,10 +446,14 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 33572
+      "averagePackageFirstYearUsd": 33572,
+      "needMetPct": 86.7
     },
     "enrollment": {
       "undergraduates": 366
+    },
+    "retention": {
+      "firstYearPct": 74
     },
     "waitlist": {
       "offered": 4,
@@ -470,10 +474,23 @@
       "requiredFeesUsd": 1514,
       "foodAndHousingUsd": 15468,
       "academicYear": "2023-2024"
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 9,
+        "10-19": 108,
+        "20-29": 0,
+        "30-39": 0,
+        "40-49": 0,
+        "50-99": 0,
+        "100+": 0,
+        "total": 117
+      },
+      "under20Pct": 100
     }
   },
-  "ingestedAt": "2026-09-15 17:12:10",
-  "updatedAt": "2026-09-15 17:12:10",
+  "ingestedAt": "2026-09-15 19:27:27",
+  "updatedAt": "2026-09-15 19:27:27",
   "validation": {
     "school": "St. John's College",
     "slug": "st-john-s-college",

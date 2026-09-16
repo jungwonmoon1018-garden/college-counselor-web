@@ -130,7 +130,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 58133
+      "averagePackageFirstYearUsd": 58133,
+      "needMetPct": 100
     },
     "graduation": {
       "sixYearPct": 83,
@@ -151,8 +152,8 @@
       "onCampusPct": 100
     }
   },
-  "ingestedAt": "2026-09-15 17:13:07",
-  "updatedAt": "2026-09-15 17:13:07",
+  "ingestedAt": "2026-09-15 19:28:15",
+  "updatedAt": "2026-09-15 19:28:15",
   "validation": {
     "school": "Trinity College",
     "slug": "trinity-college",

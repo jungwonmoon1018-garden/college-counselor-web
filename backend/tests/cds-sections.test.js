@@ -119,6 +119,62 @@ test("coded item ids beside the cost labels are not amounts, and a stray graduat
   assert.deepEqual(s.costs, { tuitionOutOfStateUsd: 31050, requiredFeesUsd: 202, foodAndHousingUsd: 18874 });
 });
 
+test("the layouts the first pass missed: stacked class table, headcount columns, a wrapped retention question, need met below its label", () => {
+  const s = extractSections([
+    "Total undergraduate",
+    "18,555 518 18,570 444 0 0 2 4",
+    "students",
+    "For the cohort of all full-time bachelor's (or equivalent) degree-seeking",
+    "undergraduate students who entered your institution as first-year",
+    "students in Fall 2023 (or the preceding summer term), what percentage 91.1%",
+    "was enrolled at your institution as of the date your institution calculates",
+    "its official enrollment in Fall 2024?",
+    "Number of students in line d whose need was fully met",
+    "H (exclude PLUS loans, unsubsidized loans, and private 936 3950",
+    "alternative loans )",
+    "On average, the percentage of need that was met of",
+    "students who were awarded any need-based aid.",
+    "Exclude any aid that was awarded in excess of need as",
+    "I 100.0% 100.0%",
+    "well as any resources that were awarded to replace EFC",
+    "Number of Class Sections with Undergraduates Enrolled",
+    "Undergraduate Class Size (provide numbers)",
+    "2-9 10-19 20-29 30-39 40-49 50-99 100+ Total",
+    "CLASS",
+    "482 303 84 42 28 78 49 1066",
+    "SECTIONS",
+    "2-9 10-19 20-29 30-39 40-49 50-99 100+ Total",
+    "CLASS SUB-",
+    "89 67 52 30 23 66 45 372",
+    "SECTIONS",
+  ]);
+  assert.deepEqual(s.enrollment, { undergraduates: 38093 });
+  assert.deepEqual(s.retention, { firstYearPct: 91.1 });
+  assert.deepEqual(s.aid, { needMetPct: 100 });
+  assert.equal(s.classSize.sections.total, 1066);
+  assert.equal(s.classSize.under20Pct, 73.6);
+});
+
+test("a term label before the class-size counts, a row that fails the sum check, a stray need-met cell and a tiny headcount row are not data", () => {
+  const s = extractSections([
+    "Total all undergraduates 15 2,383",
+    "I On average, the percentage of need that was met of students 0.01 1.0%",
+    "2-9 10-19 20-29 30-39 40-49 50-99 100+ Total",
+    "CLASS",
+    "Fall 2024 134 557 428 264 30 35 3 1,451",
+  ]);
+  assert.deepEqual(s.enrollment, { undergraduates: 2383 });
+  assert.equal(s.aid, undefined);
+  assert.deepEqual(s.classSize.sections, { "2-9": 134, "10-19": 557, "20-29": 428, "30-39": 264, "40-49": 30, "50-99": 35, "100+": 3, total: 1451 });
+  assert.equal(s.classSize.under20Pct, 47.6);
+  const bad = extractSections([
+    "2-9 10-19 20-29 30-39 40-49 50-99 100+ Total",
+    "12 34 56 78 90 12 34 999 5",
+    "CLASS SECTIONS 1 2 3 4 5 6 7 8 9 10",
+  ]);
+  assert.equal(bad.classSize, undefined);
+});
+
 test("a document without these sections contributes nothing", () => {
   assert.deepEqual(extractSections(["Common Data Set 2025-2026", "C1 First-time, first-year students"]), {});
 });

@@ -170,7 +170,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 40983
+      "averagePackageFirstYearUsd": 40983,
+      "needMetPct": 69
     },
     "waitlist": {
       "offered": 267,
@@ -180,10 +181,23 @@
     "studentLife": {
       "outOfStatePct": 35,
       "onCampusPct": 56
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 134,
+        "10-19": 557,
+        "20-29": 428,
+        "30-39": 264,
+        "40-49": 30,
+        "50-99": 35,
+        "100+": 3,
+        "total": 1451
+      },
+      "under20Pct": 47.6
     }
   },
-  "ingestedAt": "2026-09-15 17:09:24",
-  "updatedAt": "2026-09-15 17:09:24",
+  "ingestedAt": "2026-09-15 19:25:17",
+  "updatedAt": "2026-09-15 19:25:17",
   "validation": {
     "school": "Hofstra University",
     "slug": "hofstra-university",

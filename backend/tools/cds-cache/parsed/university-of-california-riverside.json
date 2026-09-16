@@ -110,10 +110,14 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 33140
+      "averagePackageFirstYearUsd": 33140,
+      "needMetPct": 86.6
     },
     "enrollment": {
       "undergraduates": 24034
+    },
+    "retention": {
+      "firstYearPct": 88
     },
     "graduation": {
       "sixYearPct": 75.5,
@@ -132,10 +136,23 @@
     "studentLife": {
       "outOfStatePct": 1,
       "onCampusPct": 69
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 118,
+        "10-19": 344,
+        "20-29": 458,
+        "30-39": 111,
+        "40-49": 63,
+        "50-99": 238,
+        "100+": 253,
+        "total": 1585
+      },
+      "under20Pct": 29.1
     }
   },
-  "ingestedAt": "2026-09-15 17:13:42",
-  "updatedAt": "2026-09-15 17:13:42",
+  "ingestedAt": "2026-09-15 19:28:58",
+  "updatedAt": "2026-09-15 19:28:58",
   "validation": {
     "school": "University of California, Riverside",
     "slug": "university-of-california-riverside",

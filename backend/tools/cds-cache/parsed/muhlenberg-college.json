@@ -93,6 +93,9 @@
     "dates": {
       "edNotification": "2024-12-15"
     },
+    "retention": {
+      "firstYearPct": 89
+    },
     "graduation": {
       "sixYearPct": 80.2,
       "cohort": 2017
@@ -115,8 +118,8 @@
       "needMetPct": 87.9
     }
   },
-  "ingestedAt": "2026-09-15 17:10:38",
-  "updatedAt": "2026-09-15 17:10:38",
+  "ingestedAt": "2026-09-15 19:26:15",
+  "updatedAt": "2026-09-15 19:26:15",
   "validation": {
     "school": "Muhlenberg College",
     "slug": "muhlenberg-college",

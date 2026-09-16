@@ -113,6 +113,9 @@
     "enrollment": {
       "undergraduates": 7221
     },
+    "retention": {
+      "firstYearPct": 96
+    },
     "graduation": {
       "sixYearPct": 93.5,
       "cohort": 2018
@@ -143,8 +146,8 @@
       "under20Pct": 59.4
     }
   },
-  "ingestedAt": "2026-09-15 17:16:20",
-  "updatedAt": "2026-09-15 17:16:20",
+  "ingestedAt": "2026-09-16 04:18:19",
+  "updatedAt": "2026-09-16 04:18:19",
   "validation": {
     "school": "Vanderbilt University",
     "slug": "vanderbilt-university",

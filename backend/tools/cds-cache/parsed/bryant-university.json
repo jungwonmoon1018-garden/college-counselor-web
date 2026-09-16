@@ -83,10 +83,14 @@
       "edNotification": "C21  12-01"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 25023
+      "averagePackageFirstYearUsd": 25023,
+      "needMetPct": 47
     },
     "enrollment": {
       "undergraduates": 3259
+    },
+    "retention": {
+      "firstYearPct": 87
     },
     "graduation": {
       "sixYearPct": 80.9,
@@ -101,8 +105,8 @@
       "onCampusPct": 94
     }
   },
-  "ingestedAt": "2026-09-15 17:06:24",
-  "updatedAt": "2026-09-15 17:06:24",
+  "ingestedAt": "2026-09-15 19:22:50",
+  "updatedAt": "2026-09-15 19:22:50",
   "validation": {
     "school": "Bryant University",
     "slug": "bryant-university",

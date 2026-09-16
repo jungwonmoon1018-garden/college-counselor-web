@@ -437,7 +437,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 53003
+      "averagePackageFirstYearUsd": 53003,
+      "needMetPct": 89.2
     },
     "enrollment": {
       "undergraduates": 1917
@@ -460,10 +461,23 @@
       "requiredFeesUsd": 1120,
       "foodAndHousingUsd": 15790,
       "academicYear": "2025-2026"
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 66,
+        "10-19": 142,
+        "20-29": 43,
+        "30-39": 18,
+        "40-49": 20,
+        "50-99": 27,
+        "100+": 3,
+        "total": 319
+      },
+      "under20Pct": 65.2
     }
   },
-  "ingestedAt": "2026-09-15 17:08:03",
-  "updatedAt": "2026-09-15 17:08:03",
+  "ingestedAt": "2026-09-15 19:24:09",
+  "updatedAt": "2026-09-15 19:24:09",
   "validation": {
     "school": "DePauw University",
     "slug": "depauw-university",

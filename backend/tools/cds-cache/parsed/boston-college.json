@@ -262,10 +262,14 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 62865
+      "averagePackageFirstYearUsd": 62865,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 9654
+    },
+    "retention": {
+      "firstYearPct": 96
     },
     "graduation": {
       "sixYearPct": 91,
@@ -290,10 +294,23 @@
       "requiredFeesUsd": 1328,
       "foodAndHousingUsd": 19290,
       "academicYear": "2025-2026"
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 226,
+        "10-19": 661,
+        "20-29": 412,
+        "30-39": 320,
+        "40-49": 102,
+        "50-99": 68,
+        "100+": 39,
+        "total": 1828
+      },
+      "under20Pct": 48.5
     }
   },
-  "ingestedAt": "2026-09-15 17:06:08",
-  "updatedAt": "2026-09-15 17:06:08",
+  "ingestedAt": "2026-09-15 19:22:37",
+  "updatedAt": "2026-09-15 19:22:37",
   "validation": {
     "school": "Boston College",
     "slug": "boston-college",

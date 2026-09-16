@@ -57,7 +57,8 @@
       "edNotification": "C2103"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 45654
+      "averagePackageFirstYearUsd": 45654,
+      "needMetPct": 87.6
     },
     "enrollment": {
       "undergraduates": 3677
@@ -71,8 +72,8 @@
       "onCampusPct": 89
     }
   },
-  "ingestedAt": "2026-09-15 17:08:41",
-  "updatedAt": "2026-09-15 17:08:41",
+  "ingestedAt": "2026-09-15 19:24:38",
+  "updatedAt": "2026-09-15 19:24:38",
   "validation": {
     "school": "Florida Institute of Technology",
     "slug": "florida-institute-of-technology",

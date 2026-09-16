@@ -51,7 +51,8 @@
       "edNotification": "12 12 15 15"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 61010
+      "averagePackageFirstYearUsd": 61010,
+      "needMetPct": 85
     },
     "enrollment": {
       "undergraduates": 6049
@@ -61,8 +62,8 @@
       "onCampusPct": 93.6
     }
   },
-  "ingestedAt": "2026-09-15 17:15:59",
-  "updatedAt": "2026-09-15 17:15:59",
+  "ingestedAt": "2026-09-16 04:18:09",
+  "updatedAt": "2026-09-16 04:18:09",
   "validation": {
     "school": "University of San Diego",
     "slug": "university-of-san-diego",

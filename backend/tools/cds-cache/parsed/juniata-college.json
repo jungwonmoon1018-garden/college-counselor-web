@@ -82,6 +82,9 @@
     "enrollment": {
       "undergraduates": 1242
     },
+    "retention": {
+      "firstYearPct": 83.3
+    },
     "studentLife": {
       "outOfStatePct": 1,
       "onCampusPct": 1
@@ -90,8 +93,8 @@
       "needMetPct": 75.8
     }
   },
-  "ingestedAt": "2026-09-15 17:09:42",
-  "updatedAt": "2026-09-15 17:09:42",
+  "ingestedAt": "2026-09-15 19:25:29",
+  "updatedAt": "2026-09-15 19:25:29",
   "validation": {
     "school": "Juniata College",
     "slug": "juniata-college",

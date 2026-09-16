@@ -96,7 +96,8 @@
     },
     "applicationFeeUsd": 80,
     "aid": {
-      "averagePackageFirstYearUsd": 35200
+      "averagePackageFirstYearUsd": 35200,
+      "needMetPct": 87.8
     },
     "enrollment": {
       "undergraduates": 18194
@@ -111,8 +112,8 @@
       "onCampusPct": 2.1
     }
   },
-  "ingestedAt": "2026-09-15 17:14:05",
-  "updatedAt": "2026-09-15 17:14:05",
+  "ingestedAt": "2026-09-15 19:29:14",
+  "updatedAt": "2026-09-15 19:29:14",
   "validation": {
     "school": "University of California, Santa Cruz",
     "slug": "university-of-california-santa-cruz",

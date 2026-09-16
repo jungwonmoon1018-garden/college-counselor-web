@@ -203,7 +203,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 68253
+      "averagePackageFirstYearUsd": 68253,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 7320
@@ -233,10 +234,23 @@
       "tuitionUsd": 70300,
       "requiredFeesUsd": 1148,
       "foodAndHousingUsd": 22406
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 280,
+        "10-19": 625,
+        "20-29": 186,
+        "30-39": 107,
+        "40-49": 62,
+        "50-99": 137,
+        "100+": 30,
+        "total": 1427
+      },
+      "under20Pct": 63.4
     }
   },
-  "ingestedAt": "2026-09-15 17:08:23",
-  "updatedAt": "2026-09-15 17:08:23",
+  "ingestedAt": "2026-09-15 19:24:25",
+  "updatedAt": "2026-09-15 19:24:25",
   "validation": {
     "school": "Emory University",
     "slug": "emory-university",

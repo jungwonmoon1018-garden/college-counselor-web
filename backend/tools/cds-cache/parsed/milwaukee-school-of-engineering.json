@@ -406,7 +406,8 @@
       "submittedPct": 100
     },
     "aid": {
-      "averagePackageFirstYearUsd": 47015
+      "averagePackageFirstYearUsd": 47015,
+      "needMetPct": 90
     },
     "enrollment": {
       "undergraduates": 2836
@@ -431,10 +432,23 @@
       "tuitionUsd": 49930,
       "requiredFeesUsd": 2298,
       "foodAndHousingUsd": 14474
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 70,
+        "10-19": 199,
+        "20-29": 312,
+        "30-39": 43,
+        "40-49": 8,
+        "50-99": 1,
+        "100+": 1,
+        "total": 634
+      },
+      "under20Pct": 42.4
     }
   },
-  "ingestedAt": "2026-09-15 17:10:30",
-  "updatedAt": "2026-09-15 17:10:30",
+  "ingestedAt": "2026-09-15 19:26:09",
+  "updatedAt": "2026-09-15 19:26:09",
   "validation": {
     "school": "Milwaukee School of Engineering",
     "slug": "milwaukee-school-of-engineering",

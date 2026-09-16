@@ -151,7 +151,14 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 70971
+      "averagePackageFirstYearUsd": 70971,
+      "needMetPct": 100
+    },
+    "enrollment": {
+      "undergraduates": 10014
+    },
+    "retention": {
+      "firstYearPct": 98.8
     },
     "graduation": {
       "sixYearPct": 96.5,
@@ -165,23 +172,10 @@
     "studentLife": {
       "outOfStatePct": 83,
       "onCampusPct": 100
-    },
-    "classSize": {
-      "sections": {
-        "2-9": 3,
-        "10-19": 504,
-        "20-29": 637,
-        "30-39": 210,
-        "40-49": 115,
-        "50-99": 93,
-        "100+": 279,
-        "total": 102
-      },
-      "under20Pct": 497.1
     }
   },
-  "ingestedAt": "2026-09-15 17:15:30",
-  "updatedAt": "2026-09-15 17:15:30",
+  "ingestedAt": "2026-09-16 04:17:55",
+  "updatedAt": "2026-09-16 04:17:55",
   "validation": {
     "school": "University of Pennsylvania",
     "slug": "university-of-pennsylvania",

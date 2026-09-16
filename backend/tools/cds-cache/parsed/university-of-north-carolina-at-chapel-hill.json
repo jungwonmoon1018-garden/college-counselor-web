@@ -355,7 +355,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 21695
+      "averagePackageFirstYearUsd": 21695,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 22007
@@ -397,8 +398,8 @@
       "under20Pct": 38.2
     }
   },
-  "ingestedAt": "2026-09-15 17:15:17",
-  "updatedAt": "2026-09-15 17:15:17",
+  "ingestedAt": "2026-09-16 04:17:49",
+  "updatedAt": "2026-09-16 04:17:49",
   "validation": {
     "school": "University of North Carolina at Chapel Hill",
     "slug": "university-of-north-carolina-at-chapel-hill",

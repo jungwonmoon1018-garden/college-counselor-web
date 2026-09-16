@@ -88,7 +88,8 @@
     },
     "applicationFeeUsd": 30,
     "aid": {
-      "averagePackageFirstYearUsd": 11685
+      "averagePackageFirstYearUsd": 11685,
+      "needMetPct": 50.7
     },
     "transfer": {
       "applied": 11413,
@@ -100,8 +101,8 @@
       "onCampusPct": 25
     }
   },
-  "ingestedAt": "2026-09-15 17:09:03",
-  "updatedAt": "2026-09-15 17:09:03",
+  "ingestedAt": "2026-09-15 19:24:57",
+  "updatedAt": "2026-09-15 19:24:57",
   "validation": {
     "school": "Florida International University",
     "slug": "florida-international-university",

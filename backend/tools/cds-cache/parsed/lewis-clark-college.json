@@ -122,7 +122,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 66450
+      "averagePackageFirstYearUsd": 66450,
+      "needMetPct": 92.3
     },
     "enrollment": {
       "undergraduates": 1989
@@ -152,10 +153,23 @@
       "tuitionUsd": 70657,
       "requiredFeesUsd": 434,
       "foodAndHousingUsd": 16892
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 85,
+        "10-19": 168,
+        "20-29": 139,
+        "30-39": 38,
+        "40-49": 9,
+        "50-99": 4,
+        "100+": 0,
+        "total": 443
+      },
+      "under20Pct": 57.1
     }
   },
-  "ingestedAt": "2026-09-15 17:09:57",
-  "updatedAt": "2026-09-15 17:09:57",
+  "ingestedAt": "2026-09-15 19:25:41",
+  "updatedAt": "2026-09-15 19:25:41",
   "validation": {
     "school": "Lewis & Clark College",
     "slug": "lewis-clark-college",

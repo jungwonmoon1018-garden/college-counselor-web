@@ -58,8 +58,17 @@ export function extractSections(rawLines) {
   // B1: undergraduate headcount.
   const undergrad = find(/Total all undergraduates/i);
   if (undergrad >= 0) {
-    const n = whole(after(lines[undergrad], /^.*?Total all undergraduates/i))[0];
+    // The first number that is a student body: Wellesley prints a footnote
+    // mark before the count.
+    const n = whole(after(lines[undergrad], /^.*?Total all undergraduates/i)).find((v) => v >= 200);
     if (n) out.enrollment = { undergraduates: n };
+  } else {
+    // Indiana: "Total undergraduate" alone on its line, the men / women ×
+    // full-time / part-time columns on the next, no total column.
+    const row = find(/^Total undergraduates?$/i);
+    const cols = row >= 0 ? whole(lines[row + 1] || "") : [];
+    const sum = cols.reduce((a, b) => a + b, 0);
+    if (cols.length >= 2 && sum >= 200) out.enrollment = { undergraduates: sum };
   }
 
   // B22: first-year retention, as a percentage or a ratio.
@@ -68,7 +77,7 @@ export function extractSections(rawLines) {
   let retentionValue = retention >= 0 ? shares(after(window(retention, 2), /^.*?remained enrolled[^.]*\.?/i))[0] : null;
   if (retentionValue == null) {
     const alt = find(/was enrolled at your institution as of/i);
-    if (alt >= 0) retentionValue = shares(after(window(alt, 4), /^.*?was enrolled at your institution as of[^?]*\??/i))[0];
+    if (alt >= 0) retentionValue = shares(window(alt - 3, 8).replace(/Fall \d{4}/g, ""))[0];
   }
   if (retentionValue != null) out.retention = { firstYearPct: retentionValue };
 
@@ -138,16 +147,21 @@ export function extractSections(rawLines) {
   // H2: the average share of need met for students awarded need-based aid.
   const needMet = find(/On average, the percentage of need that was met/i);
   if (needMet >= 0) {
-    const value = shares(after(window(needMet, 2), /^.*?need that was met/i))[0];
+    const value = shares(after(window(needMet, 5), /^.*?need that was met/i)).find((v) => v >= 5);
     if (value != null) out.aid = { needMetPct: value };
   }
 
   // I3: class sections by size; the share under 20 students.
   // Upper case only: the definitions above the table begin "Class Sections:".
-  const sections = find(/^CLASS SECTIONS\b/);
+  const sizeHeader = find(/^2-9 10-19 20-29 30-39 40-49 50-99 100\+ Total$/);
+  const sections = sizeHeader >= 0 ? sizeHeader : find(/^CLASS SECTIONS\b/);
   if (sections >= 0) {
-    let nums = whole(after(lines[sections], /^CLASS SECTIONS/));
-    if (nums.length < 7) nums = whole(lines[sections + 1] || "");
+    let nums = [];
+    for (let i = sections; i < Math.min(lines.length, sections + 5); i++) {
+      const candidate = whole(after(lines[i], /^(?:CLASS SECTIONS|CLASS)\b/).replace(/\b(?:Fall|Spring|Summer|Winter)\s+\d{4}\b/gi, " "));
+      const sum7 = candidate.slice(0, 7).reduce((a, b) => a + b, 0);
+      if (candidate.length === 7 || (candidate.length >= 8 && candidate[7] === sum7)) { nums = candidate; break; }
+    }
     if (nums.length >= 7) {
       const bands = nums.slice(0, 7);
       const total = nums[7] ?? bands.reduce((a, b) => a + b, 0);

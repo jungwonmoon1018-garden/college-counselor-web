@@ -413,7 +413,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 14951
+      "averagePackageFirstYearUsd": 14951,
+      "needMetPct": 72.5
     },
     "enrollment": {
       "undergraduates": 19888
@@ -430,10 +431,23 @@
     "studentLife": {
       "outOfStatePct": 13,
       "onCampusPct": 95
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 140,
+        "10-19": 315,
+        "20-29": 470,
+        "30-39": 343,
+        "40-49": 149,
+        "50-99": 183,
+        "100+": 82,
+        "total": 1682
+      },
+      "under20Pct": 27.1
     }
   },
-  "ingestedAt": "2026-09-15 17:10:57",
-  "updatedAt": "2026-09-15 17:10:57",
+  "ingestedAt": "2026-09-15 19:26:29",
+  "updatedAt": "2026-09-15 19:26:29",
   "validation": {
     "school": "Ohio University",
     "slug": "ohio-university",

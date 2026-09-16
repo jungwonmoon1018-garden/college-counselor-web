@@ -106,6 +106,9 @@
     "enrollment": {
       "undergraduates": 31133
     },
+    "retention": {
+      "firstYearPct": 96.2
+    },
     "graduation": {
       "sixYearPct": 88.6,
       "cohort": 2018
@@ -147,8 +150,8 @@
       "under20Pct": 45.7
     }
   },
-  "ingestedAt": "2026-09-15 17:14:42",
-  "updatedAt": "2026-09-15 17:14:42",
+  "ingestedAt": "2026-09-16 04:17:28",
+  "updatedAt": "2026-09-16 04:17:28",
   "validation": {
     "school": "University of Maryland, College Park",
     "slug": "university-of-maryland-college-park",

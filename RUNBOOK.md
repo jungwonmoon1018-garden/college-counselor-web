@@ -12,6 +12,12 @@ Production runs on Render from `main`: Node 22.22 (`.node-version`,
 SQLite on the persistent disk under `backend/data/` (operational,
 encrypted PII vault, vectors), one OpenRouter transport. The React app is
 built by Vite and served by the backend. Health: `GET /api/health`.
+Route handlers live in `backend/routes/<family>.js` (one file per
+`/api/<family>` prefix, registered from `server.js` through the `routeDeps`
+getters); `server.js` keeps the setup, middleware and helpers. The chat
+screen is `frontend/src/App.jsx`; the sidebar, survey, login and
+create-account screens are their own files beside it. The AST tools that
+made those moves are in `backend/scripts/refactor/` (README there).
 Locally on a machine without Node 22, install nvm-windows or Volta and
 `nvm use` before `npm ci`, or accept that native modules (better-sqlite3)
 are built for whatever Node runs `npm install`.

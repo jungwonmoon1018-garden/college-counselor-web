@@ -78,7 +78,8 @@
     },
     "applicationFeeUsd": 75,
     "aid": {
-      "averagePackageFirstYearUsd": 19344
+      "averagePackageFirstYearUsd": 19344,
+      "needMetPct": 28.8
     },
     "waitlist": {
       "offered": 28,
@@ -93,10 +94,23 @@
     "studentLife": {
       "outOfStatePct": 7.7,
       "onCampusPct": 81
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 175,
+        "10-19": 465,
+        "20-29": 613,
+        "30-39": 262,
+        "40-49": 126,
+        "50-99": 183,
+        "100+": 98,
+        "total": 1922
+      },
+      "under20Pct": 33.3
     }
   },
-  "ingestedAt": "2026-09-15 17:16:26",
-  "updatedAt": "2026-09-15 17:16:26",
+  "ingestedAt": "2026-09-16 04:18:21",
+  "updatedAt": "2026-09-16 04:18:21",
   "validation": {
     "school": "Virginia Commonwealth University",
     "slug": "virginia-commonwealth-university",

@@ -116,20 +116,20 @@
     },
     "classSize": {
       "sections": {
-        "2-9": 552,
-        "10-19": 961,
-        "20-29": 960,
-        "30-39": 509,
-        "40-49": 273,
-        "50-99": 412,
-        "100+": 373,
-        "total": 4040
+        "2-9": 644,
+        "10-19": 770,
+        "20-29": 1362,
+        "30-39": 732,
+        "40-49": 212,
+        "50-99": 174,
+        "100+": 158,
+        "total": 4052
       },
-      "under20Pct": 37.5
+      "under20Pct": 34.9
     }
   },
-  "ingestedAt": "2026-09-15 17:17:01",
-  "updatedAt": "2026-09-15 17:17:01",
+  "ingestedAt": "2026-09-16 04:18:37",
+  "updatedAt": "2026-09-16 04:18:37",
   "validation": {
     "school": "University of Illinois Urbana-Champaign",
     "slug": "university-of-illinois-urbana-champaign",

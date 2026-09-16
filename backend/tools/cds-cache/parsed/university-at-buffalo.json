@@ -63,7 +63,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 13835
+      "averagePackageFirstYearUsd": 13835,
+      "needMetPct": 53
     },
     "graduation": {
       "sixYearPct": 72.8,
@@ -79,8 +80,8 @@
       "onCampusPct": 67
     }
   },
-  "ingestedAt": "2026-09-15 17:13:25",
-  "updatedAt": "2026-09-15 17:13:25",
+  "ingestedAt": "2026-09-15 19:28:40",
+  "updatedAt": "2026-09-15 19:28:40",
   "validation": {
     "school": "University at Buffalo",
     "slug": "university-at-buffalo",

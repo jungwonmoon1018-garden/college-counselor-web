@@ -309,7 +309,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 70629
+      "averagePackageFirstYearUsd": 70629,
+      "needMetPct": 98
     },
     "studentFacultyRatio": "10 to 1",
     "enrollment": {
@@ -332,10 +333,23 @@
       "tuitionUsd": 69870,
       "requiredFeesUsd": 1502,
       "foodAndHousingUsd": 19970
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 432,
+        "10-19": 1125,
+        "20-29": 322,
+        "30-39": 263,
+        "40-49": 165,
+        "50-99": 259,
+        "100+": 132,
+        "total": 2698
+      },
+      "under20Pct": 57.7
     }
   },
-  "ingestedAt": "2026-09-15 17:06:09",
-  "updatedAt": "2026-09-15 17:06:09",
+  "ingestedAt": "2026-09-15 19:22:37",
+  "updatedAt": "2026-09-15 19:22:37",
   "validation": {
     "school": "Boston University",
     "slug": "boston-university",

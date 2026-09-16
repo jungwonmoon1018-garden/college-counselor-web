@@ -96,7 +96,8 @@
       "edNotification": "12 15"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 43854
+      "averagePackageFirstYearUsd": 43854,
+      "needMetPct": 74.3
     },
     "enrollment": {
       "undergraduates": 4206
@@ -109,10 +110,23 @@
     "studentLife": {
       "outOfStatePct": 34.8,
       "onCampusPct": 81.2
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 88,
+        "10-19": 232,
+        "20-29": 263,
+        "30-39": 127,
+        "40-49": 133,
+        "50-99": 122,
+        "100+": 17,
+        "total": 982
+      },
+      "under20Pct": 32.6
     }
   },
-  "ingestedAt": "2026-09-15 17:12:20",
-  "updatedAt": "2026-09-15 17:12:20",
+  "ingestedAt": "2026-09-15 19:27:35",
+  "updatedAt": "2026-09-15 19:27:35",
   "validation": {
     "school": "Stevens Institute of Technology",
     "slug": "stevens-institute-of-technology",

@@ -44,7 +44,8 @@
   "extras": {
     "applicationFeeUsd": 75,
     "aid": {
-      "averagePackageFirstYearUsd": 74780
+      "averagePackageFirstYearUsd": 74780,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 987
@@ -62,10 +63,23 @@
     "studentLife": {
       "outOfStatePct": 63,
       "onCampusPct": 100
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 97,
+        "10-19": 114,
+        "20-29": 32,
+        "30-39": 24,
+        "40-49": 11,
+        "50-99": 12,
+        "100+": 9,
+        "total": 299
+      },
+      "under20Pct": 70.6
     }
   },
-  "ingestedAt": "2026-09-15 17:06:42",
-  "updatedAt": "2026-09-15 17:06:42",
+  "ingestedAt": "2026-09-15 19:23:04",
+  "updatedAt": "2026-09-15 19:23:04",
   "validation": {
     "school": "California Institute of Technology",
     "slug": "california-institute-of-technology",

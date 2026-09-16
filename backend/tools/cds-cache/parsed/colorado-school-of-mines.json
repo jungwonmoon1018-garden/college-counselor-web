@@ -320,6 +320,9 @@
     "enrollment": {
       "undergraduates": 5733
     },
+    "retention": {
+      "firstYearPct": 94
+    },
     "graduation": {
       "sixYearPct": 81,
       "cohort": 2016
@@ -343,10 +346,23 @@
       "tuitionOutOfStateUsd": 39600,
       "requiredFeesUsd": 2520,
       "foodAndHousingUsd": 16110
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 45,
+        "10-19": 78,
+        "20-29": 161,
+        "30-39": 80,
+        "40-49": 120,
+        "50-99": 104,
+        "100+": 34,
+        "total": 622
+      },
+      "under20Pct": 19.8
     }
   },
-  "ingestedAt": "2026-09-15 17:07:31",
-  "updatedAt": "2026-09-15 17:07:31",
+  "ingestedAt": "2026-09-15 19:23:44",
+  "updatedAt": "2026-09-15 19:23:44",
   "validation": {
     "school": "Colorado School of Mines",
     "slug": "colorado-school-of-mines",

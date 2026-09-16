@@ -261,10 +261,14 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 47855
+      "averagePackageFirstYearUsd": 47855,
+      "needMetPct": 93
     },
     "enrollment": {
       "undergraduates": 2241
+    },
+    "retention": {
+      "firstYearPct": 80.8
     },
     "transfer": {
       "applied": 277,
@@ -281,8 +285,8 @@
       "foodAndHousingUsd": 15758
     }
   },
-  "ingestedAt": "2026-09-15 17:15:37",
-  "updatedAt": "2026-09-15 17:15:37",
+  "ingestedAt": "2026-09-16 04:18:00",
+  "updatedAt": "2026-09-16 04:18:00",
   "validation": {
     "school": "University of Redlands",
     "slug": "university-of-redlands",

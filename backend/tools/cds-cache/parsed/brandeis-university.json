@@ -96,7 +96,8 @@
       "edNotification": "12 11"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 65635
+      "averagePackageFirstYearUsd": 65635,
+      "needMetPct": 97.4
     },
     "enrollment": {
       "undergraduates": 3358
@@ -114,10 +115,23 @@
     "studentLife": {
       "outOfStatePct": 67,
       "onCampusPct": 98.7
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 71,
+        "10-19": 262,
+        "20-29": 116,
+        "30-39": 47,
+        "40-49": 22,
+        "50-99": 34,
+        "100+": 10,
+        "total": 562
+      },
+      "under20Pct": 59.3
     }
   },
-  "ingestedAt": "2026-09-15 17:06:21",
-  "updatedAt": "2026-09-15 17:06:21",
+  "ingestedAt": "2026-09-15 19:22:47",
+  "updatedAt": "2026-09-15 19:22:47",
   "validation": {
     "school": "Brandeis University",
     "slug": "brandeis-university",

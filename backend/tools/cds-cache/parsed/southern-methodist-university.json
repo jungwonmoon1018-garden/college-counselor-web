@@ -86,7 +86,8 @@
       "edNotification": "12 31"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 62094
+      "averagePackageFirstYearUsd": 62094,
+      "needMetPct": 89.7
     },
     "enrollment": {
       "undergraduates": 7285
@@ -104,10 +105,23 @@
     "studentLife": {
       "outOfStatePct": 56.6,
       "onCampusPct": 97.7
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 244,
+        "10-19": 536,
+        "20-29": 235,
+        "30-39": 172,
+        "40-49": 105,
+        "50-99": 134,
+        "100+": 20,
+        "total": 1446
+      },
+      "under20Pct": 53.9
     }
   },
-  "ingestedAt": "2026-09-15 17:12:01",
-  "updatedAt": "2026-09-15 17:12:01",
+  "ingestedAt": "2026-09-15 19:27:20",
+  "updatedAt": "2026-09-15 19:27:20",
   "validation": {
     "school": "Southern Methodist University",
     "slug": "southern-methodist-university",

@@ -246,7 +246,8 @@
     },
     "applicationFeeUsd": 50,
     "aid": {
-      "averagePackageFirstYearUsd": 17052
+      "averagePackageFirstYearUsd": 17052,
+      "needMetPct": 57.3
     },
     "enrollment": {
       "undergraduates": 34242
@@ -269,10 +270,23 @@
       "tuitionOutOfStateUsd": 24715,
       "requiredFeesUsd": 3916,
       "foodAndHousingUsd": 15142
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 263,
+        "10-19": 947,
+        "20-29": 665,
+        "30-39": 322,
+        "40-49": 171,
+        "50-99": 290,
+        "100+": 188,
+        "total": 2846
+      },
+      "under20Pct": 42.5
     }
   },
-  "ingestedAt": "2026-09-15 17:10:04",
-  "updatedAt": "2026-09-15 17:10:04",
+  "ingestedAt": "2026-09-15 19:25:47",
+  "updatedAt": "2026-09-15 19:25:47",
   "validation": {
     "school": "Louisiana State University",
     "slug": "louisiana-state-university",

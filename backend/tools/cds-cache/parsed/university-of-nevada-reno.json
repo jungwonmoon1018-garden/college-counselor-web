@@ -449,7 +449,8 @@
       "submittedPct": 99.9
     },
     "aid": {
-      "averagePackageFirstYearUsd": 9202
+      "averagePackageFirstYearUsd": 9202,
+      "needMetPct": 64
     },
     "enrollment": {
       "undergraduates": 20204
@@ -471,10 +472,23 @@
       "tuitionInStateUsd": 8656,
       "tuitionOutOfStateUsd": 27288,
       "requiredFeesUsd": 1642
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 248,
+        "10-19": 409,
+        "20-29": 332,
+        "30-39": 299,
+        "40-49": 171,
+        "50-99": 261,
+        "100+": 139,
+        "total": 1859
+      },
+      "under20Pct": 35.3
     }
   },
-  "ingestedAt": "2026-09-15 17:15:04",
-  "updatedAt": "2026-09-15 17:15:04",
+  "ingestedAt": "2026-09-16 04:17:42",
+  "updatedAt": "2026-09-16 04:17:42",
   "validation": {
     "school": "University of Nevada-Reno",
     "slug": "university-of-nevada-reno",

@@ -93,7 +93,8 @@
       "edNotification": "12 20"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 52773
+      "averagePackageFirstYearUsd": 52773,
+      "needMetPct": 83
     },
     "enrollment": {
       "undergraduates": 7630
@@ -106,10 +107,23 @@
     "studentLife": {
       "outOfStatePct": 35.5,
       "onCampusPct": 85.5
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 42,
+        "10-19": 559,
+        "20-29": 554,
+        "30-39": 284,
+        "40-49": 32,
+        "50-99": 28,
+        "100+": 3,
+        "total": 1502
+      },
+      "under20Pct": 40
     }
   },
-  "ingestedAt": "2026-09-15 17:07:01",
-  "updatedAt": "2026-09-15 17:07:01",
+  "ingestedAt": "2026-09-15 19:23:23",
+  "updatedAt": "2026-09-15 19:23:23",
   "validation": {
     "school": "Chapman University",
     "slug": "chapman-university",

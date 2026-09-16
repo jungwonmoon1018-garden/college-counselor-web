@@ -88,7 +88,8 @@
     },
     "applicationFeeUsd": 45,
     "aid": {
-      "averagePackageFirstYearUsd": 12517
+      "averagePackageFirstYearUsd": 12517,
+      "needMetPct": 55
     },
     "enrollment": {
       "undergraduates": 9530
@@ -96,10 +97,23 @@
     "studentLife": {
       "outOfStatePct": 28.3,
       "onCampusPct": 67.6
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 409,
+        "10-19": 376,
+        "20-29": 323,
+        "30-39": 164,
+        "40-49": 112,
+        "50-99": 77,
+        "100+": 14,
+        "total": 1475
+      },
+      "under20Pct": 53.2
     }
   },
-  "ingestedAt": "2026-09-15 17:17:19",
-  "updatedAt": "2026-09-15 17:17:19",
+  "ingestedAt": "2026-09-16 04:18:44",
+  "updatedAt": "2026-09-16 04:18:44",
   "validation": {
     "school": "University of South Alabama",
     "slug": "university-of-south-alabama",

@@ -423,10 +423,14 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 16041
+      "averagePackageFirstYearUsd": 16041,
+      "needMetPct": 64.1
     },
     "enrollment": {
       "undergraduates": 22991
+    },
+    "retention": {
+      "firstYearPct": 75
     },
     "graduation": {
       "sixYearPct": 61,
@@ -446,10 +450,23 @@
       "tuitionOutOfStateUsd": 28560,
       "requiredFeesUsd": 1321,
       "foodAndHousingUsd": 14432
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 192,
+        "10-19": 557,
+        "20-29": 707,
+        "30-39": 381,
+        "40-49": 148,
+        "50-99": 278,
+        "100+": 91,
+        "total": 2354
+      },
+      "under20Pct": 31.8
     }
   },
-  "ingestedAt": "2026-09-15 17:10:46",
-  "updatedAt": "2026-09-15 17:10:46",
+  "ingestedAt": "2026-09-15 19:26:21",
+  "updatedAt": "2026-09-15 19:26:21",
   "validation": {
     "school": "Northern Arizona University",
     "slug": "northern-arizona-university",

@@ -277,10 +277,14 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 44096
+      "averagePackageFirstYearUsd": 44096,
+      "needMetPct": 62
     },
     "enrollment": {
       "undergraduates": 3553
+    },
+    "retention": {
+      "firstYearPct": 88
     },
     "graduation": {
       "sixYearPct": 83,
@@ -320,8 +324,8 @@
       "under20Pct": 68.7
     }
   },
-  "ingestedAt": "2026-09-15 17:11:05",
-  "updatedAt": "2026-09-15 17:11:05",
+  "ingestedAt": "2026-09-15 19:26:36",
+  "updatedAt": "2026-09-15 19:26:36",
   "validation": {
     "school": "Pepperdine University",
     "slug": "pepperdine-university",

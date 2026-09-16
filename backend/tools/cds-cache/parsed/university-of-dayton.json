@@ -299,7 +299,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 38946
+      "averagePackageFirstYearUsd": 38946,
+      "needMetPct": 86.5
     },
     "enrollment": {
       "undergraduates": 8176
@@ -331,8 +332,8 @@
       "under20Pct": 43.3
     }
   },
-  "ingestedAt": "2026-09-15 17:14:06",
-  "updatedAt": "2026-09-15 17:14:06",
+  "ingestedAt": "2026-09-15 19:29:27",
+  "updatedAt": "2026-09-15 19:29:27",
   "validation": {
     "school": "University of Dayton",
     "slug": "university-of-dayton",

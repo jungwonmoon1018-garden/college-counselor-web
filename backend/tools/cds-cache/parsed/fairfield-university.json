@@ -308,7 +308,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 32097
+      "averagePackageFirstYearUsd": 32097,
+      "needMetPct": 78.3
     },
     "enrollment": {
       "undergraduates": 5391
@@ -336,10 +337,23 @@
       "requiredFeesUsd": 900,
       "foodAndHousingUsd": 19838,
       "academicYear": "2025-2026"
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 96,
+        "10-19": 395,
+        "20-29": 553,
+        "30-39": 159,
+        "40-49": 5,
+        "50-99": 8,
+        "100+": 1216,
+        "total": 2432
+      },
+      "under20Pct": 20.2
     }
   },
-  "ingestedAt": "2026-09-15 17:08:26",
-  "updatedAt": "2026-09-15 17:08:26",
+  "ingestedAt": "2026-09-15 19:24:28",
+  "updatedAt": "2026-09-15 19:24:28",
   "validation": {
     "school": "Fairfield University",
     "slug": "fairfield-university",

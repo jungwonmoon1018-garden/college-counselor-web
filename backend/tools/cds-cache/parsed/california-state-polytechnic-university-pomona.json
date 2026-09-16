@@ -109,7 +109,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 16281
+      "averagePackageFirstYearUsd": 16281,
+      "needMetPct": 70.5
     },
     "enrollment": {
       "undergraduates": 25312
@@ -140,10 +141,23 @@
       "tuitionOutOfStateUsd": 20968,
       "requiredFeesUsd": 1728,
       "foodAndHousingUsd": 16909
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 255,
+        "10-19": 300,
+        "20-29": 468,
+        "30-39": 653,
+        "40-49": 257,
+        "50-99": 320,
+        "100+": 135,
+        "total": 2388
+      },
+      "under20Pct": 23.2
     }
   },
-  "ingestedAt": "2026-09-15 17:06:33",
-  "updatedAt": "2026-09-15 17:06:33",
+  "ingestedAt": "2026-09-15 19:22:57",
+  "updatedAt": "2026-09-15 19:22:57",
   "validation": {
     "school": "California State Polytechnic University, Pomona",
     "slug": "california-state-polytechnic-university-pomona",

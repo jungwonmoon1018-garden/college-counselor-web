@@ -87,7 +87,8 @@
       "edNotification": "12 15"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 56426
+      "averagePackageFirstYearUsd": 56426,
+      "needMetPct": 89.6
     },
     "enrollment": {
       "undergraduates": 1862
@@ -95,10 +96,23 @@
     "studentLife": {
       "outOfStatePct": 56.6,
       "onCampusPct": 84.8
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 234,
+        "10-19": 180,
+        "20-29": 126,
+        "30-39": 29,
+        "40-49": 6,
+        "50-99": 0,
+        "100+": 0,
+        "total": 575
+      },
+      "under20Pct": 72
     }
   },
-  "ingestedAt": "2026-09-15 17:09:28",
-  "updatedAt": "2026-09-15 17:09:28",
+  "ingestedAt": "2026-09-15 19:25:14",
+  "updatedAt": "2026-09-15 19:25:14",
   "validation": {
     "school": "Hobart William Smith Colleges",
     "slug": "hobart-william-smith-colleges",

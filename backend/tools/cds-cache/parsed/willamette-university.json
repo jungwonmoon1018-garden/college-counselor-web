@@ -88,6 +88,9 @@
     "enrollment": {
       "undergraduates": 1367
     },
+    "retention": {
+      "firstYearPct": 82.6
+    },
     "graduation": {
       "sixYearPct": 76.3,
       "cohort": 2016
@@ -124,8 +127,8 @@
       "under20Pct": 75.1
     }
   },
-  "ingestedAt": "2026-09-15 17:16:48",
-  "updatedAt": "2026-09-15 17:16:48",
+  "ingestedAt": "2026-09-16 04:18:31",
+  "updatedAt": "2026-09-16 04:18:31",
   "validation": {
     "school": "Willamette University",
     "slug": "willamette-university",

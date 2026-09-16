@@ -326,7 +326,8 @@
       "admitRate": 0.1602
     },
     "aid": {
-      "averagePackageFirstYearUsd": 19340
+      "averagePackageFirstYearUsd": 19340,
+      "needMetPct": 19
     },
     "enrollment": {
       "undergraduates": 2597
@@ -361,10 +362,23 @@
       "tuitionUsd": 29025,
       "requiredFeesUsd": 3445,
       "foodAndHousingUsd": 18924
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 208,
+        "10-19": 253,
+        "20-29": 231,
+        "30-39": 51,
+        "40-49": 7,
+        "50-99": 6,
+        "100+": 0,
+        "total": 756
+      },
+      "under20Pct": 61
     }
   },
-  "ingestedAt": "2026-09-15 17:12:05",
-  "updatedAt": "2026-09-15 17:12:05",
+  "ingestedAt": "2026-09-15 19:27:23",
+  "updatedAt": "2026-09-15 19:27:23",
   "validation": {
     "school": "Spelman College",
     "slug": "spelman-college",

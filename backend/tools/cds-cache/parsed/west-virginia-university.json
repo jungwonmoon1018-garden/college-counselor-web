@@ -97,10 +97,13 @@
     "studentLife": {
       "outOfStatePct": 58.6,
       "onCampusPct": 4.4
+    },
+    "aid": {
+      "needMetPct": 62
     }
   },
-  "ingestedAt": "2026-09-15 17:17:13",
-  "updatedAt": "2026-09-15 17:17:13",
+  "ingestedAt": "2026-09-16 04:18:35",
+  "updatedAt": "2026-09-16 04:18:35",
   "validation": {
     "school": "West Virginia University",
     "slug": "west-virginia-university",

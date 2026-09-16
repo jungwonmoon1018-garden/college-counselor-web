@@ -271,7 +271,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 19615
+      "averagePackageFirstYearUsd": 19615,
+      "needMetPct": 78.3
     },
     "enrollment": {
       "undergraduates": 9601
@@ -309,8 +310,8 @@
       "under20Pct": 41.7
     }
   },
-  "ingestedAt": "2026-09-15 17:14:31",
-  "updatedAt": "2026-09-15 17:14:31",
+  "ingestedAt": "2026-09-16 04:17:17",
+  "updatedAt": "2026-09-16 04:17:17",
   "validation": {
     "school": "University of Maine",
     "slug": "university-of-maine",

@@ -122,26 +122,10 @@
       "requiredFeesUsd": 350,
       "foodAndHousingUsd": 900,
       "academicYear": "2026-2027"
-    },
-    "aid": {
-      "needMetPct": 1
-    },
-    "classSize": {
-      "sections": {
-        "2-9": 96,
-        "10-19": 226,
-        "20-29": 95,
-        "30-39": 16,
-        "40-49": 2,
-        "50-99": 435,
-        "100+": 100,
-        "total": 970
-      },
-      "under20Pct": 33.2
     }
   },
-  "ingestedAt": "2026-09-15 17:09:49",
-  "updatedAt": "2026-09-15 17:09:49",
+  "ingestedAt": "2026-09-15 19:25:33",
+  "updatedAt": "2026-09-15 19:25:33",
   "validation": {
     "school": "Kenyon College",
     "slug": "kenyon-college",

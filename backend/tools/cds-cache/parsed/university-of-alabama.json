@@ -398,7 +398,8 @@
     },
     "applicationFeeUsd": 40,
     "aid": {
-      "averagePackageFirstYearUsd": 19857
+      "averagePackageFirstYearUsd": 19857,
+      "needMetPct": 62.7
     },
     "enrollment": {
       "undergraduates": 35621
@@ -421,10 +422,23 @@
       "tuitionOutOfStateUsd": 34542,
       "requiredFeesUsd": 800,
       "foodAndHousingUsd": 13616
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 43,
+        "10-19": 170,
+        "20-29": 374,
+        "30-39": 50,
+        "40-49": 29,
+        "50-99": 33,
+        "100+": 0,
+        "total": 699
+      },
+      "under20Pct": 30.5
     }
   },
-  "ingestedAt": "2026-09-15 17:13:25",
-  "updatedAt": "2026-09-15 17:13:25",
+  "ingestedAt": "2026-09-15 19:28:41",
+  "updatedAt": "2026-09-15 19:28:41",
   "validation": {
     "school": "University of Alabama",
     "slug": "university-of-alabama",

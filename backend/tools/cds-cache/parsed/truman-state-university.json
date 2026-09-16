@@ -148,7 +148,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 12911
+      "averagePackageFirstYearUsd": 12911,
+      "needMetPct": 85.6
     },
     "enrollment": {
       "undergraduates": 4939
@@ -165,8 +166,8 @@
       "onCampusPct": 97
     }
   },
-  "ingestedAt": "2026-09-15 17:13:07",
-  "updatedAt": "2026-09-15 17:13:07",
+  "ingestedAt": "2026-09-15 19:28:17",
+  "updatedAt": "2026-09-15 19:28:17",
   "validation": {
     "school": "Truman State University",
     "slug": "truman-state-university",

@@ -415,7 +415,8 @@
     },
     "applicationFeeUsd": 40,
     "aid": {
-      "averagePackageFirstYearUsd": 18226
+      "averagePackageFirstYearUsd": 18226,
+      "needMetPct": 79
     },
     "enrollment": {
       "undergraduates": 16555
@@ -441,10 +442,23 @@
       "tuitionOutOfStateUsd": 28555,
       "requiredFeesUsd": 978,
       "foodAndHousingUsd": 11520
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 292,
+        "10-19": 539,
+        "20-29": 412,
+        "30-39": 214,
+        "40-49": 167,
+        "50-99": 145,
+        "100+": 79,
+        "total": 1848
+      },
+      "under20Pct": 45
     }
   },
-  "ingestedAt": "2026-09-15 17:09:46",
-  "updatedAt": "2026-09-15 17:09:46",
+  "ingestedAt": "2026-09-15 19:25:31",
+  "updatedAt": "2026-09-15 19:25:31",
   "validation": {
     "school": "Kansas State University",
     "slug": "kansas-state-university",

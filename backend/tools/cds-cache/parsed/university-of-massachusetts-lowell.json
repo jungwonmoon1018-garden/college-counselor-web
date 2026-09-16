@@ -217,7 +217,8 @@
     },
     "applicationFeeUsd": 70,
     "aid": {
-      "averagePackageFirstYearUsd": 21281
+      "averagePackageFirstYearUsd": 21281,
+      "needMetPct": 93
     },
     "studentFacultyRatio": "17 to 1",
     "enrollment": {
@@ -240,10 +241,23 @@
     "studentLife": {
       "outOfStatePct": 10,
       "onCampusPct": 66
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 158,
+        "10-19": 708,
+        "20-29": 483,
+        "30-39": 293,
+        "40-49": 195,
+        "50-99": 88,
+        "100+": 6,
+        "total": 1931
+      },
+      "under20Pct": 44.8
     }
   },
-  "ingestedAt": "2026-09-15 17:14:52",
-  "updatedAt": "2026-09-15 17:14:52",
+  "ingestedAt": "2026-09-16 04:17:33",
+  "updatedAt": "2026-09-16 04:17:33",
   "validation": {
     "school": "University of Massachusetts Lowell",
     "slug": "university-of-massachusetts-lowell",

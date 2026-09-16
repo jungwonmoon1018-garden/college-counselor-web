@@ -224,7 +224,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 81871
+      "averagePackageFirstYearUsd": 81871,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 8153
@@ -250,10 +251,23 @@
       "tuitionUsd": 71310,
       "requiredFeesUsd": 1412,
       "foodAndHousingUsd": 24272
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 501,
+        "10-19": 743,
+        "20-29": 264,
+        "30-39": 103,
+        "40-49": 120,
+        "50-99": 102,
+        "100+": 59,
+        "total": 1892
+      },
+      "under20Pct": 65.8
     }
   },
-  "ingestedAt": "2026-09-15 17:16:58",
-  "updatedAt": "2026-09-15 17:16:58",
+  "ingestedAt": "2026-09-16 04:18:36",
+  "updatedAt": "2026-09-16 04:18:36",
   "validation": {
     "school": "Washington University in St. Louis",
     "slug": "washington-university-in-st-louis",

@@ -325,10 +325,14 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 13440
+      "averagePackageFirstYearUsd": 13440,
+      "needMetPct": 75
     },
     "enrollment": {
       "undergraduates": 59649
+    },
+    "retention": {
+      "firstYearPct": 92.3
     },
     "graduation": {
       "sixYearPct": 78,
@@ -352,10 +356,23 @@
       "tuitionInStateUsd": 6368,
       "tuitionOutOfStateUsd": 22467,
       "foodAndHousingUsd": 10958
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 316,
+        "10-19": 579,
+        "20-29": 760,
+        "30-39": 397,
+        "40-49": 344,
+        "50-99": 472,
+        "100+": 328,
+        "total": 3196
+      },
+      "under20Pct": 28
     }
   },
-  "ingestedAt": "2026-09-15 17:13:47",
-  "updatedAt": "2026-09-15 17:13:47",
+  "ingestedAt": "2026-09-15 19:29:16",
+  "updatedAt": "2026-09-15 19:29:16",
   "validation": {
     "school": "University of Central Florida",
     "slug": "university-of-central-florida",

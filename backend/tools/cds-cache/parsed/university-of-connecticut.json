@@ -306,7 +306,8 @@
       "edNotification": "Mid December"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 22411
+      "averagePackageFirstYearUsd": 22411,
+      "needMetPct": 62.4
     },
     "enrollment": {
       "undergraduates": 20056
@@ -328,10 +329,23 @@
     "studentLife": {
       "outOfStatePct": 45,
       "onCampusPct": 95
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 354,
+        "10-19": 879,
+        "20-29": 374,
+        "30-39": 212,
+        "40-49": 124,
+        "50-99": 216,
+        "100+": 178,
+        "total": 2337
+      },
+      "under20Pct": 52.8
     }
   },
-  "ingestedAt": "2026-09-15 17:14:01",
-  "updatedAt": "2026-09-15 17:14:01",
+  "ingestedAt": "2026-09-15 19:29:26",
+  "updatedAt": "2026-09-15 19:29:26",
   "validation": {
     "school": "University of Connecticut",
     "slug": "university-of-connecticut",

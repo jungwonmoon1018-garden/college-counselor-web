@@ -170,7 +170,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 72963
+      "averagePackageFirstYearUsd": 72963,
+      "needMetPct": 99.8
     },
     "enrollment": {
       "undergraduates": 29471
@@ -196,8 +197,8 @@
       "under20Pct": 56.3
     }
   },
-  "ingestedAt": "2026-09-15 17:10:47",
-  "updatedAt": "2026-09-15 17:10:47",
+  "ingestedAt": "2026-09-15 19:26:22",
+  "updatedAt": "2026-09-15 19:26:22",
   "validation": {
     "school": "New York University",
     "slug": "new-york-university",

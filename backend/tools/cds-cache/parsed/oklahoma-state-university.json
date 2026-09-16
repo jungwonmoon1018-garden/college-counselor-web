@@ -428,7 +428,8 @@
     },
     "applicationFeeUsd": 50,
     "aid": {
-      "averagePackageFirstYearUsd": 18579
+      "averagePackageFirstYearUsd": 18579,
+      "needMetPct": 73.5
     },
     "enrollment": {
       "undergraduates": 22351
@@ -451,10 +452,23 @@
       "tuitionOutOfStateUsd": 20937,
       "requiredFeesUsd": 3827,
       "foodAndHousingUsd": 9822
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 289,
+        "10-19": 490,
+        "20-29": 567,
+        "30-39": 356,
+        "40-49": 257,
+        "50-99": 244,
+        "100+": 158,
+        "total": 2361
+      },
+      "under20Pct": 33
     }
   },
-  "ingestedAt": "2026-09-15 17:10:59",
-  "updatedAt": "2026-09-15 17:10:59",
+  "ingestedAt": "2026-09-15 19:26:31",
+  "updatedAt": "2026-09-15 19:26:31",
   "validation": {
     "school": "Oklahoma State University",
     "slug": "oklahoma-state-university",

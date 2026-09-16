@@ -94,10 +94,14 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 17270
+      "averagePackageFirstYearUsd": 17270,
+      "needMetPct": 73
     },
     "enrollment": {
       "undergraduates": 36196
+    },
+    "retention": {
+      "firstYearPct": 91
     },
     "graduation": {
       "sixYearPct": 78,
@@ -113,8 +117,8 @@
       "onCampusPct": 71
     }
   },
-  "ingestedAt": "2026-09-15 17:11:44",
-  "updatedAt": "2026-09-15 17:11:44",
+  "ingestedAt": "2026-09-15 19:27:06",
+  "updatedAt": "2026-09-15 19:27:06",
   "validation": {
     "school": "San Diego State University",
     "slug": "san-diego-state-university",

@@ -231,7 +231,8 @@
     },
     "applicationFeeUsd": 50,
     "aid": {
-      "averagePackageFirstYearUsd": 16189
+      "averagePackageFirstYearUsd": 16189,
+      "needMetPct": 66.3
     },
     "enrollment": {
       "undergraduates": 23351
@@ -248,10 +249,23 @@
     "studentLife": {
       "outOfStatePct": 51,
       "onCampusPct": 89.7
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 400,
+        "10-19": 864,
+        "20-29": 617,
+        "30-39": 542,
+        "40-49": 301,
+        "50-99": 189,
+        "100+": 154,
+        "total": 3067
+      },
+      "under20Pct": 41.2
     }
   },
-  "ingestedAt": "2026-09-15 17:15:30",
-  "updatedAt": "2026-09-15 17:15:30",
+  "ingestedAt": "2026-09-16 04:17:55",
+  "updatedAt": "2026-09-16 04:17:55",
   "validation": {
     "school": "University of Oklahoma",
     "slug": "university-of-oklahoma",

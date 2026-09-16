@@ -291,7 +291,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 70919
+      "averagePackageFirstYearUsd": 70919,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 6354
@@ -323,8 +324,8 @@
       "foodAndHousingUsd": 21967
     }
   },
-  "ingestedAt": "2026-09-15 17:09:44",
-  "updatedAt": "2026-09-15 17:09:44",
+  "ingestedAt": "2026-09-15 19:25:29",
+  "updatedAt": "2026-09-15 19:25:29",
   "validation": {
     "school": "Johns Hopkins University",
     "slug": "johns-hopkins-university",

@@ -89,7 +89,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 51497
+      "averagePackageFirstYearUsd": 51497,
+      "needMetPct": 95
     },
     "enrollment": {
       "undergraduates": 1241
@@ -109,10 +110,23 @@
     "studentLife": {
       "outOfStatePct": 35,
       "onCampusPct": 100
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 33,
+        "10-19": 124,
+        "20-29": 58,
+        "30-39": 9,
+        "40-49": 0,
+        "50-99": 0,
+        "100+": 0,
+        "total": 224
+      },
+      "under20Pct": 70.1
     }
   },
-  "ingestedAt": "2026-09-15 17:09:46",
-  "updatedAt": "2026-09-15 17:09:46",
+  "ingestedAt": "2026-09-15 19:25:32",
+  "updatedAt": "2026-09-15 19:25:32",
   "validation": {
     "school": "Kalamazoo College",
     "slug": "kalamazoo-college",

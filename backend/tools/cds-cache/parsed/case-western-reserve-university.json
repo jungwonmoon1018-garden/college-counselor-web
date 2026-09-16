@@ -318,7 +318,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 58416
+      "averagePackageFirstYearUsd": 58416,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 6528
@@ -341,10 +342,23 @@
       "tuitionUsd": 68660,
       "requiredFeesUsd": 1340,
       "foodAndHousingUsd": 19514
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 196,
+        "10-19": 467,
+        "20-29": 235,
+        "30-39": 105,
+        "40-49": 54,
+        "50-99": 161,
+        "100+": 59,
+        "total": 1277
+      },
+      "under20Pct": 51.9
     }
   },
-  "ingestedAt": "2026-09-15 17:06:57",
-  "updatedAt": "2026-09-15 17:06:57",
+  "ingestedAt": "2026-09-15 19:23:15",
+  "updatedAt": "2026-09-15 19:23:15",
   "validation": {
     "school": "Case Western Reserve University",
     "slug": "case-western-reserve-university",

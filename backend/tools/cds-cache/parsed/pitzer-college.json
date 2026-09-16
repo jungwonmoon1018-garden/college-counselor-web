@@ -126,7 +126,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 61090
+      "averagePackageFirstYearUsd": 61090,
+      "needMetPct": 99.7
     },
     "enrollment": {
       "undergraduates": 1242
@@ -153,10 +154,23 @@
       "tuitionUsd": 64888,
       "requiredFeesUsd": 304,
       "foodAndHousingUsd": 22150
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 29,
+        "10-19": 150,
+        "20-29": 46,
+        "30-39": 6,
+        "40-49": 1,
+        "50-99": 0,
+        "100+": 0,
+        "total": 232
+      },
+      "under20Pct": 77.2
     }
   },
-  "ingestedAt": "2026-09-15 17:11:06",
-  "updatedAt": "2026-09-15 17:11:06",
+  "ingestedAt": "2026-09-15 19:26:37",
+  "updatedAt": "2026-09-15 19:26:37",
   "validation": {
     "school": "Pitzer College",
     "slug": "pitzer-college",

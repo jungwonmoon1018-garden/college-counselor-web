@@ -102,7 +102,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 55762
+      "averagePackageFirstYearUsd": 55762,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 2003
@@ -127,8 +128,8 @@
       "tuitionUsd": 56930
     }
   },
-  "ingestedAt": "2026-09-15 17:07:12",
-  "updatedAt": "2026-09-15 17:07:12",
+  "ingestedAt": "2026-09-15 19:23:29",
+  "updatedAt": "2026-09-15 19:23:29",
   "validation": {
     "school": "Colby College",
     "slug": "colby-college",

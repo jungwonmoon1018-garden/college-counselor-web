@@ -263,7 +263,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 79320
+      "averagePackageFirstYearUsd": 79320,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 5916
@@ -293,10 +294,23 @@
       "tuitionUsd": 68140,
       "requiredFeesUsd": 314,
       "foodAndHousingUsd": 22120
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 360,
+        "10-19": 413,
+        "20-29": 106,
+        "30-39": 49,
+        "40-49": 25,
+        "50-99": 75,
+        "100+": 46,
+        "total": 1074
+      },
+      "under20Pct": 72
     }
   },
-  "ingestedAt": "2026-09-15 17:11:09",
-  "updatedAt": "2026-09-15 17:11:09",
+  "ingestedAt": "2026-09-15 19:26:39",
+  "updatedAt": "2026-09-15 19:26:39",
   "validation": {
     "school": "Princeton University",
     "slug": "princeton-university",

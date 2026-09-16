@@ -222,7 +222,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 64367
+      "averagePackageFirstYearUsd": 64367,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 2653
@@ -252,10 +253,23 @@
       "tuitionUsd": 70120,
       "requiredFeesUsd": 520,
       "foodAndHousingUsd": 20116
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 82,
+        "10-19": 229,
+        "20-29": 128,
+        "30-39": 61,
+        "40-49": 19,
+        "50-99": 4,
+        "100+": 0,
+        "total": 523
+      },
+      "under20Pct": 59.5
     }
   },
-  "ingestedAt": "2026-09-15 17:10:32",
-  "updatedAt": "2026-09-15 17:10:32",
+  "ingestedAt": "2026-09-15 19:26:09",
+  "updatedAt": "2026-09-15 19:26:09",
   "validation": {
     "school": "Middlebury College",
     "slug": "middlebury-college",

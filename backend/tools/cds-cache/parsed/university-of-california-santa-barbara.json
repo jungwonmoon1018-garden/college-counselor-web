@@ -123,6 +123,9 @@
     "enrollment": {
       "undergraduates": 23181
     },
+    "retention": {
+      "firstYearPct": 93.3
+    },
     "graduation": {
       "sixYearPct": 83,
       "cohort": 2018
@@ -140,10 +143,23 @@
     "studentLife": {
       "outOfStatePct": 10,
       "onCampusPct": 95
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 761,
+        "10-19": 433,
+        "20-29": 364,
+        "30-39": 106,
+        "40-49": 81,
+        "50-99": 225,
+        "100+": 198,
+        "total": 2168
+      },
+      "under20Pct": 55.1
     }
   },
-  "ingestedAt": "2026-09-15 17:13:45",
-  "updatedAt": "2026-09-15 17:13:45",
+  "ingestedAt": "2026-09-15 19:29:02",
+  "updatedAt": "2026-09-15 19:29:02",
   "validation": {
     "school": "University of California, Santa Barbara",
     "slug": "university-of-california-santa-barbara",

@@ -409,7 +409,8 @@
     },
     "applicationFeeUsd": 40,
     "aid": {
-      "averagePackageFirstYearUsd": 16025
+      "averagePackageFirstYearUsd": 16025,
+      "needMetPct": 68.6
     },
     "enrollment": {
       "undergraduates": 26346
@@ -435,10 +436,23 @@
       "tuitionOutOfStateUsd": 28578,
       "requiredFeesUsd": 1561,
       "foodAndHousingUsd": 10928
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 272,
+        "10-19": 736,
+        "20-29": 907,
+        "30-39": 312,
+        "40-49": 232,
+        "50-99": 544,
+        "100+": 285,
+        "total": 3288
+      },
+      "under20Pct": 30.7
     }
   },
-  "ingestedAt": "2026-09-15 17:09:32",
-  "updatedAt": "2026-09-15 17:09:32",
+  "ingestedAt": "2026-09-15 19:25:19",
+  "updatedAt": "2026-09-15 19:25:19",
   "validation": {
     "school": "Iowa State University",
     "slug": "iowa-state-university",

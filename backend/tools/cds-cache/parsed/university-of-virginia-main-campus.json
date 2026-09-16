@@ -376,10 +376,14 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 37123
+      "averagePackageFirstYearUsd": 37123,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 17901
+    },
+    "retention": {
+      "firstYearPct": 97.9
     },
     "graduation": {
       "sixYearPct": 95.6,
@@ -404,10 +408,23 @@
       "tuitionOutOfStateUsd": 56994,
       "requiredFeesUsd": 3793,
       "foodAndHousingUsd": 15300
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 344,
+        "10-19": 794,
+        "20-29": 361,
+        "30-39": 357,
+        "40-49": 159,
+        "50-99": 238,
+        "100+": 156,
+        "total": 2409
+      },
+      "under20Pct": 47.2
     }
   },
-  "ingestedAt": "2026-09-15 17:16:19",
-  "updatedAt": "2026-09-15 17:16:19",
+  "ingestedAt": "2026-09-16 04:18:18",
+  "updatedAt": "2026-09-16 04:18:18",
   "validation": {
     "school": "University of Virginia-Main Campus",
     "slug": "university-of-virginia-main-campus",

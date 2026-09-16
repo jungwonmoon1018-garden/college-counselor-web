@@ -439,7 +439,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 58975
+      "averagePackageFirstYearUsd": 58975,
+      "needMetPct": 88.1
     },
     "enrollment": {
       "undergraduates": 5766
@@ -469,10 +470,23 @@
       "tuitionUsd": 63720,
       "requiredFeesUsd": 1584,
       "foodAndHousingUsd": 18815
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 94,
+        "10-19": 344,
+        "20-29": 199,
+        "30-39": 89,
+        "40-49": 23,
+        "50-99": 48,
+        "100+": 2,
+        "total": 799
+      },
+      "under20Pct": 54.8
     }
   },
-  "ingestedAt": "2026-09-15 17:14:07",
-  "updatedAt": "2026-09-15 17:14:07",
+  "ingestedAt": "2026-09-15 19:29:29",
+  "updatedAt": "2026-09-15 19:29:29",
   "validation": {
     "school": "University of Denver",
     "slug": "university-of-denver",

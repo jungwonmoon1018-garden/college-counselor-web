@@ -255,10 +255,14 @@
       "edNotification": "12/1"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 41518
+      "averagePackageFirstYearUsd": 41518,
+      "needMetPct": 85.9
     },
     "enrollment": {
       "undergraduates": 2197
+    },
+    "retention": {
+      "firstYearPct": 87.3
     },
     "graduation": {
       "sixYearPct": 70.6,
@@ -278,8 +282,8 @@
       "requiredFeesUsd": 720
     }
   },
-  "ingestedAt": "2026-09-15 17:12:32",
-  "updatedAt": "2026-09-15 17:12:32",
+  "ingestedAt": "2026-09-15 19:27:46",
+  "updatedAt": "2026-09-15 19:27:46",
   "validation": {
     "school": "Susquehanna University",
     "slug": "susquehanna-university",

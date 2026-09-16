@@ -81,7 +81,8 @@
     },
     "applicationFeeUsd": 55,
     "aid": {
-      "averagePackageFirstYearUsd": 19285
+      "averagePackageFirstYearUsd": 19285,
+      "needMetPct": 74
     },
     "enrollment": {
       "undergraduates": 41303
@@ -94,10 +95,23 @@
     "studentLife": {
       "outOfStatePct": 29.9,
       "onCampusPct": 76
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 516,
+        "10-19": 1054,
+        "20-29": 1159,
+        "30-39": 406,
+        "40-49": 350,
+        "50-99": 484,
+        "100+": 362,
+        "total": 4331
+      },
+      "under20Pct": 36.3
     }
   },
-  "ingestedAt": "2026-09-15 17:14:57",
-  "updatedAt": "2026-09-15 17:14:57",
+  "ingestedAt": "2026-09-16 04:17:38",
+  "updatedAt": "2026-09-16 04:17:38",
   "validation": {
     "school": "University of Minnesota-Twin Cities",
     "slug": "university-of-minnesota-twin-cities",

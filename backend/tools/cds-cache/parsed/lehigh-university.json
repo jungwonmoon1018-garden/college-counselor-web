@@ -292,10 +292,23 @@
     "studentLife": {
       "outOfStatePct": 75.8,
       "onCampusPct": 97.3
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 98,
+        "10-19": 332,
+        "20-29": 270,
+        "30-39": 174,
+        "40-49": 56,
+        "50-99": 65,
+        "100+": 35,
+        "total": 1030
+      },
+      "under20Pct": 41.7
     }
   },
-  "ingestedAt": "2026-09-15 17:09:55",
-  "updatedAt": "2026-09-15 17:09:55",
+  "ingestedAt": "2026-09-15 19:25:39",
+  "updatedAt": "2026-09-15 19:25:39",
   "validation": {
     "school": "Lehigh University",
     "slug": "lehigh-university",

@@ -70,7 +70,8 @@
       "admitRate": 1
     },
     "aid": {
-      "averagePackageFirstYearUsd": 67642
+      "averagePackageFirstYearUsd": 67642,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 1368
@@ -88,10 +89,23 @@
     "studentLife": {
       "outOfStatePct": 88.9,
       "onCampusPct": 100
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 105,
+        "10-19": 168,
+        "20-29": 48,
+        "30-39": 23,
+        "40-49": 7,
+        "50-99": 7,
+        "100+": 358,
+        "total": 716
+      },
+      "under20Pct": 38.1
     }
   },
-  "ingestedAt": "2026-09-15 17:06:27",
-  "updatedAt": "2026-09-15 17:06:27",
+  "ingestedAt": "2026-09-15 19:22:52",
+  "updatedAt": "2026-09-15 19:22:52",
   "validation": {
     "school": "Bryn Mawr College",
     "slug": "bryn-mawr-college",

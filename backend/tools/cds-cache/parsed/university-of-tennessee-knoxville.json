@@ -340,7 +340,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 15753
+      "averagePackageFirstYearUsd": 15753,
+      "needMetPct": 59.6
     },
     "enrollment": {
       "undergraduates": 30564
@@ -362,10 +363,23 @@
     "studentLife": {
       "outOfStatePct": 35,
       "onCampusPct": 90
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 302,
+        "10-19": 841,
+        "20-29": 1320,
+        "30-39": 537,
+        "40-49": 272,
+        "50-99": 410,
+        "100+": 257,
+        "total": 3939
+      },
+      "under20Pct": 29
     }
   },
-  "ingestedAt": "2026-09-15 17:15:58",
-  "updatedAt": "2026-09-15 17:15:58",
+  "ingestedAt": "2026-09-16 04:18:10",
+  "updatedAt": "2026-09-16 04:18:10",
   "validation": {
     "school": "University of Tennessee-Knoxville",
     "slug": "university-of-tennessee-knoxville",

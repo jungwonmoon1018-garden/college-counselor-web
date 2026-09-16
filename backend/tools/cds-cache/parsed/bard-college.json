@@ -80,7 +80,8 @@
       "edNotification": "C2103  15-Dec"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 69370
+      "averagePackageFirstYearUsd": 69370,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 3269
@@ -95,8 +96,8 @@
       "onCampusPct": 96
     }
   },
-  "ingestedAt": "2026-09-15 17:05:45",
-  "updatedAt": "2026-09-15 17:05:45",
+  "ingestedAt": "2026-09-15 19:22:19",
+  "updatedAt": "2026-09-15 19:22:19",
   "validation": {
     "school": "Bard College",
     "slug": "bard-college",

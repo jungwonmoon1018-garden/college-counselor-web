@@ -237,7 +237,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 46956
+      "averagePackageFirstYearUsd": 46956,
+      "needMetPct": 69.6
     },
     "enrollment": {
       "undergraduates": 731
@@ -267,8 +268,8 @@
       "foodAndHousingUsd": 14079
     }
   },
-  "ingestedAt": "2026-09-15 17:04:50",
-  "updatedAt": "2026-09-15 17:04:50",
+  "ingestedAt": "2026-09-15 19:21:35",
+  "updatedAt": "2026-09-15 19:21:35",
   "validation": {
     "school": "Agnes Scott College",
     "slug": "agnes-scott-college",

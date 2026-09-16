@@ -349,7 +349,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 17418
+      "averagePackageFirstYearUsd": 17418,
+      "needMetPct": 60
     },
     "enrollment": {
       "undergraduates": 30187
@@ -371,10 +372,23 @@
     "studentLife": {
       "outOfStatePct": 45,
       "onCampusPct": 96
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 159,
+        "10-19": 1019,
+        "20-29": 1202,
+        "30-39": 302,
+        "40-49": 250,
+        "50-99": 377,
+        "100+": 159,
+        "total": 3468
+      },
+      "under20Pct": 34
     }
   },
-  "ingestedAt": "2026-09-15 17:15:51",
-  "updatedAt": "2026-09-15 17:15:51",
+  "ingestedAt": "2026-09-16 04:18:07",
+  "updatedAt": "2026-09-16 04:18:07",
   "validation": {
     "school": "University of South Carolina",
     "slug": "university-of-south-carolina",

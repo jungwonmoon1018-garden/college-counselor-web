@@ -158,7 +158,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 32799
+      "averagePackageFirstYearUsd": 32799,
+      "needMetPct": 90.4
     },
     "enrollment": {
       "undergraduates": 2509
@@ -180,8 +181,8 @@
       "onCampusPct": 92
     }
   },
-  "ingestedAt": "2026-09-15 17:12:23",
-  "updatedAt": "2026-09-15 17:12:23",
+  "ingestedAt": "2026-09-15 19:27:38",
+  "updatedAt": "2026-09-15 19:27:38",
   "validation": {
     "school": "Stonehill College",
     "slug": "stonehill-college",

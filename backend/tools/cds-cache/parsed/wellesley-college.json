@@ -384,10 +384,11 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 68625
+      "averagePackageFirstYearUsd": 68625,
+      "needMetPct": 100
     },
-    "enrollment": {
-      "undergraduates": 15
+    "retention": {
+      "firstYearPct": 96.5
     },
     "waitlist": {
       "offered": 2495,
@@ -402,10 +403,23 @@
     "studentLife": {
       "outOfStatePct": 87,
       "onCampusPct": 100
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 98,
+        "10-19": 248,
+        "20-29": 145,
+        "30-39": 18,
+        "40-49": 2,
+        "50-99": 1,
+        "100+": 0,
+        "total": 512
+      },
+      "under20Pct": 67.6
     }
   },
-  "ingestedAt": "2026-09-15 17:16:36",
-  "updatedAt": "2026-09-15 17:16:36",
+  "ingestedAt": "2026-09-16 04:20:32",
+  "updatedAt": "2026-09-16 04:20:32",
   "validation": {
     "school": "Wellesley College",
     "slug": "wellesley-college",

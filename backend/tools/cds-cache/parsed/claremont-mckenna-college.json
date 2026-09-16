@@ -360,7 +360,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 72164
+      "averagePackageFirstYearUsd": 72164,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 1378
@@ -385,10 +386,23 @@
     "studentLife": {
       "outOfStatePct": 67.5,
       "onCampusPct": 99.7
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 38,
+        "10-19": 256,
+        "20-29": 46,
+        "30-39": 0,
+        "40-49": 0,
+        "50-99": 4,
+        "100+": 0,
+        "total": 344
+      },
+      "under20Pct": 85.5
     }
   },
-  "ingestedAt": "2026-09-15 17:07:04",
-  "updatedAt": "2026-09-15 17:07:04",
+  "ingestedAt": "2026-09-15 19:23:24",
+  "updatedAt": "2026-09-15 19:23:24",
   "validation": {
     "school": "Claremont McKenna College",
     "slug": "claremont-mckenna-college",

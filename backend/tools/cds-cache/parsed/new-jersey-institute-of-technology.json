@@ -105,6 +105,9 @@
     "enrollment": {
       "undergraduates": 10200
     },
+    "retention": {
+      "firstYearPct": 90
+    },
     "graduation": {
       "sixYearPct": 72.8,
       "cohort": 2018
@@ -140,8 +143,8 @@
       "under20Pct": 32
     }
   },
-  "ingestedAt": "2026-09-15 17:10:42",
-  "updatedAt": "2026-09-15 17:10:42",
+  "ingestedAt": "2026-09-15 19:26:19",
+  "updatedAt": "2026-09-15 19:26:19",
   "validation": {
     "school": "New Jersey Institute of Technology",
     "slug": "new-jersey-institute-of-technology",

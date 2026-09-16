@@ -307,7 +307,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 61559
+      "averagePackageFirstYearUsd": 61559,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 2178
@@ -335,10 +336,23 @@
       "requiredFeesUsd": 238,
       "foodAndHousingUsd": 20373,
       "academicYear": "2025-2026"
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 41,
+        "10-19": 304,
+        "20-29": 95,
+        "30-39": 23,
+        "40-49": 10,
+        "50-99": 4,
+        "100+": 1,
+        "total": 478
+      },
+      "under20Pct": 72.2
     }
   },
-  "ingestedAt": "2026-09-15 17:10:39",
-  "updatedAt": "2026-09-15 17:10:39",
+  "ingestedAt": "2026-09-15 19:26:16",
+  "updatedAt": "2026-09-15 19:26:16",
   "validation": {
     "school": "Mount Holyoke College",
     "slug": "mount-holyoke-college",

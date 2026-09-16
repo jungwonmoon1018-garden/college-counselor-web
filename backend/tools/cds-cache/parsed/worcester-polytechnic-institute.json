@@ -115,7 +115,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 39298
+      "averagePackageFirstYearUsd": 39298,
+      "needMetPct": 80.8
     },
     "retention": {
       "firstYearPct": 95
@@ -156,8 +157,8 @@
       "under20Pct": 65.5
     }
   },
-  "ingestedAt": "2026-09-15 17:16:54",
-  "updatedAt": "2026-09-15 17:16:54",
+  "ingestedAt": "2026-09-16 04:18:34",
+  "updatedAt": "2026-09-16 04:18:34",
   "validation": {
     "school": "Worcester Polytechnic Institute",
     "slug": "worcester-polytechnic-institute",

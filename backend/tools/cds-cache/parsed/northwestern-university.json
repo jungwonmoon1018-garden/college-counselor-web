@@ -358,7 +358,8 @@
       "edNotification": "12/15"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 67785
+      "averagePackageFirstYearUsd": 67785,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 9060
@@ -378,10 +379,23 @@
     "studentLife": {
       "outOfStatePct": 79,
       "onCampusPct": 99
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 948,
+        "10-19": 728,
+        "20-29": 203,
+        "30-39": 126,
+        "40-49": 51,
+        "50-99": 107,
+        "100+": 41,
+        "total": 2204
+      },
+      "under20Pct": 76
     }
   },
-  "ingestedAt": "2026-09-15 17:10:51",
-  "updatedAt": "2026-09-15 17:10:51",
+  "ingestedAt": "2026-09-15 19:26:23",
+  "updatedAt": "2026-09-15 19:26:23",
   "validation": {
     "school": "Northwestern University",
     "slug": "northwestern-university",

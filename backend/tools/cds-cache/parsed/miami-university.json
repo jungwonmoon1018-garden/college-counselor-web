@@ -108,6 +108,9 @@
     "enrollment": {
       "undergraduates": 16816
     },
+    "retention": {
+      "firstYearPct": 90.1
+    },
     "graduation": {
       "sixYearPct": 79.8,
       "cohort": 2018
@@ -150,8 +153,8 @@
       "under20Pct": 26.8
     }
   },
-  "ingestedAt": "2026-09-15 17:10:23",
-  "updatedAt": "2026-09-15 17:10:23",
+  "ingestedAt": "2026-09-15 19:26:03",
+  "updatedAt": "2026-09-15 19:26:03",
   "validation": {
     "school": "Miami University",
     "slug": "miami-university",

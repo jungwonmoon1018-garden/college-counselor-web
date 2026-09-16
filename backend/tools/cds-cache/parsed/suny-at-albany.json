@@ -278,10 +278,14 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 14572
+      "averagePackageFirstYearUsd": 14572,
+      "needMetPct": 62
     },
     "enrollment": {
       "undergraduates": 12666
+    },
+    "retention": {
+      "firstYearPct": 83.6
     },
     "graduation": {
       "sixYearPct": 63.9,
@@ -295,10 +299,23 @@
     "studentLife": {
       "outOfStatePct": 6.3,
       "onCampusPct": 88.6
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 105,
+        "10-19": 329,
+        "20-29": 365,
+        "30-39": 233,
+        "40-49": 154,
+        "50-99": 83,
+        "100+": 134,
+        "total": 1403
+      },
+      "under20Pct": 30.9
     }
   },
-  "ingestedAt": "2026-09-15 17:12:27",
-  "updatedAt": "2026-09-15 17:12:27",
+  "ingestedAt": "2026-09-15 19:27:42",
+  "updatedAt": "2026-09-15 19:27:42",
   "validation": {
     "school": "SUNY at Albany",
     "slug": "suny-at-albany",

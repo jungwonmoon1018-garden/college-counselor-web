@@ -384,7 +384,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 9843
+      "averagePackageFirstYearUsd": 9843,
+      "needMetPct": 50
     },
     "enrollment": {
       "undergraduates": 14434
@@ -408,10 +409,23 @@
       "requiredFeesUsd": 1927,
       "foodAndHousingUsd": 10102,
       "academicYear": "2025-2026"
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 115,
+        "10-19": 270,
+        "20-29": 492,
+        "30-39": 352,
+        "40-49": 144,
+        "50-99": 109,
+        "100+": 5,
+        "total": 1487
+      },
+      "under20Pct": 25.9
     }
   },
-  "ingestedAt": "2026-09-15 17:08:34",
-  "updatedAt": "2026-09-15 17:08:34",
+  "ingestedAt": "2026-09-15 19:24:33",
+  "updatedAt": "2026-09-15 19:24:33",
   "validation": {
     "school": "Florida Gulf Coast University",
     "slug": "florida-gulf-coast-university",

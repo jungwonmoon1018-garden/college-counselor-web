@@ -111,20 +111,20 @@
     },
     "classSize": {
       "sections": {
-        "2-9": 196,
-        "10-19": 412,
-        "20-29": 522,
-        "30-39": 300,
-        "40-49": 264,
-        "50-99": 602,
-        "100+": 204,
-        "total": 2500
+        "2-9": 13,
+        "10-19": 113,
+        "20-29": 239,
+        "30-39": 11,
+        "40-49": 7,
+        "50-99": 3,
+        "100+": 0,
+        "total": 386
       },
-      "under20Pct": 24.3
+      "under20Pct": 32.6
     }
   },
-  "ingestedAt": "2026-09-15 17:15:20",
-  "updatedAt": "2026-09-15 17:15:20",
+  "ingestedAt": "2026-09-16 04:17:51",
+  "updatedAt": "2026-09-16 04:17:51",
   "validation": {
     "school": "University of North Carolina at Charlotte",
     "slug": "university-of-north-carolina-at-charlotte",

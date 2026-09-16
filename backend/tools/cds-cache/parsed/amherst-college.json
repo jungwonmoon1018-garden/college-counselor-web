@@ -369,10 +369,14 @@
       "edNotification": "12/15"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 69507
+      "averagePackageFirstYearUsd": 69507,
+      "needMetPct": 100
     },
     "enrollment": {
       "undergraduates": 1914
+    },
+    "retention": {
+      "firstYearPct": 97.3
     },
     "graduation": {
       "sixYearPct": 94,
@@ -396,10 +400,23 @@
       "tuitionUsd": 69820,
       "requiredFeesUsd": 660,
       "foodAndHousingUsd": 18390
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 135,
+        "10-19": 172,
+        "20-29": 96,
+        "30-39": 25,
+        "40-49": 24,
+        "50-99": 7,
+        "100+": 0,
+        "total": 459
+      },
+      "under20Pct": 66.9
     }
   },
-  "ingestedAt": "2026-09-15 17:04:57",
-  "updatedAt": "2026-09-15 17:04:57",
+  "ingestedAt": "2026-09-15 19:21:41",
+  "updatedAt": "2026-09-15 19:21:41",
   "validation": {
     "school": "Amherst College",
     "slug": "amherst-college",

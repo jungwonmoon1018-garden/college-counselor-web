@@ -300,10 +300,23 @@
       "requiredFeesUsd": 843,
       "foodAndHousingUsd": 22944,
       "academicYear": "2026-2027"
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 599,
+        "10-19": 627,
+        "20-29": 168,
+        "30-39": 80,
+        "40-49": 61,
+        "50-99": 144,
+        "100+": 80,
+        "total": 1759
+      },
+      "under20Pct": 69.7
     }
   },
-  "ingestedAt": "2026-09-15 17:12:15",
-  "updatedAt": "2026-09-15 17:12:15",
+  "ingestedAt": "2026-09-15 19:27:31",
+  "updatedAt": "2026-09-15 19:27:31",
   "validation": {
     "school": "Stanford University",
     "slug": "stanford-university",

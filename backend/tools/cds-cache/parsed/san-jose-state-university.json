@@ -395,7 +395,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 14983
+      "averagePackageFirstYearUsd": 14983,
+      "needMetPct": 93
     },
     "enrollment": {
       "undergraduates": 29890
@@ -415,10 +416,23 @@
     "studentLife": {
       "outOfStatePct": 1.6,
       "onCampusPct": 47
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 172,
+        "10-19": 466,
+        "20-29": 1240,
+        "30-39": 790,
+        "40-49": 748,
+        "50-99": 381,
+        "100+": 117,
+        "total": 3914
+      },
+      "under20Pct": 16.3
     }
   },
-  "ingestedAt": "2026-09-15 17:11:48",
-  "updatedAt": "2026-09-15 17:11:48",
+  "ingestedAt": "2026-09-15 19:27:10",
+  "updatedAt": "2026-09-15 19:27:10",
   "validation": {
     "school": "San Jose State University",
     "slug": "san-jose-state-university",

@@ -316,7 +316,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 38078
+      "averagePackageFirstYearUsd": 38078,
+      "needMetPct": 91
     },
     "enrollment": {
       "undergraduates": 35358
@@ -329,10 +330,23 @@
     "studentLife": {
       "outOfStatePct": 45,
       "onCampusPct": 96
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 734,
+        "10-19": 1598,
+        "20-29": 893,
+        "30-39": 303,
+        "40-49": 177,
+        "50-99": 505,
+        "100+": 349,
+        "total": 4559
+      },
+      "under20Pct": 51.2
     }
   },
-  "ingestedAt": "2026-09-15 17:14:53",
-  "updatedAt": "2026-09-15 17:14:53",
+  "ingestedAt": "2026-09-16 04:17:36",
+  "updatedAt": "2026-09-16 04:17:36",
   "validation": {
     "school": "University of Michigan",
     "slug": "university-of-michigan",

@@ -295,7 +295,8 @@
       }
     },
     "aid": {
-      "averagePackageFirstYearUsd": 58054
+      "averagePackageFirstYearUsd": 58054,
+      "needMetPct": 83.5
     },
     "enrollment": {
       "undergraduates": 6935
@@ -325,10 +326,23 @@
       "tuitionUsd": 72990,
       "requiredFeesUsd": 1024,
       "foodAndHousingUsd": 19354
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 150,
+        "10-19": 566,
+        "20-29": 564,
+        "30-39": 196,
+        "40-49": 46,
+        "50-99": 22,
+        "100+": 4,
+        "total": 1548
+      },
+      "under20Pct": 46.3
     }
   },
-  "ingestedAt": "2026-09-15 17:16:22",
-  "updatedAt": "2026-09-15 17:16:22",
+  "ingestedAt": "2026-09-16 04:18:20",
+  "updatedAt": "2026-09-16 04:18:20",
   "validation": {
     "school": "Villanova University",
     "slug": "villanova-university",

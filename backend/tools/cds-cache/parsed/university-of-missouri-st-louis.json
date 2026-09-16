@@ -73,7 +73,8 @@
       "edNotification": "Month/Day"
     },
     "aid": {
-      "averagePackageFirstYearUsd": 21429
+      "averagePackageFirstYearUsd": 21429,
+      "needMetPct": 70.8
     },
     "enrollment": {
       "undergraduates": 12798
@@ -81,10 +82,23 @@
     "studentLife": {
       "outOfStatePct": 25.3,
       "onCampusPct": 2
+    },
+    "classSize": {
+      "sections": {
+        "2-9": 111,
+        "10-19": 246,
+        "20-29": 116,
+        "30-39": 52,
+        "40-49": 20,
+        "50-99": 10,
+        "100+": 2,
+        "total": 557
+      },
+      "under20Pct": 64.1
     }
   },
-  "ingestedAt": "2026-09-15 17:17:18",
-  "updatedAt": "2026-09-15 17:17:18",
+  "ingestedAt": "2026-09-16 04:18:43",
+  "updatedAt": "2026-09-16 04:18:43",
   "validation": {
     "school": "University of Missouri-St. Louis",
     "slug": "university-of-missouri-st-louis",
