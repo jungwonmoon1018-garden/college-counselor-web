@@ -7,6 +7,7 @@ import { t as tt } from "./i18n.js";
 import { formatServerDate } from "./dates.js";
 import { useState } from "react";
 import SidebarSection from "./components/SidebarSection.jsx";
+import CloseButton from "./components/CloseButton.jsx";
 import CalibratedFitCard from "./components/CalibratedFitCard.jsx";
 import EcEvidence, { ChatEvidenceSync } from "./components/EcEvidence.jsx";
 import PrestigeCard from "./components/PrestigeCard.jsx";
@@ -272,6 +273,7 @@ export default function Sidebar(props) {
     showAllCourses,
     showAllECs,
     sidebarOpen,
+    setSidebarOpen,
     targetSchoolInput,
     targetSchools,
     threadList,
@@ -281,6 +283,8 @@ export default function Sidebar(props) {
     verifyCollegeFit,
   } = props;
   return (
+    <>
+    {sidebarOpen && <div className="cc-sidebar-backdrop" data-testid="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
     <aside aria-label="Student profile and planning tools" className={`cc-sidebar-overlay ${sidebarOpen ? "is-open" : "is-closed"}`} style={{ width:sidebarOpen?280:0,overflow:"hidden",transition:"width 0.25s ease",borderRight:sidebarOpen?"1px solid rgba(255,255,255,0.05)":"none",background:"rgba(255,255,255,0.015)",flexShrink:0 }}>
       <div style={{ padding:18,overflowY:"auto",height:"100%",width:280,boxSizing:"border-box" }}>
         <div style={{ display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8,marginBottom:12 }}>
@@ -292,6 +296,8 @@ export default function Sidebar(props) {
             <button onClick={handleLogout} style={{ padding:"7px 9px",borderRadius:6,border:"1px solid rgba(255,255,255,0.16)",background:"transparent",color:"#b7c1ce",fontSize:11,cursor:"pointer" }}>Log out</button>
             <button onClick={handleDeleteAccount} style={{ padding:"7px 9px",borderRadius:6,border:"1px solid rgba(245,101,101,0.35)",background:"transparent",color:"#ff9da5",fontSize:11,cursor:"pointer" }}>Delete</button>
           </div>
+          {/* On a phone the drawer covers the chat header's toggle; this is the way out. */}
+          <CloseButton label="Close sidebar" onClick={() => setSidebarOpen(false)} size={32} />
         </div>
         {budgetStatus?.capUsd != null && (
           <div aria-label={`Monthly AI budget: $${budgetStatus.committedUsd.toFixed(2)} used of $${budgetStatus.capUsd.toFixed(2)}`} style={{marginBottom:16,padding:10,borderRadius:8,border:"1px solid rgba(255,255,255,0.14)",background:"rgba(255,255,255,0.025)"}}>
@@ -769,5 +775,6 @@ export default function Sidebar(props) {
 
       </div>
     </aside>
+    </>
   );
 }

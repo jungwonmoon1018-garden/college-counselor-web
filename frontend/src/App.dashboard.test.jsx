@@ -159,6 +159,22 @@ describe("Dashboard profile editing", () => {
     expect(screen.getByRole("button", { name: "+ New" })).toBeInTheDocument();
   }, 40000);
 
+  // On a phone the sidebar is a drawer over the chat and covers the header's
+  // toggle, so it has to close from inside: its own × and the dimmed backdrop.
+  it("closes the sidebar from its own close button and from the backdrop", async () => {
+    await signIn();
+    const sidebar = screen.getByRole("complementary", { name: "Student profile and planning tools" });
+    const open = () => fireEvent.click(screen.getByRole("button", { name: "▶" }));
+    open();
+    expect(sidebar).toHaveClass("is-open");
+    fireEvent.click(within(sidebar).getByRole("button", { name: "Close sidebar" }));
+    expect(sidebar).toHaveClass("is-closed");
+    expect(screen.queryByTestId("sidebar-backdrop")).not.toBeInTheDocument();
+    open();
+    fireEvent.click(screen.getByTestId("sidebar-backdrop"));
+    expect(sidebar).toHaveClass("is-closed");
+  }, 40000);
+
   // The send path crosses five modules since App.jsx was split (ChatScreen →
   // chat-send → chat-orchestrator → chat-client, with the prompts from
   // agent-prompts). A course question is routed by the orchestrator's keyword

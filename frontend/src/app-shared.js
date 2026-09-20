@@ -70,7 +70,9 @@ select:focus{border-color:rgba(55,138,221,0.40)!important}
 select option{background:#0d1117;color:#e8e6e3}
 select option:hover, select option:focus, select option:checked{background:rgba(55,138,221,0.20)}
 ::-webkit-scrollbar{width:5px} ::-webkit-scrollbar-track{background:transparent} ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.06);border-radius:3px}
+.cc-sidebar-backdrop{display:none}
 @media(max-width:768px){
+.cc-sidebar-backdrop{display:block;position:fixed;inset:0;z-index:999;background:rgba(0,0,0,0.5)}
 .cc-create-card{width:100%!important;max-width:440px!important;padding:24px!important}
 .cc-survey-card{width:100%!important;max-width:580px!important;padding:20px!important}
 .cc-sidebar-overlay{position:fixed!important;top:0!important;left:0!important;height:100dvh!important;width:min(90vw,320px)!important;z-index:1000!important;background:rgba(10,14,23,0.98)!important;box-shadow:18px 0 40px rgba(0,0,0,0.35)!important;border-right:1px solid rgba(255,255,255,0.16)!important;transition:transform 0.25s ease,opacity 0.25s ease!important}
