@@ -1,15 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { readFrontendSources } from "./helpers/frontend-source.mjs";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const frontendRoot = path.resolve(__dirname, "../../frontend/src");
-const sources = [
-  ["App.jsx", fs.readFileSync(path.join(frontendRoot, "App.jsx"), "utf8")],
-  ["api.js", fs.readFileSync(path.join(frontendRoot, "api.js"), "utf8")],
-];
+// Every module under frontend/src: App.jsx was split into sibling modules, and
+// a retired surface must not come back in any of them.
+const sources = readFrontendSources();
 
 test("frontend excludes retired parent-notification and Anthropic compatibility surfaces", () => {
   for (const [name, source] of sources) {

@@ -16,9 +16,6 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 
 import {
   STRINGS,
@@ -42,8 +39,8 @@ import {
   setLocale as setApiLocale,
 } from "../../frontend/src/api.js";
 import { readServerSource } from "./helpers/server-source.mjs";
+import { readFrontendSource } from "./helpers/frontend-source.mjs";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // ─── 1. Locale registry ────────────────────────────────────────────────
 test("LOCALES registry includes ko with Hangul label", () => {
@@ -361,7 +358,7 @@ test("frontend API sends the persisted Korean locale on authenticated requests",
 });
 
 test("student chat transport forwards the active locale to the backend", () => {
-  const src = fs.readFileSync(path.resolve(__dirname, "../../frontend/src/App.jsx"), "utf8");
+  const src = readFrontendSource();
   assert.match(src, /CHAT_PATH\}\?locale=\$\{encodeURIComponent\(lang\)\}/);
   assert.match(src, /"Accept-Language":\s*lang/);
   assert.match(src, /requestChat\([^)]*locale/);

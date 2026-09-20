@@ -158,4 +158,38 @@ describe("Dashboard profile editing", () => {
     expect(screen.getByRole("button", { name: "Profile" })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("button", { name: "+ New" })).toBeInTheDocument();
   }, 40000);
+
+  // The send path crosses five modules since App.jsx was split (ChatScreen →
+  // chat-send → chat-orchestrator → chat-client, with the prompts from
+  // agent-prompts). A course question is routed by the orchestrator's keyword
+  // gate without a gatekeeper call; the academics agent answers and the reply
+  // renders in the log.
+  it("sends a course question to the academics agent and shows the reply", async () => {
+    const chatCalls = [];
+    const baseFetch = globalThis.fetch;
+    vi.stubGlobal("fetch", vi.fn(async (url, options = {}) => {
+      const path = String(url);
+      if (!path.includes("/api/chat")) return baseFetch(url, options);
+      const body = JSON.parse(options.body);
+      chatCalls.push({ path, headers: options.headers, body });
+      const system = String(body.system || "");
+      let answer = "Take AP Physics C next year; it builds on your Calculus BC.";
+      if (/CLASSIFY the student's message/.test(system)) answer = JSON.stringify({ category: "safe_academic", reason: "course planning", route_to: ["academics"] });
+      else if (/You validate responses/.test(system)) answer = JSON.stringify({ passed: true, issues: [], cleaned_response: "" });
+      return { ok: true, status: 200, json: async () => ({ answer }), text: async () => JSON.stringify({ answer }) };
+    }));
+    await signIn();
+    const box = screen.getByPlaceholderText(/Ask about academics, ECs, colleges, or strategy/);
+    fireEvent.change(box, { target: { value: "Which science course should I take senior year?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    expect(await screen.findByText(/Take AP Physics C next year/, {}, { timeout: 15000 })).toBeInTheDocument();
+    // The transport carried the session and the locale on every call.
+    expect(chatCalls.length).toBeGreaterThanOrEqual(1);
+    for (const call of chatCalls) {
+      expect(call.path).toContain("/api/chat?locale=");
+      expect(call.headers.Authorization).toBe("Bearer tok_test_1");
+    }
+    expect(chatCalls.some((c) => JSON.stringify(c.body.messages || []).includes("Which science course should I take senior year?"))).toBe(true);
+    expect(screen.getByRole("log")).toHaveTextContent("Which science course should I take senior year?");
+  }, 40000);
 });
