@@ -10,7 +10,7 @@
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
-import { initVectorStore, prepareVectorStatements, embedAndStore } from "../vector-store.js";
+import { initVectorStore, prepareVectorStatements, embedAndStore } from "../storage/vector-store.js";
 
 const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
 const BACKEND_ROOT = path.resolve(MODULE_DIR, "..");
@@ -22,7 +22,7 @@ function log(...args) {
 
 async function loadCollegeProfiles() {
   try {
-    const mod = await import("../baseline-data.js");
+    const mod = await import("../colleges/baseline-data.js");
     const profiles = mod.COLLEGE_PROFILES || mod.GENERATED_COLLEGE_PROFILES || {};
     return Object.entries(profiles).map(([slug, profile]) => ({
       source_type: "college_profile",
@@ -48,7 +48,7 @@ async function loadCollegeProfiles() {
 
 async function loadECExemplars() {
   try {
-    const mod = await import("../crimson-ec-exemplars.js");
+    const mod = await import("../activities/crimson-ec-exemplars.js");
     const exemplars = mod.EC_EXEMPLARS || [];
     return exemplars.map((ec, idx) => ({
       source_type: "ec_exemplar",

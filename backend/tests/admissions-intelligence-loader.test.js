@@ -5,7 +5,7 @@ import {
   parseCsv,
   normalizeIpedsLongRows,
   computeGrowthRows,
-} from "../admissions-intelligence-loader.js";
+} from "../colleges/admissions-intelligence-loader.js";
 
 test("parseCsv handles quoted CSV rows", () => {
   const rows = parseCsv('unitid,cipcode,year,completions\n166683,"11.0701",2021,120\n');

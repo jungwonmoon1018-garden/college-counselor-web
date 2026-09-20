@@ -2,7 +2,7 @@
 // 2026-09-16 so the server file holds setup and helpers only. `deps` is
 // the server's routeDeps object: live getters onto the module bindings
 // these handlers use (callSimulationSidecar, ragStmts, requireStudentAuth, snapshotToStudentProfile, studentLimiter).
-import { getActiveNarrative } from "../narrative-store.js";
+import { getActiveNarrative } from "../activities/narrative-store.js";
 
 export function registerSimulationsRoutes(app, deps) {
   app.post("/api/simulations", deps.studentLimiter, deps.requireStudentAuth, async (req, res) => {

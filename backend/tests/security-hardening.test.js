@@ -10,7 +10,7 @@ import {
   redactProductionErrorBody,
   securityResponseMiddleware,
   shouldUseSecureAdminCookie,
-} from "../security-hardening.js";
+} from "../security/security-hardening.js";
 import { readServerSource } from "./helpers/server-source.mjs";
 
 const SERVER = readServerSource();

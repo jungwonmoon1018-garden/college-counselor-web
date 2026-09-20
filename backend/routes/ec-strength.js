@@ -1,13 +1,13 @@
 // routes/ec-strength.js — the /api/ec strength reads, the evidence queued from
 // chat, the recompute and override, and the spike read. Split out of routes/ec.js on 2026-09-20; `deps` is the server's
 // routeDeps object of live getters.
-import { localizeFriendlyLabels, resolveLocale, t } from "../i18n.js";
-import { STRENGTH_FACTORS, TIERS, applyStrengthOverride, buildDefaultLLMClient, recomputeStudentECStrengthVectors, toPublicShape as toStrengthPublicShape } from "../ec-strength-vectorizer.js";
-import { FACTOR_FRIENDLY, PRESTIGE_SOURCE_FRIENDLY, TIER_FRIENDLY, enrichECVectorWithFriendly, renderFriendlyPrestigeSource } from "../friendly-labels.js";
-import { harvestStudentChatRecords } from "../ec-chat-evidence.js";
-import * as chatHistory from "../chat-history.js";
-import { getActiveNarrative } from "../narrative-store.js";
-import { WELLBEING_LIMITS } from "../ec-vectorizer.js";
+import { localizeFriendlyLabels, resolveLocale, t } from "../shared/i18n.js";
+import { STRENGTH_FACTORS, TIERS, applyStrengthOverride, buildDefaultLLMClient, recomputeStudentECStrengthVectors, toPublicShape as toStrengthPublicShape } from "../activities/ec-strength-vectorizer.js";
+import { FACTOR_FRIENDLY, PRESTIGE_SOURCE_FRIENDLY, TIER_FRIENDLY, enrichECVectorWithFriendly, renderFriendlyPrestigeSource } from "../activities/friendly-labels.js";
+import { harvestStudentChatRecords } from "../activities/ec-chat-evidence.js";
+import * as chatHistory from "../chat/chat-history.js";
+import { getActiveNarrative } from "../activities/narrative-store.js";
+import { WELLBEING_LIMITS } from "../activities/ec-vectorizer.js";
 
 export function registerEcStrengthRoutes(app, deps) {
   // GET /api/ec/strength — list 5-factor strength vectors for this student

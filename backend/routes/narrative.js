@@ -2,8 +2,8 @@
 // 2026-09-16 so the server file holds setup and helpers only. `deps` is
 // the server's routeDeps object: live getters onto the module bindings
 // these handlers use (assembleProfileForGeneration, buildStudentCallLLM, generateNarrativeDraftText, getSchoolPriorities, ragStmts, requireStudentAuth, resolveTargetSchools, respondLLMError, schoolPrioritiesPromptBlock, studentLimiter).
-import { resolveLocale, t } from "../i18n.js";
-import { getActiveNarrative } from "../narrative-store.js";
+import { resolveLocale, t } from "../shared/i18n.js";
+import { getActiveNarrative } from "../activities/narrative-store.js";
 
 export function registerNarrativeRoutes(app, deps) {
   // GET /api/narrative/drift — detect stale EC vectors after a narrative edit.

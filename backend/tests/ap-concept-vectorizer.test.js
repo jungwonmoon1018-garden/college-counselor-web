@@ -21,7 +21,7 @@ import {
   detectConceptsInText,
   getConceptsForSubject,
   getAllAPSubjects,
-} from "../ap-concept-catalog.js";
+} from "../academics/ap-concept-catalog.js";
 import {
   initAPConceptTables,
   prepareAPConceptStatements,
@@ -32,7 +32,7 @@ import {
   recomputeAllSubjectVectors,
   processStudentInputForConcepts,
   overrideStudentConcept,
-} from "../ap-concept-vectorizer.js";
+} from "../academics/ap-concept-vectorizer.js";
 
 function makeTestDb() {
   const db = new Database(":memory:");

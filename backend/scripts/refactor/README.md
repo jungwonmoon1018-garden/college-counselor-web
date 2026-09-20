@@ -48,6 +48,15 @@ Moving code:
   `name(ctx, ...params)`; App keeps the hook and its dependency array and
   passes the render's bindings as `ctx`.
 
+- `move-modules.mjs --map map.json [--log rewrites.txt]` — moves files
+  into folders with `git mv` and rewrites every relative path literal that
+  names them (imports, dynamic imports, `new URL`, a test's
+  `path.resolve(__dirname, "../x.js")`) in every tracked module. Paths built
+  from segments off `__dirname` are listed, not rewritten: fix those by
+  hand. Strings made only of dots and slashes are never touched — the first
+  version rewrote `host.split(".")` to `split("..")` in every moved file,
+  which the test suite caught; read the `--log` output before applying.
+
 Cleaning up after a move:
 
 - `prune-imports.mjs` — drops the import specifiers server.js no longer

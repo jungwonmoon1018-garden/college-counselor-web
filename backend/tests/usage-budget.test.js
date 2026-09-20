@@ -9,7 +9,7 @@ import {
   reconcileBudget,
   releaseBudget,
   getBudgetStatus,
-} from "../usage-budget.js";
+} from "../security/usage-budget.js";
 
 const pricing = () => ({ input: 1, output: 2 });
 

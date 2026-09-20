@@ -3,12 +3,12 @@
 // shape. Moved out of server.js on 2026-09-20.
 // `deps` is server.js's routeDeps object: live getters onto the bindings
 // these functions read there (OVERDUE_RESHOW_MONTH, RANK_TIERS, ragStmts).
-import { assembleProfileForGeneration } from "../server/verified-data.js";
-import { getSchoolPriorities, schoolPrioritiesPromptBlock } from "../server/narrative-calendar.js";
-import { parseLLMJson, safeParseJSON } from "../server/model-calls.js";
-import { matchMajorBucket as matchMajorBucketFn } from "../ec-vectorizer.js";
-import { getPrestigeExplanation } from "../friendly-labels.js";
-import { projectStrengthToLegacyVector } from "../ec-strength-vectorizer.js";
+import { assembleProfileForGeneration } from "./verified-data.js";
+import { getSchoolPriorities, schoolPrioritiesPromptBlock } from "./narrative-calendar.js";
+import { parseLLMJson, safeParseJSON } from "./model-calls.js";
+import { matchMajorBucket as matchMajorBucketFn } from "../activities/ec-vectorizer.js";
+import { getPrestigeExplanation } from "../activities/friendly-labels.js";
+import { projectStrengthToLegacyVector } from "../activities/ec-strength-vectorizer.js";
 
 let deps;
 export function bindEcRanking(serverDeps) { deps = serverDeps; }

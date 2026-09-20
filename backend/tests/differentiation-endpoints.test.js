@@ -139,7 +139,8 @@ test("bulk deadlines endpoint exists (collapses the add-school burst)", () => {
 
 // ─── Imports wired ──────────────────────────────────────────────────────
 test("server.js imports the course-sequence catalog and WELLBEING_LIMITS", () => {
-  assert.match(SERVER, /from "\.\/course-sequence-catalog\.js"/);
+  // The modules sit in folders by function since 2026-09-21 (academics/ here).
+  assert.match(SERVER, /from "\.\/academics\/course-sequence-catalog\.js"/);
   assert.match(SERVER, /WELLBEING_LIMITS/);
 });
 

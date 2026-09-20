@@ -14,7 +14,7 @@ import {
   normalizeC7Object,
   normalizeC7TableRows,
   resolveAndParseCdsTargets,
-} from "../cds-search.js";
+} from "../cds/cds-search.js";
 
 test("parseCdsRepositoryIndex extracts schools, years, and links", () => {
   const html = `

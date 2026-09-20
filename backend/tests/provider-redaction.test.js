@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { sanitizeProviderPayload, screenInput, screenOutput, redactProviderText } from "../content-moderation.js";
-import { redactProviderPayload, restoreProviderResponse } from "../orchestration-engine.js";
+import { sanitizeProviderPayload, screenInput, screenOutput, redactProviderText } from "../chat/content-moderation.js";
+import { redactProviderPayload, restoreProviderResponse } from "../chat/orchestration-engine.js";
 import { callLLM } from "../llm-adapters/index.js";
 
 const PII_TEXT = "John Doe from Lakeside High lives at 123 Main Street. Email john@example.com, phone 555-123-4567, SSN 123-45-6789, income $180,000, student ID is U-12345.";

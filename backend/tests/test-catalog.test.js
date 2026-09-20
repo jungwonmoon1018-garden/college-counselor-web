@@ -10,8 +10,8 @@ import {
   normalizeTestScores,
   normalizeClassRank,
   formatClassRank,
-} from "../test-catalog.js";
-import { TEST_CATALOG as FRONTEND_CATALOG, TEST_SCORE_LIMITS, withSection, formToEntry, entryToForm } from "../../frontend/src/test-scores.js";
+} from "../academics/test-catalog.js";
+import { TEST_CATALOG as FRONTEND_CATALOG, TEST_SCORE_LIMITS, withSection, formToEntry, entryToForm } from "../../frontend/src/profile/test-scores.js";
 
 test("the frontend catalog is a mirror of the backend one", () => {
   assert.deepEqual(JSON.parse(JSON.stringify(FRONTEND_CATALOG)), JSON.parse(JSON.stringify(TEST_CATALOG)));

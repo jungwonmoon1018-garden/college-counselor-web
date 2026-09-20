@@ -9,7 +9,7 @@ import {
   verifyCollegeFit,
   formatVerificationLine,
   normalizeTestPolicyBucket,
-} from "../fit-verifier.js";
+} from "../colleges/fit-verifier.js";
 
 const NOW = new Date("2026-09-03T12:00:00Z");
 const used = { acceptanceRate: 3.6, sat25: 1510, sat75: 1580, act25: 34, act75: 36, testPolicy: "test_optional_or_deemphasized", source: "cds_store", cdsYear: 2024 };

@@ -3,9 +3,9 @@
 // `deps` is server.js's routeDeps object: live getters onto the bindings
 // these functions read there (BASELINE_PROBE_STOPWORDS,
 // SCORECARD_QUERY_TTL_DAYS, db, ragStmts).
-import { strictSchoolKey } from "../cds-store.js";
+import { strictSchoolKey } from "../cds/cds-store.js";
 import crypto from "node:crypto";
-import { safeJSON } from "../server/auth.js";
+import { safeJSON } from "./auth.js";
 
 let deps;
 export function bindBaselineColleges(serverDeps) { deps = serverDeps; }

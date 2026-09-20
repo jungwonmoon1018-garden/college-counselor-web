@@ -17,7 +17,7 @@ import {
   NarrativeValidationError,
   NARRATIVE_MIN_CHARS,
   NARRATIVE_MAX_CHARS,
-} from "../narrative-store.js";
+} from "../activities/narrative-store.js";
 
 // Short helper to stand up a fresh in-memory DB.
 function freshDb() {

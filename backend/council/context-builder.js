@@ -1,8 +1,8 @@
 // Build one immutable, citation-indexed context shared by every Council stage.
 
 import { queryStudentGraph } from "../knowledge-graph/index.js";
-import { searchFacts } from "../fact-store.js";
-import { searchEvidence } from "../evidence-graph.js";
+import { searchFacts } from "../scouts/fact-store.js";
+import { searchEvidence } from "../storage/evidence-graph.js";
 
 const TOTAL_CHAR_BUDGET = 8_000;
 const MAX_GRAPH_CHARS = 3_000;

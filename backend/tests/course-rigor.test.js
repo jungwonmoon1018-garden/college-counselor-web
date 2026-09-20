@@ -3,7 +3,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { courseLevel, describeCourseRigor, normalizeApSubject, readCourseRigor } from "../course-rigor.js";
+import { courseLevel, describeCourseRigor, normalizeApSubject, readCourseRigor } from "../academics/course-rigor.js";
 
 test("a course's level comes from its type, or from its name when the type does not say", () => {
   assert.equal(courseLevel({ name: "Calculus BC", type: "ap" }), "ap");

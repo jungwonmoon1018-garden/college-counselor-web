@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import Database from "better-sqlite3";
 import crypto from "node:crypto";
 
-import { initRAGTables, prepareRAGStatements } from "../rag-engine.js";
+import { initRAGTables, prepareRAGStatements } from "../storage/rag-engine.js";
 
 function freshStmts() {
   const db = new Database(":memory:");

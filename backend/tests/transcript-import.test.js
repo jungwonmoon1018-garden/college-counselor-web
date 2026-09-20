@@ -9,7 +9,7 @@ import {
   sanitizeParsedTranscript,
   parseTranscriptModelReply,
   MAX_IMPORTED_COURSES,
-} from "../transcript-import.js";
+} from "../academics/transcript-import.js";
 
 describe("buildTranscriptParseMessages", () => {
   it("includes the schema and the transcript text", () => {

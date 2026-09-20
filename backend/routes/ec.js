@@ -2,13 +2,13 @@
 // 2026-09-16 so the server file holds setup and helpers only. `deps` is
 // the server's routeDeps object: live getters onto the module bindings
 // these handlers use (SPIKE_TIER_WEIGHT, assembleProfileForGeneration, buildStudentCallLLM, ecUpload, getSchoolPriorities, llmRankCandidates, llmRankSpike, parseLLMJson, prestigeExplanationFor, profileSummaryForPrompt, ragStmts, recomputeStrengthForStudent, requireCounselorAuth, requireStudentAuth, resolvePrestigeAdapter, resolveTargetSchools, respondLLMError, safeJSON, safeParseJSON, schoolPrioritiesPromptBlock, shapeLegacyECVectorFromStrengthRow, studentLimiter, tagIdeaWithNarrative).
-import { EC_FACTORS, buildNextStepPlan, scoreAcademicStrength } from "../ec-vectorizer.js";
-import { applyStrengthOverride, buildDefaultLLMClient, projectStrengthToLegacyVector, recomputeStudentECStrengthVectors, vectorizeECStrength } from "../ec-strength-vectorizer.js";
-import { getActiveNarrative } from "../narrative-store.js";
-import { enhancedCollegeMatch } from "../rag-engine.js";
+import { EC_FACTORS, buildNextStepPlan, scoreAcademicStrength } from "../activities/ec-vectorizer.js";
+import { applyStrengthOverride, buildDefaultLLMClient, projectStrengthToLegacyVector, recomputeStudentECStrengthVectors, vectorizeECStrength } from "../activities/ec-strength-vectorizer.js";
+import { getActiveNarrative } from "../activities/narrative-store.js";
+import { enhancedCollegeMatch } from "../storage/rag-engine.js";
 import path from "node:path";
 import crypto from "node:crypto";
-import { ExtractionError, MAX_FILE_BYTES, SUPPORTED_MIME_TYPES, extractText } from "../file-extractors.js";
+import { ExtractionError, MAX_FILE_BYTES, SUPPORTED_MIME_TYPES, extractText } from "../shared/file-extractors.js";
 import fs from "node:fs";
 
 export function registerEcRoutes(app, deps) {

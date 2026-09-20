@@ -6,8 +6,8 @@
 // LOCALHOST_ORIGIN_RE, NODE_ENV, TOKEN_TTL_MS, WEB_CONFIG_KEY,
 // WEB_DEPLOYMENT, authStore, sessionStmts, sessionTokens).
 import crypto from "node:crypto";
-import { shouldUseSecureAdminCookie } from "../security-hardening.js";
-import { isLoopbackAddress } from "../security-auth.js";
+import { shouldUseSecureAdminCookie } from "../security/security-hardening.js";
+import { isLoopbackAddress } from "../security/security-auth.js";
 
 let deps;
 export function bindAuth(serverDeps) { deps = serverDeps; }

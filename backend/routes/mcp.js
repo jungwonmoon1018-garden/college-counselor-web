@@ -2,8 +2,8 @@
 // 2026-09-16 so the server file holds setup and helpers only. `deps` is
 // the server's routeDeps object: live getters onto the module bindings
 // these handlers use (evidenceStmts, ragStmts, requireStudentAuth, studentLimiter).
-import { assembleRAGContext } from "../rag-engine.js";
-import { getEvidenceProfile } from "../evidence-graph.js";
+import { assembleRAGContext } from "../storage/rag-engine.js";
+import { getEvidenceProfile } from "../storage/evidence-graph.js";
 
 export function registerMcpRoutes(app, deps) {
   app.post("/api/mcp/admissions/query", deps.studentLimiter, deps.requireStudentAuth, (req, res) => {

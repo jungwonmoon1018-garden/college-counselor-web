@@ -2,16 +2,16 @@
 // 2026-09-16 so the server file holds setup and helpers only. `deps` is
 // the server's routeDeps object: live getters onto the module bindings
 // these handlers use (apiLimiter, evidenceStmts, factStmts, orchestrationCatalog, ragStmts, requireStudentAuth).
-import { screenInput } from "../content-moderation.js";
-import { routeRequest } from "../policy-router.js";
-import { assembleRAGContext } from "../rag-engine.js";
-import { getEvidenceProfile } from "../evidence-graph.js";
-import { searchFacts } from "../fact-store.js";
-import { buildOrchestration } from "../orchestration-engine.js";
-import { OPENROUTER_TARGETS } from "../openrouter-model-refresh.js";
-import { calculateDeadlineStatus, runDocumentCompletenessCheck, runFAFSAEligibilityCheck } from "../rules-engine.js";
-import { composeDeterministicAnswer } from "../answer-composer.js";
-import { validateEvidenceSources } from "../source-registry.js";
+import { screenInput } from "../chat/content-moderation.js";
+import { routeRequest } from "../chat/policy-router.js";
+import { assembleRAGContext } from "../storage/rag-engine.js";
+import { getEvidenceProfile } from "../storage/evidence-graph.js";
+import { searchFacts } from "../scouts/fact-store.js";
+import { buildOrchestration } from "../chat/orchestration-engine.js";
+import { OPENROUTER_TARGETS } from "../scouts/openrouter-model-refresh.js";
+import { calculateDeadlineStatus, runDocumentCompletenessCheck, runFAFSAEligibilityCheck } from "../chat/rules-engine.js";
+import { composeDeterministicAnswer } from "../chat/answer-composer.js";
+import { validateEvidenceSources } from "../colleges/source-registry.js";
 
 export function registerAgentsRoutes(app, deps) {
   app.post("/api/agents/orchestrate", deps.apiLimiter, deps.requireStudentAuth, async (req, res) => {

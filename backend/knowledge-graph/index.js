@@ -21,7 +21,7 @@ import path from "node:path";
 import {
   getStudentKnowledgeGraphPath,
   hasStudentGraph,
-} from "../student-storage.js";
+} from "../storage/student-storage.js";
 import {
   prepareStudentCorpus,
   teardownStudentCorpus,

@@ -1,9 +1,9 @@
 // routes/ec-research.js — the /api/ec competition search, the research cache
 // memory, the prestige routes and the component cache. Split out of routes/ec.js on 2026-09-20; `deps` is the server's
 // routeDeps object of live getters.
-import { OFFICIAL_COMPETITION_SOURCES, PRESTIGE_TTL_DAYS, REPUTABLE_DOMAINS, computePrestigeCacheKey, normalizeActivityName, researchCompetitionPrestige, searchCompetitionCatalog } from "../competition-research.js";
-import { STRENGTH_FACTORS, buildDefaultLLMClient, recomputeStudentECStrengthVectors } from "../ec-strength-vectorizer.js";
-import { getActiveNarrative } from "../narrative-store.js";
+import { OFFICIAL_COMPETITION_SOURCES, PRESTIGE_TTL_DAYS, REPUTABLE_DOMAINS, computePrestigeCacheKey, normalizeActivityName, researchCompetitionPrestige, searchCompetitionCatalog } from "../activities/competition-research.js";
+import { STRENGTH_FACTORS, buildDefaultLLMClient, recomputeStudentECStrengthVectors } from "../activities/ec-strength-vectorizer.js";
+import { getActiveNarrative } from "../activities/narrative-store.js";
 
 export function registerEcResearchRoutes(app, deps) {
   // ═══════════════════════════════════════════════════════════

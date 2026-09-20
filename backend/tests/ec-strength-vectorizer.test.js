@@ -19,15 +19,15 @@ import {
   toPublicShape,
   STRENGTH_FACTORS,
   TIERS,
-} from "../ec-strength-vectorizer.js";
+} from "../activities/ec-strength-vectorizer.js";
 
-import { extractNarrativeThemes } from "../narrative-store.js";
+import { extractNarrativeThemes } from "../activities/narrative-store.js";
 import {
   initNarrativeFitCacheTable,
   prepareNarrativeFitCacheStatements,
   hashText,
-} from "../narrative-fit-llm.js";
-import { initRAGTables, prepareRAGStatements } from "../rag-engine.js";
+} from "../activities/narrative-fit-llm.js";
+import { initRAGTables, prepareRAGStatements } from "../storage/rag-engine.js";
 
 // Short helper for a fresh in-memory DB with all tables.
 function freshDb() {
@@ -227,12 +227,12 @@ test("narrative_fit LLM cache returns cached:true on second call", async () => {
   );
   // The cache key is computed inside callHaikuForNarrativeFit; mirror that
   // behavior by computing the same key here.
-  const { computeCacheKey } = await import("../narrative-fit-llm.js");
+  const { computeCacheKey } = await import("../activities/narrative-fit-llm.js");
   const key = computeCacheKey(narrativeHash, ecTextHash);
   cacheStmts.put.run(key, 0.42, "cached demo", "claude-haiku-4-5", "anthropic");
 
   // Inject an llmClient that delegates to the real cache path
-  const { callHaikuForNarrativeFit } = await import("../narrative-fit-llm.js");
+  const { callHaikuForNarrativeFit } = await import("../activities/narrative-fit-llm.js");
   const llmClient = {
     async call(args) {
       return callHaikuForNarrativeFit({

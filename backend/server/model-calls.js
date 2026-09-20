@@ -4,10 +4,10 @@
 // `deps` is server.js's routeDeps object: live getters onto the bindings
 // these functions read there (MAX_TOKENS_LIMIT, OPERATOR_LLM,
 // SIM_INTERNAL_TOKEN, SIM_URL, authStore, db, ragStmts).
-import { safeJSON } from "../server/auth.js";
-import { reconcileBudget, releaseBudget, reserveBudget } from "../usage-budget.js";
+import { safeJSON } from "./auth.js";
+import { reconcileBudget, releaseBudget, reserveBudget } from "../security/usage-budget.js";
 import crypto from "node:crypto";
-import { OPENROUTER_TARGETS } from "../openrouter-model-refresh.js";
+import { OPENROUTER_TARGETS } from "../scouts/openrouter-model-refresh.js";
 import { callLLM as adapterCallLLM } from "../llm-adapters/index.js";
 
 let deps;

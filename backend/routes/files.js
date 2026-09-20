@@ -2,7 +2,7 @@
 // 2026-09-16 so the server file holds setup and helpers only. `deps` is
 // the server's routeDeps object: live getters onto the module bindings
 // these handlers use (CHAT_EXTRACT_MAX_BYTES, requireStudentAuth, studentLimiter).
-import { ExtractionError, SUPPORTED_MIME_TYPES, extractPdfOCR, extractText, isSupportedMime } from "../file-extractors.js";
+import { ExtractionError, SUPPORTED_MIME_TYPES, extractPdfOCR, extractText, isSupportedMime } from "../shared/file-extractors.js";
 
 export function registerFilesRoutes(app, deps) {
   // 6 MB ceiling

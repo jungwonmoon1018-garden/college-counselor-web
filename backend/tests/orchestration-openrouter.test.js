@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildOrchestration } from '../orchestration-engine.js';
+import { buildOrchestration } from '../chat/orchestration-engine.js';
 import { TIER_DEFAULTS } from '../llm-adapters/index.js';
 
 test('orchestration ignores runtime model overrides and selects OpenRouter', () => {

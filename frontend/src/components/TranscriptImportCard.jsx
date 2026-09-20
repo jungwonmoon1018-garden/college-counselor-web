@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { summarizeParsedTranscript } from "../transcript-utils.js";
+import { summarizeParsedTranscript } from "../profile/transcript-utils.js";
 
 // Inline chat card offered after a student attaches a transcript: reads the
 // courses deterministically (the same parser the profile editor uses — grades

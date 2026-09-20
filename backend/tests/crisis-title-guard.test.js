@@ -5,9 +5,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import Database from "better-sqlite3";
-import { appendMessage, configureChatEncryption, createThread, listThreads } from "../chat-history.js";
-import { isCrisisText } from "../policy-router.js";
-import { extractTargetSchoolNames } from "../cds-search.js";
+import { appendMessage, configureChatEncryption, createThread, listThreads } from "../chat/chat-history.js";
+import { isCrisisText } from "../chat/policy-router.js";
+import { extractTargetSchoolNames } from "../cds/cds-search.js";
 
 // Titles are encrypted at rest in this build, so the guard is verified through
 // a real in-memory store and read back decrypted via listThreads (matching the

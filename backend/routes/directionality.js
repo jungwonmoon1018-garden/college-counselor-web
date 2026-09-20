@@ -2,7 +2,7 @@
 // 2026-09-16 so the server file holds setup and helpers only. `deps` is
 // the server's routeDeps object: live getters onto the module bindings
 // these handlers use (ragStmts, requireStudentAuth, safeParseJSON, studentLimiter).
-import { recomputeStudentDirectionality } from "../ec-vectorizer.js";
+import { recomputeStudentDirectionality } from "../activities/ec-vectorizer.js";
 
 export function registerDirectionalityRoutes(app, deps) {
   // ═══════════════════════════════════════════════════════════

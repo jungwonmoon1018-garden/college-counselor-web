@@ -8,7 +8,7 @@ import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import Database from "better-sqlite3";
-import { SCOUT_VERSION } from "../admissions-policy-scout.js";
+import { SCOUT_VERSION } from "../scouts/admissions-policy-scout.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, "..");

@@ -14,7 +14,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { matchMajorBucket, LEXICON } from "../ec-vectorizer.js";
+import { matchMajorBucket, LEXICON } from "../activities/ec-vectorizer.js";
 import { readServerSource } from "./helpers/server-source.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -74,7 +74,7 @@ test("LEXICON.majorBuckets contains the new buckets", () => {
 
 // ─── F4 (static source check — runtime test would need a seeded DB) ─────
 test("enhancedCollegeMatch source includes narrativeFit weighting", () => {
-  const src = fs.readFileSync(path.resolve(__dirname, "../rag-engine.js"), "utf8");
+  const src = fs.readFileSync(path.resolve(__dirname, "../storage/rag-engine.js"), "utf8");
   assert.match(src, /narrativeFit\s*:\s*0\.20/,
     "Composite weights must include narrativeFit: 0.20 when narrative exists");
   assert.match(src, /narrativeMajorBuckets/, "Narrative buckets must be consulted in match scoring");

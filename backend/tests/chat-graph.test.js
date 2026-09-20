@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import Database from "better-sqlite3";
-import { configureChatEncryption, sealText } from "../chat-history.js";
+import { configureChatEncryption, sealText } from "../chat/chat-history.js";
 import {
   adviceExcerpt,
   bareQuestion,
@@ -13,7 +13,7 @@ import {
   latestUserTurn,
   prepareChatGraphStatements,
   THREAD_MEMORY_HEADER,
-} from "../chat-graph.js";
+} from "../chat/chat-graph.js";
 
 configureChatEncryption("a".repeat(64));
 

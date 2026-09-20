@@ -8,7 +8,7 @@ import {
   coursesWithApExams,
   apExamScoresBySubject,
   conceptSignalFor,
-} from "../course-sequence-catalog.js";
+} from "../academics/course-sequence-catalog.js";
 
 test("COURSE_SEQUENCES catalog integrity", async (t) => {
   await t.test("every course has the required fields", () => {

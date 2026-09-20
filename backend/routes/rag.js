@@ -2,7 +2,7 @@
 // 2026-09-16 so the server file holds setup and helpers only. `deps` is
 // the server's routeDeps object: live getters onto the module bindings
 // these handlers use (ragStmts, requireStudentAuth, studentLimiter).
-import { assembleRAGContext, enhancedCollegeMatch } from "../rag-engine.js";
+import { assembleRAGContext, enhancedCollegeMatch } from "../storage/rag-engine.js";
 
 export function registerRagRoutes(app, deps) {
   app.post("/api/rag/context", deps.studentLimiter, deps.requireStudentAuth, (req, res) => {

@@ -2,20 +2,20 @@
 // 2026-09-16 so the server file holds setup and helpers only. `deps` is
 // the server's routeDeps object: live getters onto the module bindings
 // these handlers use (CHAT_EXTRACT_MAX_BYTES, SCORECARD_API_KEY, assembleProfileForGeneration, authLimiter, authStore, baselineCollegeNames, bearerToken, buildStudentCallLLM, chatGraphStmts, collectStudentRows, createSessionToken, db, deleteStudentRows, hashEmail, hashIP, maybeAutoRegenerateNarrative, piiStmts, piiVault, queueChatEvidence, ragStmts, removeStudentFiles, requireStudentAuth, safeJSON, shapeDeadline, shouldCullOverdue, stmts, studentLimiter, vectorStore).
-import { normalizeEmail } from "../security-auth.js";
-import { deleteAllStudentPII, hashEmail as hashPIIEmail, retrieveStudentPII, storeStudentPII } from "../pii-vault.js";
+import { normalizeEmail } from "../security/security-auth.js";
+import { deleteAllStudentPII, hashEmail as hashPIIEmail, retrieveStudentPII, storeStudentPII } from "../storage/pii-vault.js";
 import crypto from "node:crypto";
-import { getOnboardingConsentRequirements, validateRequiredConsents } from "../consent.js";
-import { getBudgetStatus } from "../usage-budget.js";
-import { extractGoalUnitIds, fetchAndPersistCollegeHistory, getDirectStructuredStudentData, getStudentTrends, syncStudentData } from "../rag-engine.js";
-import * as chatHistory from "../chat-history.js";
-import { redactProviderText, screenInput, screenOutput } from "../content-moderation.js";
-import { isCrisisText } from "../policy-router.js";
-import { parseAttachedFilesPreface } from "../ec-chat-evidence.js";
-import * as chatGraph from "../chat-graph.js";
-import { buildTranscriptParseMessages, parseTranscriptModelReply } from "../transcript-import.js";
-import { ExtractionError, SUPPORTED_MIME_TYPES, extractPdfOCR, extractText, isSupportedMime } from "../file-extractors.js";
-import { resolveLocale, t } from "../i18n.js";
+import { getOnboardingConsentRequirements, validateRequiredConsents } from "../security/consent.js";
+import { getBudgetStatus } from "../security/usage-budget.js";
+import { extractGoalUnitIds, fetchAndPersistCollegeHistory, getDirectStructuredStudentData, getStudentTrends, syncStudentData } from "../storage/rag-engine.js";
+import * as chatHistory from "../chat/chat-history.js";
+import { redactProviderText, screenInput, screenOutput } from "../chat/content-moderation.js";
+import { isCrisisText } from "../chat/policy-router.js";
+import { parseAttachedFilesPreface } from "../activities/ec-chat-evidence.js";
+import * as chatGraph from "../chat/chat-graph.js";
+import { buildTranscriptParseMessages, parseTranscriptModelReply } from "../academics/transcript-import.js";
+import { ExtractionError, SUPPORTED_MIME_TYPES, extractPdfOCR, extractText, isSupportedMime } from "../shared/file-extractors.js";
+import { resolveLocale, t } from "../shared/i18n.js";
 
 export function registerStudentsRoutes(app, deps) {
   app.post("/api/students/register", deps.authLimiter, (req, res) => {

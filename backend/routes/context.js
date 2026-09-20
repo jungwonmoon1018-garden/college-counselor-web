@@ -2,11 +2,11 @@
 // 2026-09-16 so the server file holds setup and helpers only. `deps` is
 // the server's routeDeps object: live getters onto the module bindings
 // these handlers use (assembleProfileForGeneration, prestigeExplanationFor, ragStmts, requireStudentAuth, studentLimiter).
-import { localizeFriendlyLabels, resolveLocale } from "../i18n.js";
-import { assembleRAGContext } from "../rag-engine.js";
-import { STRENGTH_FACTORS, TIERS, toPublicShape as toStrengthPublicShape } from "../ec-strength-vectorizer.js";
-import { FACTOR_FRIENDLY, PRESTIGE_SOURCE_FRIENDLY, TIER_FRIENDLY, enrichECVectorWithFriendly, renderFriendlyDirectionalityFactor, renderFriendlyDirectionalityLabel } from "../friendly-labels.js";
-import { computeProfileFingerprint, getActiveNarrative } from "../narrative-store.js";
+import { localizeFriendlyLabels, resolveLocale } from "../shared/i18n.js";
+import { assembleRAGContext } from "../storage/rag-engine.js";
+import { STRENGTH_FACTORS, TIERS, toPublicShape as toStrengthPublicShape } from "../activities/ec-strength-vectorizer.js";
+import { FACTOR_FRIENDLY, PRESTIGE_SOURCE_FRIENDLY, TIER_FRIENDLY, enrichECVectorWithFriendly, renderFriendlyDirectionalityFactor, renderFriendlyDirectionalityLabel } from "../activities/friendly-labels.js";
+import { computeProfileFingerprint, getActiveNarrative } from "../activities/narrative-store.js";
 
 export function registerContextRoutes(app, deps) {
   // GET /api/context/bundle — STUDENT CONTEXT BUNDLE

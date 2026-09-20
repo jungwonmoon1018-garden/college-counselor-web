@@ -4,9 +4,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { computeFit } from "../college-values.js";
-import { buildValuesFromCds } from "../college-research.js";
-import { buildStudentModel, compareCourseRigor } from "../positioning-engine.js";
+import { computeFit } from "../colleges/college-values.js";
+import { buildValuesFromCds } from "../colleges/college-research.js";
+import { buildStudentModel, compareCourseRigor } from "../colleges/positioning-engine.js";
 
 function priority(theme) {
   return { theme, summary: `Very Important in Wide U's admission decisions, per its Common Data Set (section C7).` };

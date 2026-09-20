@@ -7,7 +7,7 @@ import {
   insertFact,
   searchFacts,
   seedCollegeFacts,
-} from "../fact-store.js";
+} from "../scouts/fact-store.js";
 
 function store() {
   const db = new Database(":memory:");

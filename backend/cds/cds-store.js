@@ -1,0 +1,340 @@
+// ═══════════════════════════════════════════════════════════════════════
+// cds-store.js — bridges the on-disk parsed/validated CDS cache
+// (tools/cds-cache/parsed/*.json) into the live `cds_records` table, and
+// adapts a stored record into the shape positioning-engine.js consumes.
+//
+// Why this exists: the positioning calculation used to depend on a LIVE,
+// per-request CDS fetch (resolveAndParseCdsTargets) that frequently fails,
+// leaving "Very Low" evidence confidence and forcing the engine onto
+// optimistic defaults. Meanwhile a fully parsed + validated CDS dataset for
+// ~23 top schools sat unused on disk and the cds_records table was empty.
+// This module loads that dataset once and lets College Fit read real C7
+// factor weights, admit rates, and test-score ranges instead of guessing.
+// ═══════════════════════════════════════════════════════════════════════
+
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { persistAndValidate, loadValidatedRecord, loadAllValidatedRecords, loadLatestValidation } from "./cds-validator.js";
+import { normalizeSchoolName } from "./cds-search.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+export const DEFAULT_PARSED_CDS_DIR = path.join(__dirname, "..", "tools", "cds-cache", "parsed");
+
+// The closing dates a school reported in its Common Data Set (C14, C21, C22,
+// H) projected onto the current application cycle. The document describes
+// the previous cycle, so these are institutional dates with a rolled
+// forward year — far better than the generic "January 1" fallback, still
+// not this year's verified deadline. Callers label them accordingly. A
+// month of August or later belongs to the cycle's start year (the fall the
+// application is submitted); January to July to the entry year.
+export function cdsDeadlinesForCycle(record, now = new Date()) {
+  const dates = record?.extras?.dates;
+  if (!dates || typeof dates !== "object") return null;
+  const y = now.getUTCFullYear();
+  const m = now.getUTCMonth() + 1;
+  const cycleStartYear = m >= 2 ? y : y - 1;
+  const iso = (entry) => {
+    const mmdd = entry?.mmdd;
+    if (!/^\d{2}-\d{2}$/.test(String(mmdd || ""))) return null;
+    const month = Number(mmdd.slice(0, 2));
+    return `${month >= 8 ? cycleStartYear : cycleStartYear + 1}-${mmdd}`;
+  };
+  const deadlines = {
+    ea: iso(dates.eaClosing),
+    ed: iso(dates.edClosing),
+    edII: iso(dates.edIIClosing),
+    rd: iso(dates.regularClosing),
+    financialAid: iso(dates.aidPriority) || iso(dates.aidDeadline),
+    commitBy: null,
+    decisionRelease: null,
+  };
+  if (!Object.values(deadlines).some(Boolean)) return null;
+  return {
+    deadlines,
+    cycle: `${cycleStartYear}-${String(cycleStartYear + 1).slice(-2)}`,
+    label: `${record.school || "the school"} Common Data Set${record.yearLabel ? ` ${record.yearLabel}` : ""}`,
+    sourceUrl: record.sourceUrl || null,
+  };
+}
+
+// Turn a school display name into the slug convention used by the parsed
+// cache files and the context/bundle endpoint ("Columbia University" →
+// "columbia-university").
+export function slugifySchoolName(name) {
+  return String(name || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+// Strict name key for matching DISTINCT institutions. Unlike
+// normalizeSchoolName (which strips "university"/"college" so "Columbia
+// University" can match "...in the City of New York"), this KEEPS the
+// institution-type word — otherwise "Boston University" and "Boston College"
+// both collapse to "boston" and we'd bind one school to the other's data.
+export function strictSchoolKey(name) {
+  return String(name || "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\b(the)\b/g, " ") // only the article is noise
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Two names refer to the same institution when their strict keys are equal or
+// one is a prefix-extension of the other ("Columbia University" ⊂ "Columbia
+// University in the City of New York"). "Boston University" vs "Boston College"
+// is neither → rejected.
+export function schoolNamesCompatible(a, b) {
+  const ka = strictSchoolKey(a);
+  const kb = strictSchoolKey(b);
+  if (!ka || !kb) return false;
+  if (ka === kb) return true;
+  return ka.startsWith(`${kb} `) || kb.startsWith(`${ka} `);
+}
+
+// Map CDS test-policy vocabulary onto the two buckets scoreTestPercentile
+// understands. Anything optional/blind de-emphasizes tests; everything else
+// is treated as considered/required.
+export function normalizeCdsTestPolicy(policy) {
+  const p = String(policy || "").toLowerCase();
+  if (p.includes("optional") || p.includes("blind") || p.includes("deemphasi") || p.includes("de-emphasi")) {
+    return "test_optional_or_deemphasized";
+  }
+  if (!p) return null;
+  return "test_considered_or_required";
+}
+
+// ─── Ingest: disk → cds_records ────────────────────────────────────────
+// Reads every parsed record file (skips _meta files) and upserts it via the
+// existing validated-persist path so corrections/overrides are reapplied.
+// Idempotent: safe to call on every boot.
+export async function ingestParsedCdsCache(ragStmts, { dir = DEFAULT_PARSED_CDS_DIR } = {}) {
+  const result = { dir, ingested: 0, skipped: 0, errors: [] };
+  let files;
+  try {
+    files = fs.readdirSync(dir);
+  } catch (err) {
+    result.errors.push(`readdir ${dir}: ${err.message}`);
+    return result;
+  }
+
+  for (const file of files) {
+    if (!file.endsWith(".json") || file.startsWith("_")) { result.skipped++; continue; }
+    const full = path.join(dir, file);
+    try {
+      const parsed = JSON.parse(fs.readFileSync(full, "utf8"));
+      if (!parsed?.slug && !parsed?.school) { result.skipped++; continue; }
+      if (!parsed.slug) parsed.slug = slugifySchoolName(parsed.school);
+      await persistAndValidate(ragStmts, parsed, { sourceKind: parsed.source || "cds_cache" });
+      result.ingested++;
+    } catch (err) {
+      result.errors.push(`${file}: ${err.message}`);
+    }
+  }
+  return result;
+}
+
+// Count rows so callers can decide whether a boot-time ingest is needed.
+export function countCdsRecords(ragStmts) {
+  try {
+    return loadAllValidatedRecords(ragStmts).length;
+  } catch {
+    return 0;
+  }
+}
+
+// Ingest on boot when the table is empty OR when the parsed cache on disk
+// contains schools the store doesn't have yet. The old only-when-empty guard
+// stranded newly committed CDS schools on disk forever on deployments whose
+// persistent DB was already populated. The ingest itself is an idempotent
+// upsert, so a top-up re-persists existing schools harmlessly.
+export async function ensureCdsStoreSeeded(ragStmts, { dir = DEFAULT_PARSED_CDS_DIR, force = false } = {}) {
+  if (!force) {
+    const storedSlugs = new Set(loadAllValidatedRecords(ragStmts).map((record) => record.slug).filter(Boolean));
+    if (storedSlugs.size > 0) {
+      let diskSlugs = [];
+      try {
+        diskSlugs = fs.readdirSync(dir)
+          .filter((file) => file.endsWith(".json") && !file.startsWith("_"))
+          .map((file) => file.replace(/\.json$/, ""));
+      } catch { /* unreadable dir → nothing to top up */ }
+      const missing = diskSlugs.filter((slug) => !storedSlugs.has(slug));
+      // A parser that reads more of the document than the stored rows carry
+      // (the wider extras read) also triggers a re-ingest: the upsert is
+      // idempotent, and without this a populated deployment would never see
+      // the new sections.
+      const stored = loadAllValidatedRecords(ragStmts);
+      const storedWithExtras = stored.filter((record) => record.extras && Object.keys(record.extras).length).length;
+      const storedLabel = new Map(stored.map((record) => [record.slug, record.yearLabel || null]));
+      const storedVersion = new Map(stored.map((record) => [record.slug, Number(record.parserVersion) || 0]));
+      let diskWithExtras = 0;
+      // A parsed record replaced on disk by a newer document (Columbia's
+      // General Studies CDS swapped for the Columbia College and Engineering
+      // one) carries a new year label; the stored row would otherwise keep
+      // the old document's numbers on every deployment that was already
+      // populated. A file re-parsed by a newer parser version (the ACT
+      // sections, score-range and GPA distributions of version 4) is
+      // re-ingested for the same reason.
+      const relabeled = [];
+      const reparsed = [];
+      try {
+        for (const slug of diskSlugs) {
+          const parsed = JSON.parse(fs.readFileSync(path.join(dir, `${slug}.json`), "utf8"));
+          if (parsed?.extras && Object.keys(parsed.extras).length) diskWithExtras++;
+          if (parsed?.yearLabel && storedLabel.has(slug) && storedLabel.get(slug) !== parsed.yearLabel) relabeled.push(slug);
+          if (storedVersion.has(slug) && (Number(parsed?.parserVersion) || 0) > storedVersion.get(slug)) reparsed.push(slug);
+        }
+      } catch { /* unreadable file → treat as no extras */ }
+      const extrasBehind = diskWithExtras > 0 && storedWithExtras === 0;
+      if (missing.length === 0 && !extrasBehind && !relabeled.length && !reparsed.length) return { seeded: false, reason: "already_populated" };
+      if (missing.length) console.log(`[cds-store] topping up ${missing.length} new parsed CDS record(s): ${missing.slice(0, 8).join(", ")}${missing.length > 8 ? ", …" : ""}`);
+      if (extrasBehind) console.log(`[cds-store] re-ingesting ${diskWithExtras} parsed CDS record(s) that carry the wider section read`);
+      if (relabeled.length) console.log(`[cds-store] re-ingesting ${relabeled.length} parsed CDS record(s) whose document changed: ${relabeled.slice(0, 8).join(", ")}${relabeled.length > 8 ? ", …" : ""}`);
+      if (reparsed.length) console.log(`[cds-store] re-ingesting ${reparsed.length} parsed CDS record(s) from a newer parser version: ${reparsed.slice(0, 8).join(", ")}${reparsed.length > 8 ? ", …" : ""}`);
+    }
+  }
+  const res = await ingestParsedCdsCache(ragStmts, { dir });
+  return { seeded: true, ...res };
+}
+
+// ─── Resolve: school name → stored record ──────────────────────────────
+// Tries exact slug first, then a CONSERVATIVE normalized-name match across
+// all stored records (equality or prefix-extension only — never a loose
+// substring), mirroring the baseline-college resolver so "Columbia
+// University" binds to the right record without matching decoys.
+export function resolveStoredCdsRecord(ragStmts, { schoolName, slug } = {}) {
+  const directSlug = slug || (schoolName ? slugifySchoolName(schoolName) : null);
+  if (directSlug) {
+    const rec = loadValidatedRecord(ragStmts, directSlug);
+    if (rec) return rec;
+  }
+  if (!schoolName) return null;
+
+  const query = strictSchoolKey(schoolName);
+  if (!query) return null;
+  let best = null;
+  let bestScore = -1;
+  for (const rec of loadAllValidatedRecords(ragStmts)) {
+    const cand = strictSchoolKey(rec.school);
+    if (!cand) continue;
+    let score = -1;
+    if (cand === query) score = 100;                                   // exact institution
+    else if (cand.startsWith(`${query} `)) score = 80 - Math.min(40, cand.split(" ").length - query.split(" ").length);
+    else if (query.startsWith(`${cand} `)) score = 70 - Math.min(40, query.split(" ").length - cand.split(" ").length);
+    else continue;                                                     // distinct school → skip
+    if (score > bestScore) { bestScore = score; best = rec; }
+  }
+  return best;
+}
+
+// A record is "validated" when it was checked against ground truth during
+// ingestion (the curated store). Live-parsed records have validation status
+// "no_truth" — real data, but unverified.
+export function isCdsRecordValidated(ragStmts, slug) {
+  if (!slug) return false;
+  const v = loadLatestValidation(ragStmts, slug);
+  // "consistent" (the school's own current document, no same-cycle truth,
+  // its numbers agreeing with each other) is usable; "inconsistent" and
+  // "no_truth" are not.
+  return Boolean(v && v.status && v.status !== "no_truth" && v.status !== "inconsistent");
+}
+
+// Whether the record was checked against figures from outside the document
+// (the corrections registry); a "consistent" record was not, and its
+// evidence confidence says so.
+export function cdsVerification(ragStmts, slug) {
+  if (!slug) return "unverified";
+  const v = loadLatestValidation(ragStmts, slug);
+  if (!v || !v.status || v.status === "no_truth" || v.status === "inconsistent") return "unverified";
+  return v.status === "consistent" ? "consistent" : "validated";
+}
+
+// ─── Adapt: stored record → positioning-engine cdsResult ───────────────
+// Produces the exact shape buildPositioningForTarget()/scoreEvidenceConfidence()
+// read. Because this is a validated, sourced record, fetchStatus is "ok" and
+// the source URL + reporting year are populated, so evidence confidence now
+// reflects real data instead of a failed live fetch.
+export function cdsRecordToPositioningResult(record, { liveFallback = null, unitId = null, validated = true, verification = null } = {}) {
+  if (!record) return liveFallback;
+  // "consistent": the school's own document with no same-cycle truth to
+  // check it against — used for the numbers, confidence kept below High.
+  const consistent = verification === "consistent";
+  const admitRatePercent = record.overallAdmitRate != null
+    ? Math.round(record.overallAdmitRate * 1000) / 10
+    : (liveFallback?.parsed?.admitRatePercent ?? null);
+
+  const extras = record.extras && typeof record.extras === "object" ? record.extras : {};
+  const parsed = {
+    c7: record.c7 && Object.keys(record.c7).length ? record.c7 : (liveFallback?.parsed?.c7 ?? null),
+    admitRatePercent,
+    gpaAverage: record.enrolledGPA?.avg ?? extras.gpa?.average ?? liveFallback?.parsed?.gpaAverage ?? null,
+    // C11 as a band (the GPA ranges holding the 25th and 75th percentile).
+    gpaBand: record.enrolledGPA?.p25 != null || record.enrolledGPA?.p75 != null
+      ? { low: record.enrolledGPA.p25 ?? null, high: record.enrolledGPA.p75 ?? null }
+      : null,
+    satComposite: record.enrolledSAT
+      ? { low: record.enrolledSAT.p25 ?? null, high: record.enrolledSAT.p75 ?? null }
+      : (liveFallback?.parsed?.satComposite ?? null),
+    actComposite: record.enrolledACT
+      ? { low: record.enrolledACT.p25 ?? null, high: record.enrolledACT.p75 ?? null }
+      : (liveFallback?.parsed?.actComposite ?? null),
+    testPolicy: normalizeCdsTestPolicy(record.testPolicy) ?? liveFallback?.parsed?.testPolicy ?? null,
+    // The wider read the College Fit calculation compares the student's own
+    // sections, rank and GPA against: C9 section bands and score-range
+    // tables, C10 class-rank shares, C11 GPA distribution, and the share of
+    // the enrolled class that submitted each test.
+    satSections: extras.satSections ?? null,
+    actSections: extras.actSections ?? null,
+    scoreDistribution: extras.scoreDistribution ?? null,
+    gpaDistribution: Array.isArray(extras.gpaDistribution) ? extras.gpaDistribution : null,
+    classRank: extras.classRank ?? null,
+    submitting: extras.submitting ?? null,
+  };
+
+  const reportingYear = record.yearLabel || (record.year != null ? String(record.year) : null);
+  // Distinguish how an unverified record was obtained: AI web-read vs a live
+  // PDF parse. (Validated curated records are always "cds_store".)
+  const isWebRead = record.sourceKind === "web_llm";
+  const provenanceKind = validated || consistent ? "cds_store" : (isWebRead ? "cds_web" : "cds_live");
+  const sourceLabel = validated
+    ? "CDS store (validated)"
+    : consistent
+      ? "CDS store (school document, consistency-checked)"
+      : (isWebRead ? "CDS (AI web-read, unverified)" : "CDS (live, unverified)");
+
+  return {
+    unitId: unitId ?? liveFallback?.unitId ?? null,
+    schoolName: record.school || liveFallback?.schoolName || null,
+    repositoryMatch: {
+      schoolName: record.school,
+      latestAvailableYear: reportingYear,
+    },
+    source: sourceLabel,
+    sourceUrl: record.sourceUrl || liveFallback?.sourceUrl || null,
+    sourceContentType: liveFallback?.sourceContentType ?? null,
+    sourceExtraction: liveFallback?.sourceExtraction ?? null,
+    fetchStatus: "ok",
+    // Read by scoreEvidenceConfidence: unverified records take a confidence
+    // penalty and are capped below "High"; a consistency-checked one a
+    // smaller penalty, also capped.
+    validated,
+    verification: validated ? "validated" : (consistent ? "consistent" : "unverified"),
+    parsed,
+    // Provenance surfaced to the UI / payload so the source is visible/citable.
+    provenance: {
+      kind: provenanceKind,
+      slug: record.slug,
+      year: record.year ?? null,
+      yearLabel: record.yearLabel ?? null,
+      tier: record.tier ?? null,
+      admitRatePercent,
+      sourceUrl: record.sourceUrl || null,
+      validated,
+      verification: validated ? "validated" : (consistent ? "consistent" : "unverified"),
+    },
+  };
+}

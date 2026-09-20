@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
 import Database from "better-sqlite3";
-import { mountPillarRoutes } from "../server-routes-pillars.js";
+import { mountPillarRoutes } from "../routes/server-routes-pillars.js";
 import { initCouncilTables } from "../council/audit-trail.js";
 
 const API_KEY = "sk-proj-abcdefghijklmnopqrstuvwxyz012345";

@@ -1,11 +1,11 @@
 // routes/ec-narrative.js — the /api/ec narrative routes, the candidate ranker
 // and the idea generator. Split out of routes/ec.js on 2026-09-20; `deps` is the server's
 // routeDeps object of live getters.
-import { NARRATIVE_MAX_CHARS, NARRATIVE_MIN_CHARS, NarrativeValidationError, computeProfileFingerprint, getActiveNarrative, saveNarrative, softDeleteNarrative } from "../narrative-store.js";
-import { resolveLocale, t } from "../i18n.js";
-import { matchMajorBucket as matchMajorBucketFn } from "../ec-vectorizer.js";
-import { renderFriendlyFactor, renderFriendlyTier } from "../friendly-labels.js";
-import { exemplarsPromptBlock, randomExemplarGroup } from "../crimson-ec-exemplars.js";
+import { NARRATIVE_MAX_CHARS, NARRATIVE_MIN_CHARS, NarrativeValidationError, computeProfileFingerprint, getActiveNarrative, saveNarrative, softDeleteNarrative } from "../activities/narrative-store.js";
+import { resolveLocale, t } from "../shared/i18n.js";
+import { matchMajorBucket as matchMajorBucketFn } from "../activities/ec-vectorizer.js";
+import { renderFriendlyFactor, renderFriendlyTier } from "../activities/friendly-labels.js";
+import { exemplarsPromptBlock, randomExemplarGroup } from "../activities/crimson-ec-exemplars.js";
 
 export function registerEcNarrativeRoutes(app, deps) {
   // POST /api/ec/narrative — save a new narrative (deactivates prior active)

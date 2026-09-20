@@ -2,14 +2,14 @@
 // 2026-09-16 so the server file holds setup and helpers only. `deps` is
 // the server's routeDeps object: live getters onto the module bindings
 // these handlers use (SCORECARD_API_KEY, assembleProfileForGeneration, buildBaselineCollegeSearchResponse, buildStudentCallLLM, collegeResearchStmts, db, fitMatrixOptions, getScorecardQueryCache, normalizeComparePayload, normalizeScorecardSearchPayload, normalizeUnitId, piiStmts, putScorecardQueryCache, ragStmts, requireStudentAuth, safeJSON, scorecardLimiter, studentLimiter, withScorecardMeta).
-import { validateRequiredConsents } from "../consent.js";
-import { buildValuesFromCds, expandCollegeAlias, researchCollegeValues } from "../college-research.js";
-import { computeFit } from "../college-values.js";
-import { resolveLocale } from "../i18n.js";
+import { validateRequiredConsents } from "../security/consent.js";
+import { buildValuesFromCds, expandCollegeAlias, researchCollegeValues } from "../colleges/college-research.js";
+import { computeFit } from "../colleges/college-values.js";
+import { resolveLocale } from "../shared/i18n.js";
 import crypto from "node:crypto";
-import { resolveStoredCdsRecord } from "../cds-store.js";
-import { compareColleges, getCollegeById, getCollegeHistory, getFinancialAidProfile, searchScorecard } from "../college-scorecard.js";
-import { buildCollegeHistoryContext } from "../rag-engine.js";
+import { resolveStoredCdsRecord } from "../cds/cds-store.js";
+import { compareColleges, getCollegeById, getCollegeHistory, getFinancialAidProfile, searchScorecard } from "../colleges/college-scorecard.js";
+import { buildCollegeHistoryContext } from "../storage/rag-engine.js";
 
 export function registerCollegesRoutes(app, deps) {
   // ═══════════════════════════════════════════════════════════

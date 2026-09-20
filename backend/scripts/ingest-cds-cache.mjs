@@ -7,8 +7,8 @@
 import Database from "better-sqlite3";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { prepareRAGStatements } from "../rag-engine.js";
-import { ingestParsedCdsCache } from "../cds-store.js";
+import { prepareRAGStatements } from "../storage/rag-engine.js";
+import { ingestParsedCdsCache } from "../cds/cds-store.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dbPath = path.join(__dirname, "..", "data", "counselor.db");

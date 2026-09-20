@@ -15,7 +15,7 @@ import {
   buildStudentDimensionProfile,
   searchEvidence,
   seedCollegeEvidence,
-} from "../evidence-graph.js";
+} from "../storage/evidence-graph.js";
 
 let db, stmts;
 

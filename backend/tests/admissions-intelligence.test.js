@@ -12,7 +12,7 @@ import {
   upsertIpedsGrowth,
   upsertMajorPolicy,
   upsertStrategicFocus,
-} from "../admissions-intelligence.js";
+} from "../colleges/admissions-intelligence.js";
 
 function makeDb() {
   const db = new Database(":memory:");

@@ -8,7 +8,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createRequire } from "node:module";
-import { extractItemsFromXlsx, parseCDSXlsxFile } from "../cds-xlsx-parser.js";
+import { extractItemsFromXlsx, parseCDSXlsxFile } from "../cds/cds-xlsx-parser.js";
 
 const require = createRequire(import.meta.url);
 
@@ -61,7 +61,7 @@ test("parseCDSXlsxFile produces the positional-parser output shape", async () =>
 });
 
 test("a workbook whose C7 grid is unreadable is read from its labelled coded rows", async () => {
-  const { extractC7Labelled } = await import("../cds-xlsx-parser.js");
+  const { extractC7Labelled } = await import("../cds/cds-xlsx-parser.js");
   const row = (y, strs) => strs.map((str, i) => ({ page: 1, x: 60 + i * 60, y, str }));
   const items = [
     ...row(700, ["C4", "Does your institution require a college-preparatory program?", "C.701", "Rigor of secondary school record", "Very Important", "First-Time, First-Year Admission"]),

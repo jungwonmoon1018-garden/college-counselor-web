@@ -2,9 +2,9 @@
 // 2026-09-16 so the server file holds setup and helpers only. `deps` is
 // the server's routeDeps object: live getters onto the module bindings
 // these handlers use (RETENTION_MODE, db, factStmts, orchestrationCatalog, vectorStmts).
-import { getFactStoreStats } from "../fact-store.js";
-import { getVectorStoreStats } from "../vector-store.js";
-import { getJobStatus } from "../batch-jobs.js";
+import { getFactStoreStats } from "../scouts/fact-store.js";
+import { getVectorStoreStats } from "../storage/vector-store.js";
+import { getJobStatus } from "../scouts/batch-jobs.js";
 
 export function registerBaselinesRoutes(app, deps) {
   // ═══════════════════════════════════════════════════════════

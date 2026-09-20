@@ -10,7 +10,7 @@ import {
   buildNextStepPlan,
   analyzeMajorSpikeProfile,
   detectCompetitiveActivity,
-} from "../ec-vectorizer.js";
+} from "../activities/ec-vectorizer.js";
 
 describe("EC_FACTORS", () => {
   it("exposes the six factors in fixed order", () => {

@@ -4,7 +4,7 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { screenOutput } from "../content-moderation.js";
+import { screenOutput } from "../chat/content-moderation.js";
 
 describe("screenOutput pseudo-tool markup", () => {
   it("strips <|tool_call|>-style markup and call: fragments", () => {

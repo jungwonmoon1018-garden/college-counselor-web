@@ -13,7 +13,7 @@ import {
   routeRequest,
   TOPIC_TYPES,
   MODEL_TIERS,
-} from "../policy-router.js";
+} from "../chat/policy-router.js";
 
 describe("classifyTopic", () => {
   it("classifies FAFSA queries as REGULATED", () => {

@@ -1,4 +1,4 @@
-import { buildStudentModel, buildPositioningForTarget } from "../positioning-engine.js";
+import { buildStudentModel, buildPositioningForTarget } from "../colleges/positioning-engine.js";
 
 function makeStudent({
   gpa,

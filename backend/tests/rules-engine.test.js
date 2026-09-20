@@ -13,7 +13,7 @@ import {
   estimateNetPrice,
   evaluateComplianceGate,
   buildCrisisResponse,
-} from "../rules-engine.js";
+} from "../chat/rules-engine.js";
 
 describe("runFAFSAEligibilityCheck", () => {
   // Rules are keyed by rule id with boolean values; required rules must all

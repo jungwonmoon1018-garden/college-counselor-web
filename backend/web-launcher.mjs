@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { readWebSecretConfig, webConfigurationReady } from "./web-secret-store.js";
+import { readWebSecretConfig, webConfigurationReady } from "./security/web-secret-store.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.resolve(process.env.DATA_DIR || path.join(__dirname, "data"));

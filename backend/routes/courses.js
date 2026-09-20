@@ -2,10 +2,10 @@
 // 2026-09-16 so the server file holds setup and helpers only. `deps` is
 // the server's routeDeps object: live getters onto the module bindings
 // these handlers use (COURSE_CONCEPT_GAP_THRESHOLD, getSchoolPriorities, ragStmts, requireStudentAuth, resolveTargetSchools, safeParseJSON, studentLimiter).
-import { resolveLocale } from "../i18n.js";
-import { getActiveNarrative } from "../narrative-store.js";
-import { buildStudentModel } from "../positioning-engine.js";
-import { apExamScoresBySubject, conceptSignalFor, coursesWithApExams, diffCoursesAgainstSequence } from "../course-sequence-catalog.js";
+import { resolveLocale } from "../shared/i18n.js";
+import { getActiveNarrative } from "../activities/narrative-store.js";
+import { buildStudentModel } from "../colleges/positioning-engine.js";
+import { apExamScoresBySubject, conceptSignalFor, coursesWithApExams, diffCoursesAgainstSequence } from "../academics/course-sequence-catalog.js";
 
 export function registerCoursesRoutes(app, deps) {
   app.get("/api/courses/recommendations", deps.studentLimiter, deps.requireStudentAuth, async (req, res) => {

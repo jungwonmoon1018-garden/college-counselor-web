@@ -11,7 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
-import { redactProviderPayload, restoreProviderResponse } from "../orchestration-engine.js";
+import { redactProviderPayload, restoreProviderResponse } from "../chat/orchestration-engine.js";
 import { readServerSource } from "./helpers/server-source.mjs";
 
 const __filename = fileURLToPath(import.meta.url);

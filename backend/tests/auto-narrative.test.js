@@ -13,14 +13,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { computeProfileFingerprint } from "../narrative-store.js";
+import { computeProfileFingerprint } from "../activities/narrative-store.js";
 import { readServerSource } from "./helpers/server-source.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SERVER = readServerSource();
 // The RAG tables and prepared statements moved to rag-schema.js on 2026-09-20.
-const RAG = ["../rag-engine.js", "../rag-schema.js"].map((f) => fs.readFileSync(path.resolve(__dirname, f), "utf8")).join("\n");
-const NARR = fs.readFileSync(path.resolve(__dirname, "../narrative-store.js"), "utf8");
+const RAG = ["../storage/rag-engine.js", "../storage/rag-schema.js"].map((f) => fs.readFileSync(path.resolve(__dirname, f), "utf8")).join("\n");
+const NARR = fs.readFileSync(path.resolve(__dirname, "../activities/narrative-store.js"), "utf8");
 
 // ─── computeProfileFingerprint (pure) ───────────────────────────────────
 test("computeProfileFingerprint", async (t) => {

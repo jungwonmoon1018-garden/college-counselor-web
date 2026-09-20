@@ -7,15 +7,15 @@ import {
   CONSENT_TYPES,
   grantConsent,
   validateRequiredConsents,
-} from "../consent.js";
+} from "../security/consent.js";
 import {
   ensureStudentStorage,
   getStudentKnowledgeGraphPath,
   removeStudentStorage,
-} from "../student-storage.js";
+} from "../storage/student-storage.js";
 
 test("college value scoring has no legacy network extraction path", () => {
-  const source = fs.readFileSync(new URL("../college-values.js", import.meta.url), "utf8");
+  const source = fs.readFileSync(new URL("../colleges/college-values.js", import.meta.url), "utf8");
   const forbidden = [
     "extractCollegeValues",
     "callLLM",

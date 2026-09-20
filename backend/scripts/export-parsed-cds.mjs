@@ -13,9 +13,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
 
-import { prepareRAGStatements } from "../rag-engine.js";
-import { loadAllValidatedRecords, loadLatestValidation } from "../cds-validator.js";
-import { DEFAULT_PARSED_CDS_DIR } from "../cds-store.js";
+import { prepareRAGStatements } from "../storage/rag-engine.js";
+import { loadAllValidatedRecords, loadLatestValidation } from "../cds/cds-validator.js";
+import { DEFAULT_PARSED_CDS_DIR } from "../cds/cds-store.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dbPath = path.join(__dirname, "..", "data", "counselor.db");

@@ -10,7 +10,7 @@ import {
   getOpenRouterPricingUSDPerMTok,
   loadOpenRouterCatalogCache,
   refreshOpenRouterCatalog,
-} from "../openrouter-model-refresh.js";
+} from "../scouts/openrouter-model-refresh.js";
 
 const catalogResponse = (ids) => async () => ({
   ok: true,

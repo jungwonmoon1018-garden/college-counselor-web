@@ -2,10 +2,10 @@
 // 2026-09-16 so the server file holds setup and helpers only. `deps` is
 // the server's routeDeps object: live getters onto the module bindings
 // these handlers use (ADMIN_COOKIE, DATA_DIR, ENCRYPTION_KEY, OPERATOR_LLM, SCORECARD_API_KEY, SCOUT_CADENCE_DAYS, WEB_CONFIG_KEY, WEB_DEPLOYMENT, WEB_SECRETS_READY, adminAuthLimiter, adminModelsPayload, adminSessionResponse, authStore, baselineCollegeNames, clearAdminCookie, db, hasAllowedAdminOrigin, hasDesktopBootstrapProof, maybeRunModelCatalogScout, modelCatalogStmts, policyScoutRunning, policyScoutSchedule, policyScoutStmts, readCookie, requireAdminNetwork, requireCounselorAuth, requireWebConfiguration, resolveBaselineCollegeRow, runScheduledPolicyScout, safeParseJSON, scheduleWebConfigurationRestart, studentLimiter, validateAdminSecret).
-import { lastRunSummary, listRecentChanges } from "../admissions-policy-scout.js";
-import { detectSchoolMentions } from "../chat-grounding.js";
-import { mergeWebModels, mergeWebSecret, readWebSecretConfig, writeWebSecretConfig } from "../web-secret-store.js";
-import { dynamicAllowedModelIds, setModelCandidateStatus } from "../model-catalog-scout.js";
+import { lastRunSummary, listRecentChanges } from "../scouts/admissions-policy-scout.js";
+import { detectSchoolMentions } from "../chat/chat-grounding.js";
+import { mergeWebModels, mergeWebSecret, readWebSecretConfig, writeWebSecretConfig } from "../security/web-secret-store.js";
+import { dynamicAllowedModelIds, setModelCandidateStatus } from "../scouts/model-catalog-scout.js";
 import { registerDynamicOpenRouterModels as adapterRegisterDynamicModels } from "../llm-adapters/index.js";
 import { OPENROUTER_MODEL_OPTIONS } from "../llm-adapters/tier-defaults.js";
 

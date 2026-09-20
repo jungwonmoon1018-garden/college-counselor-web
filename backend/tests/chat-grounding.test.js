@@ -7,7 +7,7 @@ import {
   buildFidelityFootnote,
   detectSchoolMentions,
   formatVerifiedDataBlock,
-} from "../chat-grounding.js";
+} from "../chat/chat-grounding.js";
 
 const profile = {
   gpaUnweighted: 3.82,

@@ -2,12 +2,12 @@
 // 2026-09-16 so the server file holds setup and helpers only. `deps` is
 // the server's routeDeps object: live getters onto the module bindings
 // these handlers use (SCORECARD_API_KEY, buildAdmissionsCalendar, buildStudentCallLLM, collegeResearchStmts, piiStmts, policyScoutStmts, ragStmts, requireStudentAuth, resolveTargetSchools, scoutSchoolOnDemand, studentLimiter).
-import { resolveLocale } from "../i18n.js";
-import { validateRequiredConsents } from "../consent.js";
-import { readCachedDeadlines, researchCollegeDeadlines } from "../college-research.js";
-import { readPolicySnapshot, snapshotAsDeadlineRecord, snapshotIsCurrent } from "../admissions-policy-scout.js";
+import { resolveLocale } from "../shared/i18n.js";
+import { validateRequiredConsents } from "../security/consent.js";
+import { readCachedDeadlines, researchCollegeDeadlines } from "../colleges/college-research.js";
+import { readPolicySnapshot, snapshotAsDeadlineRecord, snapshotIsCurrent } from "../scouts/admissions-policy-scout.js";
 import crypto from "node:crypto";
-import { cdsDeadlinesForCycle, resolveStoredCdsRecord } from "../cds-store.js";
+import { cdsDeadlinesForCycle, resolveStoredCdsRecord } from "../cds/cds-store.js";
 
 export function registerCalendarRoutes(app, deps) {
   // POST /api/calendar/context — date awareness for the consultant agent.

@@ -21,9 +21,9 @@ import {
   renderFriendlyFactor,
   enrichECVectorWithFriendly,
   getPrestigeExplanation,
-} from "../friendly-labels.js";
+} from "../activities/friendly-labels.js";
 
-import { STRENGTH_FACTORS, TIERS } from "../ec-strength-vectorizer.js";
+import { STRENGTH_FACTORS, TIERS } from "../activities/ec-strength-vectorizer.js";
 
 test("every tier in TIERS has a friendly rendering", () => {
   for (const tier of Object.values(TIERS)) {

@@ -11,7 +11,7 @@ import {
   setModelCandidateStatus,
   lastModelCatalogRun,
   MODEL_SCOUT_VERSION,
-} from "../model-catalog-scout.js";
+} from "../scouts/model-catalog-scout.js";
 import { registerDynamicOpenRouterModels, isAllowedOpenRouterModel, listKnownModels } from "../llm-adapters/index.js";
 
 const model = (id, { input = 0.2, output = 0.6, context = 128_000, free = false, modalities = { input: ["text"], output: ["text"] }, createdAt = "2026-08-01T00:00:00.000Z" } = {}) => ({

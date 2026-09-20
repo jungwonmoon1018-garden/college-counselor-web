@@ -15,8 +15,8 @@ import {
   pickScorecardHit,
   expandCollegeAlias,
   buildValuesFromCds,
-} from "../college-research.js";
-import { classifyTopic, TOPIC_TYPES, MODEL_TIERS } from "../policy-router.js";
+} from "../colleges/college-research.js";
+import { classifyTopic, TOPIC_TYPES, MODEL_TIERS } from "../chat/policy-router.js";
 
 describe("slugifyCollege / currentAdmissionsCycle", () => {
   it("slugs names stably", () => {

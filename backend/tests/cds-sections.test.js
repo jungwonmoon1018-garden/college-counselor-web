@@ -5,7 +5,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { extractSections } from "../cds-sections.js";
+import { extractSections } from "../cds/cds-sections.js";
 
 test("numbers on the label's line, percentages and dollar amounts (Indiana 2024-25)", () => {
   const s = extractSections([

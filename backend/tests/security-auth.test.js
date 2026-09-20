@@ -7,7 +7,7 @@ import {
   isLoopbackAddress,
   normalizeEmail,
   PASSWORD_KDF_CURRENT,
-} from "../security-auth.js";
+} from "../security/security-auth.js";
 
 function store() {
   const db = new Database(":memory:");

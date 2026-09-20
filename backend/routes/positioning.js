@@ -2,13 +2,13 @@
 // 2026-09-16 so the server file holds setup and helpers only. `deps` is
 // the server's routeDeps object: live getters onto the module bindings
 // these handlers use (SCORECARD_API_KEY, buildStudentCallLLM, collegeResearchStmts, piiStmts, ragStmts, rememberFitRead, requireStudentAuth, runPositioning, studentLimiter, withScorecardMeta).
-import { validateRequiredConsents } from "../consent.js";
-import { expandCollegeAlias, pickScorecardHit, readResearchCache, slugifyCollege } from "../college-research.js";
-import { buildPositioningForTarget, buildStudentModel } from "../positioning-engine.js";
-import { getActiveNarrative } from "../narrative-store.js";
-import { FIT_VERIFY_TTL_DAYS, verifyCollegeFit } from "../fit-verifier.js";
-import { getCollegeById, searchScorecard } from "../college-scorecard.js";
-import { readSchoolPolicyLive } from "../admissions-policy-scout.js";
+import { validateRequiredConsents } from "../security/consent.js";
+import { expandCollegeAlias, pickScorecardHit, readResearchCache, slugifyCollege } from "../colleges/college-research.js";
+import { buildPositioningForTarget, buildStudentModel } from "../colleges/positioning-engine.js";
+import { getActiveNarrative } from "../activities/narrative-store.js";
+import { FIT_VERIFY_TTL_DAYS, verifyCollegeFit } from "../colleges/fit-verifier.js";
+import { getCollegeById, searchScorecard } from "../colleges/college-scorecard.js";
+import { readSchoolPolicyLive } from "../scouts/admissions-policy-scout.js";
 import crypto from "node:crypto";
 
 export function registerPositioningRoutes(app, deps) {

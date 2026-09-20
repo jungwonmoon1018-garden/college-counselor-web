@@ -24,8 +24,8 @@ import {
   isReputableSourceUrl,
   REPUTABLE_DOMAINS,
   OFFICIAL_COMPETITION_SOURCES,
-} from "../competition-research.js";
-import { initRAGTables, prepareRAGStatements } from "../rag-engine.js";
+} from "../activities/competition-research.js";
+import { initRAGTables, prepareRAGStatements } from "../storage/rag-engine.js";
 
 function freshStmts() {
   const db = new Database(":memory:");

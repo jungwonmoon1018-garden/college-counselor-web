@@ -6,7 +6,7 @@ import {
   resolveTierDefault,
   isReasoningModel,
 } from './tier-defaults.js';
-import { sanitizeProviderPayload } from '../content-moderation.js';
+import { sanitizeProviderPayload } from '../chat/content-moderation.js';
 
 export const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 export const PROVIDERS = Object.freeze({ OPENROUTER: 'openrouter' });

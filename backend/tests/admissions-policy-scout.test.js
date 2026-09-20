@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import Database from "better-sqlite3";
-import { initFactStore, prepareFactStatements } from "../fact-store.js";
-import { scoutRunDue } from "../scout-cadence.js";
+import { initFactStore, prepareFactStatements } from "../scouts/fact-store.js";
+import { scoutRunDue } from "../scouts/scout-cadence.js";
 import {
   initPolicyScout,
   preparePolicyScoutStatements,
@@ -24,7 +24,7 @@ import {
   lastAutomaticRun,
   snapshotIsCurrent,
   SCOUT_VERSION,
-} from "../admissions-policy-scout.js";
+} from "../scouts/admissions-policy-scout.js";
 
 const NOW = new Date("2026-09-03T12:00:00Z"); // cycle 2026-27 → entering fall 2027
 

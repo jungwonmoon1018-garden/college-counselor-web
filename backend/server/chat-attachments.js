@@ -3,13 +3,13 @@
 // recompute it triggers. Moved out of server.js on 2026-09-20.
 // `deps` is server.js's routeDeps object: live getters onto the bindings
 // these functions read there (CHAT_EXTRACT_MAX_BYTES, ragStmts).
-import { extractPdfOCR, extractText } from "../file-extractors.js";
-import { assembleProfileForGeneration } from "../server/verified-data.js";
-import { harvestEvidence } from "../ec-chat-evidence.js";
-import * as chatHistory from "../chat-history.js";
-import { getActiveNarrative } from "../narrative-store.js";
-import { buildDefaultLLMClient, recomputeStudentECStrengthVectors } from "../ec-strength-vectorizer.js";
-import { resolvePrestigeAdapter, safeParseJSON } from "../server/model-calls.js";
+import { extractPdfOCR, extractText } from "../shared/file-extractors.js";
+import { assembleProfileForGeneration } from "./verified-data.js";
+import { harvestEvidence } from "../activities/ec-chat-evidence.js";
+import * as chatHistory from "../chat/chat-history.js";
+import { getActiveNarrative } from "../activities/narrative-store.js";
+import { buildDefaultLLMClient, recomputeStudentECStrengthVectors } from "../activities/ec-strength-vectorizer.js";
+import { resolvePrestigeAdapter, safeParseJSON } from "./model-calls.js";
 
 let deps;
 export function bindChatAttachments(serverDeps) { deps = serverDeps; }

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { extractExtras, parseCdsMonthDay, gpaBandFromDistribution } from "../cds-pdf-parser.js";
-import { cdsDeadlinesForCycle } from "../cds-store.js";
+import { extractExtras, parseCdsMonthDay, gpaBandFromDistribution } from "../cds/cds-pdf-parser.js";
+import { cdsDeadlinesForCycle } from "../cds/cds-store.js";
 
 // Positional items in the shape pdfjs produces: one line per y, words
 // spaced along x. Two document generations are mimicked: labels with their

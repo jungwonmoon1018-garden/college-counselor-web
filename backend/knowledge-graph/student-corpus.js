@@ -3,7 +3,7 @@ import path from "node:path";
 import {
   getStudentEvidenceStagingPath,
   ensureStudentStorage,
-} from "../student-storage.js";
+} from "../storage/student-storage.js";
 
 // Build a transient corpus from explicit evidence and narrative versions. The
 // only supported encrypted student records are included.

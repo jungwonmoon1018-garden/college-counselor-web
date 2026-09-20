@@ -25,11 +25,11 @@ import {
   resolveLocale,
   normalizeLocale,
   localizeFriendlyLabels,
-} from "../i18n.js";
+} from "../shared/i18n.js";
 import {
   CONSENT_TYPES,
   getOnboardingConsentRequirements,
-} from "../consent.js";
+} from "../security/consent.js";
 import {
   STRINGS as FRONTEND_STRINGS,
   t as frontendT,
@@ -298,8 +298,9 @@ test("localizeFriendlyLabels('en-US') preserves the original English", () => {
 // ─── 6. server.js wiring — grep-style assertions ───────────────────────
 test("server.js imports resolveLocale + localizeFriendlyLabels from i18n.js", () => {
   const src = readServerSource();
-  assert.match(src, /import\s*\{[^}]*resolveLocale[^}]*\}\s*from\s*["']\.\/i18n\.js["']/);
-  assert.match(src, /import\s*\{[^}]*localizeFriendlyLabels[^}]*\}\s*from\s*["']\.\/i18n\.js["']/);
+  // i18n.js sits in shared/ since the modules were foldered on 2026-09-21.
+  assert.match(src, /import\s*\{[^}]*resolveLocale[^}]*\}\s*from\s*["']\.\/shared\/i18n\.js["']/);
+  assert.match(src, /import\s*\{[^}]*localizeFriendlyLabels[^}]*\}\s*from\s*["']\.\/shared\/i18n\.js["']/);
 });
 
 test("drift/candidates/deadlines/prestige endpoints route friendlyMessage through t()", () => {

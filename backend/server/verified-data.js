@@ -6,19 +6,19 @@
 // these functions read there (SCORECARD_API_KEY, collegeResearchStmts, db,
 // evidenceStmts, factStmts, fitReadStmts, onDemandScouts, policyScoutStmts,
 // ragStmts, resolveBaselineCollegeRow, resolveTargetSchools).
-import { expandCollegeAlias, pickScorecardHit, readCachedDeadlines, slugifyCollege } from "../college-research.js";
-import { safeParseJSON } from "../server/model-calls.js";
-import { TOPIC_TYPES, enforceGates } from "../policy-router.js";
-import { buildSystemPrompt } from "../orchestration-engine.js";
-import { searchFacts } from "../fact-store.js";
-import { getEvidenceProfile } from "../evidence-graph.js";
-import { formatPolicyLine, readPolicySnapshot, scoutSchool, snapshotAsDeadlineRecord, snapshotIsCurrent } from "../admissions-policy-scout.js";
-import { searchScorecard } from "../college-scorecard.js";
-import { cdsRecordToPositioningResult, cdsVerification, isCdsRecordValidated, resolveStoredCdsRecord, schoolNamesCompatible } from "../cds-store.js";
-import { buildProfileComparison, buildStudentModel, compareApExams, compareCourseRigor, compareGpaToSchool, compareRankToSchool, compareTestsToSchool } from "../positioning-engine.js";
-import { getActiveNarrative } from "../narrative-store.js";
-import { detectSchoolMentions, formatVerifiedDataBlock } from "../chat-grounding.js";
-import { calculateDeadlineStatus, runFAFSAEligibilityCheck } from "../rules-engine.js";
+import { expandCollegeAlias, pickScorecardHit, readCachedDeadlines, slugifyCollege } from "../colleges/college-research.js";
+import { safeParseJSON } from "./model-calls.js";
+import { TOPIC_TYPES, enforceGates } from "../chat/policy-router.js";
+import { buildSystemPrompt } from "../chat/orchestration-engine.js";
+import { searchFacts } from "../scouts/fact-store.js";
+import { getEvidenceProfile } from "../storage/evidence-graph.js";
+import { formatPolicyLine, readPolicySnapshot, scoutSchool, snapshotAsDeadlineRecord, snapshotIsCurrent } from "../scouts/admissions-policy-scout.js";
+import { searchScorecard } from "../colleges/college-scorecard.js";
+import { cdsRecordToPositioningResult, cdsVerification, isCdsRecordValidated, resolveStoredCdsRecord, schoolNamesCompatible } from "../cds/cds-store.js";
+import { buildProfileComparison, buildStudentModel, compareApExams, compareCourseRigor, compareGpaToSchool, compareRankToSchool, compareTestsToSchool } from "../colleges/positioning-engine.js";
+import { getActiveNarrative } from "../activities/narrative-store.js";
+import { detectSchoolMentions, formatVerifiedDataBlock } from "../chat/chat-grounding.js";
+import { calculateDeadlineStatus, runFAFSAEligibilityCheck } from "../chat/rules-engine.js";
 
 let deps;
 export function bindVerifiedData(serverDeps) { deps = serverDeps; }

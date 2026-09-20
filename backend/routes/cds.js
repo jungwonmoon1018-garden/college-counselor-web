@@ -2,9 +2,9 @@
 // 2026-09-16 so the server file holds setup and helpers only. `deps` is
 // the server's routeDeps object: live getters onto the module bindings
 // these handlers use (db, ecUpload, getScorecardQueryCache, putScorecardQueryCache, ragStmts, requireStudentAuth, safeJSON, studentLimiter, withScorecardMeta).
-import { extractGoalUnitIds } from "../rag-engine.js";
-import { computeCdsQueryCacheKey, extractTargetSchoolNames, parseCdsDocument, resolveAndParseCdsTargets } from "../cds-search.js";
-import { ExtractionError, MAX_FILE_BYTES, SUPPORTED_MIME_TYPES } from "../file-extractors.js";
+import { extractGoalUnitIds } from "../storage/rag-engine.js";
+import { computeCdsQueryCacheKey, extractTargetSchoolNames, parseCdsDocument, resolveAndParseCdsTargets } from "../cds/cds-search.js";
+import { ExtractionError, MAX_FILE_BYTES, SUPPORTED_MIME_TYPES } from "../shared/file-extractors.js";
 import fs from "node:fs";
 
 export function registerCdsRoutes(app, deps) {

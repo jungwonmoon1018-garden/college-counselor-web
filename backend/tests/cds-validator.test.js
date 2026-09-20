@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { validateRecord, CORRECTIONS } from "../cds-validator.js";
+import { validateRecord, CORRECTIONS } from "../cds/cds-validator.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PARSED = path.join(__dirname, "..", "tools", "cds-cache", "parsed");
@@ -61,7 +61,7 @@ test("a General Studies document under Columbia's slug is a scope mismatch and i
 // check and is judged on its own consistency, so a 2025-26 admit rate is
 // never "corrected" back to the 2023-24 one.
 test("a record of another cycle is not overridden by the registry's figures and reads as consistent", async () => {
-  const { checkConsistency, persistAndValidate } = await import("../cds-validator.js");
+  const { checkConsistency, persistAndValidate } = await import("../cds/cds-validator.js");
   const stmts = { cds: { upsert: { run() {} }, insertValidation: { run(...args) { this.last = args; } } } };
   const record = {
     slug: "johns-hopkins-university", school: "Johns Hopkins University", yearLabel: "2025-26",

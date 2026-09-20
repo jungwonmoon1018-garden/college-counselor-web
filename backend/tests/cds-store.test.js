@@ -6,7 +6,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { initRAGTables, prepareRAGStatements } from "../rag-engine.js";
+import { initRAGTables, prepareRAGStatements } from "../storage/rag-engine.js";
 import {
   ingestParsedCdsCache,
   ensureCdsStoreSeeded,
@@ -18,8 +18,8 @@ import {
   cdsVerification,
   strictSchoolKey,
   schoolNamesCompatible,
-} from "../cds-store.js";
-import { resolveDownloadURL, unwrapGoogleRedirect, isBlockedIp, assertSafeFetchTarget } from "../cds-ingest-pipeline.js";
+} from "../cds/cds-store.js";
+import { resolveDownloadURL, unwrapGoogleRedirect, isBlockedIp, assertSafeFetchTarget } from "../cds/cds-ingest-pipeline.js";
 
 function freshStmts() {
   const db = new Database(":memory:");

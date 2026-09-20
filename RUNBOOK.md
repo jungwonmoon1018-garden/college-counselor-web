@@ -16,10 +16,16 @@ Route handlers live in `backend/routes/<family>.js` (one file per
 `/api/<family>` prefix, `/api/ec` in four; registered from `server.js`
 through the `routeDeps` getters) and the helpers that read server state in
 `backend/server/<area>.js` (bound to the same getters at the top of
-`server.js`), which keeps the setup, middleware, schedulers and boot.
+`server.js`), which keeps the setup, middleware, schedulers and boot. The
+domain modules sit in folders by function (`chat/`, `cds/`, `colleges/`,
+`academics/`, `activities/`, `scouts/`, `storage/`, `security/`,
+`simulation/`, `shared/`); only the entry points (`server.js`,
+`web-launcher.mjs`, `simulation-sidecar.js`) stay at the top of `backend/`.
 `frontend/src/App.jsx` holds the student app's state and hooks; the screens
-(chat, sidebar, survey, login, create-account), the handlers, the chat
-transport, the orchestrator and the vault are their own files beside it.
+(chat, sidebar, survey, login, create-account) are in `src/screens/`, the
+handlers in `src/handlers/`, the chat transport, orchestrator, prompts and
+crisis lexicon in `src/chat/`, the vault and server session in
+`src/session/`, the profile reads in `src/profile/`.
 The AST tools that made those moves are in `backend/scripts/refactor/`
 (README there).
 Locally on a machine without Node 22, install nvm-windows or Volta and
@@ -63,9 +69,10 @@ June-onward job re-downloads every school and keeps a newer stored cycle
 over an older download (`kept_newer`) and a fuller stored record over a
 thinner parse (`held_back`). To refresh by hand, run the pipeline against a
 scratch SQLite database (the local `backend/data/counselor.db` predates the
-schema): `initRAGTables` + `prepareRAGStatements` from `rag-engine.js`,
-`ingestBulk(stmts, names, { concurrency: 3, year: "2025-26" })` from
-`cds-ingest-pipeline.js`, then dump each usable record with
+schema): `initRAGTables` + `prepareRAGStatements` from
+`storage/rag-engine.js`, `ingestBulk(stmts, names, { concurrency: 3, year:
+"2025-26" })` from `cds/cds-ingest-pipeline.js`, then dump each usable
+record with
 `loadValidatedRecord` + `loadLatestValidation` to the parsed directory
 (`scripts/export-parsed-cds.mjs` shows the shape). Downloads land in
 `backend/data/cds-cache/pdfs/`, cached by slug and cycle. JHU's document

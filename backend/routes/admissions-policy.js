@@ -2,9 +2,9 @@
 // 2026-09-16 so the server file holds setup and helpers only. `deps` is
 // the server's routeDeps object: live getters onto the module bindings
 // these handlers use (policyScoutStmts, requireStudentAuth, resolveTargetSchools, studentLimiter).
-import { formatPolicyLine, lastRunSummary, listRecentChanges, readPolicySnapshot } from "../admissions-policy-scout.js";
-import { schoolNamesCompatible } from "../cds-store.js";
-import { expandCollegeAlias } from "../college-research.js";
+import { formatPolicyLine, lastRunSummary, listRecentChanges, readPolicySnapshot } from "../scouts/admissions-policy-scout.js";
+import { schoolNamesCompatible } from "../cds/cds-store.js";
+import { expandCollegeAlias } from "../colleges/college-research.js";
 
 export function registerAdmissionsPolicyRoutes(app, deps) {
   // ─── Admissions-policy scout ────────────────────────────────────────

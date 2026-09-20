@@ -5,16 +5,16 @@
 // admissionsIntelStmts, cdsLiveAttemptAt, db, getScorecardQueryCache,
 // normalizeUnitId, putScorecardQueryCache, ragStmts,
 // resolveBaselineCollegeRow).
-import { cdsRecordToPositioningResult, cdsVerification, isCdsRecordValidated, resolveStoredCdsRecord, schoolNamesCompatible, slugifySchoolName } from "../cds-store.js";
-import { httpError, safeParseJSON } from "../server/model-calls.js";
-import { extractGoalUnitIds } from "../rag-engine.js";
-import { computeCdsQueryCacheKey, extractTargetSchoolNames, resolveAndParseCdsTargets } from "../cds-search.js";
-import { getActiveNarrative } from "../narrative-store.js";
-import { buildPositioningForTarget, buildStudentModel } from "../positioning-engine.js";
-import { resolveIpedsGrowthForMajor, resolveMajorPolicyForSchool, resolveStrategicFocusForSchool } from "../admissions-intelligence.js";
-import { expandCollegeAlias, pickScorecardHit } from "../college-research.js";
-import { getCollegeById, searchScorecard } from "../college-scorecard.js";
-import { rememberFitRead } from "../server/verified-data.js";
+import { cdsRecordToPositioningResult, cdsVerification, isCdsRecordValidated, resolveStoredCdsRecord, schoolNamesCompatible, slugifySchoolName } from "../cds/cds-store.js";
+import { httpError, safeParseJSON } from "./model-calls.js";
+import { extractGoalUnitIds } from "../storage/rag-engine.js";
+import { computeCdsQueryCacheKey, extractTargetSchoolNames, resolveAndParseCdsTargets } from "../cds/cds-search.js";
+import { getActiveNarrative } from "../activities/narrative-store.js";
+import { buildPositioningForTarget, buildStudentModel } from "../colleges/positioning-engine.js";
+import { resolveIpedsGrowthForMajor, resolveMajorPolicyForSchool, resolveStrategicFocusForSchool } from "../colleges/admissions-intelligence.js";
+import { expandCollegeAlias, pickScorecardHit } from "../colleges/college-research.js";
+import { getCollegeById, searchScorecard } from "../colleges/college-scorecard.js";
+import { rememberFitRead } from "./verified-data.js";
 
 let deps;
 export function bindPositioning(serverDeps) { deps = serverDeps; }

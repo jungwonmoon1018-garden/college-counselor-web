@@ -2,7 +2,7 @@
 // 2026-09-16 so the server file holds setup and helpers only. `deps` is
 // the server's routeDeps object: live getters onto the module bindings
 // these handlers use (hashIP, piiStmts, requireStudentAuth, stmts, studentLimiter).
-import { getOnboardingConsentRequirements, grantConsent, hasActiveConsent } from "../consent.js";
+import { getOnboardingConsentRequirements, grantConsent, hasActiveConsent } from "../security/consent.js";
 import crypto from "node:crypto";
 
 export function registerConsentRoutes(app, deps) {

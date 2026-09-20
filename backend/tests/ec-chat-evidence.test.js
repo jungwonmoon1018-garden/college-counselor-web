@@ -14,10 +14,10 @@ import {
   matchActivity,
   harvestEvidence,
   harvestStudentChatRecords,
-} from "../ec-chat-evidence.js";
-import { initRAGTables, prepareRAGStatements } from "../rag-engine.js";
-import { appendMessage, configureChatEncryption, createThread, openText, sealText } from "../chat-history.js";
-import { vectorizeECStrength } from "../ec-strength-vectorizer.js";
+} from "../activities/ec-chat-evidence.js";
+import { initRAGTables, prepareRAGStatements } from "../storage/rag-engine.js";
+import { appendMessage, configureChatEncryption, createThread, openText, sealText } from "../chat/chat-history.js";
+import { vectorizeECStrength } from "../activities/ec-strength-vectorizer.js";
 
 configureChatEncryption("ab".repeat(32));
 

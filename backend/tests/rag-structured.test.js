@@ -6,7 +6,7 @@ import {
   initRAGTables,
   prepareRAGStatements,
   getDirectStructuredStudentData,
-} from "../rag-engine.js";
+} from "../storage/rag-engine.js";
 
 function freshStmts() {
   const db = new Database(":memory:");

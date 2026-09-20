@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   compareLensValues,
   verifySeasonalRecordV2,
-} from '../seasonal-verification-v2.js';
+} from '../cds/seasonal-verification-v2.js';
 
 test('seasonal comparator applies deterministic tolerances', () => {
   assert.equal(compareLensValues(0.2, 0.205, 'admit_rate'), 'confirm');

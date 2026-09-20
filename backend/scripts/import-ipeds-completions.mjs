@@ -15,8 +15,8 @@ import {
   prepareAdmissionsIntelStatements,
   seedOfficialCipMappings,
   upsertIpedsGrowth,
-} from "../admissions-intelligence.js";
-import { loadIpedsGrowthFile } from "../admissions-intelligence-loader.js";
+} from "../colleges/admissions-intelligence.js";
+import { loadIpedsGrowthFile } from "../colleges/admissions-intelligence-loader.js";
 
 const inputPath = process.argv[2];
 if (!inputPath) {

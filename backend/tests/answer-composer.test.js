@@ -4,7 +4,7 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { composeAnswer, composeDeterministicAnswer } from "../answer-composer.js";
+import { composeAnswer, composeDeterministicAnswer } from "../chat/answer-composer.js";
 
 describe("composeDeterministicAnswer", () => {
   it("composes FAFSA eligibility answer", () => {

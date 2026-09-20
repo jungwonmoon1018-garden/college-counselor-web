@@ -3,20 +3,20 @@
 // the server's routeDeps object: live getters onto the module bindings
 // these handlers use (MAX_TOKENS_LIMIT, apiLimiter, assembleProfileForGeneration, baselineCollegeNames, buildStudentCallLLM, buildVerifiedDataContext, chatGraphStmts, deadlinesFromResearchCache, factStmts, hasVerifiedCollegeData, hashIP, inlineAttachmentBlocks, llmResponseText, messageText, piiStmts, queueChatEvidence, ragStmts, regulatedChatGate, regulatedResultForChat, requireStudentAuth, scorecardStatsOnDemand, scoutSchoolOnDemand, stmts).
 import { isReasonableModelId as adapterIsReasonableModelId } from "../llm-adapters/index.js";
-import { hasAttachmentPreface, stripClientEnvelope } from "../chat-envelope.js";
-import { redactProviderText, restorePII, screenInput, screenOutput } from "../content-moderation.js";
-import { TOPIC_TYPES, canHandleDeterministically, classifyTopic, isLookupQuestion } from "../policy-router.js";
-import { validateRequiredConsents } from "../consent.js";
-import { OPENROUTER_CATALOG, ensureOpenRouterCatalog } from "../openrouter-model-refresh.js";
-import { buildSystemPrompt, redactPayloadForModel } from "../orchestration-engine.js";
-import { composeAnswer, composeDeterministicAnswer } from "../answer-composer.js";
+import { hasAttachmentPreface, stripClientEnvelope } from "../chat/chat-envelope.js";
+import { redactProviderText, restorePII, screenInput, screenOutput } from "../chat/content-moderation.js";
+import { TOPIC_TYPES, canHandleDeterministically, classifyTopic, isLookupQuestion } from "../chat/policy-router.js";
+import { validateRequiredConsents } from "../security/consent.js";
+import { OPENROUTER_CATALOG, ensureOpenRouterCatalog } from "../scouts/openrouter-model-refresh.js";
+import { buildSystemPrompt, redactPayloadForModel } from "../chat/orchestration-engine.js";
+import { composeAnswer, composeDeterministicAnswer } from "../chat/answer-composer.js";
 import crypto from "node:crypto";
-import { buildCrisisResponse } from "../rules-engine.js";
-import { searchFacts } from "../fact-store.js";
-import { buildFidelityCorrection, buildFidelityFootnote, checkProfileFidelity, detectSchoolMentions, formatProfileForModel } from "../chat-grounding.js";
-import { processStudentInputForConcepts } from "../ap-concept-vectorizer.js";
-import { filesFromInlinedBlocks } from "../ec-chat-evidence.js";
-import * as chatGraph from "../chat-graph.js";
+import { buildCrisisResponse } from "../chat/rules-engine.js";
+import { searchFacts } from "../scouts/fact-store.js";
+import { buildFidelityCorrection, buildFidelityFootnote, checkProfileFidelity, detectSchoolMentions, formatProfileForModel } from "../chat/chat-grounding.js";
+import { processStudentInputForConcepts } from "../academics/ap-concept-vectorizer.js";
+import { filesFromInlinedBlocks } from "../activities/ec-chat-evidence.js";
+import * as chatGraph from "../chat/chat-graph.js";
 
 export function registerChatRoutes(app, deps) {
   app.post("/api/chat", deps.apiLimiter, deps.requireStudentAuth, async (req, res) => {

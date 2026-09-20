@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { scoutCadenceMs, scoutRunDue, cadenceDays, DEFAULT_SCOUT_CADENCE_DAYS, ABANDONED_RUN_MS } from "../scout-cadence.js";
+import { scoutCadenceMs, scoutRunDue, cadenceDays, DEFAULT_SCOUT_CADENCE_DAYS, ABANDONED_RUN_MS } from "../scouts/scout-cadence.js";
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = Date.parse("2026-09-05T12:00:00.000Z");

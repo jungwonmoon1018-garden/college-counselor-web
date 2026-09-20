@@ -11,7 +11,7 @@ import {
   webConfigurationReady,
   webSecretConfigPath,
   writeWebSecretConfig,
-} from "../web-secret-store.js";
+} from "../security/web-secret-store.js";
 
 const CONFIG_KEY = "test-wrapping-key-that-is-longer-than-thirty-two-characters";
 

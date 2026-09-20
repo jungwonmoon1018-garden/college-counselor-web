@@ -3,12 +3,17 @@
 College Counselor is a self-hosted website that gives high-school applicants
 (minors, ages 14–18) source-grounded college-planning guidance. Node 22 +
 Express in `backend/` (`server.js` holds setup, middleware and the
-`routeDeps` getters; the route families live in `routes/*.js`, the helpers
-that read server state in `server/*.js`, the domain logic in focused
-modules), React + Vite in `frontend/` (`App.jsx` holds the state and hooks;
-screens, handlers, the chat transport and the orchestrator are sibling
-modules under `src/`), SQLite on a persistent disk, and one fixed OpenRouter
-transport for model calls. `backend/scripts/refactor/` holds the AST tools
+`routeDeps` getters; the route families live in `routes/`, the helpers that
+read server state in `server/`, and the domain logic in folders by function:
+`chat/`, `cds/`, `colleges/`, `academics/`, `activities/`, `scouts/`,
+`storage/`, `security/`, `simulation/`, `shared/`, beside `council/`,
+`llm-adapters/` and `knowledge-graph/`), React + Vite in `frontend/`
+(`src/App.jsx` holds the state and hooks; `screens/`, `handlers/`, `chat/`,
+`session/`, `profile/` and `components/` hold the rest), SQLite on a
+persistent disk, and one fixed OpenRouter transport for model calls. A
+module named below without a folder is in the folder its subject suggests
+(`chat/policy-router.js`, `chat/chat-grounding.js`,
+`scouts/scout-cadence.js`). `backend/scripts/refactor/` holds the AST tools
 that made those splits and the README on using them for the next one. The
 product is deployed at https://college-counselor-web.onrender.com from `main`
 after GitHub Actions CI passes. This file is the edit-time harness: what to
@@ -72,7 +77,7 @@ validator, upload screener) skip the profile, the theme guard, and the gate.
    Changing sensitivity means changing the patterns or `isLookupQuestion`,
    then pinning both directions in `policy-router.test.js` and a route test.
 4. **Crisis handling** has three layers that must agree: the server lexicon
-   (`PATTERNS.crisis`), the client lexicon (`frontend/src/crisis-lexicon.js`),
+   (`PATTERNS.crisis`), the client lexicon (`frontend/src/chat/crisis-lexicon.js`),
    and the small-model gatekeeper, whose crisis call needs corroboration from
    the lexicon. First-person safety statements trigger the deterministic
    crisis response; bare topic words (`emergency`, `abuse` as a topic,

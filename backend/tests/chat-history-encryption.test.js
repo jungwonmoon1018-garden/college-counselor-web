@@ -8,7 +8,7 @@ import {
   getThreadWithMessages,
   listThreads,
   searchMessages,
-} from "../chat-history.js";
+} from "../chat/chat-history.js";
 
 function fixture() {
   const db = new Database(":memory:");

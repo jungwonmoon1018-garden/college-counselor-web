@@ -36,56 +36,56 @@ import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 
 // ── New architecture modules ──
-import { initFactStore, prepareFactStatements, seedCollegeFacts } from "./fact-store.js";
+import { initFactStore, prepareFactStatements, seedCollegeFacts } from "./scouts/fact-store.js";
 import {
   initEvidenceGraph,
   prepareEvidenceStatements,
   seedECBenchmarkEvidence,
   seedCollegeEvidence,
   seedCompetitiveActivityEvidence,
-} from "./evidence-graph.js";
-import { initPIIVault, preparePIIStatements } from "./pii-vault.js";
-import { initUsageBudget, reserveBudget } from "./usage-budget.js";
+} from "./storage/evidence-graph.js";
+import { initPIIVault, preparePIIStatements } from "./storage/pii-vault.js";
+import { initUsageBudget, reserveBudget } from "./security/usage-budget.js";
 import {
   OPENROUTER_TARGETS,
   OPENROUTER_CATALOG,
   refreshOpenRouterTargets,
   refreshOpenRouterCatalog,
   configureOpenRouterCatalogCache,
-} from "./openrouter-model-refresh.js";
-import * as chatHistory from "./chat-history.js";
+} from "./scouts/openrouter-model-refresh.js";
+import * as chatHistory from "./chat/chat-history.js";
 import { registerDynamicOpenRouterModels as adapterRegisterDynamicModels } from "./llm-adapters/index.js";
-import { validateRequiredConsents } from "./consent.js";
-import { initDomainMonitor, prepareMonitorStatements } from "./domain-monitor.js";
-import { initCollegeResearch } from "./college-research.js";
-import "./retention.js";
-import { registerStandardJobs, registerJob, startAllJobs, stopAllJobs } from "./batch-jobs.js";
-import { initVectorStore, prepareVectorStatements } from "./vector-store.js";
-import { initRAGTables, seedBaselines, prepareRAGStatements, extractGoalUnitIds } from "./rag-engine.js";
-import { mountPillarRoutes } from "./server-routes-pillars.js";
-import { refreshAllCds, shouldRunCdsRefresh } from "./cds-ingest-pipeline.js";
-import { seedAPConceptCatalog } from "./ap-concept-vectorizer.js";
+import { validateRequiredConsents } from "./security/consent.js";
+import { initDomainMonitor, prepareMonitorStatements } from "./colleges/domain-monitor.js";
+import { initCollegeResearch } from "./colleges/college-research.js";
+import "./storage/retention.js";
+import { registerStandardJobs, registerJob, startAllJobs, stopAllJobs } from "./scouts/batch-jobs.js";
+import { initVectorStore, prepareVectorStatements } from "./storage/vector-store.js";
+import { initRAGTables, seedBaselines, prepareRAGStatements, extractGoalUnitIds } from "./storage/rag-engine.js";
+import { mountPillarRoutes } from "./routes/server-routes-pillars.js";
+import { refreshAllCds, shouldRunCdsRefresh } from "./cds/cds-ingest-pipeline.js";
+import { seedAPConceptCatalog } from "./academics/ap-concept-vectorizer.js";
 import multer from "multer";
 // F6 uses the same major-bucket matcher as the EC vectorizer to score
 // candidate EC ideas against the student's active narrative.
-import { isSupportedMime, MAX_FILE_BYTES } from "./file-extractors.js";
-import { detectSchoolMentions } from "./chat-grounding.js";
-import * as chatGraph from "./chat-graph.js";
+import { isSupportedMime, MAX_FILE_BYTES } from "./shared/file-extractors.js";
+import { detectSchoolMentions } from "./chat/chat-grounding.js";
+import * as chatGraph from "./chat/chat-graph.js";
 import {
   SCOUT_VERSION,
   initPolicyScout,
   preparePolicyScoutStatements,
   runPolicyScout,
   lastAutomaticRun,
-} from "./admissions-policy-scout.js";
-import { GPA_BASELINES, SAT_BASELINES, ACT_BASELINES, EC_BENCHMARKS, COLLEGE_PROFILES, COMPETITIVE_ACTIVITY_BENCHMARKS } from "./baseline-data.js";
-import { extractTargetSchoolNames } from "./cds-search.js";
-import { ensureCdsStoreSeeded } from "./cds-store.js";
-import { initAdmissionsIntelligenceTables, prepareAdmissionsIntelStatements, seedOfficialCipMappings } from "./admissions-intelligence.js";
-import "./admissions-intelligence-loader.js";
-import { loadOrchestrationCatalog } from "./orchestration-engine.js";
-import { initAuthStore } from "./security-auth.js";
-import { ADMIN_AUTH_RATE_LIMIT, AUTH_RATE_LIMIT, buildHealthResponse, securityResponseMiddleware } from "./security-hardening.js";
+} from "./scouts/admissions-policy-scout.js";
+import { GPA_BASELINES, SAT_BASELINES, ACT_BASELINES, EC_BENCHMARKS, COLLEGE_PROFILES, COMPETITIVE_ACTIVITY_BENCHMARKS } from "./colleges/baseline-data.js";
+import { extractTargetSchoolNames } from "./cds/cds-search.js";
+import { ensureCdsStoreSeeded } from "./cds/cds-store.js";
+import { initAdmissionsIntelligenceTables, prepareAdmissionsIntelStatements, seedOfficialCipMappings } from "./colleges/admissions-intelligence.js";
+import "./colleges/admissions-intelligence-loader.js";
+import { loadOrchestrationCatalog } from "./chat/orchestration-engine.js";
+import { initAuthStore } from "./security/security-auth.js";
+import { ADMIN_AUTH_RATE_LIMIT, AUTH_RATE_LIMIT, buildHealthResponse, securityResponseMiddleware } from "./security/security-hardening.js";
 import { OPENROUTER_MODEL_OPTIONS } from "./llm-adapters/tier-defaults.js";
 import {
   initModelCatalogScout,
@@ -95,8 +95,8 @@ import {
   dynamicAllowedModelIds,
   lastModelCatalogRun,
   MODEL_SCOUT_VERSION,
-} from "./model-catalog-scout.js";
-import { scoutCadenceMs, scoutRunDue, cadenceDays, SCOUT_DUE_CHECK_MS } from "./scout-cadence.js";
+} from "./scouts/model-catalog-scout.js";
+import { scoutCadenceMs, scoutRunDue, cadenceDays, SCOUT_DUE_CHECK_MS } from "./scouts/scout-cadence.js";
 import { registerMethodologyRoutes } from "./routes/methodology.js";
 import { registerContextRoutes } from "./routes/context.js";
 import { registerChatRoutes } from "./routes/chat.js";
@@ -638,7 +638,7 @@ registerStandardJobs({
 if (process.env.AUTO_REFRESH_CDS === "1") {
   const CDS_CYCLE = process.env.CDS_REFRESH_CYCLE || "2024-25";
   registerJob("cds_refresh", async () => {
-    const { ingestBulk, getRepositoryIndex } = await import("./cds-ingest-pipeline.js");
+    const { ingestBulk, getRepositoryIndex } = await import("./cds/cds-ingest-pipeline.js");
     const index = await getRepositoryIndex();
     const targets = index.map((e) => e.name).filter(Boolean);
     if (!targets.length) return;

@@ -4,11 +4,11 @@
 // `deps` is server.js's routeDeps object: live getters onto the bindings
 // these functions read there (AUTO_NARRATIVE_TRIGGERS, C7_PRIORITY_WEIGHTS,
 // db, profileSummaryForPrompt, ragStmts).
-import { NARRATIVE_MAX_CHARS, NARRATIVE_MIN_CHARS, computeProfileFingerprint, getActiveNarrative, saveNarrative } from "../narrative-store.js";
-import { assembleProfileForGeneration } from "../server/verified-data.js";
-import { buildStudentCallLLM, safeParseJSON } from "../server/model-calls.js";
-import { extractGoalUnitIds } from "../rag-engine.js";
-import { extractTargetSchoolNames } from "../cds-search.js";
+import { NARRATIVE_MAX_CHARS, NARRATIVE_MIN_CHARS, computeProfileFingerprint, getActiveNarrative, saveNarrative } from "../activities/narrative-store.js";
+import { assembleProfileForGeneration } from "./verified-data.js";
+import { buildStudentCallLLM, safeParseJSON } from "./model-calls.js";
+import { extractGoalUnitIds } from "../storage/rag-engine.js";
+import { extractTargetSchoolNames } from "../cds/cds-search.js";
 
 let deps;
 export function bindNarrativeCalendar(serverDeps) { deps = serverDeps; }

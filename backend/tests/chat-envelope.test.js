@@ -3,7 +3,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { hasAttachmentPreface, stripClientEnvelope } from "../chat-envelope.js";
+import { hasAttachmentPreface, stripClientEnvelope } from "../chat/chat-envelope.js";
 
 const PREFACE = [
   "[Attached files — read carefully and reference in your answer; 1 text file(s)]",

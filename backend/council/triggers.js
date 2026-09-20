@@ -12,7 +12,7 @@
 //      confidence < 0.55 (handled by orchestration-engine, not here).
 // ═══════════════════════════════════════════════════════════════════════
 
-import { STRATEGY_COUNCIL_SUBINTENTS } from "../policy-router.js";
+import { STRATEGY_COUNCIL_SUBINTENTS } from "../chat/policy-router.js";
 
 export const DECISION_TYPES = Object.freeze({
   COLLEGE_LIST: "college-list",

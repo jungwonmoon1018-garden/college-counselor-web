@@ -21,7 +21,7 @@ import {
   MAX_FILE_BYTES,
   MAX_ARCHIVE_COMPRESSION_RATIO,
   ExtractionError,
-} from "../file-extractors.js";
+} from "../shared/file-extractors.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURES = path.join(__dirname, "fixtures");

@@ -9,7 +9,7 @@ import {
   routeRequest,
   isCrisisText,
   STRATEGY_COUNCIL_SUBINTENTS,
-} from "../policy-router.js";
+} from "../chat/policy-router.js";
 
 // ── Feature 3: course-planning routes to the Strategy Council ──
 

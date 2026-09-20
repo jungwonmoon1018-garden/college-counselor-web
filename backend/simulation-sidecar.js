@@ -8,7 +8,7 @@ import {
   getSimulation,
   deleteSimulation,
   cleanupExpiredSimulations,
-} from "./simulation-engine.js";
+} from "./simulation/simulation-engine.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

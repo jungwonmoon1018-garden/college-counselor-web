@@ -2,8 +2,8 @@
 // 2026-09-16 so the server file holds setup and helpers only. `deps` is
 // the server's routeDeps object: live getters onto the module bindings
 // these handlers use (ragStmts, requireStudentAuth, safeParse, studentLimiter).
-import { AP_CONCEPT_CATALOG, getAllAPSubjects, getConceptsForSubject } from "../ap-concept-catalog.js";
-import { classifyInputToAPConcepts, overrideStudentConcept, processStudentInputForConcepts, recomputeAllSubjectVectors, recomputeSubjectVector } from "../ap-concept-vectorizer.js";
+import { AP_CONCEPT_CATALOG, getAllAPSubjects, getConceptsForSubject } from "../academics/ap-concept-catalog.js";
+import { classifyInputToAPConcepts, overrideStudentConcept, processStudentInputForConcepts, recomputeAllSubjectVectors, recomputeSubjectVector } from "../academics/ap-concept-vectorizer.js";
 
 export function registerApConceptsRoutes(app, deps) {
   // ═════════════════════════════════════════════════════════════════════

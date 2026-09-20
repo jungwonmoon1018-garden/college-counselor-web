@@ -9,7 +9,7 @@ import {
   recomputeStudentDirectionality,
   initDirectionalityTable,
   prepareDirectionalityStatements,
-} from "../ec-vectorizer.js";
+} from "../activities/ec-vectorizer.js";
 import Database from "better-sqlite3";
 import crypto from "node:crypto";
 

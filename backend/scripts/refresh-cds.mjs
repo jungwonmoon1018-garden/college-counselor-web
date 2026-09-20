@@ -24,8 +24,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
 
-import { prepareRAGStatements } from "../rag-engine.js";
-import { ingestBulk, getRepositoryIndex } from "../cds-ingest-pipeline.js";
+import { prepareRAGStatements } from "../storage/rag-engine.js";
+import { ingestBulk, getRepositoryIndex } from "../cds/cds-ingest-pipeline.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, "..");

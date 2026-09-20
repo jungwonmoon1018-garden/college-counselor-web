@@ -2,9 +2,9 @@
 // 2026-09-16 so the server file holds setup and helpers only. `deps` is
 // the server's routeDeps object: live getters onto the module bindings
 // these handlers use (SCORECARD_API_KEY, apiLimiter).
-import { buildMethodology } from "../methodology.js";
-import { OPENROUTER_CATALOG, OPENROUTER_STATUS } from "../openrouter-model-refresh.js";
-import { getJobStatus } from "../batch-jobs.js";
+import { buildMethodology } from "../shared/methodology.js";
+import { OPENROUTER_CATALOG, OPENROUTER_STATUS } from "../scouts/openrouter-model-refresh.js";
+import { getJobStatus } from "../scouts/batch-jobs.js";
 
 export function registerMethodologyRoutes(app, deps) {
   // GET /api/llm/providers — frontend-facing provider catalog

@@ -18,7 +18,7 @@ import {
   scoreEvidenceConfidence,
   actToSat,
   satToAct,
-} from "../positioning-engine.js";
+} from "../colleges/positioning-engine.js";
 
 function makeStudent() {
   return buildStudentModel({

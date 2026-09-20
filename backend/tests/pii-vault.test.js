@@ -22,7 +22,7 @@ import {
   cleanExpiredDocuments,
   deleteAllStudentPII,
   hashStudentIdForProvider,
-} from "../pii-vault.js";
+} from "../storage/pii-vault.js";
 
 // ─── Helpers ───
 

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { callHaikuForNarrativeFit, hashText } from '../narrative-fit-llm.js';
+import { callHaikuForNarrativeFit, hashText } from '../activities/narrative-fit-llm.js';
 import { OPENROUTER_BASE_URL } from '../llm-adapters/index.js';
 
 function memoryStatements() {

@@ -3,7 +3,7 @@
 // Moved out of server.js on 2026-09-20.
 // `deps` is server.js's routeDeps object: live getters onto the bindings
 // these functions read there (DATA_DIR, EC_ATTACHMENTS_DIR).
-import { removeStudentStorage } from "../student-storage.js";
+import { removeStudentStorage } from "../storage/student-storage.js";
 import path from "node:path";
 import fs from "node:fs";
 

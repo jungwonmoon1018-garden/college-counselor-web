@@ -5,7 +5,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { shouldRunCdsRefresh, refreshAllCds } from "../cds-ingest-pipeline.js";
+import { shouldRunCdsRefresh, refreshAllCds } from "../cds/cds-ingest-pipeline.js";
 
 test("shouldRunCdsRefresh: idle Jan–May, active Jun–Dec", () => {
   const at = (iso) => shouldRunCdsRefresh(Date.parse(iso));
@@ -21,7 +21,7 @@ test("refreshAllCds is exported as an async function", () => {
 });
 
 test("isOlderCycle: a fallback download from an earlier cycle must not replace a newer stored record", async () => {
-  const { isOlderCycle } = await import("../cds-ingest-pipeline.js");
+  const { isOlderCycle } = await import("../cds/cds-ingest-pipeline.js");
   assert.equal(isOlderCycle("2024-25", "2025-26"), true);
   assert.equal(isOlderCycle("2023-24", "2025-26"), true);
   assert.equal(isOlderCycle("2025-26", "2025-26"), false);
@@ -31,7 +31,7 @@ test("isOlderCycle: a fallback download from an earlier cycle must not replace a
 });
 
 test("refreshHoldReasons: a parse that thins the stored record is held back, a fuller or equal one is not", async () => {
-  const { refreshHoldReasons } = await import("../cds-ingest-pipeline.js");
+  const { refreshHoldReasons } = await import("../cds/cds-ingest-pipeline.js");
   const stored = { yearLabel: "2025-26", overallAdmitRate: 0.061, enrolledSAT: { p25: 1530, p75: 1565 }, enrolledACT: { p25: 34, p75: 35 }, b1: { applied: 50259, admitted: 3072 }, c7: { rigor: "very_important", interview: "not_considered" } };
   assert.deepEqual(refreshHoldReasons(null, { overallAdmitRate: null }), []);
   assert.deepEqual(refreshHoldReasons(stored, { ...stored }), []);

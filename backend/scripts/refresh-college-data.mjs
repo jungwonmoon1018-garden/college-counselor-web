@@ -35,7 +35,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 
-import { searchScorecard, getCollegeById } from "../college-scorecard.js";
+import { searchScorecard, getCollegeById } from "../colleges/college-scorecard.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, "..");
