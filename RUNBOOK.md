@@ -13,11 +13,15 @@ SQLite on the persistent disk under `backend/data/` (operational,
 encrypted PII vault, vectors), one OpenRouter transport. The React app is
 built by Vite and served by the backend. Health: `GET /api/health`.
 Route handlers live in `backend/routes/<family>.js` (one file per
-`/api/<family>` prefix, registered from `server.js` through the `routeDeps`
-getters); `server.js` keeps the setup, middleware and helpers. The chat
-screen is `frontend/src/App.jsx`; the sidebar, survey, login and
-create-account screens are their own files beside it. The AST tools that
-made those moves are in `backend/scripts/refactor/` (README there).
+`/api/<family>` prefix, `/api/ec` in four; registered from `server.js`
+through the `routeDeps` getters) and the helpers that read server state in
+`backend/server/<area>.js` (bound to the same getters at the top of
+`server.js`), which keeps the setup, middleware, schedulers and boot.
+`frontend/src/App.jsx` holds the student app's state and hooks; the screens
+(chat, sidebar, survey, login, create-account), the handlers, the chat
+transport, the orchestrator and the vault are their own files beside it.
+The AST tools that made those moves are in `backend/scripts/refactor/`
+(README there).
 Locally on a machine without Node 22, install nvm-windows or Volta and
 `nvm use` before `npm ci`, or accept that native modules (better-sqlite3)
 are built for whatever Node runs `npm install`.

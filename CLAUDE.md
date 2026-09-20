@@ -2,9 +2,14 @@
 
 College Counselor is a self-hosted website that gives high-school applicants
 (minors, ages 14–18) source-grounded college-planning guidance. Node 22 +
-Express in `backend/` (one large `server.js` plus focused modules), React +
-Vite in `frontend/` (one large `App.jsx` plus components), SQLite on a
-persistent disk, and one fixed OpenRouter transport for model calls. The
+Express in `backend/` (`server.js` holds setup, middleware and the
+`routeDeps` getters; the route families live in `routes/*.js`, the helpers
+that read server state in `server/*.js`, the domain logic in focused
+modules), React + Vite in `frontend/` (`App.jsx` holds the state and hooks;
+screens, handlers, the chat transport and the orchestrator are sibling
+modules under `src/`), SQLite on a persistent disk, and one fixed OpenRouter
+transport for model calls. `backend/scripts/refactor/` holds the AST tools
+that made those splits and the README on using them for the next one. The
 product is deployed at https://college-counselor-web.onrender.com from `main`
 after GitHub Actions CI passes. This file is the edit-time harness: what to
 keep true, how to prove a change works, and how to land it.
@@ -30,7 +35,7 @@ keep true, how to prove a change works, and how to land it.
 
 ## The advice pipeline and what must stay true
 
-A chat turn (`POST /api/chat` in `backend/server.js`) runs: strip the
+A chat turn (`POST /api/chat` in `backend/routes/chat.js`) runs: strip the
 client's context appendix and attached-file preface from the question →
 deterministic input screen → topic classification (`policy-router.js`) →
 crisis path → regulated / high-stakes gate → system prompt assembly (profile
@@ -52,7 +57,8 @@ validator, upload screener) skip the profile, the theme guard, and the gate.
    read with its double-check verdict. The model never invents statistics,
    quotes, or URLs, and prompts say so. Write money as `62,484 USD`, not `$`,
    because the provider-side redactor masks dollar amounts.
-3. **The official-source gate** (`policy-router.js`, `regulatedChatGate`).
+3. **The official-source gate** (`policy-router.js`; `regulatedChatGate` in
+   `server/verified-data.js`).
    Regulated topics (FAFSA, FERPA, aid policy, federal eligibility) and
    high-stakes topics (deadlines, costs, statistics, school policies) reach
    the model as labeled general guidance with the advisory prefix. The only
@@ -92,8 +98,12 @@ change on their own, and the provider adapter is text-only.
 ## Proving a change
 
 Backend: `cd backend && node --test tests/<file>.test.js` for one file,
-`npm test` for all, `npm run lint` (eslint 9, warnings tolerated, errors not)
-and `node --check server.js` before committing. Route tests spawn `server.js`
+`npm test` for all, `npm run lint` (eslint 10, warnings tolerated, errors
+not) and `node --check server.js` before committing. Tests that pin code by
+its text read it through `tests/helpers/server-source.mjs` (server.js,
+`routes/`, `server/`) and `tests/helpers/frontend-source.mjs` (every module
+under `frontend/src`), so a pin survives a move between files. Route tests
+spawn `server.js`
 with `--import tests/helpers/mock-openrouter-fetch.mjs`, `NODE_ENV=test` and
 `RATE_LIMIT_RELAXED=1`: the mock answers chat calls with "Junior Year Course
 Plan." unless the wire carries `MOCKREPLY:<base64>:` (first reply) or
@@ -117,13 +127,16 @@ counselor's credentials.
 
 ## Landing a change
 
-The working tree carries dozens of phantom CRLF-only diffs; always `git add`
-explicit paths and never stage everything. Commit messages explain the
+Stage explicit paths (`git add <paths>`): two untracked files are not the
+repo's (`AGENTS.md`, `backend/kor.traineddata`), and the phantom
+CRLF-only diffs that used to fill `git status` were renormalized away on
+2026-09-16. Commit messages explain the
 behavior and the reason in prose and end with
 `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`. Pushing to
 `main` is authorized; CI runs backend lint, syntax check and tests, then the
 frontend tests and build, and Render deploys only after CI passes. The
-student bundle hash in `/` changes only when `App.jsx` changes and the admin
+student bundle hash in `/` changes only when the student app's modules
+(`App.jsx` and what it imports) change and the admin
 bundle hash in `/admin.html` only when the admin app changes; a backend-only
 deploy shows up as a brief health blip, nothing else, so verify it by
 behavior. `backend/data/` is gitignored and holds real student data — never

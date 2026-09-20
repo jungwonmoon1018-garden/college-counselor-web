@@ -1,0 +1,9 @@
+# graphify reads this on top of .gitignore. The knowledge graph is of the code
+# and the docs; the entries below are data, and 300 near-identical parsed CDS
+# records would otherwise be more than half the corpus and drown the graph.
+backend/tools/cds-cache/parsed/
+backend/tools/cds-cache/index.json
+backend/tools/cds-cache/princeton.txt
+backend/tests/fixtures/
+# An untracked copy of CLAUDE.md; graphing both doubles every node it yields.
+AGENTS.md
