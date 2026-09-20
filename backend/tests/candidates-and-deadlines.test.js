@@ -16,7 +16,8 @@ import { readServerSource } from "./helpers/server-source.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SERVER = readServerSource();
-const RAG    = fs.readFileSync(path.resolve(__dirname, "../rag-engine.js"), "utf8");
+// The RAG tables and prepared statements moved to rag-schema.js on 2026-09-20.
+const RAG    = ["../rag-engine.js", "../rag-schema.js"].map((f) => fs.readFileSync(path.resolve(__dirname, f), "utf8")).join("\n");
 const I18N   = fs.readFileSync(path.resolve(__dirname, "../i18n.js"), "utf8");
 
 // ─── F6 — candidate ranking ────────────────────────────────────────────
