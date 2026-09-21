@@ -53,9 +53,9 @@ form of every entry dated 2026-09-16 or earlier is in git
   the seed at boot in about two seconds.
 - **Knowledge graph and Obsidian vault (local, not in git).** graphify
   0.8.43 builds `graphify-out/` from the code and the docs (the 300 parsed CDS
-  records and other data are excluded by `.graphifyignore`): about 3,000
-  nodes in some 125 labelled communities, `graph.html`, `GRAPH_REPORT.md`
-  (the report carries the exact counts). It was rebuilt on 2026-09-21 from
+  records and other data are excluded by `.graphifyignore`): 2,994 nodes,
+  6,663 edges and 133 labelled communities from 350 files at the last
+  build, with `graph.html` and `GRAPH_REPORT.md`. It was rebuilt on 2026-09-21 from
   the final layout (folders, `server/`, `src/hooks/`). The owner's vault
   folder (`Obsidian Vault/Collegeapp-AI` under the OneDrive documents
   folder) holds that export beside six hand-written change summaries that
