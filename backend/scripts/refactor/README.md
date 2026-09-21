@@ -31,6 +31,11 @@ Moving code:
   binding becomes `deps.<name>` (the routeDeps getters), the module holds
   `deps` in one variable set by `bind<Area>(routeDeps)`, and server.js
   calls the bind functions right under routeDeps, above everything else.
+- `wrap-statements.mjs --out server/x.js --name fn --from L1 --to L2 [--append]`
+  — for boot-time STATEMENTS in server.js (timers, job registration, a mount
+  block): they become `export function fn(deps)` and `fn(routeDeps);` stays
+  where the run was, so what runs when does not change. Lines inside a
+  multi-line template literal are not re-indented.
 - `extract-routes.mjs [api/family …]` — moves route families into
   routes/<family>.js as `register<Family>Routes(app, deps)`. Run once for
   all families (it writes routeDeps).
@@ -48,6 +53,16 @@ Moving code:
   `name(ctx, ...params)`; App keeps the hook and its dependency array and
   passes the render's bindings as `ctx`.
 
+- `regroup-app.mjs --names a,b (--before x | --after x)` — brings a
+  concern's scattered declarations inside App() together. Never moves an
+  effect; moves a declaration only when what it reads while rendering is
+  declared above the new place and every render-time reference to it sits
+  below.
+- `extract-hook.mjs --name useX (--first a --last b | --from L1 --to L2)` —
+  moves a CONTIGUOUS run of App()'s statements into src/hooks/useX.js as
+  `useX(ctx)`, the call staying where the run was, and fails if the sequence
+  of effects changed. Refuses a run that reads an App binding declared after
+  it, assigns one it does not own, or holds JSX. Regroup first, then extract.
 - `move-modules.mjs --map map.json [--log rewrites.txt]` — moves files
   into folders with `git mv` and rewrites every relative path literal that
   names them (imports, dynamic imports, `new URL`, a test's

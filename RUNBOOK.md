@@ -16,12 +16,18 @@ Route handlers live in `backend/routes/<family>.js` (one file per
 `/api/<family>` prefix, `/api/ec` in four; registered from `server.js`
 through the `routeDeps` getters) and the helpers that read server state in
 `backend/server/<area>.js` (bound to the same getters at the top of
-`server.js`), which keeps the setup, middleware, schedulers and boot. The
+`server.js`), together with the boot-time work: `server/schedulers.js` (when
+the two scouts run), `server/jobs.js` (batch jobs, CDS refreshes, catalog
+refresh timers), `server/pillars.js`, `server/boot.js` (listen) and
+`server/shutdown.js`. `server.js` keeps configuration, the databases and
+their statements, middleware and the calls, in boot order. The
 domain modules sit in folders by function (`chat/`, `cds/`, `colleges/`,
 `academics/`, `activities/`, `scouts/`, `storage/`, `security/`,
 `simulation/`, `shared/`); only the entry points (`server.js`,
 `web-launcher.mjs`, `simulation-sidecar.js`) stay at the top of `backend/`.
-`frontend/src/App.jsx` holds the student app's state and hooks; the screens
+`frontend/src/App.jsx` holds the student app's core state and wires the
+custom hooks in `src/hooks/` (forms, threads, College Fit, chat tools and
+files, the session lifecycle, the auth handlers); the screens
 (chat, sidebar, survey, login, create-account) are in `src/screens/`, the
 handlers in `src/handlers/`, the chat transport, orchestrator, prompts and
 crisis lexicon in `src/chat/`, the vault and server session in

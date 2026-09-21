@@ -9,53 +9,59 @@ verified live, and what is open. It was compressed on 2026-09-21: the long
 form of every entry dated 2026-09-16 or earlier is in git
 (`git show 812cdeb:SESSION-HANDOFF.md`).
 
-## Where things stand (2026-09-21)
+## Where things stand (2026-09-21, evening KST)
 
-- **Deployed:** `main` at `8b5110a` (plus this handoff), live at
+- **Deployed:** `main` at `1c0d96c` (plus docs and this handoff), live at
   https://college-counselor-web.onrender.com. CI green on each push of the
   session: runs 35517580306 (`9c15000`), 35517945709 (`234c107`),
-  35518625060 (`8b5110a`). Confirmed by behaviour, see *Verified live*.
-  The session's commits, newest first: `8b5110a` (modules into folders by
-  function), `234c107` (the sidebar drawer closes on a phone), `9c15000`
-  (refactoring tools, docs, `.graphifyignore`), `470cd2a` (server.js
-  helpers to `server/`, the 1,300-line modules split), `deb7baf` (App.jsx
-  split).
-- **Tests (run after the last code edit, 2026-09-20 15:05 UTC):** backend
+  35518625060 (`8b5110a`), 35584449198 (`7fedcf1`), 35586857585
+  (`1c0d96c`). Confirmed by behaviour, see *Verified live*. The session's
+  commits, newest first: `1c0d96c` (App() into nine hooks; logging out ends
+  silent re-authentication), `7fedcf1` (server.js gives up its schedulers,
+  jobs, pillar mount, listen and shutdown), `64cdcaf` (handoff), `8b5110a`
+  (modules into folders by function), `234c107` (the sidebar drawer closes
+  on a phone), `9c15000` (refactoring tools, docs, `.graphifyignore`),
+  `470cd2a` (server.js helpers to `server/`, the 1,300-line modules
+  split), `deb7baf` (App.jsx split).
+- **Tests (run after the last code edit, 2026-09-21 10:00 UTC):** backend
   `npm test` 741 tests, 737 pass, 4 skipped, 0 fail; `npm run lint` 0
-  errors, 39 warnings (CI cap 500); frontend `npx vitest run` 18 files, 56
+  errors, 39 warnings (CI cap 500); frontend `npx vitest run` 20 files, 64
   tests; `npm run build` clean.
 - **Working tree:** clean apart from two untracked files no session made
   (`AGENTS.md`, `backend/kor.traineddata`) and the gitignored local
   artefacts (`backend/data/`, `graphify-out/`).
 - **Shape of the code now.** Backend entry points stay at the top of
-  `backend/` (`server.js` 1,396 lines of setup, middleware, schedulers,
-  `routeDeps` and boot; `web-launcher.mjs`; `simulation-sidecar.js`).
-  Routes are in `routes/` (26 files; `/api/ec` in four), helpers that read
-  server state in `server/` (nine files, bound to `routeDeps` at the top of
-  server.js), and the domain modules in `chat/`, `cds/`, `colleges/`,
+  `backend/` (`server.js` 1,056 lines: configuration, the databases and
+  their statements, middleware, `routeDeps`, and one-line calls in boot
+  order; `web-launcher.mjs`; `simulation-sidecar.js`). Routes are in
+  `routes/` (26 files; `/api/ec` in four); `server/` holds the helpers
+  that read server state (nine modules bound to `routeDeps`) and the
+  boot-time work (`schedulers.js`, `jobs.js`, `pillars.js`, `boot.js`,
+  `shutdown.js`); the domain modules are in `chat/`, `cds/`, `colleges/`,
   `academics/`, `activities/`, `scouts/`, `storage/`, `security/`,
   `simulation/`, `shared/`, beside `council/`, `llm-adapters/`,
-  `knowledge-graph/`. `frontend/src/App.jsx` is 1,266 lines of state and
-  hooks; `screens/`, `handlers/`, `chat/`, `session/`, `profile/` and
+  `knowledge-graph/`. `frontend/src/App.jsx` is 746 lines: the core state
+  (`user`, `data`, `messages`, `locale`, `authedFetch`), the calls of the
+  nine hooks in `src/hooks/`, the survey branch and the props objects;
+  `screens/`, `handlers/`, `chat/`, `session/`, `profile/` and
   `components/` hold the rest. Largest hand-written files now:
-  `server.js` 1,396, `App.jsx` 1,266, `activities/ec-strength-vectorizer.js`
-  1,145 (one 459-line function), `colleges/positioning-engine.js` 1,034,
+  `activities/ec-strength-vectorizer.js` 1,145 (one 459-line function),
+  `server.js` 1,056, `colleges/positioning-engine.js` 1,034,
   `storage/rag-engine.js` 990.
 - **The CDS cache covers 298 schools** (parser version 6; 118 on 2025-26
   documents, 141 on 2024-25). Unchanged this session; the server re-ingests
   the seed at boot in about two seconds.
 - **Knowledge graph and Obsidian vault (local, not in git).** graphify
-  0.8.43 built `graphify-out/` from 330 files (the 300 parsed CDS records
-  and other data are excluded by `.graphifyignore`): 2,806 nodes, 6,474
-  edges, 123 labelled communities, `graph.html`, `GRAPH_REPORT.md`. It was
-  built BEFORE `8b5110a` moved the modules into folders, so its
-  `source_file` paths are the flat ones; see *Open items*. The owner's
-  vault folder (`Obsidian Vault/Collegeapp-AI` under the OneDrive documents
-  folder) holds that export: 2,919 generated notes beside six hand-written
-  change summaries that were left untouched; the June export it replaced
-  (1,737 generated files) was moved, not deleted, to
-  `Obsidian Vault archive/Collegeapp-AI graphify export 2026-06-19` beside
-  the vault.
+  0.8.43 builds `graphify-out/` from the code and the docs (the 300 parsed CDS
+  records and other data are excluded by `.graphifyignore`): about 3,000
+  nodes in some 125 labelled communities, `graph.html`, `GRAPH_REPORT.md`
+  (the report carries the exact counts). It was rebuilt on 2026-09-21 from
+  the final layout (folders, `server/`, `src/hooks/`). The owner's vault
+  folder (`Obsidian Vault/Collegeapp-AI` under the OneDrive documents
+  folder) holds that export beside six hand-written change summaries that
+  are never touched; each export it replaced was moved, not deleted, to a
+  dated folder under `Obsidian Vault archive/` beside the vault (the June
+  one: `Collegeapp-AI graphify export 2026-06-19`, 1,737 files).
 - **Standing authorizations from the user:** push straight to `main`;
   create and delete throwaway `probe-*@example.test` accounts on
   production for live checks. Never ask for or use the counselor's
@@ -77,6 +83,43 @@ close in the smartphone browser settings. Make a close button please over
 here. Also, I want to split up files in the backend and frontend by general
 function of the files making it easy to maintain and also, to easy to
 reduce tech debt. Also, I got obsidian connected."
+
+In plan mode the user then chose, from the options offered: further
+splitting "Both" (App.jsx into hooks and server.js boot + schedulers), and
+for Obsidian "Leave settings alone" (no colour groups written into the main
+vault's graph settings).
+
+**App() becomes nine hooks; logging out ends silent re-authentication
+(2026-09-21)** — `1c0d96c`. `src/hooks/`: useCreateAccountForm,
+useSurveyForm, useLoginForm, useChatThreads, useCollegeFit, useChatTools,
+useChatFiles, useSessionLifecycle, useAuthHandlers. `extract-hook.mjs`
+moves a contiguous run of App()'s statements into `useX(ctx)` and leaves
+the call where the run was, so all 15 effects keep their order (the tool
+re-derives the sequence and fails if it changed); `regroup-app.mjs` first
+brings a concern's scattered declarations together, never moving an effect
+and only when nothing can observe the move at render time. Tests came
+first (`App.flows.test.jsx`: account creation into the survey, target
+schools, threads, logout). The logout test failed one run in three with
+`expected 'tok_test_1' to be null`, and the bug was older than the
+refactor: `authedFetch` re-authenticates silently when it finds no token,
+and after logout the passphrase provider was only cleared by an effect on
+the next render, so a background request in that window — or a re-auth in
+flight — signed the student back in behind the login screen.
+`chat/chat-client.js` gains `endSessionReauth()` (clears the provider at
+once, bumps an epoch so an in-flight re-auth drops its token);
+`handleLogout` calls it first, `handleDeleteAccount` after the server
+confirms. Pinned in `chat/chat-client.test.js`.
+
+**server.js gives up its boot-time work (2026-09-21)** — `7fedcf1`.
+`server/schedulers.js` (the two scouts' schedule, due-check and run;
+`policyScoutRunning` moved with the only function that assigns it and
+`routeDeps` still answers it, an ESM import being a live binding).
+`wrap-statements.mjs` is new: a contiguous run of top-level statements
+becomes `export function name(deps)` with `name(routeDeps);` left in the
+same place, so boot order is unchanged; with it `server/jobs.js`
+(registerServerJobs, startModelCatalogRefresh), `server/pillars.js`
+(mountPillars) and `server/boot.js` (startListening). `shutdown` moved
+verbatim to `server/shutdown.js`; the three `process.on` lines stay.
 
 **Modules sit in folders by function (2026-09-21)** — `8b5110a`. 108 files
 moved with `git mv` (the folder list is under *Where things stand*);
@@ -173,19 +216,27 @@ scout deadline tables and the official-source gate (`c4c5bb0` and earlier).
   `/budget` and `/api/baselines/status` returned 200 (`/api/ec/cache-memory`
   410, the administrator-only answer it gave before); `DELETE
   /api/students` 200 and the token answered 401 afterwards.
-- **After `8b5110a`:** the deploy's restart blip was 15:09:40–15:10:08 UTC
-  2026-09-20 (the bundle is identical to `234c107`'s, so only the blip
-  marks it), and the probe seventeen seconds later passed in full, chat
-  included ("10,622 USD; 40,369 USD; 7,524", `verifiedData: true`). At
-  09:28 UTC 2026-09-21, certainly on `8b5110a`: register 201, the three
-  consents, sync 200, positioning 200 (Indiana 2024-25, Middlebury 2025-26),
-  the `/api/ec` and student GETs 200, delete 200, token 401 afterwards —
-  but `POST /api/chat` answered 429 `{"error":"Provider returned
-  error","code":"http_error"}` three times across two tiers. That is
-  OpenRouter passing on its upstream provider's rate limit
-  (`llm-adapters/openai.js` forwards the provider's status and message);
-  the chat route tests pass against the mock on this code. Re-run the chat
-  part of the probe before treating chat as verified on this commit.
+- **After `8b5110a` (folders):** the restart blip was 15:09:40–15:10:08
+  UTC 2026-09-20 and the full probe seventeen seconds later passed, chat
+  included ("10,622 USD; 40,369 USD; 7,524", `verifiedData: true`).
+- **After `7fedcf1` (boot split; blip 09:40:32–09:41:03 UTC 2026-09-21):**
+  register 201, consents, sync 200, positioning 200, the `/api/ec` GETs and
+  `/api/students/export` 200, delete 200, token 401 afterwards — the split
+  server boots, registers its jobs, mounts the pillar routes and listens.
+- **After `1c0d96c` (hooks):** the new student bundle `main-C4F9IWW6.js` (byte-identical
+  to the local build) was live at 10:07:45 UTC 2026-09-21; the full probe
+  passed, chat included: register 201, consents, sync 200, positioning 200
+  (Indiana 2024-25, Middlebury 2025-26), `POST /api/chat` 200 with
+  `verifiedData: true` and "In-state tuition: 10,622 USD …", the `/api/ec`
+  GETs and export 200, delete 200, token 401 afterwards. Every backend
+  change of the session is in that deploy.
+- **Chat answered 429 for a while on 2026-09-21** (09:28 and 09:41 UTC, five
+  tries across two deploys and two tiers): `{"error":"Provider returned
+  error","code":"http_error"}`. That is OpenRouter passing on its upstream
+  provider's rate limit (`llm-adapters/openai.js` forwards the provider's
+  status and message), not a server fault; by 10:08 UTC the same question
+  answered 200 again. If students report chat failing, check the OpenRouter
+  key's limits and credit first.
 - **Not verified:** nothing was looked at in a browser. The sidebar's close
   button and backdrop, ChatScreen and the moved handlers are covered by
   the dashboard tests (sign-in, in-place edits, a chat send, the drawer
@@ -195,21 +246,21 @@ scout deadline tables and the official-source gate (`c4c5bb0` and earlier).
 
 ## Open items and things to watch
 
-- **The knowledge graph predates the folder move.** Rebuild it before
-  relying on paths: run `/graphify` (or `/graphify . --update`) from the
-  repository root — AST extraction of the code is free and takes about 20
-  seconds; the 21 docs are cached by content hash, so only the four edited
-  since (CLAUDE.md, RUNBOOK.md, the tools README, this file) need a
-  subagent. Then re-export with `graphify export obsidian` and copy into
+- **Refreshing the graph and the vault.** Run `/graphify` (or `/graphify
+  . --update`) from the repository root: the AST pass over the code is free
+  and takes about 20 seconds; the docs are cached by content hash, so only
+  edited ones need a subagent. Then `graphify export obsidian` and copy into
   the vault folder the way this session did: move only files that carry
-  graphify frontmatter or a `_COMMUNITY_` prefix (and `graph.canvas`) to an
-  archive outside the vault, never the six hand-written notes (`index.md`,
-  `strategy-council.md`, `embedded-llm-stack.md`,
+  graphify frontmatter or a `_COMMUNITY_` prefix (and `graph.canvas`) to a
+  dated archive outside the vault, never the six hand-written notes
+  (`index.md`, `strategy-council.md`, `embedded-llm-stack.md`,
   `seasonal-retrieval-first.md`, `logseq-pii-vault.md`,
   `chat-graph-vault-context.md`). Community colours are written to
-  `Collegeapp-AI/.obsidian/graph.json`, which Obsidian reads only when that
-  folder is opened as its own vault; the main vault's colour groups were
-  left alone.
+  `Collegeapp-AI/.obsidian/graph.json`, read only when that folder is
+  opened as its own vault; the owner chose to leave the main vault's graph
+  settings alone. An Obsidian MCP connector is attached to the owner's
+  sessions; it is fine for reading and spot checks, not for writing
+  thousands of notes.
 - **graphify never caches a JavaScript parse per file** (`.js`, `.jsx`,
   `.mjs` bypass its AST cache because their import resolution depends on
   other files). What persists on disk is `graph.json` + `manifest.json`
@@ -217,12 +268,13 @@ scout deadline tables and the official-source gate (`c4c5bb0` and earlier).
   `cache/ast/` for JSON; this session also kept the whole AST extraction
   as `graphify-out/cache/ast-extraction.json`. Everything is on the NVMe
   system drive; there is no RAM disk on this machine.
-- **Next splits, if wanted:** `server.js` still holds the schedulers and
-  the boot sequence (about 1,400 lines); `App.jsx` holds 1,266 lines of
-  state, effects and small callbacks that could become custom hooks (not
-  mechanical); `vectorizeECStrength` is one 459-line function;
-  `chat-orchestrator.js`'s `orchestrateStages` is 383. `routeDeps` is a
-  flat bag of about 120 getters.
+- **Next splits, if wanted:** the survey branch of App() (about 170 lines
+  of step logic with small JSX helpers) needs a variant of
+  `extract-hook.mjs` that works inside a block and writes `.jsx`;
+  `server.js` still holds 250 lines of table setup and prepared statements
+  that could become `server/statements.js`; `vectorizeECStrength` is one
+  459-line function and `chat-orchestrator.js`'s `orchestrateStages` is
+  383. `routeDeps` is a flat bag of about 130 getters.
 - **Garbled banner comments in `storage/rag-engine.js` and
   `storage/rag-schema.js`** (an old encoding accident, present at
   `812cdeb` too; the file also starts with a BOM). Cosmetic.
@@ -287,7 +339,11 @@ CDS cache: RUNBOOK.md.
   messages with the Write tool and run or `-F` them. A `python - <<EOF`
   pipeline hung for its whole timeout; same remedy.
 - Parallel Bash calls share one working directory and a `cd` in one moves
-  the others — use absolute paths.
+  the others — use absolute paths. `npx vitest run` from the repository
+  root finds no jsdom config and fails every test in milliseconds; run it
+  from `frontend/`.
+- A test that fails one run in three is a finding, not noise: the logout
+  flake of 2026-09-21 was a real race in production code.
 - Stage explicit paths (or `git add -u` when every tracked change is
   yours); never the two untracked files. Commit messages end with
   `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.

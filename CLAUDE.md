@@ -2,14 +2,17 @@
 
 College Counselor is a self-hosted website that gives high-school applicants
 (minors, ages 14–18) source-grounded college-planning guidance. Node 22 +
-Express in `backend/` (`server.js` holds setup, middleware and the
-`routeDeps` getters; the route families live in `routes/`, the helpers that
-read server state in `server/`, and the domain logic in folders by function:
+Express in `backend/` (`server.js` holds configuration, the databases,
+middleware and the `routeDeps` getters; the route families live in
+`routes/`; the helpers that read server state, the scout schedulers, the
+background jobs, the pillar mount, listen and shutdown in `server/`; and the
+domain logic in folders by function:
 `chat/`, `cds/`, `colleges/`, `academics/`, `activities/`, `scouts/`,
 `storage/`, `security/`, `simulation/`, `shared/`, beside `council/`,
 `llm-adapters/` and `knowledge-graph/`), React + Vite in `frontend/`
-(`src/App.jsx` holds the state and hooks; `screens/`, `handlers/`, `chat/`,
-`session/`, `profile/` and `components/` hold the rest), SQLite on a
+(`src/App.jsx` holds the core state and wires the custom hooks in
+`src/hooks/`; `screens/`, `handlers/`, `chat/`, `session/`, `profile/` and
+`components/` hold the rest), SQLite on a
 persistent disk, and one fixed OpenRouter transport for model calls. A
 module named below without a folder is in the folder its subject suggests
 (`chat/policy-router.js`, `chat/chat-grounding.js`,
