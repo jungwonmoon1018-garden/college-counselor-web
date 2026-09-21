@@ -171,10 +171,25 @@ export async function requestChat(payload, signal, locale = "en-US") {
 let _reauthListener = null;
 
 let _reauthCredentialProvider = null;
+// Bumped when the student ends the session; a re-auth that was already in
+// flight must not install the token it comes back with.
+let _reauthEpoch = 0;
 
 export function setReauthListener(fn) { _reauthListener = fn; }
 
 export function setReauthCredentialProvider(fn) { _reauthCredentialProvider = fn; }
+
+// Logging out (or deleting the account) ends silent re-authentication at
+// once. App() also clears the provider from an effect, but only on its next
+// render: until then any background authedFetch that found no token — the
+// budget poll, a thread refresh — signed the student straight back in with
+// the passphrase still held in the old closure, and a re-auth already in
+// flight did the same when it resolved. The login screen showed while the
+// page held a fresh session token.
+export function endSessionReauth() {
+  _reauthEpoch += 1;
+  _reauthCredentialProvider = null;
+}
 
 function notifyReauth(status) { try { _reauthListener?.(status); } catch { /* ignore */ } }
 
@@ -183,6 +198,7 @@ function notifyReauth(status) { try { _reauthListener?.(status); } catch { /* ig
 // written to browser storage.
 export async function _tryReAuth() {
   notifyReauth("attempting");
+  const epoch = _reauthEpoch;
   try {
     const credentials = _reauthCredentialProvider?.();
     if (!credentials?.email || !credentials?.password) { notifyReauth("failed"); return false; }
@@ -192,6 +208,7 @@ export async function _tryReAuth() {
       body: JSON.stringify({ email: credentials.email, password: credentials.password })
     });
     const d = await r.json().catch(() => ({}));
+    if (epoch !== _reauthEpoch) { notifyReauth("failed"); return false; } // the session ended while this was in flight
     if (d.token) { window.__CC_SESSION_TOKEN__ = d.token; notifyReauth("ok"); console.info("[ReAuth] Session restored via auth"); return true; }
     notifyReauth("failed");
     return false;

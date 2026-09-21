@@ -16,8 +16,8 @@ import { mergeImportedCourses, currentYearKey } from "./profile/transcript-utils
 import DisclosurePanel from "./components/DisclosurePanel.jsx";
 import MethodologyPanel from "./components/MethodologyPanel.jsx";
 import { detectLocale, t as tt } from "./i18n.js";
-import { fitReadIsStale } from "./profile/fit-refresh.js";
-import { serverDateToISO } from "./profile/dates.js";
+import "./profile/fit-refresh.js";
+import "./profile/dates.js";
 import { TEST_SCORE_LIMITS, validateTestEntry, blankTestForm, entryToForm, formToEntry } from "./profile/test-scores.js";
 import "./profile/strategy-council.js";
 import Sidebar from "./screens/Sidebar.jsx";
@@ -27,18 +27,27 @@ import { BG, FONT, GLOBAL_CSS, inputStyle } from "./app-shared.js";
 import LoginScreen from "./screens/LoginScreen.jsx";
 import { S, dots } from "./app-shared.js";
 import CreateAccountScreen from "./screens/CreateAccountScreen.jsx";
-import { encrypt, storageApi, safeBtoa, storageKeyFor, clearSession, buildVaultBlob } from "./session/vault-storage.js";
-import { ONBOARDING_CONSENT_TYPES, grantOnboardingConsents, sessionTimer } from "./session/server-session.js";
+import "./session/vault-storage.js";
+import { ONBOARDING_CONSENT_TYPES, grantOnboardingConsents } from "./session/server-session.js";
 import "./profile/profile-analysis.js";
-import { MAX_SCHOOL_FILE_SIZE_BYTES, resolveUploadMimeType, getSchoolFileValidationError } from "./chat/chat-files.js";
-import { rateLimiter, setReauthListener, setReauthCredentialProvider, _tryReAuth } from "./chat/chat-client.js";
+import { MAX_SCHOOL_FILE_SIZE_BYTES } from "./chat/chat-files.js";
+import { _tryReAuth } from "./chat/chat-client.js";
 import "./chat/markdown.jsx";
 import "./chat/chat-orchestrator.js";
 import ChatScreen from "./screens/ChatScreen.jsx";
-import { send as sendImpl, handleChatFilesSelect as handleChatFilesSelectImpl, openThread as openThreadImpl, persistTurn as persistTurnImpl } from "./handlers/chat-send.js";
-import { handleLogin as handleLoginImpl, handleCreate as handleCreateImpl, handleStudentRecovery as handleStudentRecoveryImpl } from "./handlers/auth-handlers.js";
+import { send as sendImpl } from "./handlers/chat-send.js";
+import "./handlers/auth-handlers.js";
 import { handleSurveyComplete as handleSurveyCompleteImpl, hydrateSurveyFromCurrentData as hydrateSurveyFromCurrentDataImpl, reconcileWithBackendProfile as reconcileWithBackendProfileImpl, editECFromProfile as editECFromProfileImpl } from "./handlers/survey-handlers.js";
-import { createDeadlinesForSchool as createDeadlinesForSchoolImpl, lookupCollege as lookupCollegeImpl, removeTargetSchool as removeTargetSchoolImpl, conveneStrategyCouncil as conveneStrategyCouncilImpl } from "./handlers/school-handlers.js";
+import { createDeadlinesForSchool as createDeadlinesForSchoolImpl, conveneStrategyCouncil as conveneStrategyCouncilImpl } from "./handlers/school-handlers.js";
+import { useCreateAccountForm } from "./hooks/useCreateAccountForm.js";
+import { useSurveyForm } from "./hooks/useSurveyForm.js";
+import { useLoginForm } from "./hooks/useLoginForm.js";
+import { useChatThreads } from "./hooks/useChatThreads.js";
+import { useCollegeFit } from "./hooks/useCollegeFit.js";
+import { useSessionLifecycle } from "./hooks/useSessionLifecycle.js";
+import { useChatTools } from "./hooks/useChatTools.js";
+import { useAuthHandlers } from "./hooks/useAuthHandlers.js";
+import { useChatFiles } from "./hooks/useChatFiles.js";
 
 
 const SURVEY_YEARS = ["freshman","sophomore","junior","senior"];
@@ -77,78 +86,29 @@ function formatUserFacingError(error) {
 export default function App() {
   const [screen, setScreen] = useState(S.LOADING);
 
-  // Create account fields
-  // Name is collected as first + last (browser autofill via autoComplete
-  // given-name/family-name); cName stays as the combined value the rest of
-  // the app and the backend already expect.
-  const [cFirst, setCFirst] = useState("");
-  const [cLast, setCLast] = useState("");
-  const cName = `${cFirst} ${cLast}`.replace(/\s+/g, " ").trim();
-  const [cEmail, setCEmail] = useState("");
-  const [cGrade, setCGrade] = useState("");
-  const [cPass, setCPass] = useState("");
-  const [cPass2, setCPass2] = useState("");
-  const [cAgeAttest, setCAgeAttest] = useState(false);
-  const [cConsentAI, setCConsentAI] = useState(false);
-  const [cConsentData, setCConsentData] = useState(false);
-  const [cError, setCError] = useState("");
-  const [showCreatePass, setShowCreatePass] = useState(false);
-  const [showCreatePass2, setShowCreatePass2] = useState(false);
+  const {
+    cAgeAttest, cConsentAI, cConsentData, cEmail, cError, cFirst,
+    cGrade, cLast, cName, cPass, cPass2, setCAgeAttest,
+    setCConsentAI, setCConsentData, setCEmail, setCError, setCFirst, setCGrade,
+    setCLast, setCPass, setCPass2, setShowCreatePass, setShowCreatePass2, showCreatePass,
+    showCreatePass2,
+  } = useCreateAccountForm();
 
-  // Survey state
-  const [surveyStep, setSurveyStep] = useState(0); // 0=GPA, 1=courses, 2=tests, 3=ECs, 4=goals, 5=parent
-  const [surveyError, setSurveyError] = useState("");
-  // Step 0: GPA
-  const [sGpaUw, setSGpaUw] = useState("");
-  const [sGpaW, setSGpaW] = useState("");
-  const [sNoGpaYet, setSNoGpaYet] = useState(false);
-  // Class rank: a rank in a class of a known size, or the top share.
-  const [sClassRank, setSClassRank] = useState({ rank:"", size:"", topPercent:"" });
-  // Courses organized by school year
-  const [sCourseYear, setSCourseYear] = useState("freshman"); // which year tab is active
-  const [sCourses, setSCourses] = useState({ freshman:[], sophomore:[], junior:[], senior:[] });
-  const [sCourseInput, setSCourseInput] = useState({ name:"", type:"regular", grade:"A", semester:"full_year" });
-  // Transcript import (PDF / image / DOCX → parsed course list for review)
-  const [sImportBusy, setSImportBusy] = useState(false);
-  const [sImportNote, setSImportNote] = useState("");
-  // Tests — expanded categories
-  const [sTests, setSTests] = useState([]);
-  const [sTestCategory, setSTestCategory] = useState("sat"); // which test type tab
-  const [sTestInput, setSTestInput] = useState(() => blankTestForm("sat"));
-  const [sNoTestsYet, setSNoTestsYet] = useState(false);
-  // AP exam scores (separate from test scores for clarity)
-  const [sAPScores, setSAPScores] = useState([]); // [{subject,score,year}]
-  const [sAPInput, setSAPInput] = useState({ subject:"", score:"5", year:"2025" });
-  // ECs
-  const [sECs, setSECs] = useState([]);
-  // The default category must be a value the dropdown actually offers. It
-  // used to be the legacy "club", which the select could not display (so it
-  // showed the first option, "Academic") but which saved through the
-  // migration shim as "Other Club/Activity".
-  const [sECInput, setSECInput] = useState({
-    name: "",
-    category: "academic",
-    role: "",
-    hoursPerWeek: "",
-    weeksPerYear: "",
-    description: "",
-    grades: [],            // ["freshman","sophomore","junior","senior"] — Common App checkboxes
-    timing: "school_year", // "school_year" | "school_break" | "both"
-  });
-  // Goals
-  const [sGoals, setSGoals] = useState([]);
-  const [sMajorInterest, setsMajorInterest] = useState("");
-  // Login fields
-  const [lEmail, setLEmail] = useState("");
-  const [lPass, setLPass] = useState("");
-  const [lError, setLError] = useState("");
-  const [showLoginPass, setShowLoginPass] = useState(false);
-  const [studentRecoveryOpen, setStudentRecoveryOpen] = useState(false);
-  const [studentRecoveryInput, setStudentRecoveryInput] = useState("");
-  const [studentRecoveryPassword, setStudentRecoveryPassword] = useState("");
-  const [studentRecoveryBusy, setStudentRecoveryBusy] = useState(false);
-  const [studentRecoveryMessage, setStudentRecoveryMessage] = useState(null);
-  const [studentRecoveryCode, setStudentRecoveryCode] = useState("");
+  const {
+    sAPInput, sAPScores, sClassRank, sCourseInput, sCourseYear, sCourses,
+    sECInput, sECs, sGoals, sGpaUw, sGpaW, sImportBusy,
+    sImportNote, sMajorInterest, sNoGpaYet, sNoTestsYet, sTestCategory, sTestInput,
+    sTests, setSAPInput, setSAPScores, setSClassRank, setSCourseInput, setSCourseYear,
+    setSCourses, setSECInput, setSECs, setSGoals, setSGpaUw, setSGpaW,
+    setSImportBusy, setSImportNote, setSNoGpaYet, setSNoTestsYet, setSTestCategory, setSTestInput,
+    setSTests, setSurveyError, setSurveyStep, setsMajorInterest, surveyError, surveyStep,
+  } = useSurveyForm();
+  const {
+    lEmail, lError, lPass, setLEmail, setLError, setLPass,
+    setShowLoginPass, setStudentRecoveryBusy, setStudentRecoveryCode, setStudentRecoveryInput, setStudentRecoveryMessage, setStudentRecoveryOpen,
+    setStudentRecoveryPassword, showLoginPass, studentRecoveryBusy, studentRecoveryCode, studentRecoveryInput, studentRecoveryMessage,
+    studentRecoveryOpen, studentRecoveryPassword,
+  } = useLoginForm();
 
   // Chat state
   const [user, setUser] = useState(null); // { name, email, grade }
@@ -167,44 +127,22 @@ export default function App() {
   // Strategy Council mode and is cleared as soon as that request starts.
   const [councilDecisionType, setCouncilDecisionType] = useState(null);
   const councilTurnSequenceRef = useRef(0);
+  // Observable session health: re-auth + background-sync status for non-blocking toasts.
+  const [reauthStatus, setReauthStatus] = useState("idle"); // idle | attempting | ok | failed
+  const [syncStatus, setSyncStatus] = useState("idle");     // idle | ok | failed
+  const [syncNote, setSyncNote] = useState("");             // overrides the default "didn't sync" toast text
+  // True during the last minute before the inactivity sign-out — rendered as a
+  // prominent toast so the auto-lock never silently eats a drafted message.
+  const [expiryWarning, setExpiryWarning] = useState(false);
+  // The session notice the student closed with its ×: that exact notice
+  // stays hidden, a different one shows again.
+  const [dismissedNotice, setDismissedNotice] = useState("");
+  // Offline-first: true when the vault unlocked locally but the backend was
+  // unreachable at sign-in. The student keeps full access to their on-device
+  // data; server features (chat, sync) resume when the backend returns. Cleared
+  // on the next successful server contact.
+  const [offlineMode, setOfflineMode] = useState(false);
 
-  // ─── Chat thread history ───
-  // threadList = sidebar entries (id, title, updated_at, message_count).
-  // activeThreadId = which thread the open `messages` belong to.
-  const [threadList, setThreadList] = useState([]);
-  const [activeThreadId, setActiveThreadId] = useState(null);
-  const [threadSearchQ, setThreadSearchQ] = useState("");
-  const [threadSearchResults, setThreadSearchResults] = useState([]);
-  const [collegeValues, setCollegeValues] = useState(null); // { displayName, values, fit, ... }
-  // The record the shown fit read was computed from (fit-refresh.js), and
-  // refs the sync effect reads without re-running on every lookup.
-  const fitFingerprintRef = useRef("");
-  const collegeValuesRef = useRef(null);
-  collegeValuesRef.current = collegeValues;
-  const lookupCollegeRef = useRef(null);
-  const [collegeValuesLoading, setCollegeValuesLoading] = useState(false);
-  const [collegeValuesQuery, setCollegeValuesQuery] = useState("");
-  const [collegeValuesHint, setCollegeValuesHint] = useState(""); // optional official page URL
-  // Calibrated positioning for the looked-up college (reach/target/safety).
-  const [collegePositioning, setCollegePositioning] = useState(null);
-  const [collegePositioningLoading, setCollegePositioningLoading] = useState(false);
-  // Web double-check of the fit read (live Scorecard + official pages).
-  const [collegeVerification, setCollegeVerification] = useState(null);
-  const [collegeVerifying, setCollegeVerifying] = useState(false);
-  // Shared "I'm targeting…" list of specific universities. Read by Rank EC
-  // ideas, Edit your story, and Course plan so their output is tailored to
-  // these schools. Persisted to localStorage (the survey only captures
-  // college TYPES, not named schools, so this is where named targets live).
-  const [targetSchools, setTargetSchools] = useState([]);
-  const [targetSchoolInput, setTargetSchoolInput] = useState("");
-  // Bumped when a school is removed so the Deadline tracker reloads and drops
-  // that school's (now-deleted) deadlines.
-  const [deadlineRefreshKey, setDeadlineRefreshKey] = useState(0);
-  // Inline double-click editing in the sidebar: chat-thread rename + profile
-  // fields (GPA, test scores, courses). `editingField` is a key like
-  // "gpa" | "test:2" | "course:0"; drafts hold the in-progress values.
-  const [renamingThreadId, setRenamingThreadId] = useState(null);
-  const [threadDraft, setThreadDraft] = useState("");
   const [editingField, setEditingField] = useState(null);
   const [draftA, setDraftA] = useState("");
   const [draftB, setDraftB] = useState("");
@@ -216,42 +154,6 @@ export default function App() {
   // so the consultant agent stays date-aware. `today` is re-stamped fresh on
   // every send (see buildCalendarPreamble), so it's correct each day.
   const [calendarCtx, setCalendarCtx] = useState(null);
-  // Load the saved target schools when the signed-in user is known.
-  useEffect(() => {
-    if (!user?.email) return;
-    try {
-      const raw = window.localStorage?.getItem?.(`cc_targets_${user.email}`);
-      setTargetSchools(raw ? JSON.parse(raw) : []);
-    } catch { setTargetSchools([]); }
-  }, [user?.email]);
-  const saveTargets = (arr, email) => {
-    try { if (email) window.localStorage?.setItem?.(`cc_targets_${email}`, JSON.stringify(arr)); } catch { /* ignore */ }
-  };
-  // Holds the (later-defined) deadline creator so addTargetSchool can call it
-  // without a forward-reference TDZ in its dependency array.
-  const createDeadlinesRef = useRef(null);
-  const authedFetchRef = useRef(null);
-  const addTargetSchool = useCallback((name) => {
-    const n = String(name || "").trim();
-    if (!n) return;
-    // Compute "is this new?" SYNCHRONOUSLY from current state — do NOT rely on
-    // a flag set inside the setState updater (React runs that later, so the
-    // deadline trigger below would always see false → silent no-op).
-    const already = targetSchools.some((s) => s.toLowerCase() === n.toLowerCase());
-    setTargetSchoolInput("");
-    if (already) return;
-    const next = [...targetSchools, n].slice(0, 8);
-    setTargetSchools(next);
-    saveTargets(next, user?.email);
-    // Populate the Deadlines tab with this school's EA/ED, RD, financial-aid,
-    // and commit-by dates (advanced-model web search → auto-add). Via ref
-    // because the creator is defined later in the component.
-    createDeadlinesRef.current?.(n);
-  }, [user?.email, targetSchools]);
-  const removeTargetSchool = useCallback((...args) => removeTargetSchoolImpl({
-      authedFetchRef, saveTargets, setDeadlineRefreshKey, setTargetSchools, user,
-    }, ...args), [user?.email]);
-
   // ─── Auth-resilient fetch ───────────────────────────────────────
   // Every backend read/write goes through here so a stale or missing
   // session token (the classic post-restart case) is transparently
@@ -282,6 +184,20 @@ export default function App() {
     }
     return r;
   }, []);
+  // locale drives both static frontend strings AND the locale param sent to
+  // the backend (so server-side friendlyMessage / friendlyLegendI18n come
+  // back in the right language). Persisted to localStorage so reloads stick.
+  // Declared here, ahead of the fit lookups that send it.
+  const [locale, setLocaleState] = useState(detectLocale());
+  const {
+    addTargetSchool, authedFetchRef, collegePositioning, collegePositioningLoading, collegeValues, collegeValuesHint,
+    collegeValuesLoading, collegeValuesQuery, collegeVerification, collegeVerifying, createDeadlinesRef, deadlineRefreshKey,
+    lookupCollege, lookupCollegeRef, refreshCollegeFit, removeTargetSchool, setCollegeValues, setCollegeValuesHint,
+    setCollegeValuesQuery, setTargetSchoolInput, targetSchoolInput, targetSchools, verifyCollegeFit,
+  } = useCollegeFit({
+    data, locale, user,
+  });
+
   authedFetchRef.current = authedFetch;
 
   const refreshBudget = useCallback(async () => {
@@ -298,120 +214,18 @@ export default function App() {
     return () => clearInterval(timer);
   }, [screen, user, refreshBudget]);
 
-  // Fetch the student's threads (called after auth lands).
-  const refreshThreadList = useCallback(async () => {
-    try {
-      const r = await authedFetch("/api/students/threads");
-      if (r.ok) {
-        const data = await r.json();
-        // Normalize SQLite timestamps to ISO so Safari can parse them and so
-        // the updated_at sort compares consistently with client-stamped ISO.
-        setThreadList((data.threads || []).map(t => ({ ...t, updated_at: serverDateToISO(t.updated_at) })));
-      }
-    } catch (err) { console.warn("[CHAT] refreshThreadList failed:", err?.message); }
-  }, [authedFetch]);
+  const {
+    activeThreadId, deleteThread, newThread, openThread, persistTurn, refreshThreadList,
+    renameThreadTitle, renamingThreadId, searchThreads, setRenamingThreadId, setThreadSearchQ, setThreadSearchResults,
+    threadList, threadSearchQ, threadSearchResults,
+  } = useChatThreads({
+    authedFetch, setMessages, setSyncNote, setSyncStatus,
+  });
 
-  // Create a new thread server-side and switch to it. Clears current
-  // in-memory messages so the new thread starts blank.
-  const newThread = useCallback(async (initialTitle, preserveMessages = false) => {
-    try {
-      const r = await authedFetch("/api/students/threads", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: initialTitle }),
-      });
-      if (!r.ok) return null;
-      const data = await r.json();
-      setActiveThreadId(data.id);
-      if (!preserveMessages) setMessages([]);
-      refreshThreadList();
-      return data.id;
-    } catch { return null; }
-  }, [authedFetch, refreshThreadList]);
 
-  const openThread = useCallback((...args) => openThreadImpl({
-      authedFetch, refreshThreadList, setActiveThreadId, setMessages,
-    }, ...args), [authedFetch, refreshThreadList]);
-
-  const persistTurn = useCallback((...args) => persistTurnImpl({
-      authedFetch, refreshThreadList, setSyncNote, setSyncStatus, setThreadList,
-    }, ...args), [authedFetch, refreshThreadList]);
-
-  // Delete a thread (soft archive by default).
-  const deleteThread = useCallback(async (threadId, hard = false) => {
-    const token = window.__CC_SESSION_TOKEN__;
-    if (!token) return;
-    try {
-      await fetch(`/api/students/threads/${threadId}${hard ? "?hard=1" : ""}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (activeThreadId === threadId) {
-        setActiveThreadId(null);
-        setMessages([]);
-      }
-      refreshThreadList();
-    } catch (err) { console.warn("[CHAT] deleteThread failed:", err?.message); }
-  }, [activeThreadId, refreshThreadList]);
-
-  // Search across all threads (substring on message content).
-  const searchThreads = useCallback(async (q) => {
-    setThreadSearchQ(q);
-    if (!q || q.length < 2) { setThreadSearchResults([]); return; }
-    const token = window.__CC_SESSION_TOKEN__;
-    if (!token) return;
-    try {
-      const r = await fetch(`/api/students/threads-search?q=${encodeURIComponent(q)}`,
-        { headers: { Authorization: `Bearer ${token}` } });
-      if (r.ok) {
-        const data = await r.json();
-        setThreadSearchResults(data.results || []);
-      }
-    } catch (err) { console.warn("[CHAT] search failed:", err?.message); }
-  }, []);
-
-  // locale drives both static frontend strings AND the locale param sent to
-  // the backend (so server-side friendlyMessage / friendlyLegendI18n come
-  // back in the right language). Persisted to localStorage so reloads stick.
-  // Declared here, ahead of the fit lookups that send it.
-  const [locale, setLocaleState] = useState(detectLocale());
-
-  const lookupCollege = useCallback((...args) => lookupCollegeImpl({
-      data, fitFingerprintRef, locale, setCollegePositioning, setCollegePositioningLoading, setCollegeValues,
-      setCollegeValuesLoading, setCollegeVerification,
-    }, ...args), [data, locale]);
   lookupCollegeRef.current = lookupCollege;
 
-  // Re-read the shown school when the record it was read from has moved.
-  const refreshCollegeFit = useCallback((nextData) => {
-    const shown = collegeValuesRef.current;
-    if (!shown?.displayName || shown.error) return;
-    if (nextData && !fitReadIsStale(fitFingerprintRef.current, nextData)) return;
-    lookupCollegeRef.current?.(shown.displayName, undefined, { refresh: true });
-  }, []);
 
-  // Double-check the fit read against the live web: College Scorecard, the
-  // school's own admissions pages (deterministic parse), and a second,
-  // quote-verified read of those pages by the medium-tier model.
-  const verifyCollegeFit = useCallback(async (schoolName, force = false) => {
-    const token = window.__CC_SESSION_TOKEN__;
-    if (!token || !schoolName) return;
-    setCollegeVerifying(true);
-    try {
-      const major = (data?.majorInterest || data?.profile?.majorInterest || null);
-      const r = await fetch("/api/positioning/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ schoolName, force, ...(major ? { major } : {}) }),
-      });
-      const body = await r.json().catch(() => ({}));
-      setCollegeVerification(r.ok ? body : { error: body.error || `HTTP ${r.status}` });
-    } catch (err) {
-      setCollegeVerification({ error: err?.message || "verification failed" });
-    } finally {
-      setCollegeVerifying(false);
-    }
-  }, [data]);
 
   // ─── Transcript → profile, from the chat ───
   // Parse the attached transcript's text with the same deterministic route
@@ -447,43 +261,13 @@ export default function App() {
     return outcome;
   }, [user?.grade]);
 
-  // ─── Inline chat tools ───
-  // The four student tools (narrative, candidate ranker, spike finder,
-  // course plan) render INLINE in the conversation as ephemeral cards.
-  // They carry role:"tool" so buildHistoryMsgs() skips them (never sent to
-  // the model) and persistTurn() never stores them (no backend round-trip).
-  // Switching threads clears them, which is the intended ephemeral behavior.
-  const toolSeq = useRef(0);
-  // The open tool cards, for openTool: a second click on a tool's button
-  // used to append a second card, and each card fetched (Spike Finder's
-  // fetch is a model re-rank), so three clicks meant three panels and
-  // three re-ranks. An open card is brought into view instead.
-  const messagesRef = useRef(messages);
-  useEffect(() => { messagesRef.current = messages; }, [messages]);
-  const openTool = useCallback((toolName) => {
-    const existing = (messagesRef.current || []).find((m) => m?.role === "tool" && m.tool === toolName && m.id);
-    if (existing) {
-      setTimeout(() => { try { document.getElementById(existing.id)?.scrollIntoView?.({ behavior: "smooth", block: "start" }); } catch { /* ignore */ } }, 0);
-      return;
-    }
-    toolSeq.current += 1;
-    const id = `tool-${toolName}-${toolSeq.current}`;
-    setMessages(prev => [...prev, { role: "tool", tool: toolName, id }]);
-  }, []);
-  const dismissTool = useCallback((id) => {
-    setMessages(prev => prev.filter(m => !(m.role === "tool" && m.id === id)));
-  }, []);
+  const {
+    dismissTool, openTool, toolSeq,
+  } = useChatTools({
+    messages, setMessages,
+  });
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [pendingFile, setPendingFile] = useState(null); // legacy single-file (PDF/image OCR survey path)
-  // Multi-file / folder chat attachments. Each entry is the parsed
-  // shape returned by readChatFile: { kind, name, path, size, ... }.
-  // Read once on selection, kept in memory until the user sends the
-  // next turn or removes them.
-  const [chatFiles, setChatFiles] = useState([]); // Array<ChatFile>
-  // Whether the collapsed folder-chip's expanded list is showing.
-  // Auto-collapses again on send via setChatFiles([]) clearing state.
-  const [chatFilesExpanded, setChatFilesExpanded] = useState(false);
   const conveneStrategyCouncil = useCallback((...args) => conveneStrategyCouncilImpl({
       authedFetch, locale, setAgentStatus,
     }, ...args), [authedFetch, locale]);
@@ -577,22 +361,6 @@ export default function App() {
       hydrateSurveyFromCurrentData, setSECInput, setSECs, setScreen, setSidebarOpen, setSurveyStep,
     }, ...args), [hydrateSurveyFromCurrentData]);
 
-  // ─── Inline sidebar editing ───
-  // Rename a chat thread (double-click its title). Persists via PATCH; the
-  // backend only accepts a non-empty title.
-  const renameThreadTitle = useCallback(async (threadId, title) => {
-    const t = String(title || "").trim();
-    setRenamingThreadId(null);
-    if (!threadId || !t) return;
-    setThreadList(prev => prev.map(x => x.id === threadId ? { ...x, title: t } : x));
-    try {
-      await authedFetch(`/api/students/threads/${encodeURIComponent(threadId)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: t }),
-      });
-    } catch (err) { console.warn("[CHAT] rename failed:", err?.message); refreshThreadList(); }
-  }, [authedFetch, refreshThreadList]);
 
   const createDeadlinesForSchool = useCallback((...args) => createDeadlinesForSchoolImpl({
       authedFetch,
@@ -620,321 +388,33 @@ export default function App() {
 
   useEffect(()=>{chatEnd.current?.scrollIntoView({behavior:"smooth"});},[messages]);
 
-  // ─── FILE UPLOAD HANDLER ───
-  const handleFileSelect = useCallback((e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const validationError = getSchoolFileValidationError(file);
-    if (validationError) { alert(validationError); return; }
-    const mimeType = resolveUploadMimeType(file);
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result.split(",")[1];
-      setPendingFile({ name: file.name, type: mimeType, size: file.size, base64, mediaType: mimeType });
-    };
-    reader.readAsDataURL(file);
-    e.target.value = ""; // reset so same file can be selected again
-  }, []);
+  const {
+    chatFiles, chatFilesExpanded, clearChatFiles, handleChatFilesSelect, pendingFile, removeChatFile,
+    setChatFiles, setChatFilesExpanded, setPendingFile,
+  } = useChatFiles({
+    setMessages,
+  });
 
-  const handleChatFilesSelect = useCallback((...args) => handleChatFilesSelectImpl({
-      chatFiles, setChatFiles, setMessages,
-    }, ...args), [chatFiles]);
+  const {
+    EXPIRY_NOTICE,
+  } = useSessionLifecycle({
+    authedFetch, data, passphrase, reconcileWithBackendProfile, refreshCollegeFit, refreshThreadList,
+    screen, setCalendarCtx, setData, setExpiryWarning, setLError, setMessages,
+    setOfflineMode, setPassphrase, setReauthStatus, setScreen, setSyncNote, setSyncStatus,
+    setUser, targetSchools, user,
+  });
 
-  const removeChatFile = useCallback((idx) => {
-    setChatFiles(prev => prev.filter((_, i) => i !== idx));
-  }, []);
-  const clearChatFiles = useCallback(() => setChatFiles([]), []);
-
-  // Observable session health: re-auth + background-sync status for non-blocking toasts.
-  const [reauthStatus, setReauthStatus] = useState("idle"); // idle | attempting | ok | failed
-  const [syncStatus, setSyncStatus] = useState("idle");     // idle | ok | failed
-  const [syncNote, setSyncNote] = useState("");             // overrides the default "didn't sync" toast text
-  // True during the last minute before the inactivity sign-out — rendered as a
-  // prominent toast so the auto-lock never silently eats a drafted message.
-  const [expiryWarning, setExpiryWarning] = useState(false);
-  // The inactivity notice, shown as a toast in both the survey and the chat.
-  const EXPIRY_NOTICE = "Still there? You'll be signed out in about a minute of inactivity — click or type to stay signed in.";
-  // The session notice the student closed with its ×: that exact notice
-  // stays hidden, a different one shows again.
-  const [dismissedNotice, setDismissedNotice] = useState("");
-  // Offline-first: true when the vault unlocked locally but the backend was
-  // unreachable at sign-in. The student keeps full access to their on-device
-  // data; server features (chat, sync) resume when the backend returns. Cleared
-  // on the next successful server contact.
-  const [offlineMode, setOfflineMode] = useState(false);
-
-  // Register the module-level re-auth notifier so the silent token-recovery
-  // path becomes visible to the student instead of a confusing dead end.
-  useEffect(() => {
-    setReauthListener((status) => {
-      setReauthStatus(status);
-      if (status === "ok") setTimeout(() => setReauthStatus("idle"), 2500);
-    });
-    return () => setReauthListener(null);
-  }, []);
-
-  useEffect(() => {
-    setReauthCredentialProvider(() => user?.email && passphrase
-      ? { email: user.email, password: passphrase }
-      : null);
-    return () => setReauthCredentialProvider(null);
-  }, [user?.email, passphrase]);
-
-  // ─── ROUTE ON MOUNT ───
-  // There is no local account registry and no persisted session: the backend
-  // owns identity, and sessions are memory-only. So there is nothing to
-  // rehydrate — start at login and let a first-time student take the "Create
-  // account" link. Routing by "do any accounts exist" is deliberately gone:
-  // it would disclose account existence before authentication, which the
-  // backend's uniform invalid-credentials response is designed to avoid.
-  useEffect(() => {
-    clearSession();
-    setScreen(S.LOGIN);
-  }, []);
-
-  // ─── AUTO-SAVE data + SYNC TO RAG BACKEND ───
-  useEffect(() => {
-    if ((screen !== S.CHAT && screen !== S.SURVEY) || !user || !passphrase) return;
-    const t = setTimeout(async () => {
-      // 1. Save to encrypted localStorage (offline-first). Identity is written
-      //    alongside the data — it is the only copy login can read back.
-      const storageKey = await storageKeyFor(user.email);
-      const e = await encrypt(buildVaultBlob(data, { name: user.name, grade: user.grade }), passphrase, user.email);
-      try { await storageApi.set(storageKey, e); } catch (err) { console.warn("Auto-save failed:", err?.message); }
-
-      // 2. Sync to RAG backend — persists grades/GPA/ECs server-side so
-      //    they survive restarts AND are reachable from any device.
-      //    Routed through authedFetch so a stale token (post-restart)
-      //    is healed and the write actually lands instead of silently
-      //    no-oping.
-      if (data.profile) {
-        try {
-          await authedFetch("/api/students/sync", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              profile: data.profile,
-              activities: data.activities || [],
-              goals: data.goals || [],
-              majorInterest: data.majorInterest || "",
-              trigger: "auto_sync"
-            })
-          });
-          setSyncStatus("ok");
-          setSyncNote("");
-          setOfflineMode(false); // a sync landed — backend is reachable again
-          setTimeout(() => setSyncStatus((s) => (s === "ok" ? "idle" : s)), 2000);
-          // 3. The College Fit card follows the record: once the sync has
-          //    landed (the server reads the profile it holds), re-read the
-          //    shown school if a course, score, activity or major changed.
-          refreshCollegeFit(data);
-        } catch (err) { console.warn("RAG sync failed (non-blocking):", err?.message); setSyncNote(""); setSyncStatus("failed"); }
-      }
-    }, 1000);
-    return () => clearTimeout(t);
-  }, [data, screen, user, passphrase, authedFetch, refreshCollegeFit]);
-
-  // ─── Admissions-calendar refresh ───
-  // Pull today + cycle calendar + per-target-school deadlines whenever the
-  // target-schools list changes (or on entering chat). "Redone for every edit
-  // to target schools." Best-effort; failures leave today-only awareness.
-  const calTargetsKey = targetSchools.join("|");
-  // The list the last calendar read was tuned for, as the server reports
-  // it. The target list loads from storage after sign-in, so the first
-  // read went out bare and a second followed when the list arrived; the
-  // server resolves the saved schools itself when none are sent, so when
-  // its answer already names the list, nothing is fetched again.
-  const calendarTunedForRef = useRef(null);
-  useEffect(() => {
-    if (screen !== S.CHAT || !user) return;
-    if (calendarTunedForRef.current != null && calendarTunedForRef.current === calTargetsKey) return;
-    let alive = true;
-    const ctrl = new AbortController();
-    (async () => {
-      try {
-        const r = await authedFetch("/api/calendar/context", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ targetSchools }),
-          signal: ctrl.signal,
-        });
-        if (!r.ok) return;
-        const body = await r.json();
-        if (!alive) return;
-        calendarTunedForRef.current = Array.isArray(body?.targetSchools) ? body.targetSchools.join("|") : calTargetsKey;
-        setCalendarCtx(body);
-      } catch (err) { if (alive) console.warn("[CALENDAR] fetch failed:", err?.message); }
-    })();
-    return () => { alive = false; ctrl.abort(); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [calTargetsKey, screen, user?.email]);
-
-  // ─── SPONTANEOUS BACKEND → FRONTEND PULL ───
-  // Poll /api/students/profile every 30s while on CHAT to surface server-side updates
-  // (percentile recalculations, milestone awards, and freshly synced metrics).
-  // Writes to `serverMetrics` — NEVER overwrites local profile to avoid clobbering edits.
-  const [serverMetrics, setServerMetrics] = useState(null);
-  // One-shot backend-profile recovery per chat-screen entry. If the
-  // local vault is sparser than the backend (vault reset, new browser,
-  // post-restart), adopt the durable backend data so courses/GPA/ECs
-  // reappear in the sidebar without needing to open the editor.
-  const recoveredRef = useRef(false);
-  useEffect(() => {
-    if (screen !== S.CHAT || !user) { recoveredRef.current = false; return; }
-    if (recoveredRef.current) return;
-    recoveredRef.current = true;
-    reconcileWithBackendProfile(data).catch(() => {});
-  }, [screen, user, reconcileWithBackendProfile, data]);
-  useEffect(() => {
-    if (screen !== S.CHAT || !user) return;
-    // Pull the student's saved chat threads whenever the chat screen
-    // becomes active (auto-login restore, post-survey, login, etc.).
-    refreshThreadList();
-    const proxyUrl = window.__CC_PROXY_URL__;
-    if (!proxyUrl) return;
-    let cancelled = false;
-    const pullFromServer = async () => {
-      const token = window.__CC_SESSION_TOKEN__;
-      if (!token) return;
-      try {
-        const base = proxyUrl.replace(/\/chat\/?$/,"");
-        const r = await fetch(`${base}/students/profile`, {
-          headers: { "Authorization": `Bearer ${token}` }
-        });
-        if (!r.ok || cancelled) return;
-        const body = await r.json();
-        if (cancelled) return;
-        setServerMetrics({
-          metrics: body.metrics || [],
-          milestoneCount: body.milestoneCount || 0,
-          lastUpdated: body.profile?.lastUpdated || null,
-          pulledAt: Date.now(),
-        });
-        setOfflineMode(false); // reached the backend — we're back online
-      } catch (err) {
-        // Non-fatal — server may be offline, session may have expired
-        console.warn("[sync-pull] Profile poll failed:", err?.message);
-      }
-    };
-    // Pull immediately on mount, then every 30s
-    pullFromServer();
-    const iv = setInterval(pullFromServer, 30000);
-    return () => { cancelled = true; clearInterval(iv); };
-  }, [screen, user]);
-
-  // ─── SESSION TIMEOUT — auto-logout after 15min inactivity ───
-  useEffect(() => {
-    if (screen !== S.CHAT && screen !== S.SURVEY) { sessionTimer.clear(); setExpiryWarning(false); return; }
-    const expire = () => {
-      setExpiryWarning(false);
-      clearSession();
-      setUser(null);
-      setPassphrase("");
-      setData({ profile:null, activities:[], studyNotes:[], documents:[] });
-      setMessages([]);
-      setScreen(S.LOGIN);
-      setLError("Session expired due to inactivity. Please sign in again.");
-    };
-    sessionTimer.reset(expire, setExpiryWarning);
-    const activityEvents = ["mousedown","keydown","touchstart","scroll"];
-    const onActivity = () => sessionTimer.reset();
-    activityEvents.forEach(ev => window.addEventListener(ev, onActivity, { passive: true }));
-    return () => {
-      sessionTimer.clear();
-      activityEvents.forEach(ev => window.removeEventListener(ev, onActivity));
-    };
-  }, [screen]);
-
-  // One auth action at a time. PBKDF2 + the server round-trips make sign-in /
-  // account creation take seconds (more on a cold backend), and the submit
-  // buttons gave no feedback in that window — students double-clicked, which
-  // ran two interleaved logins. The ref (not just state) blocks re-entry even
-  // before React re-renders with the disabled button.
-  const authBusyRef = useRef(false);
-  const [authBusy, setAuthBusy] = useState(false);
-  const runAuthGuarded = useCallback(async (fn, setErr) => {
-    if (authBusyRef.current) return;
-    authBusyRef.current = true;
-    setAuthBusy(true);
-    try { await fn(); }
-    catch (err) {
-      console.error("[auth] unexpected failure:", err);
-      setErr("Something unexpected went wrong. Please try again.");
-    }
-    finally { authBusyRef.current = false; setAuthBusy(false); }
-  }, []);
-
-  const handleCreate = useCallback((...args) => handleCreateImpl({
-      cAgeAttest, cConsentAI, cConsentData, cEmail, cFirst, cGrade,
-      cLast, cName, cPass, cPass2, setCError, setLEmail,
-      setPassphrase, setScreen, setStudentRecoveryCode, setSurveyStep, setUser,
-    }, ...args), [cFirst, cLast, cEmail, cGrade, cPass, cPass2, cAgeAttest, cConsentAI, cConsentData]);
-
-  // ─── LOGIN ───
-  const [loginAttempts, setLoginAttempts] = useState({});
-  const handleLogin = useCallback((...args) => handleLoginImpl({
-      lEmail, lPass, loginAttempts, setData, setLError, setLoginAttempts,
-      setMessages, setOfflineMode, setPassphrase, setScreen, setSurveyStep, setUser,
-    }, ...args), [lEmail, lPass, loginAttempts]);
-
-  const handleStudentRecovery = useCallback((...args) => handleStudentRecoveryImpl({
-      lEmail, setLPass, setStudentRecoveryBusy, setStudentRecoveryInput, setStudentRecoveryMessage, setStudentRecoveryOpen,
-      setStudentRecoveryPassword, studentRecoveryInput, studentRecoveryPassword,
-    }, ...args), [lEmail, studentRecoveryInput, studentRecoveryPassword]);
-
-  // ─── LOGOUT ───
-  const handleLogout = useCallback(async () => {
-    try { await authedFetch("/api/students/logout", { method: "POST" }); } catch { /* local logout still proceeds */ }
-    await clearSession();
-    sessionTimer.clear();
-    rateLimiter.reset();
-    window.__CC_SESSION_TOKEN__ = null;
-    setUser(null);
-    setPassphrase("");
-    setData({ profile:null, activities:[], studyNotes:[], documents:[] });
-    setMessages([]);
-    setScreen(S.LOGIN);
-  }, [authedFetch]);
-
-  const handleExportData = useCallback(async () => {
-    try {
-      const response = await authedFetch("/api/students/export");
-      if (!response.ok) throw new Error("Export failed");
-      const body = await response.json();
-      const url = URL.createObjectURL(new Blob([JSON.stringify(body, null, 2)], { type: "application/json" }));
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = makeExportFilename(user);
-      anchor.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (error) {
-      window.alert(error?.message || "Export failed. Please try again.");
-    }
-  }, [authedFetch, user]);
-
-  const handleDeleteAccount = useCallback(async () => {
-    if (!window.confirm("Delete your account and all local and server data? This cannot be undone.")) return;
-    const email = user?.email;
-    if (!email) return;
-    try {
-      const response = await authedFetch("/api/students", { method: "DELETE" });
-      if (!response.ok) throw new Error("The server did not confirm complete deletion.");
-      await storageApi.delete(await storageKeyFor(email));
-      await storageApi.delete(`cc_draft_${safeBtoa(email).replace(/[^a-zA-Z0-9]/g, "")}`);
-      try { localStorage.removeItem(`cc_targets_${email}`); } catch {}
-      await clearSession();
-      sessionTimer.clear();
-      rateLimiter.reset();
-      window.__CC_SESSION_TOKEN__ = null;
-      setUser(null);
-      setPassphrase("");
-      setData({ profile:null, activities:[], studyNotes:[], documents:[] });
-      setMessages([]);
-      setScreen(S.CREATE);
-    } catch (error) {
-      window.alert(error?.message || "Deletion failed. No local data was removed.");
-    }
-  }, [authedFetch, user?.email]);
+  const {
+    authBusy, handleCreate, handleDeleteAccount, handleExportData, handleLogin, handleLogout,
+    handleStudentRecovery, runAuthGuarded,
+  } = useAuthHandlers({
+    authedFetch, cAgeAttest, cConsentAI, cConsentData, cEmail, cFirst,
+    cGrade, cLast, cName, cPass, cPass2, lEmail,
+    lPass, makeExportFilename, setCError, setData, setLEmail, setLError,
+    setLPass, setMessages, setOfflineMode, setPassphrase, setScreen, setStudentRecoveryBusy,
+    setStudentRecoveryCode, setStudentRecoveryInput, setStudentRecoveryMessage, setStudentRecoveryOpen, setStudentRecoveryPassword, setSurveyStep,
+    setUser, studentRecoveryInput, studentRecoveryPassword, user,
+  });
 
   const handleSurveyComplete = useCallback((...args) => handleSurveyCompleteImpl({
       authedFetch, messages, sAPScores, sClassRank, sCourses, sECs,
