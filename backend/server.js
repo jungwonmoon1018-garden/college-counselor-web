@@ -45,41 +45,23 @@ import {
   seedCompetitiveActivityEvidence,
 } from "./storage/evidence-graph.js";
 import { initPIIVault, preparePIIStatements } from "./storage/pii-vault.js";
-import { initUsageBudget, reserveBudget } from "./security/usage-budget.js";
-import {
-  OPENROUTER_TARGETS,
-  OPENROUTER_CATALOG,
-  refreshOpenRouterTargets,
-  refreshOpenRouterCatalog,
-  configureOpenRouterCatalogCache,
-} from "./scouts/openrouter-model-refresh.js";
+import { initUsageBudget } from "./security/usage-budget.js";
+import { OPENROUTER_TARGETS, OPENROUTER_CATALOG } from "./scouts/openrouter-model-refresh.js";
 import * as chatHistory from "./chat/chat-history.js";
 import { registerDynamicOpenRouterModels as adapterRegisterDynamicModels } from "./llm-adapters/index.js";
-import { validateRequiredConsents } from "./security/consent.js";
 import { initDomainMonitor, prepareMonitorStatements } from "./colleges/domain-monitor.js";
 import { initCollegeResearch } from "./colleges/college-research.js";
 import "./storage/retention.js";
-import { registerStandardJobs, registerJob, startAllJobs, stopAllJobs } from "./scouts/batch-jobs.js";
 import { initVectorStore, prepareVectorStatements } from "./storage/vector-store.js";
-import { initRAGTables, seedBaselines, prepareRAGStatements, extractGoalUnitIds } from "./storage/rag-engine.js";
-import { mountPillarRoutes } from "./routes/server-routes-pillars.js";
-import { refreshAllCds, shouldRunCdsRefresh } from "./cds/cds-ingest-pipeline.js";
+import { initRAGTables, seedBaselines, prepareRAGStatements } from "./storage/rag-engine.js";
 import { seedAPConceptCatalog } from "./academics/ap-concept-vectorizer.js";
 import multer from "multer";
 // F6 uses the same major-bucket matcher as the EC vectorizer to score
 // candidate EC ideas against the student's active narrative.
 import { isSupportedMime, MAX_FILE_BYTES } from "./shared/file-extractors.js";
-import { detectSchoolMentions } from "./chat/chat-grounding.js";
 import * as chatGraph from "./chat/chat-graph.js";
-import {
-  SCOUT_VERSION,
-  initPolicyScout,
-  preparePolicyScoutStatements,
-  runPolicyScout,
-  lastAutomaticRun,
-} from "./scouts/admissions-policy-scout.js";
+import { initPolicyScout, preparePolicyScoutStatements } from "./scouts/admissions-policy-scout.js";
 import { GPA_BASELINES, SAT_BASELINES, ACT_BASELINES, EC_BENCHMARKS, COLLEGE_PROFILES, COMPETITIVE_ACTIVITY_BENCHMARKS } from "./colleges/baseline-data.js";
-import { extractTargetSchoolNames } from "./cds/cds-search.js";
 import { ensureCdsStoreSeeded } from "./cds/cds-store.js";
 import { initAdmissionsIntelligenceTables, prepareAdmissionsIntelStatements, seedOfficialCipMappings } from "./colleges/admissions-intelligence.js";
 import "./colleges/admissions-intelligence-loader.js";
@@ -90,13 +72,11 @@ import { OPENROUTER_MODEL_OPTIONS } from "./llm-adapters/tier-defaults.js";
 import {
   initModelCatalogScout,
   prepareModelCatalogStatements,
-  runModelCatalogScout,
   listDynamicModelOptions,
   dynamicAllowedModelIds,
   lastModelCatalogRun,
-  MODEL_SCOUT_VERSION,
 } from "./scouts/model-catalog-scout.js";
-import { scoutCadenceMs, scoutRunDue, cadenceDays, SCOUT_DUE_CHECK_MS } from "./scouts/scout-cadence.js";
+import { scoutCadenceMs, cadenceDays } from "./scouts/scout-cadence.js";
 import { registerMethodologyRoutes } from "./routes/methodology.js";
 import { registerContextRoutes } from "./routes/context.js";
 import { registerChatRoutes } from "./routes/chat.js";
@@ -123,15 +103,31 @@ import { registerMcpRoutes } from "./routes/mcp.js";
 import { registerBaselinesRoutes } from "./routes/baselines.js";
 import { registerConsentRoutes } from "./routes/consent.js";
 import { registerAdmissionsIntelRoutes } from "./routes/admissions-intel.js";
-import { bindAuth, createSessionToken, hashIP, hashEmail, safeJSON, requireStudentAuth, requireSelf, bearerToken, readCookie, clearAdminCookie, isAllowedRequestOrigin, hasAllowedAdminOrigin, hasDesktopBootstrapProof, requireAdminNetwork, requireCounselorAuth, adminSessionResponse, validateAdminSecret, requireWebConfiguration, scheduleWebConfigurationRestart } from "./server/auth.js";
+import {
+  bindAuth,
+  createSessionToken,
+  hashIP,
+  hashEmail,
+  safeJSON,
+  requireStudentAuth,
+  bearerToken,
+  readCookie,
+  clearAdminCookie,
+  isAllowedRequestOrigin,
+  hasAllowedAdminOrigin,
+  hasDesktopBootstrapProof,
+  requireAdminNetwork,
+  requireCounselorAuth,
+  adminSessionResponse,
+  validateAdminSecret,
+  requireWebConfiguration,
+  scheduleWebConfigurationRestart,
+} from "./server/auth.js";
 import {
   bindModelCalls,
   snapshotToStudentProfile,
   callSimulationSidecar,
   resolvePrestigeAdapter,
-  reconcileStudentModelCall,
-  releaseStudentModelCall,
-  currentOperatorKeyConfig,
   buildStudentCallLLM,
   parseLLMJson,
   respondLLMError,
@@ -145,6 +141,18 @@ import { bindStudentData, collectStudentRows, deleteStudentRows, removeStudentFi
 import { bindPositioning, runPositioning } from "./server/positioning.js";
 import { bindEcRanking, llmRankCandidates, llmRankSpike, tagIdeaWithNarrative, profileSummaryForPrompt, shouldCullOverdue, shapeDeadline, prestigeExplanationFor, shapeLegacyECVectorFromStrengthRow } from "./server/ec-ranking.js";
 import { bindBaselineColleges, safeParse, normalizeScorecardSearchPayload, normalizeUnitId, resolveBaselineCollegeRow, normalizeComparePayload, getScorecardQueryCache, putScorecardQueryCache, buildBaselineCollegeSearchResponse, withScorecardMeta } from "./server/baseline-colleges.js";
+import {
+  bindSchedulers,
+  modelCatalogScoutSchedule,
+  maybeRunModelCatalogScout,
+  policyScoutRunning,
+  runScheduledPolicyScout,
+  policyScoutSchedule,
+} from "./server/schedulers.js";
+import { startListening } from "./server/boot.js";
+import { mountPillars } from "./server/pillars.js";
+import { registerServerJobs, startModelCatalogRefresh } from "./server/jobs.js";
+import { bindShutdown, shutdown } from "./server/shutdown.js";
 
 // ─── routeDeps ────────────────────────────────────────────────────────
 // Live getters onto this module's bindings, read by the route families
@@ -166,16 +174,21 @@ const routeDeps = {
   get DATA_DIR() { return DATA_DIR; },
   get EC_ATTACHMENTS_DIR() { return EC_ATTACHMENTS_DIR; },
   get ENCRYPTION_KEY() { return ENCRYPTION_KEY; },
+  get HOST() { return HOST; },
   get LOCALHOST_ORIGIN_RE() { return LOCALHOST_ORIGIN_RE; },
   get MAX_TOKENS_LIMIT() { return MAX_TOKENS_LIMIT; },
+  get MODEL_SCOUT_ENABLED() { return MODEL_SCOUT_ENABLED; },
   get NODE_ENV() { return NODE_ENV; },
   get OPERATOR_LLM() { return OPERATOR_LLM; },
   get OVERDUE_RESHOW_MONTH() { return OVERDUE_RESHOW_MONTH; },
+  get PORT() { return PORT; },
   get RANK_TIERS() { return RANK_TIERS; },
+  get REFRESH_INTERVAL_MS() { return REFRESH_INTERVAL_MS; },
   get RETENTION_MODE() { return RETENTION_MODE; },
   get SCORECARD_API_KEY() { return SCORECARD_API_KEY; },
   get SCORECARD_QUERY_TTL_DAYS() { return SCORECARD_QUERY_TTL_DAYS; },
   get SCOUT_CADENCE_DAYS() { return SCOUT_CADENCE_DAYS; },
+  get SCOUT_CADENCE_MS() { return SCOUT_CADENCE_MS; },
   get SIM_INTERNAL_TOKEN() { return SIM_INTERNAL_TOKEN; },
   get SIM_URL() { return SIM_URL; },
   get SPIKE_TIER_WEIGHT() { return SPIKE_TIER_WEIGHT; },
@@ -188,6 +201,7 @@ const routeDeps = {
   get adminSessionResponse() { return adminSessionResponse; },
   get admissionsIntelStmts() { return admissionsIntelStmts; },
   get apiLimiter() { return apiLimiter; },
+  get app() { return app; },
   get assembleProfileForGeneration() { return assembleProfileForGeneration; },
   get authLimiter() { return authLimiter; },
   get authStore() { return authStore; },
@@ -228,6 +242,7 @@ const routeDeps = {
   get maybeRunModelCatalogScout() { return maybeRunModelCatalogScout; },
   get messageText() { return messageText; },
   get modelCatalogStmts() { return modelCatalogStmts; },
+  get monitorStmts() { return monitorStmts; },
   get normalizeComparePayload() { return normalizeComparePayload; },
   get normalizeScorecardSearchPayload() { return normalizeScorecardSearchPayload; },
   get normalizeUnitId() { return normalizeUnitId; },
@@ -291,6 +306,8 @@ bindStudentData(routeDeps);
 bindPositioning(routeDeps);
 bindEcRanking(routeDeps);
 bindBaselineColleges(routeDeps);
+bindSchedulers(routeDeps);
+bindShutdown(routeDeps);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -446,35 +463,7 @@ const piiStmts = preparePIIStatements(piiVault);
 
 const REFRESH_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
-// 2b. OpenRouter live catalog refresh — fetch the full model list (ids,
-//     pricing, context) at boot and every 24h. This drives the BYOK model
-//     dropdown (GET /api/llm/openrouter/models) and budget pricing
-//     (usage-budget.js). If OpenRouter is unreachable we keep the last-known
-//     catalog and the static fallback list and retry next cycle.
-// The catalog is also the budget tracker's price table, so an empty
-// catalog means every model call is refused. A failed boot fetch now falls
-// back to the last-known catalog on disk, retries every five minutes until
-// OpenRouter answers, and the chat route triggers one refresh itself when
-// it finds the catalog empty (see ensureOpenRouterCatalog).
-configureOpenRouterCatalogCache(path.join(DATA_DIR, "openrouter-catalog.json"));
-refreshOpenRouterCatalog()
-  .then(() => maybeRunModelCatalogScout("boot", { refreshCatalog: false }).catch((err) => console.warn("[MODEL-SCOUT] boot run failed:", err?.message)))
-  .catch(err => console.warn("[OR-CATALOG] Boot refresh threw:", err.message));
-setInterval(() => {
-  refreshOpenRouterCatalog().catch(err => console.warn("[OR-CATALOG] Daily refresh threw:", err.message));
-}, REFRESH_INTERVAL_MS).unref();
-setInterval(() => {
-  if (OPENROUTER_CATALOG.reachable === true && OPENROUTER_CATALOG.models.length) return;
-  refreshOpenRouterCatalog().catch(err => console.warn("[OR-CATALOG] Retry refresh threw:", err.message));
-}, 5 * 60 * 1000).unref();
-
-// 2c. OpenRouter recommended-model refresh — same 24h cadence, but migration
-//     is PROPOSE-ONLY (human approval via the BYOK "Update models" prompt). No
-//     student row is rewritten automatically for BYOK providers.
-refreshOpenRouterTargets({ reason: "boot" }).catch(err => console.warn("[OR-MIGRATE] Boot refresh threw:", err.message));
-setInterval(() => {
-  refreshOpenRouterTargets({ reason: "daily" }).catch(err => console.warn("[OR-MIGRATE] Daily refresh threw:", err.message));
-}, REFRESH_INTERVAL_MS).unref();
+startModelCatalogRefresh(routeDeps);
 
 // 3. Vector Store (separate DB, no PII)
 const vectorStore = initVectorStore(DATA_DIR, NODE_ENV);
@@ -488,17 +477,7 @@ initRAGTables(db);
 initModelCatalogScout(db);
 const modelCatalogStmts = prepareModelCatalogStatements(db);
 adapterRegisterDynamicModels(dynamicAllowedModelIds(modelCatalogStmts));
-function runScheduledModelCatalogScout(trigger = "scheduled") {
-  const summary = runModelCatalogScout({
-    catalog: OPENROUTER_CATALOG,
-    stmts: modelCatalogStmts,
-    knownIds: new Set(OPENROUTER_MODEL_OPTIONS.map((o) => o.id)),
-    trigger,
-  });
-  adapterRegisterDynamicModels(dynamicAllowedModelIds(modelCatalogStmts));
-  console.log(`[MODEL-SCOUT] ${trigger}: ${summary.catalogCount} in catalog, ${summary.eligible} eligible, ${summary.added.length} new${summary.added.length ? ` (${summary.added.map((a) => `${a.id}→${a.tier}`).join(", ")})` : ""}${summary.pruned ? `, ${summary.pruned} removed` : ""}`);
-  return summary;
-}
+
 // Every automatic scout shares one cadence — two weeks unless
 // SCOUT_CADENCE_DAYS says otherwise. The hourly job and the boot hook run a
 // scout only when its last completed run is that old; a counselor's manual
@@ -506,20 +485,8 @@ function runScheduledModelCatalogScout(trigger = "scheduled") {
 const SCOUT_CADENCE_MS = scoutCadenceMs();
 const SCOUT_CADENCE_DAYS = cadenceDays(SCOUT_CADENCE_MS);
 const MODEL_SCOUT_ENABLED = process.env.MODEL_SCOUT !== "0";
-// A newer rule set (MODEL_SCOUT_VERSION) re-reads the catalog at once so
-// the picker never keeps rows the current rules would reject.
-function modelCatalogScoutSchedule(force = null) {
-  const last = lastModelCatalogRun(modelCatalogStmts);
-  const staleVersion = last && last.scoutVersion !== MODEL_SCOUT_VERSION ? "scout_version_changed" : null;
-  return scoutRunDue({ lastRun: last, cadenceMs: SCOUT_CADENCE_MS, force: force || staleVersion });
-}
-async function maybeRunModelCatalogScout(trigger = "scheduled", { refreshCatalog = true, force = null } = {}) {
-  if (!MODEL_SCOUT_ENABLED) return { skipped: "disabled" };
-  const schedule = modelCatalogScoutSchedule(force);
-  if (!schedule.due) return { skipped: schedule.reason, nextRunAt: schedule.nextRunAt };
-  if (refreshCatalog) await refreshOpenRouterCatalog();
-  return runScheduledModelCatalogScout(trigger);
-}
+
+
 initAdmissionsIntelligenceTables(db);
 initFactStore(db);
 initEvidenceGraph(db);
@@ -617,89 +584,7 @@ const stmts = {
   cleanOldNotifications: db.prepare(`DELETE FROM notification_queue WHERE created_at < datetime('now', '-90 days')`),
 };
 
-// ═══════════════════════════════════════════════════════════
-// BATCH JOBS — scheduled background tasks
-// ═══════════════════════════════════════════════════════════
-registerStandardJobs({
-  db,
-  piiVault,
-  factStmts,
-  piiStmts,
-  monitorStmts,
-  retentionMode: RETENTION_MODE,
-});
-
-// Opt-in auto-refresh of Common Data Set records (the daily domain_monitor
-// already watches official pages; this re-ingests the newest registered CDS
-// cycle). OFF by default because it does network I/O across many schools —
-// enable with AUTO_REFRESH_CDS=1, tune cycle via CDS_REFRESH_CYCLE. Only
-// data from operator-registered authoritative CDS links is ingested; nothing
-// is fabricated. AP concept data is a curated catalog (no live source).
-if (process.env.AUTO_REFRESH_CDS === "1") {
-  const CDS_CYCLE = process.env.CDS_REFRESH_CYCLE || "2024-25";
-  registerJob("cds_refresh", async () => {
-    const { ingestBulk, getRepositoryIndex } = await import("./cds/cds-ingest-pipeline.js");
-    const index = await getRepositoryIndex();
-    const targets = index.map((e) => e.name).filter(Boolean);
-    if (!targets.length) return;
-    console.log(`[CDS-REFRESH] Auto-refreshing ${targets.length} school(s) to cycle ${CDS_CYCLE}…`);
-    const results = await ingestBulk(ragStmts, targets, { concurrency: 2, year: CDS_CYCLE });
-    const ok = results.filter((r) => r.status === "ok" || r.status === "ok_with_overrides").length;
-    console.log(`[CDS-REFRESH] Done: ${ok}/${results.length} ingested.`);
-  }, 7 * 24 * 60 * 60 * 1000, { runOnStartup: false }); // weekly
-  console.log(`[BOOT] AUTO_REFRESH_CDS enabled — weekly CDS re-ingest for cycle ${process.env.CDS_REFRESH_CYCLE || "2024-25"}.`);
-}
-
-// Daily CDS web-scrape from June 1 onward. New Common Data Sets publish across
-// the summer, so from June 1 through year-end we re-scrape the repository index
-// and re-ingest every school each day, preferring the newest cycle — keeping
-// College Fit grounded in the freshest CDS. Deterministic parse (no LLM/key).
-// Enabled by default; set CDS_DAILY_REFRESH=0 to disable.
-if (process.env.CDS_DAILY_REFRESH !== "0") {
-  registerJob("cds_daily_refresh", async () => {
-    if (!shouldRunCdsRefresh(Date.now())) return { skipped: "before June 1 (off-season)" };
-    const concurrency = Number(process.env.CDS_REFRESH_CONCURRENCY || 3) || 3;
-    const r = await refreshAllCds(ragStmts, { concurrency });
-    console.log(`[BATCH] cds_daily_refresh: ${r.total} schools`, JSON.stringify(r.byStatus));
-    // Every record the refresh refused to overwrite goes to the audit log,
-    // one event per school, so the counselor's log shows what needs a look.
-    for (const held of r.heldBack || []) {
-      console.warn(`[BATCH] cds_daily_refresh held back ${held.slug} (${held.year} over stored ${held.storedYear}): ${held.reasons.join("; ")}`);
-      try { stmts.insertAudit.run(crypto.randomUUID(), new Date().toISOString(), "cds_refresh_held_back", held.slug.slice(0, 12), `${held.slug} ${held.year} over ${held.storedYear}: ${held.reasons.join("; ")}`.slice(0, 500), null); } catch (err) { console.warn("[BATCH] audit write failed:", err.message); }
-    }
-    return { changed: true, ...r };
-  }, 24 * 60 * 60 * 1000, { enabled: true, runOnStartup: false });
-  console.log("[BOOT] CDS daily refresh scheduled (active June 1+; CDS_DAILY_REFRESH=0 to disable).");
-}
-
-// Automatic scouts run every two weeks (SCOUT_CADENCE_DAYS overrides). A
-// deploy restarts every timer, so instead of a two-week setInterval each
-// scout is checked hourly against its last completed run in the database
-// and runs once the cadence has elapsed — the same check runs shortly after
-// boot. Manual runs from the admin page never wait.
-//   • admissions_policy_scout — reads each tracked school's own admissions
-//     pages (test policy, plan deadlines, application fee), logs what
-//     changed, and refreshes the verified facts the chat and calendar read.
-//     Deterministic — no model, no key. POLICY_SCOUT=0 disables it.
-//   • model_catalog_scout — refreshes the OpenRouter catalog, then lists any
-//     new eligible models as per-tier options for the counselor to pick
-//     from. MODEL_SCOUT=0 disables it.
-if (process.env.POLICY_SCOUT !== "0") {
-  registerJob("admissions_policy_scout", () => maybeRunPolicyScout("scheduled"), SCOUT_DUE_CHECK_MS, { enabled: true, runOnStartup: false });
-  if (process.env.NODE_ENV !== "test") {
-    const bootDelay = Number(process.env.POLICY_SCOUT_BOOT_DELAY_MS) > 0 ? Number(process.env.POLICY_SCOUT_BOOT_DELAY_MS) : 5 * 60 * 1000;
-    setTimeout(() => {
-      maybeRunPolicyScout("boot").catch((err) => console.warn("[policy-scout] boot run failed:", err?.message));
-    }, bootDelay).unref();
-  }
-  console.log(`[BOOT] Admissions-policy scout scheduled every ${SCOUT_CADENCE_DAYS} day(s), checked hourly (POLICY_SCOUT=0 to disable).`);
-}
-if (MODEL_SCOUT_ENABLED) {
-  registerJob("model_catalog_scout", () => maybeRunModelCatalogScout("scheduled"), SCOUT_DUE_CHECK_MS, { enabled: true, runOnStartup: false });
-  console.log(`[BOOT] Model-catalog scout scheduled every ${SCOUT_CADENCE_DAYS} day(s), checked hourly (MODEL_SCOUT=0 to disable).`);
-}
-
-startAllJobs();
+registerServerJobs(routeDeps);
 
 // ═══════════════════════════════════════════════════════════
 // SESSION MANAGEMENT
@@ -755,72 +640,6 @@ const ADMIN_COOKIE = "cc_admin_session";
 const onDemandScouts = new Map();
 
 
-// Which schools the policy scout watches: every student's current target
-// schools, every school with a stored Common Data Set, and every school with
-// cached official-page research — i.e. the schools students actually ask
-// about. Names are canonicalized against the IPEDS baseline so the scout can
-// use the baseline website and unit id.
-function collectPolicyScoutTargets() {
-  const targets = [];
-  const seenStudents = new Set();
-  try {
-    const rows = db.prepare("SELECT student_id, goals_json FROM profile_snapshots ORDER BY datetime(created_at) DESC, rowid DESC").all();
-    for (const row of rows) {
-      if (seenStudents.has(row.student_id)) continue;
-      seenStudents.add(row.student_id);
-      const goals = safeParseJSON(row.goals_json, []);
-      const fallbackRows = extractGoalUnitIds(goals)
-        .map((u) => db.prepare("SELECT unit_id, name FROM baseline_colleges WHERE unit_id = ?").get(u))
-        .filter(Boolean);
-      for (const t of extractTargetSchoolNames(goals, fallbackRows)) targets.push({ name: t.schoolName, unitId: t.unitId });
-    }
-  } catch (err) { console.warn("[policy-scout] student target collection failed:", err.message); }
-  try { for (const r of ragStmts.cds.listAll.all()) if (r.school_name) targets.push({ name: r.school_name }); } catch { /* no CDS store */ }
-  try {
-    for (const r of db.prepare("SELECT DISTINCT display_name FROM college_research_cache").all()) if (r.display_name) targets.push({ name: r.display_name });
-  } catch { /* no research cache */ }
-  const knownNames = baselineCollegeNames();
-  return targets.map((t) => {
-    const canonical = detectSchoolMentions(t.name, { knownNames, max: 1 })[0] || t.name;
-    const row = resolveBaselineCollegeRow(db, { unitId: t.unitId, schoolName: canonical });
-    return { name: row?.name || canonical, unitId: row?.unit_id || t.unitId || null, website: row?.website || null };
-  });
-}
-
-let policyScoutRunning = null;
-async function runScheduledPolicyScout(trigger = "scheduled", { targets = null, maxSchools = null } = {}) {
-  if (policyScoutRunning) return { skipped: "already_running" };
-  const list = targets || collectPolicyScoutTargets();
-  if (!list.length) return { skipped: "no_targets" };
-  policyScoutRunning = runPolicyScout(list, {
-    stmts: policyScoutStmts,
-    factStmts,
-    scorecardKey: SCORECARD_API_KEY || null,
-    concurrency: Number(process.env.POLICY_SCOUT_CONCURRENCY) > 0 ? Number(process.env.POLICY_SCOUT_CONCURRENCY) : 2,
-    maxSchools: maxSchools || (Number(process.env.POLICY_SCOUT_MAX_SCHOOLS) > 0 ? Number(process.env.POLICY_SCOUT_MAX_SCHOOLS) : 60),
-    trigger,
-  }).finally(() => { policyScoutRunning = null; });
-  const summary = await policyScoutRunning;
-  console.log(`[policy-scout] ${trigger}: ${summary.checked}/${summary.total} school(s) checked, ${summary.changes} change(s), ${summary.failed} failed`);
-  return { changed: summary.changes > 0, ...summary };
-}
-
-// Due when the last automatic sweep is a cadence old — or when a newer
-// scout version (better discovery/extraction) should re-read every school
-// right away rather than serve the older, weaker snapshots.
-function policyScoutSchedule(force = null) {
-  const last = lastAutomaticRun(policyScoutStmts);
-  const staleVersion = last && last.scoutVersion !== SCOUT_VERSION ? "scout_version_changed" : null;
-  return scoutRunDue({ lastRun: last, cadenceMs: SCOUT_CADENCE_MS, force: force || staleVersion });
-}
-async function maybeRunPolicyScout(trigger = "scheduled") {
-  if (policyScoutRunning) return { skipped: "already_running" };
-  const schedule = policyScoutSchedule();
-  if (!schedule.due) return { skipped: schedule.reason, nextRunAt: schedule.nextRunAt };
-  return runScheduledPolicyScout(trigger);
-}
-
-
 // Auto-update the narrative when ECs/courses/major change. Fire-and-forget
 // from the sync route — NEVER throws into the request path. Guarantees:
 //   • Only auto-saves over a narrative that is itself source:'auto' (or when
@@ -843,9 +662,6 @@ const C7_PRIORITY_WEIGHTS = Object.freeze({ very_important: 1.0, important: 0.7,
 const app = express();
 if (WEB_DEPLOYMENT) app.set("trust proxy", 1);
 
-// Assigned when pillar routes mount (see mountPillarRoutes call below). Route
-// handlers defined earlier in source order reference it lazily at request time
-// — by then it is set. Exposes conveneFromUpload(...) for the EC-upload hook.
 
 app.use(helmet({
   contentSecurityPolicy: {
@@ -1194,107 +1010,7 @@ app.get("/api/health", (_req, res) => {
 // COUNSELOR DASHBOARD (HTML UI)
 // ═══════════════════════════════════════════════════════════
 
-// PILLAR ROUTES (knowledge graph and Strategy Council)
-// ═══════════════════════════════════════════════════════════
-// Mounted before the static catch-all so /api/* paths resolve here. All
-// The routes are mounted before the static catch-all and use the shared
-// authenticated-student boundary.
-try {
-  // Bridge the existing requireStudentAuth (sets req.studentId) to the shape
-  // the pillar routes expect (req.user.studentId).
-  const requireAuthBridge = (req, res, next) =>
-    requireStudentAuth(req, res, () => {
-      req.user = req.user || {};
-      if (req.studentId && !req.user.studentId) req.user.studentId = req.studentId;
-      next();
-    });
-
-  const councilBudgetStages = Object.freeze([
-    { index: 0, role: "Strategist", tier: "small" },
-    { index: 1, role: "Data Checker", tier: "medium" },
-    { index: 2, role: "Skeptic", tier: "small" },
-    { index: 3, role: "Devil's Advocate", tier: "small" },
-    { index: 4, role: "Moderator", tier: "none", deterministic: true },
-  ]);
-
-  function beginCouncilBudget({ studentId, operationId }) {
-    const grade = authStore.getStudentGrade(studentId);
-    const session = {
-      studentId,
-      operationId,
-      stages: councilBudgetStages.map((stage) => ({ ...stage })),
-    };
-    try {
-      for (const stage of session.stages.filter((item) => !item.deterministic)) {
-        const model = OPENROUTER_TARGETS[stage.tier];
-        const reservation = reserveBudget(db, {
-          studentId,
-          grade,
-          requestId: "council:" + studentId + ":" + operationId + ":" + stage.index,
-          model,
-          maxInputTokens: 8_000,
-          maxOutputTokens: 600,
-        });
-        if (!reservation.allowed || reservation.idempotent) {
-          const error = new Error(reservation.idempotent
-            ? "The internal Council budget reservation conflicted."
-            : (reservation.reason || "The full Council request exceeds the remaining monthly budget."));
-          error.status = reservation.idempotent ? 500 : 402;
-          error.code = reservation.idempotent ? "council_budget_conflict" : (reservation.code || "council_budget_denied");
-          throw error;
-        }
-        stage.model = model;
-        stage.reservation = reservation;
-      }
-      return session;
-    } catch (error) {
-      for (const stage of session.stages) releaseStudentModelCall(stage.reservation);
-      throw error;
-    }
-  }
-
-  mountPillarRoutes(app, {
-    db,
-    dataDir: DATA_DIR,
-    requireAuth: requireAuthBridge,
-    requireSelf,
-    studentLimiter,
-    factStmts,
-    evidenceStmts,
-    getOperatorLLM: currentOperatorKeyConfig,
-    validateAIConsent: (studentId) => validateRequiredConsents(piiStmts, studentId, "ai_interaction"),
-    getStudentProfile: (studentId) => {
-      try {
-        const snap = ragStmts.getLatestSnapshot.get(studentId);
-        return snap || null;
-      } catch {
-        return null;
-      }
-    },
-    beginCouncilBudget,
-    beforeCouncilStage: ({ index, budgetSession }) => {
-      const stage = budgetSession?.stages?.find((item) => item.index === index);
-      return stage?.reservation
-        ? { allowed: true, reservationId: stage.reservation.reservationId }
-        : { allowed: false, code: "COUNCIL_BUDGET_DENIED", reason: "Council stage was not pre-reserved." };
-    },
-    afterCouncilStage: ({ index, output, budgetSession }) => {
-      const stage = budgetSession?.stages?.find((item) => item.index === index);
-      if (!stage?.reservation) return { ok: false, code: "reservation_not_found" };
-      stage.usage = output?.usage || null;
-      stage.reconciliation = reconcileStudentModelCall(stage.reservation, output?.usage);
-      return stage.reconciliation;
-    },
-    releaseCouncilBudget: (budgetSession) => {
-      for (const stage of budgetSession?.stages || []) {
-        if (stage.reservation && !stage.reconciliation) releaseStudentModelCall(stage.reservation);
-      }
-    },
-  });
-  console.log("[BOOT] Knowledge-graph and explicit Council routes mounted.");
-} catch (err) {
-  console.error("[BOOT] Failed to mount pillar routes:", err.message);
-}
+mountPillars(routeDeps);
 
 
 // ═══════════════════════════════════════════════════════════
@@ -1325,64 +1041,8 @@ app.use((err, _req, res, _next) => {
 });
 
 
-// ═══════════════════════════════════════════════════════════
-// START SERVER
-// ═══════════════════════════════════════════════════════════
-app.listen(PORT, HOST, () => {
-  console.log(`
-╔════════════════════════════════════════════════════════════════╗
-║  College Counselor Backend v2 (Rules-First Architecture)       ║
-║  Port: ${String(PORT).padEnd(54)}║
-║  Env:  ${NODE_ENV.padEnd(54)}║
-║  Scorecard: ${(SCORECARD_API_KEY ? "LIVE" : "OFFLINE (baseline only)").padEnd(49)}║
-║  Retention: ${RETENTION_MODE.padEnd(49)}║
-║                                                                ║
-║  Databases:                                                    ║
-║    counselor.db  — operational (audit, baselines, snapshots)   ║
-║    pii-vault.db  — encrypted PII (separate, AES-256-GCM)      ║
-║    vectors.db    — embeddings (no student PII)                 ║
-║                                                                ║
-║  Architecture:                                                 ║
-║    T0: Rules Engine (deterministic, $0)                        ║
-║    T1: Small (routine coaching)                                ║
-║    T2: Medium (synthesis and strategy)                         ║
-║    T3: Large (complex review)                                  ║
-║    Paid calls share a fixed grade-based monthly budget.        ║
-║                                                                ║
-║  New Modules:                                                  ║
-║    policy-router, rules-engine, fact-store, evidence-graph,    ║
-║    answer-composer, pii-vault, content-mod,                    ║
-║    consent, domain-monitor, retention, batch-jobs, vector-store║
-╚════════════════════════════════════════════════════════════════╝
-  `);
-});
+startListening(routeDeps);
 
-
-// ═══════════════════════════════════════════════════════════
-// GRACEFUL SHUTDOWN
-// ═══════════════════════════════════════════════════════════
-// Whatever happens below, the process exits: Render and the route tests both
-// wait for it. db.close() throws while the boot-time CDS seeding still has a
-// statement running (a SIGTERM two seconds after boot, as in a route test's
-// teardown), and with the rejection guard below that no longer ends the
-// process by itself — CI hung on it on 2026-09-16 (Windows kills the child
-// outright, so local runs never reach this handler).
-async function shutdown(signal) {
-  console.log(`\n[SHUTDOWN] ${signal} received. Stopping jobs and closing databases...`);
-  const forceExit = setTimeout(() => process.exit(1), 5000);
-  forceExit.unref();
-  try {
-    stopAllJobs();
-    for (const [name, close] of [["counselor.db", () => db.close()], ["pii-vault.db", () => piiVault.close()], ["vectors.db", () => vectorStore.close()]]) {
-      try { close(); } catch (err) { console.warn(`[SHUTDOWN] ${name} did not close cleanly: ${err.message}`); }
-    }
-    console.log("[SHUTDOWN] All databases closed. Exiting.");
-    process.exit(0);
-  } catch (err) {
-    console.error("[SHUTDOWN] failed:", err.message);
-    process.exit(1);
-  }
-}
 
 // A rejected promise nobody awaits would end the process (Node's default).
 // pdfjs can reject one after a document is torn down while the daily CDS
