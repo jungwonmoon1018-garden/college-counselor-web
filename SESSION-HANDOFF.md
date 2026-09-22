@@ -11,7 +11,7 @@ form of every entry dated 2026-09-16 or earlier is in git
 
 ## Where things stand (2026-09-22, evening KST)
 
-- **Deployed:** `main` at `6a5caa6`, live at
+- **Deployed:** `main` at `9e275cb`, live at
   https://college-counselor-web.onrender.com: `9dc008a` (memory ceilings
   on every heavy path, the five repaired lazy imports, the deploy
   checklist's three fixes), `5acd16b` (one new test's timer), `db40b80`
@@ -20,10 +20,11 @@ form of every entry dated 2026-09-16 or earlier is in git
   backups and their download, the rotation of `WEB_CONFIG_KEY`, the
   test-only rate-limit switch, `render.yaml`'s instance and CI-gate keys,
   the `[DISK]` line), `1810920` (handoff), `ad13a62` (College Fit's
-  label is an admission likelihood), `a3aefd5` (handoff) and `6a5caa6`
-  (a one-course record is not a light transcript; the GPA as a percentile
-  of the class); the CI runs and probes of the last two are under
-  *Verified live*. CI run 35722320740 for
+  label is an admission likelihood), `a3aefd5` (handoff), `6a5caa6` (a
+  one-course record is not a light transcript; the GPA as a percentile of
+  the class) and `9e275cb` ("Purdue University" is the main campus; the
+  store is asked for the typed name first); the CI runs and probes of the
+  code commits are under *Verified live*. CI run 35722320740 for
   `9dc008a` failed on that test; no health blip was seen between 11:36 UTC
   and the green run's swap at 11:42, so the red run did not reach
   production (the three minutes before the poll began were not watched;
@@ -39,8 +40,8 @@ form of every entry dated 2026-09-16 or earlier is in git
   (refactoring tools, docs, `.graphifyignore`), `470cd2a` (server.js
   helpers to `server/`, the 1,300-line modules split), `deb7baf` (App.jsx
   split).
-- **Tests (run after the last code edit, 2026-09-22 13:32 UTC):** backend
-  `npm test` 788 tests, 784 pass, 4 skipped, 0 fail; `npm run lint` 0
+- **Tests (run after the last code edit, 2026-09-22 13:48 UTC):** backend
+  `npm test` 790 tests, 786 pass, 4 skipped, 0 fail; `npm run lint` 0
   errors, 38 warnings (CI cap 500); frontend `npx vitest run` 20 files, 64
   tests (no frontend change this session; CI's build green).
 - **Working tree:** clean apart from one untracked file no session made
@@ -419,6 +420,14 @@ scout deadline tables and the official-source gate (`c4c5bb0` and earlier).
   flags; the strong profile "Highly competitive" at Bradley (90), Indiana
   (93) and that 50% school (77), "High reach" at Harvard (6.3). Both
   accounts deleted.
+- **After `9e275cb` (CI run 35733188488; blip 13:25:17–13:25:49 UTC
+  2026-09-22):** the same thin-profile probe names the 50% school
+  "Purdue University-Main Campus" with the same numbers ("Competitive"
+  42.1, admit rate used 0.5, readiness 55.5), so the earlier read had the
+  main campus's data under the regional campus's name. A 4-second
+  Cloudflare 520 at 13:24:08 was mistaken for the swap by the first poll
+  and the probe re-run after the real one; the poll now counts an outage
+  of twelve seconds or more only.
 - **After `03ed23f` (CI run 35727260532; blip 12:28:40–12:29:14 UTC
   2026-09-22):** the same probe as after `5acd16b` passed again (Harvard's
   CDS route 401/200, the 413 with its text, the stranger's 2 MB file 401,
