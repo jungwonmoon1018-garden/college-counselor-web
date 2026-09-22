@@ -63,6 +63,22 @@ for (const name of names) {
 moved.sort((a, b) => a.range[0] - b.range[0]);
 const inMoved = (pos) => moved.some((s) => s.range[0] <= pos && pos < s.range[1]);
 
+function dynamicImportsIn(root) {
+  const out = [];
+  const walk = (n) => {
+    if (!n || typeof n.type !== "string") return;
+    if (n.type === "ImportExpression") out.push(n);
+    for (const key of Object.keys(n)) {
+      if (key === "loc" || key === "range" || key === "parent") continue;
+      const v = n[key];
+      if (Array.isArray(v)) v.forEach((c) => c && typeof c.type === "string" && walk(c));
+      else if (v && typeof v.type === "string") walk(v);
+    }
+  };
+  walk(root);
+  return out;
+}
+
 function findParent(root, target) {
   let found = null;
   const walk = (n, parent) => {
@@ -108,6 +124,17 @@ for (const stmt of moved) {
     const parent = findParent(stmt, id);
     const shorthand = parent && parent.type === "Property" && parent.shorthand && parent.value === id;
     edits.push({ at: id.range[0] - start, len: id.range[1] - id.range[0], text: shorthand ? `${nm}: deps.${nm}` : `deps.${nm}` });
+  }
+  // A lazy import's path is relative to the file it is written in, and
+  // nothing checks it until the line runs: searchAndPersistCdsRecord kept
+  // "./cds-ingest-pipeline.js" after it moved on 2026-09-20 and the live CDS
+  // search failed silently. The literal is rewritten like the static imports.
+  for (const node of dynamicImportsIn(stmt)) {
+    if (node.source.type !== "Literal" || typeof node.source.value !== "string") { problems.push(`line ${node.loc.start.line}: dynamic import of a computed path`); continue; }
+    const raw = node.source.value;
+    if (!raw.startsWith("./") && !raw.startsWith("../")) continue;
+    const upLevels = "../".repeat(outRel.split("/").length - 1);
+    edits.push({ at: node.source.range[0] + 1 - start, len: node.source.range[1] - node.source.range[0] - 2, text: raw.startsWith("./") ? upLevels + raw.slice(2) : upLevels + raw });
   }
   let text = src.slice(start, end);
   edits.sort((a, b) => b.at - a.at);

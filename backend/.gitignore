@@ -18,7 +18,7 @@ data/
 generated/
 
 # OCR model data (large binary)
-eng.traineddata
+*.traineddata
 
 # Logs
 *.log

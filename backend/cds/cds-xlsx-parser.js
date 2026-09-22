@@ -12,6 +12,7 @@
 import { createRequire } from "node:module";
 import { extractSections, lineStringsFromGroups } from "./cds-sections.js";
 import {
+  CDS_PARSER_VERSION,
   C7_FACTOR_PATTERNS,
   groupByLine,
   extractExtras,
@@ -84,7 +85,7 @@ export async function extractItemsFromXlsx(xlsxPath) {
 export async function parseCDSXlsxFile(xlsxPath) {
   const items = await extractItemsFromXlsx(xlsxPath);
   const allText = items.map((item) => item.str).join(" ");
-  const result = { source: "cds", parserVersion: 6, extractionMethod: "xlsx" };
+  const result = { source: "cds", parserVersion: CDS_PARSER_VERSION, extractionMethod: "xlsx" };
 
   result.year = extractYear(allText);
   result.testPolicy = extractTestPolicyPositional(items) || extractTestPolicy(allText);

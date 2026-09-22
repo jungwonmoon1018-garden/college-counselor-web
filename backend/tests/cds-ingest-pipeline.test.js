@@ -44,3 +44,49 @@ test("refreshHoldReasons: a parse that thins the stored record is held back, a f
   // A new cycle may legitimately move the rate; only a thinner record is held.
   assert.deepEqual(refreshHoldReasons(stored, { ...stored, yearLabel: "2026-27", overallAdmitRate: 0.5 }), []);
 });
+
+// Memory, measured on 2026-09-21: the daily refresh re-parsed every cached
+// document of the 329-school index, three at a time, and a scanned one
+// rasterizes 25 pages. What follows keeps that work small and bounded.
+test("cachedParseIsCurrent: a cached document the store already carries is not parsed again", async () => {
+  const { cachedParseIsCurrent } = await import("../cds/cds-ingest-pipeline.js");
+  const { CDS_PARSER_VERSION } = await import("../cds/cds-pdf-parser.js");
+  const stored = { year_label: "2025-26", parser_version: CDS_PARSER_VERSION };
+  assert.equal(cachedParseIsCurrent(stored, { fromCache: true, year: "2025-26" }), true);
+  // A fresh download, a new cycle, an older parser or no stored row all parse.
+  assert.equal(cachedParseIsCurrent(stored, { fromCache: false, year: "2025-26" }), false);
+  assert.equal(cachedParseIsCurrent(stored, { fromCache: true, year: "2026-27" }), false);
+  assert.equal(cachedParseIsCurrent({ ...stored, parser_version: CDS_PARSER_VERSION - 1 }, { fromCache: true, year: "2025-26" }), false);
+  assert.equal(cachedParseIsCurrent({ ...stored, parser_version: null }, { fromCache: true, year: "2025-26" }), false);
+  assert.equal(cachedParseIsCurrent(null, { fromCache: true, year: "2025-26" }), false);
+});
+
+test("parseInLane: documents are parsed one at a time, and a failed parse frees the lane", async () => {
+  const { parseInLane } = await import("../cds/cds-ingest-pipeline.js");
+  let running = 0;
+  let most = 0;
+  const parse = (result) => async () => {
+    running += 1;
+    most = Math.max(most, running);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    running -= 1;
+    if (result instanceof Error) throw result;
+    return result;
+  };
+  const results = await Promise.allSettled([parseInLane(parse("a")), parseInLane(parse(new Error("bad pdf"))), parseInLane(parse("c"))]);
+  assert.equal(most, 1);
+  assert.deepEqual(results.map((r) => r.status), ["fulfilled", "rejected", "fulfilled"]);
+  assert.equal(results[2].value, "c");
+});
+
+test("readBodyCapped: a download larger than the ceiling is refused, declared or not", async () => {
+  const { readBodyCapped } = await import("../cds/cds-ingest-pipeline.js");
+  const body = (bytes) => new Response(new Uint8Array(bytes));
+  assert.equal((await readBodyCapped(body(1000), 4096)).length, 1000);
+  await assert.rejects(readBodyCapped(body(5000), 4096), /larger than/);
+  const declared = new Response(new Uint8Array(10), { headers: { "content-length": "999999" } });
+  await assert.rejects(readBodyCapped(declared, 4096), /larger than/);
+  // A stub without a readable stream (the tests' fetch doubles) still works.
+  const stub = { headers: { get: () => null }, arrayBuffer: async () => new Uint8Array(12).buffer };
+  assert.equal((await readBodyCapped(stub, 4096)).length, 12);
+});

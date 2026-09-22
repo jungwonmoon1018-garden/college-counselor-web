@@ -164,6 +164,35 @@ async function createStudentSession(overrides = {}) {
 }
 
 // ═══════════════════════════════════════════════════════════
+// REQUEST BODIES
+// ═══════════════════════════════════════════════════════════
+// One 20 MB JSON parser used to run for every path before any check. Since
+// 2026-09-22, 1 MB is the ceiling everywhere, and the three routes that
+// take a file as base64 parse a 10 MB body themselves, after the session
+// check, so a stranger's body is never buffered.
+describe("request bodies", () => {
+  it("refuses a JSON body over 1 MB on an ordinary route", async () => {
+    const { status } = await req("POST", "/api/students/register", { email: "big@example.test", password: "p".repeat(1_100_000) });
+    assert.equal(status, 413);
+  });
+
+  it("takes a larger body on the file routes, but only for a signed-in student", async () => {
+    const body = { base64: Buffer.from("hello counselor ".repeat(120_000)).toString("base64"), mimeType: "text/plain", filename: "big.txt" };
+    assert.ok(JSON.stringify(body).length > 1_500_000, "the body is over the ordinary ceiling");
+    const stranger = await req("POST", "/api/files/extract-text", body);
+    assert.equal(stranger.status, 401, "a stranger's body is not parsed");
+    const { token } = await createStudentSession();
+    const auth = { Authorization: `Bearer ${token}` };
+    for (const consentType of ["data_processing", "ai_interaction", "cross_border_transfer"]) {
+      await req("POST", "/api/consent/grant", { consentType, grantedBy: "student" }, auth);
+    }
+    const student = await req("POST", "/api/files/extract-text", body, auth);
+    assert.equal(student.status, 200);
+    assert.match(student.data.text, /^hello counselor /);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════
 // HEALTH CHECK
 // ═══════════════════════════════════════════════════════════
 describe("GET /api/health", () => {

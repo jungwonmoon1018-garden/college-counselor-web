@@ -19,6 +19,7 @@
 
 import { extractSections, lineStringsFromGroups } from "./cds-sections.js";
 import { groupByLine, round4, extractItems } from "./cds-pdf-text.js";
+import { runDocumentJob } from "../shared/file-extractors.js";
 import { extractC7Positional } from "./cds-pdf-c7.js";
 import { extractC1Counts, extractC1SubBreakdowns } from "./cds-pdf-c1.js";
 export { extractC1Counts, extractC1SubBreakdowns } from "./cds-pdf-c1.js";
@@ -615,6 +616,12 @@ export function extractExtras(items) {
   return extras;
 }
 
+// The version both parsers stamp on a record. The store re-ingests a parsed
+// file that carries a newer version than its row, and the refresh skips a
+// cached document whose row already carries this one (cachedParseIsCurrent).
+// Bump it whenever a parser reads more, or reads differently.
+export const CDS_PARSER_VERSION = 6;
+
 export async function parseCDSPositional(pdfPath, { method = "auto" } = {}) {
   const items = await extractItems(pdfPath, { method });
   const allText = items.map((i) => i.str).join(" ");
@@ -626,7 +633,7 @@ export async function parseCDSPositional(pdfPath, { method = "auto" } = {}) {
   // row. Version 6 adds the remaining sections (cds-sections.js): B
   // enrollment, retention and graduation, the wait list, Early Action,
   // transfer volume, student life, the year's costs, need met, class size.
-  const positional = { source: "cds", parserVersion: 6 };
+  const positional = { source: "cds", parserVersion: CDS_PARSER_VERSION };
   // Surface the actual extraction source so the validator and the AI
   // assistant can caveat numbers with lower confidence when OCR was used.
   if (items._source === "tesseract") {
@@ -678,7 +685,7 @@ export async function parseCDSPositional(pdfPath, { method = "auto" } = {}) {
   if (needsFormFields) {
     const { extractFormFields, buildCDSFromFormFields } = await import("./cds-pdf-form-fields.js");
     try {
-      const fields = await extractFormFields(pdfPath);
+      const fields = await runDocumentJob(() => extractFormFields(pdfPath), { background: true });
       const fromForm = buildCDSFromFormFields(fields);
       if (fromForm) {
         // Merge: positional wins where present; form fills in the rest.

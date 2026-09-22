@@ -14,11 +14,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import dns from "node:dns/promises";
-import net from "node:net";
-import { fetchRepositoryIndex, findBestRepositoryEntry, selectPreferredCdsLink, parseCdsRepositoryIndex } from "./cds-search.js";
-import { parseCDSPositional } from "./cds-pdf-parser.js";
+import { fetchRepositoryIndex, findBestRepositoryEntry, parseCdsRepositoryIndex, readBodyCapped } from "./cds-search.js";
+
+export { readBodyCapped };
+import { CDS_PARSER_VERSION, parseCDSPositional } from "./cds-pdf-parser.js";
 import { persistAndValidate } from "./cds-validator.js";
+import { safeFetch } from "../security/safe-fetch.js";
+export { isBlockedIp, assertSafeFetchTarget } from "../security/safe-fetch.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CACHE_DIR = path.join(__dirname, "..", "data", "cds-cache");
@@ -119,72 +121,8 @@ export function resolveDownloadURL(url) {
   return url;
 }
 
-// SSRF guard for downloadCDS: link targets originate from a scraped
-// third-party repository index (cds-search.js) merged with the operator
-// index, not from any student/attacker-reachable input — but a compromised
-// or careless upstream source could still point at an internal address, so
-// resolve-and-check the actual destination IP (not just the hostname string,
-// which DNS could rebind) before every fetch AND every redirect hop.
-const BLOCKED_IPV4_RANGES = [
-  [/^0\./, "unspecified"],
-  [/^10\./, "private"],
-  [/^127\./, "loopback"],
-  [/^169\.254\./, "link-local"],
-  [/^172\.(1[6-9]|2\d|3[01])\./, "private"],
-  [/^192\.168\./, "private"],
-  [/^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./, "carrier-grade-nat"],
-];
 
-export function isBlockedIp(address, family) {
-  if (family === 6 || net.isIPv6(address)) {
-    const a = address.toLowerCase();
-    if (a === "::1" || a === "::") return true;
-    if (a.startsWith("::ffff:")) return isBlockedIp(a.slice(7), 4);
-    if (/^fe80:/.test(a)) return true; // link-local
-    if (/^f[cd][0-9a-f]{2}:/.test(a)) return true; // unique local (fc00::/7)
-    return false;
-  }
-  return BLOCKED_IPV4_RANGES.some(([re]) => re.test(address));
-}
-
-export async function assertSafeFetchTarget(rawUrl) {
-  let parsed;
-  try {
-    parsed = new URL(rawUrl);
-  } catch {
-    throw new Error(`Refusing to fetch a malformed URL: ${rawUrl}`);
-  }
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    throw new Error(`Refusing to fetch a non-http(s) URL: ${rawUrl}`);
-  }
-  let addresses;
-  try {
-    addresses = await dns.lookup(parsed.hostname, { all: true, verbatim: true });
-  } catch {
-    throw new Error(`Refusing to fetch an unresolvable host: ${parsed.hostname}`);
-  }
-  if (addresses.length === 0 || addresses.some((a) => isBlockedIp(a.address, a.family))) {
-    throw new Error(`Refusing to fetch a URL that resolves to a non-public address: ${parsed.hostname}`);
-  }
-  return parsed;
-}
-
-// fetch() with redirect:"follow" would otherwise let a validated first hop
-// redirect straight to an internal address. Follow manually and re-validate
-// every Location header the same way as the initial URL.
-async function safeFetch(rawUrl, options, maxRedirects = 5) {
-  let current = rawUrl;
-  for (let hop = 0; hop <= maxRedirects; hop++) {
-    await assertSafeFetchTarget(current);
-    const res = await fetch(current, { ...options, redirect: "manual" });
-    if (res.status >= 300 && res.status < 400 && res.headers.get("location")) {
-      current = new URL(res.headers.get("location"), current).toString();
-      continue;
-    }
-    return res;
-  }
-  throw new Error(`Too many redirects fetching ${rawUrl}`);
-}
+const CDS_DOWNLOAD_TIMEOUT_MS = 90_000;
 
 // Try one cycle's link: cache hit, else fetch + magic-byte sniff. Returns a
 // result object or throws (so the caller can fall back to an older cycle).
@@ -203,9 +141,9 @@ async function tryDownloadCycle({ slug, name, yearKey, link, force }) {
     }
   }
 
-  const res = await safeFetch(downloadURL, { headers: BROWSER_HEADERS });
+  const res = await safeFetch(downloadURL, { headers: BROWSER_HEADERS, signal: AbortSignal.timeout(CDS_DOWNLOAD_TIMEOUT_MS) });
   if (!res.ok) throw new Error(`Download failed (${res.status}) for ${name} ${yearKey}`);
-  const buf = Buffer.from(await res.arrayBuffer());
+  const buf = await readBodyCapped(res);
 
   const head = buf.slice(0, 4).toString("hex");
   let kind = "unknown";
@@ -362,6 +300,31 @@ function storedRecordForHold(stmts, slug) {
   };
 }
 
+// ─── What keeps an ingest small ───────────────────────────────────────
+// Measured on 2026-09-21, on an instance with 512 MB for three processes:
+// parsing the text of one large document costs about 80 MB outside the V8
+// heap, three at once about 160 MB, and a scanned document rasterizes up to
+// 25 pages. The daily refresh re-parsed every cached document of the
+// 329-school index, three at a time, and College Fit starts one ingest per
+// target school the store lacks, all at once.
+//
+// A cached document whose row already carries its cycle, read by this parser
+// version or a newer one, parses to the record the store holds: the refresh
+// leaves it alone. `force` still re-parses.
+export function cachedParseIsCurrent(stored, download, parserVersion = CDS_PARSER_VERSION) {
+  if (!stored || !download?.fromCache) return false;
+  if (!download.year || stored.year_label !== download.year) return false;
+  return (Number(stored.parser_version) || 0) >= parserVersion;
+}
+
+// Documents are parsed one at a time, whoever asks; downloads stay parallel.
+let parseLaneTail = Promise.resolve();
+export function parseInLane(parse) {
+  const run = parseLaneTail.then(parse);
+  parseLaneTail = run.then(() => {}, () => {});
+  return run;
+}
+
 // ─── Single-school ingest ─────────────────────────────────────────────
 // Fetches, parses, validates, and persists ONE school's CDS. Returns a
 // summary the server can render or log.
@@ -392,6 +355,9 @@ export async function ingestOne(stmts, schoolName, options = {}) {
     if (stored && isOlderCycle(dl.year, stored.year_label)) {
       return { school: entry.name, slug: entry.slug, status: "kept_newer", year: dl.year, storedYear: stored.year_label };
     }
+    if (cachedParseIsCurrent(stored, dl)) {
+      return { school: entry.name, slug: entry.slug, status: "unchanged", year: dl.year };
+    }
   }
 
   let parsed;
@@ -400,9 +366,9 @@ export async function ingestOne(stmts, schoolName, options = {}) {
       // Excel-published CDS (Stony Brook, Berkeley, UIUC, …): same section
       // extractors, fed from workbook cells instead of PDF text positions.
       const { parseCDSXlsxFile } = await import("./cds-xlsx-parser.js");
-      parsed = await parseCDSXlsxFile(dl.path);
+      parsed = await parseInLane(() => parseCDSXlsxFile(dl.path));
     } else {
-      parsed = await parseCDSPositional(dl.path);
+      parsed = await parseInLane(() => parseCDSPositional(dl.path));
     }
   } catch (e) {
     return { school: entry.name, slug: entry.slug, status: "parse_failed", error: String(e.message).slice(0, 200) };

@@ -19,7 +19,7 @@ import { filesFromInlinedBlocks } from "../activities/ec-chat-evidence.js";
 import * as chatGraph from "../chat/chat-graph.js";
 
 export function registerChatRoutes(app, deps) {
-  app.post("/api/chat", deps.apiLimiter, deps.requireStudentAuth, async (req, res) => {
+  app.post("/api/chat", deps.apiLimiter, deps.requireStudentAuth, deps.parseLargeJsonBody, async (req, res) => {
     try {
       const payload = req.body;
       if (!payload || typeof payload !== "object") {

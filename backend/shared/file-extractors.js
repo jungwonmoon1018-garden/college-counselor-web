@@ -9,9 +9,10 @@
 // that cost unless extractImage() is actually invoked.
 // ═══════════════════════════════════════════════════════════════════════
 
+import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { inflateRawSync } from "node:zlib";
 import { createHash } from "node:crypto";
 const require = createRequire(import.meta.url);
@@ -271,6 +272,10 @@ async function extractPdfTextLayer(buf) {
 
 export async function extractPDF(input) {
   const buf = asBuffer(input);
+  return runDocumentJob(() => extractPdfInLane(buf));
+}
+
+async function extractPdfInLane(buf) {
   let firstError = null;
   try {
     return await extractPdfTextLayer(buf);
@@ -311,7 +316,7 @@ export async function extractDOCX(input) {
   const buf = asBuffer(input);
   try {
     const mammoth = await loadMammoth();
-    const result = await mammoth.extractRawText({ buffer: buf });
+    const result = await runDocumentJob(() => mammoth.extractRawText({ buffer: buf }));
     return {
       text: String(result?.value || ""),
       warning: Array.isArray(result?.messages) && result.messages.length
@@ -351,6 +356,20 @@ async function loadCanvas() {
 // PAGE. Keep one warm worker per language set instead, and release it after
 // an idle window so a quiet server isn't holding ~100 MB of OCR state.
 const OCR_WORKER_IDLE_MS = 120_000;
+
+// Language data on the persistent disk. tesseract.js downloads
+// eng/kor.traineddata (5 MB and 2 MB) from its CDN the first time a
+// language is used and caches the file in the working directory, which on
+// the host is the ephemeral part of the filesystem: every deploy paid the
+// download again, and OCR failed outright whenever the CDN did not answer.
+// DATA_DIR is the persistent disk; TESSDATA_CACHE_DIR overrides it.
+const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
+export function ocrCacheDir() {
+  const dir = process.env.TESSDATA_CACHE_DIR || path.join(process.env.DATA_DIR || path.join(MODULE_DIR, "..", "data"), "tessdata");
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
 let _ocrWorkerPromise = null;
 let _ocrWorkerLangs = null;
 let _ocrIdleTimer = null;
@@ -377,26 +396,83 @@ async function getOcrWorker(languages) {
     _ocrWorkerLangs = languages;
     _ocrWorkerPromise = (async () => {
       const tesseract = await loadTesseract();
-      return tesseract.createWorker(languages.split("+"), 1, { logger: () => {} });
+      return tesseract.createWorker(languages.split("+"), 1, { logger: () => {}, cachePath: ocrCacheDir() });
     })();
   }
   scheduleOcrWorkerRelease();
   return _ocrWorkerPromise;
 }
 
-export async function extractImage(input, { timeoutMs = 30_000, languages = "eng+kor" } = {}) {
+// ─── One document lane for the whole process ────────────────
+// What pdf.js builds from a file, a rasterized page and its recognition all
+// live outside the V8 heap, and the hosted instance has 512 MB for three
+// Node processes that idle at about 240 MB together. Measured on 2026-09-21:
+// the text of one large PDF costs about 80 MB, three at once 160 MB; one
+// Common Data Set ingest with a tesseract worker of its own peaked at 320 MB
+// and three at once — what one College Fit request for three unknown
+// schools, or the daily refresh, could start — at 620 MB. So every heavy
+// step on a document runs in this lane, one at a time for the process: a
+// PDF's text layer, a DOCX, one rasterized-and-recognized page. A student's
+// job goes ahead of waiting background jobs (the refresh, a live ingest), so
+// background work never makes an upload wait for more than the step in
+// progress. A job that never settles is given up on after `timeoutMs` so
+// it cannot close the lane for everyone else.
+const DOCUMENT_JOB_TIMEOUT_MS = 150_000;
+const _laneWaiters = [];
+let _laneBusy = false;
+
+function drainDocumentLane() {
+  if (_laneBusy) return;
+  const next = _laneWaiters.shift();
+  if (!next) return;
+  _laneBusy = true;
+  let timer;
+  const gaveUp = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new ExtractionError("document_job_timeout", `Document step did not finish in ${next.timeoutMs}ms`)), next.timeoutMs);
+    timer.unref?.();
+  });
+  Promise.race([Promise.resolve().then(next.job), gaveUp])
+    .then(next.resolve, next.reject)
+    .finally(() => { clearTimeout(timer); _laneBusy = false; drainDocumentLane(); });
+}
+
+export function runDocumentJob(job, { background = false, timeoutMs = DOCUMENT_JOB_TIMEOUT_MS } = {}) {
+  return new Promise((resolve, reject) => {
+    const entry = { job, resolve, reject, background, timeoutMs };
+    const firstBackground = background ? -1 : _laneWaiters.findIndex((waiter) => waiter.background);
+    if (firstBackground === -1) _laneWaiters.push(entry);
+    else _laneWaiters.splice(firstBackground, 0, entry);
+    drainDocumentLane();
+  });
+}
+
+// A page is rasterized at the scale the caller wants unless that passes the
+// pixel ceiling. US Letter at scale 2 is 1.9 million pixels; a scan saved at
+// one point per pixel (2550 x 3300) would be a 135 MB canvas at scale 2.
+export const MAX_OCR_PAGE_PIXELS = 4_000_000;
+export function ocrViewportScale(page, wantedScale) {
+  const base = page.getViewport({ scale: 1 });
+  const area = Number(base.width) * Number(base.height);
+  if (!(area > 0) || area * wantedScale * wantedScale <= MAX_OCR_PAGE_PIXELS) return wantedScale;
+  return Math.sqrt(MAX_OCR_PAGE_PIXELS / area);
+}
+
+// One recognition on the shared worker. Callers hold the document lane. `output`
+// asks tesseract.js for more than text (the ingest reads word boxes from
+// `blocks`); `parameters` are set before the page is read.
+export async function recognizeOnSharedWorker(input, { timeoutMs = 30_000, languages = "eng+kor", parameters = null, output = null } = {}) {
   const buf = asBuffer(input);
   for (let attempt = 0; attempt < 2; attempt += 1) {
     let timer;
     try {
       const worker = await getOcrWorker(languages);
-      const text = await new Promise((resolve, reject) => {
+      if (parameters) await worker.setParameters(parameters);
+      return await new Promise((resolve, reject) => {
         timer = setTimeout(() => reject(new ExtractionError("ocr_timeout", `OCR timed out after ${timeoutMs}ms`)), timeoutMs);
-        worker.recognize(buf)
-          .then((r) => resolve(String(r?.data?.text || "")))
+        (output ? worker.recognize(buf, {}, output) : worker.recognize(buf))
+          .then((r) => resolve(r?.data || {}))
           .catch((e) => reject(new ExtractionError("ocr_failed", `OCR failed: ${e.message}`, e)));
       });
-      return { text, warning: text.trim().length === 0 ? "ocr_empty" : null };
     } catch (err) {
       // A timed-out or crashed worker can't be trusted (the WASM job keeps
       // running) — drop it so the retry / next call starts clean.
@@ -410,6 +486,18 @@ export async function extractImage(input, { timeoutMs = 30_000, languages = "eng
     }
   }
   throw new ExtractionError("ocr_failed", "OCR failed after retry");
+}
+
+function ocrTextResult(data) {
+  const text = String(data?.text || "");
+  return { text, warning: text.trim().length === 0 ? "ocr_empty" : null };
+}
+
+// OCR of one uploaded image. Takes the lane; extractPdfOCR, which already
+// holds it for the page it rasterized, calls recognizeOnSharedWorker itself.
+export async function extractImage(input, { timeoutMs = 30_000, languages = "eng+kor" } = {}) {
+  const buf = asBuffer(input);
+  return runDocumentJob(async () => ocrTextResult(await recognizeOnSharedWorker(buf, { timeoutMs, languages })));
 }
 
 export async function extractPdfOCR(input, {
@@ -440,12 +528,16 @@ export async function extractPdfOCR(input, {
 
     for (let pageNumber = 1; pageNumber <= pagesToRead; pageNumber += 1) {
       const page = await pdf.getPage(pageNumber);
-      const viewport = page.getViewport({ scale });
-      const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
-      const canvasContext = canvas.getContext("2d");
-      await page.render({ canvasContext, viewport }).promise;
-      const png = canvas.toBuffer("image/png");
-      const ocr = await extractImage(png, { timeoutMs, languages });
+      // The canvas exists only inside the lane, so two uploads read at the
+      // same time never hold two rasterized pages.
+      const ocr = await runDocumentJob(async () => {
+        const viewport = page.getViewport({ scale: ocrViewportScale(page, scale) });
+        const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
+        const canvasContext = canvas.getContext("2d");
+        await page.render({ canvasContext, viewport }).promise;
+        const png = canvas.toBuffer("image/png");
+        return ocrTextResult(await recognizeOnSharedWorker(png, { timeoutMs, languages }));
+      });
       pageTexts.push(ocr.text || "");
       if (ocr.warning) warnings.push(`page_${pageNumber}:${ocr.warning}`);
       page.cleanup?.();

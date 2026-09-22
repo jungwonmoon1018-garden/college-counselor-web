@@ -103,6 +103,20 @@ version constant; bump it whenever its rules change so the next boot re-reads
 at once. The three tier defaults (`llm-adapters/tier-defaults.js`) never
 change on their own, and the provider adapter is text-only.
 
+**Memory and outbound requests.** The instance has 512 MB for the
+launcher, the server and the sidecar. Every heavy step on a document — a
+PDF's text layer, a DOCX, a rasterized page and its recognition — runs
+through `runDocumentJob` in `shared/file-extractors.js`, one at a time for
+the process, a student's job ahead of background work; the Common Data Set
+ingest parses one document at a time and skips a cached document the store
+already carries. JSON bodies are 1 MB except on the three routes that take
+a file as base64 (`parseLargeJsonBody`, 10 MB, mounted after the session
+check). Every fetch of a URL that is not a constant goes through
+`security/safe-fetch.js`. The launcher caps each child's heap
+(`web-launcher.mjs`) and the server writes `[MEM]` lines to the log on a
+new high and hourly; keep all four when adding a path that reads a file or
+a page.
+
 ## Proving a change
 
 Backend: `cd backend && node --test tests/<file>.test.js` for one file,

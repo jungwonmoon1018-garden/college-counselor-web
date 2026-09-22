@@ -3,7 +3,7 @@
 // limits, per-host delay), the official-site resolution and the discovery of
 // policy pages. Moved out of admissions-policy-scout.js on 2026-09-20, which
 // re-exports what it exported.
-import { assertSafeFetchTarget } from "../cds/cds-ingest-pipeline.js";
+import { assertSafeFetchTarget } from "../security/safe-fetch.js";
 import { htmlToText, sameSite, pickScorecardHit, expandCollegeAlias } from "../colleges/college-research.js";
 import { searchScorecard } from "../colleges/college-scorecard.js";
 

@@ -58,24 +58,28 @@ export async function extractFormFields(pdfPath) {
   const buf = new Uint8Array(fs.readFileSync(pdfPath));
   const pdf = await pdfjsLib.getDocument({ data: buf, useSystemFonts: false, isEvalSupported: false, disableFontFace: true }).promise;
   const fields = {};
-  for (let p = 1; p <= pdf.numPages; p++) {
-    const page = await pdf.getPage(p);
-    const annots = await page.getAnnotations();
-    for (const a of annots) {
-      if (a.subtype !== "Widget" || !a.fieldName) continue;
-      // For radio groups, every option carries the same fieldName but the
-      // fieldValue is the selected option's export value. We collapse to
-      // one entry per fieldName, taking the first non-null value seen.
-      const key = a.fieldName;
-      const v = a.fieldValue;
-      if (v == null || v === "" || v === "Off") continue;
-      // Some fields appear multiple times (one per page repeat) — keep the
-      // first non-empty value.
-      if (fields[key] == null) fields[key] = v;
+  try {
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const page = await pdf.getPage(p);
+      const annots = await page.getAnnotations();
+      for (const a of annots) {
+        if (a.subtype !== "Widget" || !a.fieldName) continue;
+        // For radio groups, every option carries the same fieldName but the
+        // fieldValue is the selected option's export value. We collapse to
+        // one entry per fieldName, taking the first non-null value seen.
+        const key = a.fieldName;
+        const v = a.fieldValue;
+        if (v == null || v === "" || v === "Off") continue;
+        // Some fields appear multiple times (one per page repeat) — keep the
+        // first non-empty value.
+        if (fields[key] == null) fields[key] = v;
+      }
     }
+  } finally {
+    // pdfjs-dist v6: destroy moved to the loading task (pdf.loadingTask). In
+    // a finally so a page that throws does not leave the document behind.
+    try { await (pdf.destroy?.() ?? pdf.loadingTask?.destroy?.()); } catch { /* cleanup best-effort */ }
   }
-  // pdfjs-dist v6: destroy moved to the loading task (pdf.loadingTask).
-  try { await (pdf.destroy?.() ?? pdf.loadingTask?.destroy?.()); } catch { /* cleanup best-effort */ }
   return fields;
 }
 

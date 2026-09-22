@@ -523,7 +523,7 @@ export function registerStudentsRoutes(app, deps) {
   // small-tier model parses courses into JSON → sanitize against the survey
   // enums. The student reviews the parsed courses in the survey UI before
   // anything is saved; nothing is written server-side here.
-  app.post("/api/students/transcript-import", deps.studentLimiter, deps.requireStudentAuth, async (req, res) => {
+  app.post("/api/students/transcript-import", deps.studentLimiter, deps.requireStudentAuth, deps.parseLargeJsonBody, async (req, res) => {
     try {
       const { base64, mimeType, filename } = req.body || {};
       // The chat's transcript card already holds the extracted text; a file

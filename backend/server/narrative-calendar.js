@@ -140,7 +140,7 @@ export function admitRatePercentOf(value) {
 export async function getSchoolPriorities(schoolNames) {
   if (!Array.isArray(schoolNames) || !schoolNames.length) return [];
   let loadValidatedRecord;
-  try { ({ loadValidatedRecord } = await import("./cds-validator.js")); }
+  try { ({ loadValidatedRecord } = await import("../cds/cds-validator.js")); }
   catch { return schoolNames.map((s) => ({ school: s, hasData: false })); }
   const slugify = (n) => String(n).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
   const out = [];

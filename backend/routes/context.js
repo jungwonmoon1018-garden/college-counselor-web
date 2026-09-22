@@ -219,7 +219,7 @@ export function registerContextRoutes(app, deps) {
       try {
         const goalNames = (rag?.goalSchoolNames || rag?.targetSchools || []).slice(0, 12);
         if (goalNames.length > 0) {
-          const { loadValidatedRecord, loadLatestValidation } = await import("./cds-validator.js");
+          const { loadValidatedRecord, loadLatestValidation } = await import("../cds/cds-validator.js");
           const slugify = (n) => String(n).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
           const matches = [];
           for (const name of goalNames) {

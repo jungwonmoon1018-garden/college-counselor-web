@@ -26,32 +26,35 @@ export function registerCdsRoutes(app, deps) {
         })),
       });
     } catch (e) {
-      res.status(500).json({ error: "cds_list_failed", message: String(e.message).slice(0, 200) });
+      console.error("[CDS] list failed:", e.message);
+      res.status(500).json({ error: "cds_list_failed" });
     }
   });
 
   app.get("/api/cds/school/:slug", deps.studentLimiter, deps.requireStudentAuth, async (req, res) => {
     try {
-      const { loadValidatedRecord, loadLatestValidation } = await import("./cds-validator.js");
+      const { loadValidatedRecord, loadLatestValidation } = await import("../cds/cds-validator.js");
       const slug = String(req.params.slug).slice(0, 100);
       const record = loadValidatedRecord(deps.ragStmts, slug);
       if (!record) return res.status(404).json({ error: "school_not_in_cache", slug });
       const validation = loadLatestValidation(deps.ragStmts, slug);
       res.json({ record, validation });
     } catch (e) {
-      res.status(500).json({ error: "cds_lookup_failed", message: String(e.message).slice(0, 200) });
+      console.error("[CDS] lookup failed:", e.message);
+      res.status(500).json({ error: "cds_lookup_failed" });
     }
   });
 
   app.get("/api/cds/validation/:slug", deps.studentLimiter, deps.requireStudentAuth, async (req, res) => {
     try {
-      const { loadLatestValidation } = await import("./cds-validator.js");
+      const { loadLatestValidation } = await import("../cds/cds-validator.js");
       const slug = String(req.params.slug).slice(0, 100);
       const v = loadLatestValidation(deps.ragStmts, slug);
       if (!v) return res.status(404).json({ error: "no_validation", slug });
       res.json(v);
     } catch (e) {
-      res.status(500).json({ error: "cds_validation_lookup_failed", message: String(e.message).slice(0, 200) });
+      console.error("[CDS] validation lookup failed:", e.message);
+      res.status(500).json({ error: "cds_validation_lookup_failed" });
     }
   });
 

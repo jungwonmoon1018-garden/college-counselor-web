@@ -150,6 +150,7 @@ import {
   policyScoutSchedule,
 } from "./server/schedulers.js";
 import { startListening } from "./server/boot.js";
+import { startMemoryWatch } from "./server/memory-watch.js";
 import { mountPillars } from "./server/pillars.js";
 import { registerServerJobs, startModelCatalogRefresh } from "./server/jobs.js";
 import { bindShutdown, shutdown } from "./server/shutdown.js";
@@ -170,6 +171,7 @@ const routeDeps = {
   get C7_PRIORITY_WEIGHTS() { return C7_PRIORITY_WEIGHTS; },
   get CDS_LIVE_COOLDOWN_MS() { return CDS_LIVE_COOLDOWN_MS; },
   get CHAT_EXTRACT_MAX_BYTES() { return CHAT_EXTRACT_MAX_BYTES; },
+  get parseLargeJsonBody() { return parseLargeJsonBody; },
   get COURSE_CONCEPT_GAP_THRESHOLD() { return COURSE_CONCEPT_GAP_THRESHOLD; },
   get DATA_DIR() { return DATA_DIR; },
   get EC_ATTACHMENTS_DIR() { return EC_ATTACHMENTS_DIR; },
@@ -696,7 +698,15 @@ app.use((req, res, next) => {
   return allowCors(req, res, next);
 });
 
-app.use(express.json({ limit: "20mb" }));
+// Bodies: 1 MB for every route, parsed before anything else reads them.
+// The three routes that take a file as base64 (a 6 MB file is 8 MB in
+// base64) parse their own body, after the rate limiter and the session
+// check, so a stranger's 10 MB body is never buffered. Until 2026-09-22
+// this was one 20 MB parser for every path, ahead of every check.
+const LARGE_JSON_BODY_PATHS = new Set(["/api/chat", "/api/files/extract-text", "/api/students/transcript-import"]);
+const parseJsonBody = express.json({ limit: "1mb" });
+const parseLargeJsonBody = express.json({ limit: "10mb" });
+app.use((req, res, next) => (LARGE_JSON_BODY_PATHS.has(req.path.replace(/\/+$/, "")) ? next() : parseJsonBody(req, res, next)));
 
 app.use((req, _res, next) => {
   req.requestId = crypto.randomUUID();
@@ -1042,6 +1052,9 @@ app.use((err, _req, res, _next) => {
 
 
 startListening(routeDeps);
+// Memory in the log (a new high, or hourly), so a restart for memory on the
+// host can be read back. Silent under the test runner.
+if (NODE_ENV !== "test") startMemoryWatch();
 
 
 // A rejected promise nobody awaits would end the process (Node's default).

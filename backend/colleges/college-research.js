@@ -14,7 +14,7 @@
 // The deterministic fit scorer (college-values.js) stays model- and
 // network-free; this module supplies it with sourced value themes.
 
-import { assertSafeFetchTarget } from "../cds/cds-ingest-pipeline.js";
+import { assertSafeFetchTarget } from "../security/safe-fetch.js";
 import { searchScorecard } from "./college-scorecard.js";
 
 export const VALUES_TTL_DAYS = 90;

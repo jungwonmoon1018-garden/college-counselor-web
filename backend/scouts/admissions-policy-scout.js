@@ -20,7 +20,7 @@
 //   • Nothing is inferred: a field the pages don't state stays null.
 
 import crypto from "node:crypto";
-import { assertSafeFetchTarget } from "../cds/cds-ingest-pipeline.js";
+import { assertSafeFetchTarget } from "../security/safe-fetch.js";
 import { expandCollegeAlias, slugifyCollege, currentAdmissionsCycle } from "../colleges/college-research.js";
 import { insertFact } from "./fact-store.js";
 import { policyFields, extractPolicyFromPages, diffPolicies, SCOUT_VERSION, PLAN_LABELS, TEST_POLICY_LABELS } from "./policy-scout-extract.js";

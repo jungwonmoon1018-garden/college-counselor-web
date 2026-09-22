@@ -6,7 +6,7 @@ import { ExtractionError, SUPPORTED_MIME_TYPES, extractPdfOCR, extractText, isSu
 
 export function registerFilesRoutes(app, deps) {
   // 6 MB ceiling
-  app.post("/api/files/extract-text", deps.studentLimiter, deps.requireStudentAuth, async (req, res) => {
+  app.post("/api/files/extract-text", deps.studentLimiter, deps.requireStudentAuth, deps.parseLargeJsonBody, async (req, res) => {
     try {
       const { base64, mimeType, filename } = req.body || {};
       if (typeof base64 !== "string" || !base64) {

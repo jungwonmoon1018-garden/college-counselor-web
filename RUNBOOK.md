@@ -38,6 +38,17 @@ Locally on a machine without Node 22, install nvm-windows or Volta and
 `nvm use` before `npm ci`, or accept that native modules (better-sqlite3)
 are built for whatever Node runs `npm install`.
 
+Memory: the Render instance (`plan: starter`) has 512 MB for the three
+processes, which idle at about 240 MB together. `web-launcher.mjs` starts
+the server with `--max-old-space-size=192 --max-semi-space-size=8` and the
+sidecar with 96/4 (`NODE_FLAGS_SERVER` and `NODE_FLAGS_SIDECAR` replace
+them); the server logs `[MEM] rss … (high …)` on each new high and hourly.
+Documents are read one at a time for the whole process (the document lane
+in `shared/file-extractors.js`), and tesseract.js's language data is
+fetched from its CDN the first time a language is used and cached under
+`backend/data/tessdata/` on the persistent disk (`TESSDATA_CACHE_DIR`
+overrides). JSON bodies are 1 MB, 10 MB on the three base64 file routes.
+
 ## Ship
 
 1. Backend: `cd backend && npm test && npm run lint && node --check server.js`.
@@ -65,7 +76,11 @@ recipes*: register (grade 11, `example.edu`), grant the three consents
 `POST /api/positioning/targets` (`searchCds: false`) and read
 `dataProvenance` (`kind`, `yearLabel`, `verification`), `POST
 /api/colleges/values`, one `POST /api/chat` question if the change touched
-the verified-data block, and `DELETE /api/students` with retries.
+the verified-data block, and `DELETE /api/students` with retries. When a
+change touched file reading or the middleware, add `POST
+/api/files/extract-text` with a small PDF (the document lane), `GET
+/api/cds/school/<slug>` with the token, and a 1.1 MB JSON body to any
+route, which must answer 413.
 
 ## Refresh the Common Data Set cache
 
@@ -73,7 +88,9 @@ The server seeds `cds_records` at boot from `backend/tools/cds-cache/parsed/*.js
 (newer parser version or changed cycle label re-ingests). The daily
 June-onward job re-downloads every school and keeps a newer stored cycle
 over an older download (`kept_newer`) and a fuller stored record over a
-thinner parse (`held_back`). To refresh by hand, run the pipeline against a
+thinner parse (`held_back`); a cached document whose stored row already
+carries its cycle and parser version is not parsed again (`unchanged`),
+and documents parse one at a time. To refresh by hand, run the pipeline against a
 scratch SQLite database (the local `backend/data/counselor.db` predates the
 schema): `initRAGTables` + `prepareRAGStatements` from
 `storage/rag-engine.js`, `ingestBulk(stmts, names, { concurrency: 3, year:
@@ -110,3 +127,11 @@ touched by a deploy.
 - College Fit shows the IPEDS baseline instead of the CDS: the record's
   validation status is `no_truth` or `inconsistent`; check the parsed file
   and the document's C1 layout.
+- The service restarted for memory, or `[MEM] rss` climbs past about
+  380 MB: read the last `[MEM]` line and what the log shows around it (an
+  OCR ingest, a scanned upload, the daily refresh). The hourly line's
+  `high` rising with no request behind it is a leak; a spike that falls
+  back within two minutes is the OCR worker being released.
+- OCR answers `ocr_failed` right after a deploy: the language data is
+  fetched from jsDelivr on first use into `data/tessdata/`; check outbound
+  access and that directory.

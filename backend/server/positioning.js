@@ -19,6 +19,24 @@ import { rememberFitRead } from "./verified-data.js";
 let deps;
 export function bindPositioning(serverDeps) { deps = serverDeps; }
 
+// The ingest statuses that leave a usable row in the store. "consistent" —
+// the school's own document reading sanely, with no same-cycle truth to
+// check it against — joined the validator on 2026-09-16 but not this list,
+// so a successful live read was logged as "no CDS" and only served the next
+// request. "inconsistent" records are not used, "unchanged" and
+// "kept_newer" mean the store already held the record before this read.
+const LIVE_INGEST_STORED = new Set(["ok", "discrepancies", "scope_mismatch", "no_truth", "consistent", "unchanged", "kept_newer"]);
+export function liveIngestStored(status) { return LIVE_INGEST_STORED.has(status); }
+
+// How long a College Fit request waits for a live read. A text document is
+// downloaded and parsed in a few seconds; a scanned one is rasterized and
+// recognized page by page, one page at a time for the whole process (the OCR
+// lane in shared/file-extractors.js), which takes minutes and used to hold
+// the request past the browser's 45-second limit. Past this wait the answer
+// uses the baseline, the read finishes in the background, and the stored
+// record serves the next request.
+const CDS_LIVE_WAIT_MS = 20_000;
+
 export async function searchAndPersistCdsRecord(schoolName) {
   if (!schoolName) return null;
   const slug = slugifySchoolName(schoolName);
@@ -26,26 +44,38 @@ export async function searchAndPersistCdsRecord(schoolName) {
   const last = deps.cdsLiveAttemptAt.get(slug) || 0;
   if (Date.now() - last < deps.CDS_LIVE_COOLDOWN_MS) return null; // recently tried; don't hammer
   deps.cdsLiveAttemptAt.set(slug, Date.now());
-  try {
-    const { ingestOne } = await import("./cds-ingest-pipeline.js");
-    const r = await ingestOne(deps.ragStmts, schoolName);
-    const persisted = r && ["ok", "discrepancies", "scope_mismatch", "no_truth"].includes(r.status);
-    if (persisted) {
-      // Guard against the repository's fuzzy index binding the wrong school
-      // (e.g. "Boston University" → "Boston College"). If the matched name is
-      // not the same institution, discard and fall back to IPEDS baseline.
-      if (!schoolNamesCompatible(schoolName, r.school)) {
-        console.warn(`[cds/live-search] repository returned "${r.school}" for "${schoolName}" — rejecting mismatch`);
-        return null;
+  const read = (async () => {
+    try {
+      const { ingestOne } = await import("../cds/cds-ingest-pipeline.js");
+      const r = await ingestOne(deps.ragStmts, schoolName);
+      const persisted = liveIngestStored(r?.status);
+      if (persisted) {
+        // Guard against the repository's fuzzy index binding the wrong school
+        // (e.g. "Boston University" → "Boston College"). If the matched name is
+        // not the same institution, discard and fall back to IPEDS baseline.
+        if (!schoolNamesCompatible(schoolName, r.school)) {
+          console.warn(`[cds/live-search] repository returned "${r.school}" for "${schoolName}" — rejecting mismatch`);
+          return null;
+        }
+        console.log(`[cds/live-search] ingested ${schoolName} → ${r.slug} (${r.status})`);
+        return resolveStoredCdsRecord(deps.ragStmts, { schoolName, slug: r.slug });
       }
-      console.log(`[cds/live-search] ingested ${schoolName} → ${r.slug} (${r.status})`);
-      return resolveStoredCdsRecord(deps.ragStmts, { schoolName, slug: r.slug });
+      console.log(`[cds/live-search] no CDS for ${schoolName} (${r?.status || "unknown"})`);
+    } catch (e) {
+      console.warn(`[cds/live-search] failed for ${schoolName}:`, String(e.message).slice(0, 160));
     }
-    console.log(`[cds/live-search] no CDS for ${schoolName} (${r?.status || "unknown"})`);
-  } catch (e) {
-    console.warn(`[cds/live-search] failed for ${schoolName}:`, String(e.message).slice(0, 160));
-  }
-  return null;
+    return null;
+  })();
+  return valueWithin(read, CDS_LIVE_WAIT_MS);
+}
+
+// The promise's value, or null once `ms` has passed; the work is not
+// cancelled, only no longer waited for.
+export function valueWithin(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((resolve) => setTimeout(() => resolve(null), ms).unref()),
+  ]);
 }
 
 // A cheap fingerprint of the CDS store (row count + latest update). Folded into

@@ -21,6 +21,22 @@ if (String(process.env.WEB_ADMIN_BOOTSTRAP_TOKEN || "").length < 24) {
   process.exit(1);
 }
 
+// The hosted instance has 512 MB for this launcher and its two children,
+// and V8 sizes each heap from the memory it sees, collecting lazily below
+// that size. Measured on 2026-09-21: ten Common Data Sets parsed in a row
+// left 263 MB of heap (414 MB resident) although 17 MB of it was live; with
+// the old space capped at 160 MB the heap stayed at 148 MB, and with 8 MB
+// semi-spaces as well at 44 MB (163 MB resident). Each child therefore gets
+// an explicit budget: the server's live heap peaked near 110 MB with three
+// attachment turns in flight. NODE_FLAGS_SERVER and NODE_FLAGS_SIDECAR
+// replace the defaults (an empty value removes them).
+function nodeFlags(envName, fallback) {
+  const raw = process.env[envName];
+  return String(raw == null ? fallback : raw).split(" ").filter(Boolean);
+}
+const SERVER_NODE_FLAGS = nodeFlags("NODE_FLAGS_SERVER", "--max-old-space-size=192 --max-semi-space-size=8");
+const SIDECAR_NODE_FLAGS = nodeFlags("NODE_FLAGS_SIDECAR", "--max-old-space-size=96 --max-semi-space-size=4");
+
 let backend = null;
 let sidecar = null;
 let stopping = false;
@@ -58,7 +74,7 @@ function resolvedEnvironment() {
 }
 
 function startSidecar() {
-  sidecar = spawn(process.execPath, [path.join(__dirname, "simulation-sidecar.js")], {
+  sidecar = spawn(process.execPath, [...SIDECAR_NODE_FLAGS, path.join(__dirname, "simulation-sidecar.js")], {
     cwd: __dirname,
     env: {
       ...process.env,
@@ -81,7 +97,7 @@ function startSidecar() {
 }
 
 function startBackend() {
-  backend = spawn(process.execPath, [path.join(__dirname, "server.js")], {
+  backend = spawn(process.execPath, [...SERVER_NODE_FLAGS, path.join(__dirname, "server.js")], {
     cwd: __dirname,
     env: resolvedEnvironment(),
     stdio: ["inherit", "inherit", "inherit", "ipc"],

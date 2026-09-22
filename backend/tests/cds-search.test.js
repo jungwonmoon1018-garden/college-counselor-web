@@ -263,6 +263,7 @@ test("resolveAndParseCdsTargets records OCR extraction metadata for scanned PDFs
     {
       repositoryHtml,
       fetchImpl,
+      assertTarget: async () => {}, // the stub host does not resolve; the guard has its own tests below
       pdfTextExtractor: async () => ({ text: "", pageCount: 4 }),
       ocrPdfExtractor: async () => ({
         text: "Common Data Set Overall admission rate 12.3% ACT Composite 31 ACT Composite 34",
@@ -276,6 +277,54 @@ test("resolveAndParseCdsTargets records OCR extraction metadata for scanned PDFs
   assert.equal(result.sourceExtraction.pageCount, 4);
   assert.equal(result.parsed.admitRatePercent, 12.3);
   assert.deepEqual(result.parsed.actComposite, { low: 31, high: 34 });
+});
+
+// The repository link is a third party's URL. Before 2026-09-22 it was
+// fetched plainly, redirects followed; now every hop goes through the same
+// guard as the CDS download, and a link or a redirect into a non-public
+// address is refused before the request is made.
+test("resolveAndParseCdsTargets refuses a repository link into a non-public address before any fetch", async () => {
+  const repositoryHtml = `
+    <table>
+      <tr><th>Institution</th><th>2024-25</th></tr>
+      <tr><td>Inside College</td><td><a href="http://127.0.0.1:8080/cds.pdf">CDS</a></td></tr>
+    </table>
+  `;
+  let fetched = 0;
+  const [result] = await resolveAndParseCdsTargets([{ schoolName: "Inside College" }], {
+    repositoryHtml,
+    fetchImpl: async () => {
+      fetched += 1;
+      return { ok: true, headers: { get: () => "application/pdf" }, arrayBuffer: async () => Buffer.from("%PDF-1.7 fake") };
+    },
+  });
+  assert.equal(fetched, 0, "nothing is requested");
+  assert.match(result.fetchStatus, /^error:Refusing to fetch a URL that resolves to a non-public address/);
+  assert.equal(result.parsed, null);
+});
+
+test("resolveAndParseCdsTargets checks every redirect hop", async () => {
+  const repositoryHtml = `
+    <table>
+      <tr><th>Institution</th><th>2024-25</th></tr>
+      <tr><td>Bouncing College</td><td><a href="https://school.edu/cds.pdf">CDS</a></td></tr>
+    </table>
+  `;
+  const requested = [];
+  const fetchImpl = async (url, options) => {
+    requested.push(url);
+    assert.equal(options.redirect, "manual", "redirects are followed by hand so each hop is checked");
+    return { ok: false, status: 302, headers: { get: (name) => (name === "location" ? "http://169.254.169.254/latest/meta-data/" : null) } };
+  };
+  const [result] = await resolveAndParseCdsTargets([{ schoolName: "Bouncing College" }], {
+    repositoryHtml,
+    fetchImpl,
+    assertTarget: async (url) => {
+      if (new URL(url).hostname.startsWith("169.254.")) throw new Error("Refusing to fetch a URL that resolves to a non-public address: 169.254.169.254");
+    },
+  });
+  assert.deepEqual(requested, ["https://school.edu/cds.pdf"], "the redirect target is never requested");
+  assert.match(result.fetchStatus, /^error:Refusing to fetch a URL that resolves to a non-public address/);
 });
 
 test("extractTargetSchoolNames resolves names from strings, objects, and fallback rows", () => {

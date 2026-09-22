@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { extractImage, extractPDF, extractPdfOCR, extractText, isSupportedMime, validateFileContent } from "../shared/file-extractors.js";
+import { assertSafeFetchTarget, safeFetch } from "../security/safe-fetch.js";
 
 export const CDS_REPOSITORY_URL = "https://www.collegetransitions.com/dataverse/common-data-set-repository/";
 export const CDS_REPOSITORY_HOST = "www.collegetransitions.com";
@@ -621,18 +622,56 @@ export function computeCdsQueryCacheKey(targets) {
   return crypto.createHash("sha256").update(sig).digest("hex");
 }
 
-async function fetchText(url, fetchImpl, extractionOptions = {}) {
-  const resp = await fetchImpl(url, {
+// The largest Common Data Set in the cache is 6 MB. A link that answers with
+// something far larger (a mislinked archive, a video) used to be read whole
+// into memory by arrayBuffer(); the body is now read in pieces and dropped
+// once it passes the ceiling, whether or not the server declared a length.
+export const MAX_CDS_DOWNLOAD_BYTES = 40 * 1024 * 1024;
+
+export async function readBodyCapped(res, maxBytes = MAX_CDS_DOWNLOAD_BYTES) {
+  const tooLarge = () => new Error(`Download is larger than ${Math.round(maxBytes / (1024 * 1024))} MB`);
+  const declared = Number(res.headers?.get?.("content-length"));
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    try { await res.body?.cancel?.(); } catch { /* best-effort */ }
+    throw tooLarge();
+  }
+  if (!res.body?.getReader) {
+    const whole = Buffer.from(await res.arrayBuffer());
+    if (whole.length > maxBytes) throw tooLarge();
+    return whole;
+  }
+  const reader = res.body.getReader();
+  const chunks = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      try { await reader.cancel(); } catch { /* best-effort */ }
+      throw tooLarge();
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks, total);
+}
+
+// The link comes from the scraped repository index, not from the student,
+// but it is a third party's URL: it goes through the SSRF guard like every
+// other outbound fetch, each redirect hop checked (safeFetch), and the body
+// is read under the download cap. Until 2026-09-22 this was a plain fetch
+// that followed redirects.
+async function fetchText(url, { fetchImpl, assertTarget }, extractionOptions = {}) {
+  const resp = await safeFetch(url, {
     headers: {
       "user-agent": "college-counselor-backend/1.0 CDS fetcher",
       "accept": "text/html,application/pdf,image/png,image/jpeg,image/webp,application/xhtml+xml;q=0.9,*/*;q=0.8",
     },
-    redirect: "follow",
-  });
+  }, { fetchImpl, assertTarget });
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   const contentType = String(resp.headers.get("content-type") || "").toLowerCase();
   if (isPdfContentType(contentType, url) || isImageContentType(contentType)) {
-    const buf = Buffer.from(await resp.arrayBuffer());
+    const buf = await readBodyCapped(resp);
     const extracted = await extractCdsDocumentText(buf, {
       ...extractionOptions,
       contentType,
@@ -676,6 +715,7 @@ export async function fetchRepositoryIndex({ fetchImpl = fetch } = {}) {
 
 export async function resolveAndParseCdsTargets(targets, {
   fetchImpl = fetch,
+  assertTarget = assertSafeFetchTarget,
   repositoryHtml = null,
   ocrPdfExtractor = null,
   pdfTextExtractor = extractPDF,
@@ -697,7 +737,7 @@ export async function resolveAndParseCdsTargets(targets, {
 
     if (preferred?.url) {
       try {
-        const doc = await fetchText(preferred.url, fetchImpl, { ocrPdfExtractor, pdfTextExtractor, imageOcrOptions });
+        const doc = await fetchText(preferred.url, { fetchImpl, assertTarget }, { ocrPdfExtractor, pdfTextExtractor, imageOcrOptions });
         parsed = parseCdsText(doc.text);
         sourceContentType = doc.contentType;
         sourceExtraction = doc.extraction || null;
