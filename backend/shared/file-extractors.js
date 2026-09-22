@@ -427,9 +427,11 @@ function drainDocumentLane() {
   if (!next) return;
   _laneBusy = true;
   let timer;
+  // The timer is not unref'd: a stuck job with no handle of its own would
+  // otherwise let a process exit before the give-up fired (the lane test
+  // did exactly that on CI), and the server's socket keeps it alive anyway.
   const gaveUp = new Promise((_, reject) => {
     timer = setTimeout(() => reject(new ExtractionError("document_job_timeout", `Document step did not finish in ${next.timeoutMs}ms`)), next.timeoutMs);
-    timer.unref?.();
   });
   Promise.race([Promise.resolve().then(next.job), gaveUp])
     .then(next.resolve, next.reject)
