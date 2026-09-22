@@ -11,11 +11,15 @@ form of every entry dated 2026-09-16 or earlier is in git
 
 ## Where things stand (2026-09-22, evening KST)
 
-- **Deployed:** `main` at `db40b80`, live at
+- **Deployed:** `main` at `03ed23f`, live at
   https://college-counselor-web.onrender.com: `9dc008a` (memory ceilings
   on every heavy path, the five repaired lazy imports, the deploy
-  checklist's three fixes), `5acd16b` (one new test's timer) and `db40b80`
-  (a 413 says "Request body too large."). CI run 35722320740 for
+  checklist's three fixes), `5acd16b` (one new test's timer), `db40b80`
+  (a 413 says "Request body too large.") and `03ed23f` (unreadable text
+  layers to OCR, the C1 residency fallback, Bradley's seed, the daily
+  backups and their download, the rotation of `WEB_CONFIG_KEY`, the
+  test-only rate-limit switch, `render.yaml`'s instance and CI-gate keys,
+  the `[DISK]` line; its CI run and probe are under *Verified live*). CI run 35722320740 for
   `9dc008a` failed on that test; no health blip was seen between 11:36 UTC
   and the green run's swap at 11:42, so the red run did not reach
   production (the three minutes before the poll began were not watched;
@@ -31,8 +35,8 @@ form of every entry dated 2026-09-16 or earlier is in git
   (refactoring tools, docs, `.graphifyignore`), `470cd2a` (server.js
   helpers to `server/`, the 1,300-line modules split), `deb7baf` (App.jsx
   split).
-- **Tests (run after the last code edit, 2026-09-22 11:40 UTC):** backend
-  `npm test` 766 tests, 762 pass, 4 skipped, 0 fail; `npm run lint` 0
+- **Tests (run after the last code edit, 2026-09-22 12:35 UTC):** backend
+  `npm test` 783 tests, 779 pass, 4 skipped, 0 fail; `npm run lint` 0
   errors, 38 warnings (CI cap 500); frontend `npx vitest run` 20 files, 64
   tests (no frontend change this session; CI's build green).
 - **Working tree:** clean apart from one untracked file no session made
@@ -55,8 +59,10 @@ form of every entry dated 2026-09-16 or earlier is in git
   `screens/`, `handlers/`, `chat/`, `session/`, `profile/` and
   `components/` hold the rest. Largest hand-written files now:
   `activities/ec-strength-vectorizer.js` 1,145 (one 459-line function),
-  `server.js` 1,056, `colleges/positioning-engine.js` 1,034,
-  `storage/rag-engine.js` 990.
+  `server.js` about 1,090, `colleges/positioning-engine.js` 1,034,
+  `storage/rag-engine.js` 990. New since 2026-09-21: `security/safe-fetch.js`
+  (the SSRF guard), `server/memory-watch.js` (`[MEM]` and `[DISK]` lines),
+  `storage/db-backup.js` (the daily copies).
 - **The CDS cache covers 298 schools** (parser version 6; 118 on 2025-26
   documents, 141 on 2024-25). Unchanged this session; the server re-ingests
   the seed at boot in about two seconds.
@@ -86,7 +92,52 @@ form of every entry dated 2026-09-16 or earlier is in git
 
 The user's asks on 2026-09-21/22, verbatim: "/code-review check for
 reasons of memory overflow", "/deploy-checklist render against security
-vulnurabilities commonly made by vibecoders", "init all the fixes".
+vulnurabilities commonly made by vibecoders", "init all the fixes", "fix
+the bradley parse and then finish the checklist made earlier".
+
+**Unreadable text layers go to OCR, the C1 reader falls back to the
+residency table, and the databases are backed up daily (2026-09-22)** —
+the commit after `e093abd`. Bradley University's 2025-26 document has
+fonts without a Unicode map: pdf.js yields 93,000 items of glyph codes,
+which no emptiness check caught, so the parser read nothing and the live
+search stored an empty record. `textLayerLooksReadable` in
+`shared/file-extractors.js` (letters and digits at least half of the
+non-space characters) now sends such a document to OCR in the CDS parser
+and makes the upload extractor report it as empty, so the routes' OCR
+fallbacks run; none of the 42 cached documents trips it. Parser version 7,
+so the daily refresh re-reads every stored row once. The first OCR read of
+Bradley's C1 table kept only the "unknown sex" rows — 19 applied, 1
+admitted, a 5.3% admit rate that passed the consistency check; that seed
+file was thrown away. `cds/cds-pdf-c1.js` now lets the residency table's
+Total column win when the gender rows lack men or women, recognises a
+Total column with a dropped cell (three or more numbers whose last is at
+least the sum of the others), ignores a punctuation token after the
+label, and refuses an OCR read under 100 applicants. Bradley reads 8,539
+applied and 6,369 admitted (74.6%), checked against the rendered page; no
+score bands, GPA or C7 came out of OCR (its tables recognise poorly and
+the school is test-optional). `tools/cds-cache/parsed/bradley-university.json`
+(version 7) is in the seed so a deployment's older empty row is
+re-ingested at boot. A test policy the reader did not find is null, and
+an OCR record keeps it unknown (Bradley is test-optional; its first OCR
+record said "required"). Then the user's "Fix these too" / "Also these"
+on the checklist's dashboard-side items, all in code now:
+`RATE_LIMIT_RELAXED` works under `NODE_ENV=test` only and the launcher
+strips it; a rotated `WEB_CONFIG_KEY` is re-wrapped from
+`WEB_CONFIG_KEY_PREVIOUS` for one deploy (`openWebSecretConfig`), and
+without it the launcher keeps running, the site says setup is required,
+`GET /api/admin/secrets/status` says why (`configReadable`,
+`configProblem`) and saving a secret starts the store again (it used to
+crash-loop); `storage/db-backup.js` copies the three databases into
+`DATA_DIR/backups/<name>.<date>.db` daily and at boot, keeping seven
+(`db_backup` in the job status), and the counselor lists and downloads
+them at `GET /api/admin/backups[/<file>]` (exact names only);
+`render.yaml` pins `numInstances: 1` and `autoDeployTrigger: checksPass`;
+the boot log has a `[DISK]` line. RUNBOOK.md gained the rotation
+procedure, the rule to keep the vault key and `WEB_CONFIG_KEY` outside
+Render, *Backups*, one instance, CI-gated deploys, and the
+unreadable-text-layer symptom. Tests: `cds-text-layer`, `db-backup`,
+`web-config-rotation`, five C1 cases, the backups routes in
+`admin-models-routes`, four more pins in `deploy-hardening`.
 
 **Memory has a ceiling on every heavy path; the deploy checklist's three
 fixes (2026-09-22)** — `9dc008a`. The instance has 512 MB for the launcher,
@@ -284,6 +335,17 @@ scout deadline tables and the official-source gate (`c4c5bb0` and earlier).
 - **After `db40b80` (blip 11:47:13–11:47:47 UTC 2026-09-22):** a 1.1 MB
   JSON body to `/api/students/register` answered 413
   `{"error":"Request body too large."}`.
+- **After `03ed23f` (CI run 35727260532; blip 12:28:40–12:29:14 UTC
+  2026-09-22):** the same probe as after `5acd16b` passed again (Harvard's
+  CDS route 401/200, the 413 with its text, the stranger's 2 MB file 401,
+  register, consents, sync, chat 200 with the Indiana tuition figures and
+  a source line, the 266 KB PDF through the lane 200, delete 200, token
+  401), and `GET /api/cds/school/bradley-university` returned the
+  re-ingested seed: 2025-26, admit 0.7459, `consistent` — the boot
+  re-ingest of a version-7 seed over the version-6 row works. Not probed:
+  the administrator routes (the counselor's session is never used), so
+  the backups list and download, the secrets status fields and the
+  `[DISK]`/`[BOOT]` lines are covered by tests and CI only.
 - **After `9c15000` (14:50 UTC 2026-09-20, bundle `main-BFi5gbxM.js`):** a
   throwaway account registered, granted the three consents and synced a
   small profile; `/api/positioning/targets` returned Indiana University
@@ -377,13 +439,15 @@ scout deadline tables and the official-source gate (`c4c5bb0` and earlier).
   chat evidence is keyed by activity name; prestige rationales are
   English-only; parser extras are unvalidated; the small tier sometimes
   returns an empty reply.
-- **Deploy checklist, dashboard side (2026-09-22; not checkable from
-  here):** confirm in Render that Auto-Deploy waits for CI, that no stray
-  `RATE_LIMIT_RELAXED` or `NODE_ENV` variable is set, that disk snapshots
-  exist for `college-counselor-data` (the repository has no backup routine
-  of its own), and that the instance count stays 1. `WEB_CONFIG_KEY` must
-  never be rotated: it wraps the encrypted secret store, and a new value
-  makes the counselor's keys unreadable until re-entered.
+- **Deploy checklist, what is still the dashboard's:** whether disk
+  snapshots exist for `college-counselor-data` (the daily copies under
+  `backend/data/backups/` are on the same disk; the counselor's download
+  is the copy off the box), and a look at the boot log's `[DISK]` and
+  `[MEM]` lines. Everything else the checklist left to the dashboard is
+  pinned in code or `render.yaml` since the commit after `e093abd`.
+  Whether Render honours the two new `render.yaml` keys for this service
+  (created from the blueprint?) was not checked; the CI-gated deploy was
+  observed to be in effect regardless.
 - **`[MEM]` lines were not read this session.** After `9dc008a` the boot
   log should show `[MEM] rss … (high …)` at once and an hourly line after
   that; the server alone above about 380 MB, or a restart for memory, is
@@ -396,12 +460,28 @@ scout deadline tables and the official-source gate (`c4c5bb0` and earlier).
   2026-09-20): College Fit for a school the store lacks downloads and
   parses its document within 20 s and stores a `consistent` or
   `no_truth` record, tagged unvalidated. `[cds/live-search] ingested …`
-  in the log; the store grows with what students look up. The probe's
-  Bradley University record (2025-26) came back with no admit rate and
-  College Fit labelled the school "High reach" for a 3.7 GPA / 1420 SAT
-  profile: the parser misses that document's C1 layout
-  (`https://www.bradley.edu/wp-content/uploads/CDS_2025-2026.pdf`) and
-  the engine seems to have had no baseline row either — check both.
+  in the log; the store grows with what students look up. Bradley's
+  record now carries its counts and admit rate (the change log above) but
+  no score bands, GPA or C7. A school with no rate at all is labelled
+  "High reach" by the engine's uncertainty penalty (positioning-engine.js
+  line ~792), which reads as a verdict rather than "no data" — worth a
+  neutral label. Calibration, seen on 2026-09-22 with a strong probe
+  profile (3.95 GPA, 1520 SAT, six rigorous courses, three activities, no
+  narrative): Bradley "Reach" at 54.3 (admissibility 73.6, competitiveness
+  61, fit 18.1), Indiana "Reach" at 58.7, Harvard "High reach" at 31.3 —
+  the engine tells the schools apart, but a fit component near 18 without
+  a narrative keeps a 75%-admit school at "Reach" for that student; the
+  cutoffs (85/70/52, `classifyPositioningLabel`) were raised on purpose
+  earlier. A product question, not a data one.
+- **Parser version 7 re-reads the whole store once:** the next daily
+  refresh (June to December, daily) parses every cached document again,
+  one at a time in the lane — text layers in seconds, the unreadable or
+  scanned ones by OCR at minutes each. Watch `[BATCH] cds_daily_refresh`
+  and the `[MEM]` lines the first time it runs.
+- **The knowledge graph was not rebuilt this session** (new modules:
+  `security/safe-fetch.js`, `server/memory-watch.js`,
+  `storage/db-backup.js`; the docs changed). `/graphify . --update` from
+  the repository root, then the vault sync described above.
 - **Untracked files to decide about:** `AGENTS.md` (a copy of an older
   CLAUDE.md). `backend/kor.traineddata` and `eng.traineddata` were
   tesseract.js's download cache and now live under
