@@ -18,6 +18,9 @@ backend/public/
 
 # Editor / local tooling
 .claude/launch.json
+# A local copy of CLAUDE.md kept for another coding agent; it is not the
+# repo's and sat untracked in every `git status` until 2026-09-22.
+/AGENTS.md
 
 # Environment / secrets
 **/.env

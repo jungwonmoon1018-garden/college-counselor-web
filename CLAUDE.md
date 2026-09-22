@@ -149,10 +149,11 @@ counselor's credentials.
 
 ## Landing a change
 
-Stage explicit paths (`git add <paths>`): two untracked files are not the
-repo's (`AGENTS.md`, `backend/kor.traineddata`), and the phantom
-CRLF-only diffs that used to fill `git status` were renormalized away on
-2026-09-16. Commit messages explain the
+Stage explicit paths (`git add <paths>`). The two local files that are not
+the repo's are gitignored (`AGENTS.md`, an older copy of this file kept
+for another coding agent, and the tesseract `*.traineddata` cache), and
+the phantom CRLF-only diffs that used to fill `git status` were
+renormalized away on 2026-09-16. Commit messages explain the
 behavior and the reason in prose and end with
 `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`. Pushing to
 `main` is authorized; CI runs backend lint, syntax check and tests, then the
