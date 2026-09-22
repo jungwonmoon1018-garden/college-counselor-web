@@ -202,6 +202,39 @@ test("missing evidence is neutral: no narrative and no strength rows do not drag
   assert.ok(!open.mainRedFlags.some((flag) => /Narrative/.test(flag)), "a narrative not written yet is not a red flag");
 });
 
+// A one-course record used to be read as a light transcript: rigor 14 at
+// full weight, two coursework flags, and a 3.7 against a 3.85 average
+// scored 31, so a thin 3.7 / 1420 profile read "High reach" at a 50%-admit
+// school (2026-09-22).
+test("the course list's weight follows how complete it looks, and the coursework flags wait for a transcript", () => {
+  const course = (name, type = "regular") => ({ name, type, grade: "A", year: "11" });
+  const oneCourse = buildStudentModel({ gpa_unweighted: 3.7, major_interest: "Computer Science", courses_json: JSON.stringify([course("Calculus AB", "ap")]), test_scores_json: JSON.stringify([{ test: "sat", totalScore: 1420 }]), activities_json: "[]" }, [], null);
+  const transcript = buildStudentModel({ gpa_unweighted: 3.7, major_interest: "Computer Science", courses_json: JSON.stringify([course("English 11"), course("US History"), course("Spanish III"), course("Biology"), course("Art"), course("Physical Education"), course("Algebra II"), course("Chemistry")]), test_scores_json: JSON.stringify([{ test: "sat", totalScore: 1420 }]), activities_json: "[]" }, [], null);
+  assert.equal(oneCourse.courseEvidence, 0.125);
+  assert.equal(transcript.courseEvidence, 1);
+  const college = { name: "Flagship", acceptanceRate: 50, sat25: 1250, sat75: 1450, avgGpaAdmitted: 3.85, topMajors: [] };
+  const cds = { schoolName: "Flagship", fetchStatus: "ok", parsed: { c7: {}, admitRatePercent: 50 } };
+  const thin = scoreAcademicReadiness(oneCourse, college, cds);
+  const full = scoreAcademicReadiness(transcript, college, cds);
+  assert.ok(thin.dynamicWeights.rigor < 0.06, `one course: rigor weight ${thin.dynamicWeights.rigor}`);
+  assert.ok(full.dynamicWeights.rigor > 0.2, `eight courses: rigor weight ${full.dynamicWeights.rigor}`);
+  assert.ok(full.score < thin.score, "eight courses with no college-level work is the lighter transcript");
+  const thinRead = buildPositioningForTarget(oneCourse, college, cds, { major: "Computer Science" });
+  assert.ok(!thinRead.mainRedFlags.some((f) => /coursework|preparation/.test(f)), `one course carries no coursework flag: ${thinRead.mainRedFlags.join(" | ")}`);
+  const fullRead = buildPositioningForTarget(transcript, college, cds, { major: "Computer Science" });
+  assert.ok(fullRead.mainRedFlags.some((f) => /Weak major-relevant coursework/.test(f)), "a transcript without the major's courses is flagged");
+  assert.ok(["Reach", "Competitive"].includes(thinRead.overallPositioningLabel), `thin at 50%: ${thinRead.overallPositioningLabel} @ ${thinRead.finalPositioningScore}`);
+  assert.ok(thinRead.finalPositioningScore >= 25);
+});
+
+test("the GPA reads as the share of the enrolled class at or below it", () => {
+  const at = (gpa) => compareGpaToSchool(buildStudentModel({ gpa_unweighted: gpa, major_interest: "Biology" }, [], null), { avgGpaAdmitted: 3.85 }, { parsed: {} }).score;
+  assert.ok(Math.abs(at(3.85) - 56) < 1.5, `at the average ${at(3.85)}`);
+  assert.ok(Math.abs(at(4.05) - 77) < 2, `0.2 above ${at(4.05)}`);
+  assert.ok(Math.abs(at(3.65) - 35) < 2, `0.2 below ${at(3.65)}`);
+  assert.ok(at(3.5) > 20 && at(3.5) < 30, `0.35 below is low, not zero: ${at(3.5)}`);
+});
+
 test("unknown admit rate is NOT treated as maximally selective", () => {
   const student = makeStudent();
   // collegeContext with no acceptanceRate must give a neutral selectivity

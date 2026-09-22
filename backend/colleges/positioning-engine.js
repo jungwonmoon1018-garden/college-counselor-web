@@ -243,6 +243,11 @@ export function buildStudentModel(snapshot, strengthRows = [], narrative = null,
   const seniorRigorCount = rigor.seniorCollegeLevel;
 
   const majorRelevantGpa = avg(relevantCourses.map((course) => gradeToPoints(course.grade)));
+  // How much the course list can be trusted as the transcript: eight or
+  // more courses on file is a transcript, one is a start. The rigor and
+  // major-preparation reads scale with it, and the coursework flags wait
+  // for it, so a record with one course entered is not read as a light one.
+  const courseEvidence = clamp01(courses.length / 8);
   const academicAwardsCount = activities.filter((a) => /(award|winner|finalist|olympiad|medal|honor|scholar)/i.test(`${a.name || ""} ${a.description || ""}`)).length;
   const ecImpactTier = avg(strengthRows.map((row) => {
     switch (row.tier_label) {
@@ -273,6 +278,7 @@ export function buildStudentModel(snapshot, strengthRows = [], narrative = null,
     rankPercentile,
     courses,
     relevantCourses,
+    courseEvidence,
     rigor,
     rigorUnits: rigor.units,
     rigorousCourseCount,
@@ -325,6 +331,15 @@ function numberOrNull(value) {
   if (value == null || value === "") return null;
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
+}
+
+// The standard normal's cumulative share below z (Zelen & Severo's
+// approximation, within 1e-7), for reading a value against an average.
+function normalCdf(z) {
+  const t = 1 / (1 + 0.2316419 * Math.abs(z));
+  const d = 0.3989422804014327 * Math.exp((-z * z) / 2);
+  const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+  return z >= 0 ? 1 - p : p;
 }
 
 function bandOf(low, high) {
@@ -499,11 +514,15 @@ export function compareGpaToSchool(student, college, cdsResult, { fallbackAverag
   // student has none, never with the unweighted GPA it would dwarf.
   const weightedScale = average != null && average > 4;
   const gpaForAverage = weightedScale ? (student.weightedGpa ?? gpa) : gpa;
-  // Tighter than before but not punitive: at the admitted average ≈54, ~0.2
-  // above ≈85, ~0.2 below ≈23. No-GPA default 30. With no average on file
-  // the caller's fallback (from the admit rate) stands in, else 3.75.
+  // The share of an enrolled class at or below the student's GPA, taking
+  // the class as spread 0.25 around its average, on the same 20–92 scale
+  // the distribution read uses: at the average 56, 0.2 above 77, 0.2 below
+  // 35. The window used to fall to zero 0.35 below the average, so a 3.7
+  // against a 3.85 scored 31 and a thin record read "High reach" at a
+  // 50%-admit school. No-GPA default 30. With no average on file the
+  // caller's fallback (from the admit rate) stands in, else 3.75.
   const target = weightedScale && student.weightedGpa == null ? 4 : (average ?? fallbackAverage ?? 3.75);
-  const formulaScore = gpaForAverage != null ? clamp01((gpaForAverage - (target - 0.35)) / 0.65) * 100 : 30;
+  const formulaScore = gpaForAverage != null ? 20 + 72 * normalCdf((gpaForAverage - target) / 0.25) : 30;
   let placement = null;
   let distributionScore = null;
   if (gpa != null && rows) {
@@ -626,10 +645,13 @@ export function scoreAcademicReadiness(student, college, cdsResult) {
   const rankRead = compareRankToSchool(student, cdsResult);
   const apRead = compareApExams(student);
   const rigorRead = compareCourseRigor(student, gpaRead.average ?? fallbackAverage);
+  // The course list's weight follows how complete it looks (courseEvidence):
+  // rigor read from one entered course is hardly evidence of a light load.
+  const courseEvidence = student.courseEvidence ?? 1;
   const featureWeights = {
     gpa: 0.27 + 0.08 * c7Value(c7, ["academicGpa", "academic_gpa", "gpa"], 0.7),
-    rigor: 0.2 + 0.08 * c7Value(c7, ["rigor"], 0.7),
-    majorPrep: 0.18,
+    rigor: (0.2 + 0.08 * c7Value(c7, ["rigor"], 0.7)) * courseEvidence,
+    majorPrep: 0.18 * (0.5 + 0.5 * courseEvidence),
     // A score the student would withhold at a test-optional school is
     // never read, so the other evidence carries its weight.
     test: tests.advice === "withhold" ? 0 : 0.14 + 0.08 * c7Value(c7, ["standardizedTests", "standardized_tests", "test_scores"], 0.35),
@@ -873,7 +895,11 @@ export function buildRedFlags(student, collegeContext, majorCompetitiveness, nar
   if (reads?.apExams?.relevant?.length && reads.apExams.relevantAverage != null && reads.apExams.relevantAverage < 3) {
     flags.push("AP exam scores in the intended field average below 3.");
   }
-  if (student.relevantCourses.length <= 1 && ["computer_science", "engineering", "computational_biology", "data_science", "business"].includes(student.majorBucket)) {
+  // The coursework flags wait for a course list that looks like a
+  // transcript (four courses or more); one course entered says nothing
+  // about what the student took.
+  const transcriptOnFile = student.courses.length >= 4;
+  if (transcriptOnFile && student.relevantCourses.length <= 1 && ["computer_science", "engineering", "computational_biology", "data_science", "business"].includes(student.majorBucket)) {
     flags.push("Weak major-relevant coursework for an ambitious intended major.");
   }
   if (student.activities.length >= 8 && student.strengthRows.length > 0 && (avg(student.strengthRows.map((row) => Number(row.dedication || 0))) || 0) < 0.35) {
@@ -888,7 +914,7 @@ export function buildRedFlags(student, collegeContext, majorCompetitiveness, nar
   if (hasNarrative && narrativeFit.coherence < 45) {
     flags.push("Narrative coherence is weak and may read as a list rather than a story.");
   }
-  if (majorCompetitiveness.capacityRiskFlag !== "normal" && student.relevantCourses.length <= 2) {
+  if (transcriptOnFile && majorCompetitiveness.capacityRiskFlag !== "normal" && student.relevantCourses.length <= 2) {
     flags.push("Applying to a capped or capacity-constrained major without enough preparation.");
   }
   if ((collegeContext.acceptanceRate ?? 100) < 15 && student.gpa != null && (collegeContext.avgGpaAdmitted ?? 3.9) - student.gpa > 0.2) {

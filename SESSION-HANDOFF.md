@@ -134,7 +134,19 @@ the selectivity adjustment is still reported but no longer multiplies the
 score. Tests: the likelihood's anchors, the strong and thin students at
 open and lottery schools, neutral missing evidence, the recalibrated
 bands; two older pins updated (calculus is relevant; de-emphasized tests
-weigh less than the GPA rather than under 0.15).
+weigh less than the GPA rather than under 0.15). Then "fix the thin
+profile High reach at 50% schools too" (the commit after `a3aefd5`): a
+one-course list had been read as a light transcript. `courseEvidence`
+(courses on file / 8, capped at 1) now scales the rigor weight and half
+of the major-preparation weight, the two coursework red flags wait for a
+list of four courses or more, and the GPA reads as the share of the
+enrolled class (spread 0.25 around its average) at or below it — 56 at
+the average, 77 at 0.2 above, 35 at 0.2 below — instead of a window that
+fell to zero 0.35 below. The thin record reads "Reach" at the 50% school
+(36), "Highly competitive" at 75–82% (75, 77); a 3.4 / 1280 record
+"Competitive" at 75–82%, "Reach" at 50%; the strong profile unchanged; a
+student at a school's own averages comes to a readiness of 54–63, which
+is what the likelihood is centred on.
 
 **Unreadable text layers go to OCR, the C1 reader falls back to the
 residency table, and the databases are backed up daily (2026-09-22)** —
