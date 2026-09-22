@@ -10,7 +10,8 @@ from the repository root unless it says otherwise.
 Production runs on Render from `main`: Node 22.22 (`.node-version`,
 `.nvmrc`; the packages declare `>=22.13 <23`), Express in `backend/`,
 SQLite on the persistent disk under `backend/data/` (operational,
-encrypted PII vault, vectors), one OpenRouter transport. The React app is
+encrypted PII vault, vectors), one OpenRouter transport, one instance
+(`render.yaml`; SQLite on one disk cannot be shared across instances). The React app is
 built by Vite and served by the backend. Health: `GET /api/health`.
 Route handlers live in `backend/routes/<family>.js` (one file per
 `/api/<family>` prefix, `/api/ec` in four; registered from `server.js`
@@ -48,6 +49,19 @@ in `shared/file-extractors.js`), and tesseract.js's language data is
 fetched from its CDN the first time a language is used and cached under
 `backend/data/tessdata/` on the persistent disk (`TESSDATA_CACHE_DIR`
 overrides). JSON bodies are 1 MB, 10 MB on the three base64 file routes.
+`RATE_LIMIT_RELAXED` relaxes the rate limits under `NODE_ENV=test` only,
+and the launcher strips it from the server's environment, so a stray
+dashboard variable does nothing. `WEB_CONFIG_KEY` wraps the encrypted
+secret store; to rotate it, set `WEB_CONFIG_KEY_PREVIOUS` to the old value
+and `WEB_CONFIG_KEY` to the new one for one deploy — the launcher opens
+the store with the old key, writes it again under the new one and says so
+in the log (`[WEB] … re-wrapped`) — then remove the previous. A key
+changed without that leaves the store unreadable: the launcher keeps
+running, the site says setup is required, the administrator page's
+secrets status says why (`configReadable: false`), and saving a secret
+starts the store again. The vault's encryption key is one of the stored
+secrets, so keep a copy of it and of `WEB_CONFIG_KEY` outside Render:
+without it the encrypted student data cannot be read back.
 
 ## Ship
 
@@ -60,8 +74,9 @@ overrides). JSON bodies are 1 MB, 10 MB on the three base64 file routes.
    about 40 seconds. A backend job past three minutes is a hang: cancel it
    (`gh run cancel <id>`), then read its partial log
    (`gh run view <id> --log --job <job-id>`).
-4. Render redeploys after a green run, two to eight minutes later, with a
-   few seconds of 502s. A frontend change shows as a new `assets/main-*.js`
+4. Render redeploys after a green run only (a red run's commit stayed
+   undeployed on 2026-09-22), two to eight minutes later, with a few
+   seconds of 502s. A frontend change shows as a new `assets/main-*.js`
    hash in `/`; a backend-only change shows only as the 502 blip, so verify
    it by behaviour (below).
 
@@ -106,6 +121,23 @@ folder. Register new links with `npm run cds:add-cycle` or by editing
 directory: scan for implausible counts, compare the previously committed
 records for lost fields, and run `npm test`.
 
+## Backups
+
+Every day, and at boot when the day has none, `storage/db-backup.js`
+copies `counselor.db`, `pii-vault.db` and `vectors.db` into
+`backend/data/backups/<name>.<YYYY-MM-DD>.db` on the persistent disk and
+keeps the newest seven of each (the `db_backup` entry in the job status at
+`GET /api/baselines/status` says when it last ran). The vault copy is
+encrypted like the original. That is one copy on the same disk; a disk
+snapshot, where the plan has one, is the other, and the copy off the box
+is the counselor's to take from the administrator session: `GET
+/api/admin/backups` lists the copies and `/api/admin/backups/<file>`
+downloads one (open the URL in the browser while signed in on
+`/admin.html`; the names are the only accepted form). To restore, stop
+the service, put the copy in place of the file under `backend/data/`,
+start. The boot log's `[DISK]` line says what the data directory takes of
+the 1 GB disk.
+
 ## Roll back
 
 Revert the commit on `main` (`git revert <sha>`), push, let CI deploy.
@@ -135,3 +167,9 @@ touched by a deploy.
 - OCR answers `ocr_failed` right after a deploy: the language data is
   fetched from jsDelivr on first use into `data/tessdata/`; check outbound
   access and that directory.
+- A school's record is empty although its document has text: the text
+  layer may be glyph codes from fonts without a Unicode map (Bradley
+  University 2025-26). Parser version 7 sends such a document to OCR (up
+  to 25 pages, minutes, one page at a time in the lane); `parserNotes`
+  says so, and the stored row is re-read on the next daily refresh
+  because its parser version is older.

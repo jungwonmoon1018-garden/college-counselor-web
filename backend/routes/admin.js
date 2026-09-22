@@ -8,6 +8,25 @@ import { mergeWebModels, mergeWebSecret, readWebSecretConfig, writeWebSecretConf
 import { dynamicAllowedModelIds, setModelCandidateStatus } from "../scouts/model-catalog-scout.js";
 import { registerDynamicOpenRouterModels as adapterRegisterDynamicModels } from "../llm-adapters/index.js";
 import { OPENROUTER_MODEL_OPTIONS } from "../llm-adapters/tier-defaults.js";
+import fs from "node:fs";
+import path from "node:path";
+import { BACKUP_FILE_RE, listBackupFiles } from "../storage/db-backup.js";
+
+// The store, or a fresh one when the store on the disk was written under
+// another WEB_CONFIG_KEY (a rotation without WEB_CONFIG_KEY_PREVIOUS): the
+// counselor is re-entering the secrets, and the first one saved starts the
+// store again instead of every save failing with 500.
+function readOrStartWebConfig(deps) {
+  try {
+    return readWebSecretConfig({ dataDir: deps.DATA_DIR, configKey: deps.WEB_CONFIG_KEY });
+  } catch (error) {
+    if (error.code !== "web_config_unreadable") throw error;
+    console.warn("[ADMIN] The stored configuration is unreadable under this WEB_CONFIG_KEY; starting it again with what is being saved.");
+    return { secrets: {}, models: {} };
+  }
+}
+
+const CONFIG_UNREADABLE_HELP = "The stored configuration was written under a different WEB_CONFIG_KEY. Restore that key, set WEB_CONFIG_KEY_PREVIOUS to it for one deploy so the store is re-wrapped, or re-enter every secret here.";
 
 export function registerAdminRoutes(app, deps) {
   app.get("/api/admin/policy-scout/status", deps.studentLimiter, deps.requireCounselorAuth, (_req, res) => {
@@ -130,6 +149,8 @@ export function registerAdminRoutes(app, deps) {
       encryption: { configured: encryptionConfigured, mutable: deps.WEB_DEPLOYMENT && !encryptionConfigured },
       openrouter: { configured: !!deps.OPERATOR_LLM?.apiKey },
       scorecard: { configured: !!deps.SCORECARD_API_KEY },
+      configReadable: !deps.WEB_CONFIG_UNREADABLE,
+      configProblem: deps.WEB_CONFIG_UNREADABLE ? CONFIG_UNREADABLE_HELP : null,
     });
   });
 
@@ -154,7 +175,7 @@ export function registerAdminRoutes(app, deps) {
       });
     }
     try {
-      const current = readWebSecretConfig({ dataDir: deps.DATA_DIR, configKey: deps.WEB_CONFIG_KEY });
+      const current = readOrStartWebConfig(deps);
       const updated = mergeWebSecret(current, kind, req.body?.value);
       writeWebSecretConfig({ dataDir: deps.DATA_DIR, configKey: deps.WEB_CONFIG_KEY, config: updated });
       res.status(202).json({ saved: true, restarting: true });
@@ -171,7 +192,7 @@ export function registerAdminRoutes(app, deps) {
       return res.status(409).json({ error: "The vault encryption key cannot be cleared after setup." });
     }
     try {
-      const current = readWebSecretConfig({ dataDir: deps.DATA_DIR, configKey: deps.WEB_CONFIG_KEY });
+      const current = readOrStartWebConfig(deps);
       const updated = mergeWebSecret(current, kind, "");
       writeWebSecretConfig({ dataDir: deps.DATA_DIR, configKey: deps.WEB_CONFIG_KEY, config: updated });
       res.status(202).json({ cleared: true, restarting: true });
@@ -180,6 +201,22 @@ export function registerAdminRoutes(app, deps) {
       console.error("[ADMIN] Failed to clear encrypted website configuration:", error.code || error.message);
       res.status(500).json({ error: "The encrypted website configuration could not be saved." });
     }
+  });
+
+  // The daily database copies (storage/db-backup.js), for the counselor to
+  // take off the box: the list, and one file by its exact name.
+  app.get("/api/admin/backups", deps.studentLimiter, deps.requireCounselorAuth, (_req, res) => {
+    res.json({ files: listBackupFiles(path.join(deps.DATA_DIR, "backups")) });
+  });
+
+  app.get("/api/admin/backups/:file", deps.studentLimiter, deps.requireCounselorAuth, (req, res) => {
+    const file = String(req.params.file || "");
+    const full = path.join(deps.DATA_DIR, "backups", file);
+    if (!BACKUP_FILE_RE.test(file) || !fs.existsSync(full)) return res.status(404).json({ error: "No such backup." });
+    res.setHeader("Content-Type", "application/octet-stream");
+    res.setHeader("Content-Disposition", `attachment; filename="${file}"`);
+    res.setHeader("Cache-Control", "no-store");
+    fs.createReadStream(full).pipe(res);
   });
 
   app.get("/api/admin/models", deps.studentLimiter, deps.requireCounselorAuth, (_req, res) => {
@@ -221,7 +258,7 @@ export function registerAdminRoutes(app, deps) {
       }
     }
     try {
-      const current = readWebSecretConfig({ dataDir: deps.DATA_DIR, configKey: deps.WEB_CONFIG_KEY });
+      const current = readOrStartWebConfig(deps);
       const updated = mergeWebModels(current, models);
       writeWebSecretConfig({ dataDir: deps.DATA_DIR, configKey: deps.WEB_CONFIG_KEY, config: updated });
       res.status(202).json({ saved: true, restarting: true });

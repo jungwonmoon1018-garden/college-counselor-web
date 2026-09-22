@@ -38,7 +38,10 @@ export function extractC1Counts(items) {
       .replace(/\([^)]*\)/g, " ");
     const nums = [];
     for (const raw of rest.split(/\s+/)) {
-      const s = raw.trim().replace(/^:+$/, "");
+      // A token of punctuation alone (a colon after the label, the
+      // semicolon OCR read after "admitted" in Bradley's document) is
+      // neither a number nor the next label.
+      const s = raw.trim().replace(/^[:;.,|]+$/, "");
       if (!s) continue;
       if (!NUMERIC.test(s)) return { nums, blocked: true };
       nums.push(Number(s.replace(/,/g, "")));
@@ -54,13 +57,24 @@ export function extractC1Counts(items) {
     if (nums.length === 1) return nums[0];
     const last = nums[nums.length - 1];
     const rest = nums.slice(0, -1).reduce((a, b) => a + b, 0);
-    return rest === last ? last : rest + last;
+    if (rest === last) return last;
+    // Three or more columns whose last is at least the sum of the others
+    // is a Total column with a cell the read dropped (Bradley's residency
+    // table by OCR: in-state 6,341, out-of-state 1,369, international 2,
+    // total 8,539); summing would count the total twice. Two columns are
+    // men and women, summed.
+    if (nums.length >= 3 && last >= rest) return last;
+    return rest + last;
   }
 
   // Match canonical CDS labels and the UPenn-style "(freshman)" parenthetical.
   // Also tolerate optional "of " before "another gender" / "unknown gender"
   // (Cornell uses "of another gender", Princeton uses "another gender").
-  const FROSH = "first-time,?\\s+first-year,?(?:\\s*\\(freshman\\))?";
+  // "(degree-seeking)" is the residency table's own qualifier ("Total
+  // first-time, first-year (degree-seeking) who applied", with a Total
+  // column), the table this reader falls back on when the gender rows are
+  // incomplete.
+  const FROSH = "first-time,?\\s+first-year,?(?:\\s*\\((?:freshman|degree-seeking)\\))?";
   // The 2025-26 template renamed the rows: "males", "females" and "students
   // of unknown sex" (or "of another sex") replace "men", "women", "another
   // gender" and "unknown gender". Ten of the eleven 2025-26 documents in the
@@ -104,7 +118,13 @@ export function extractC1Counts(items) {
         if (!bucket.has(key)) bucket.set(key, rowTotal(nums));
       }
     }
-    const use = byGender.size ? byGender : plain;
+    // Gender rows win over the no-gender rows (which the residency table
+    // repeats with other numbers) only when they include men or women:
+    // OCR of Bradley's 2025-26 document recognised just the "unknown sex"
+    // rows, and their 19 applicants stood in for 8,539 until the
+    // residency table's totals were allowed to win instead.
+    const genderComplete = [...byGender.keys()].some((k) => /\b(men|women|males|females)\b/i.test(k));
+    const use = genderComplete ? byGender : (plain.size ? plain : byGender);
     if (use.size === 0) return null;
     let sum = 0;
     for (const v of use.values()) sum += v;
@@ -122,6 +142,11 @@ export function extractC1Counts(items) {
   if (applied) result.applied = applied;
   if (admitted) result.admitted = admitted;
   if (enrolled) result.enrolled = enrolled;
+
+  // An OCR read that adds up to fewer than 100 applicants read the wrong
+  // rows: no school in the repository index is that small, and a wrong
+  // small count makes a false admit rate that passes every other check.
+  if (items._source === "tesseract" && result.applied != null && result.applied < 100) return null;
 
   // Sanity: applied >= admitted >= enrolled (drop any failures)
   if (result.applied && result.admitted && result.admitted > result.applied) delete result.admitted;

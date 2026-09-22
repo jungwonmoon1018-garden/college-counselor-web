@@ -3,7 +3,7 @@
 // grouping of items into lines. Moved out of cds-pdf-parser.js on 2026-09-20,
 // which re-exports what it exported.
 import fs from "fs";
-import { ocrViewportScale, recognizeOnSharedWorker, runDocumentJob } from "../shared/file-extractors.js";
+import { ocrViewportScale, recognizeOnSharedWorker, runDocumentJob, textLayerLooksReadable } from "../shared/file-extractors.js";
 
 // pdfjs-dist v4 ships ESM only. Import the legacy build which is more
 // compatible with Node (no DOM dependencies).
@@ -35,8 +35,10 @@ export async function extractItems(pdfPath, { method = "auto", ocrMaxPages = 25 
   // ─── OCR fallback ─────────────────────────────────────────────────
   // Some smaller-school CDSes are scanned PDFs with no text layer. If
   // pdfjs returned essentially no items but the doc has multiple pages,
-  // fall back to tesseract OCR with bounding-box positions.
-  if (method === "auto" && looksLikeImageOnlyPDF(items, numPages)) {
+  // fall back to tesseract OCR with bounding-box positions. A text layer
+  // of glyph codes (fonts without a Unicode map — Bradley's 2025-26
+  // document) is as good as none and goes the same way.
+  if (method === "auto" && (looksLikeImageOnlyPDF(items, numPages) || !textLayerLooksReadable(items.map((it) => it.str).join("")))) {
     const ocrItems = await extractItemsViaOCR(pdfPath, ocrMaxPages);
     if (ocrItems && ocrItems.length > 0) {
       ocrItems._source = "tesseract";

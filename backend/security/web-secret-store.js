@@ -96,6 +96,24 @@ export function writeWebSecretConfig({ dataDir, configKey, config }) {
   return normalized;
 }
 
+// The store is wrapped under WEB_CONFIG_KEY, and a rotated key used to make
+// it unreadable for good: every student request answered "setup required"
+// until the counselor re-entered every secret, the vault's own key among
+// them. With the old value in WEB_CONFIG_KEY_PREVIOUS for one deploy, the
+// store is opened with it and written again under the new key. Returns the
+// configuration and how it opened ("current" or "rewrapped"); an unreadable
+// store with no previous key throws web_config_unreadable as before.
+export function openWebSecretConfig({ dataDir, configKey, previousKey = "" }) {
+  try {
+    return { config: readWebSecretConfig({ dataDir, configKey }), opened: "current" };
+  } catch (error) {
+    if (error.code !== "web_config_unreadable" || !previousKey) throw error;
+    const config = readWebSecretConfig({ dataDir, configKey: previousKey });
+    writeWebSecretConfig({ dataDir, configKey, config });
+    return { config, opened: "rewrapped" };
+  }
+}
+
 export function webConfigurationReady(config) {
   const secrets = normalizeConfig(config).secrets;
   return /^[0-9a-f]{64}$/i.test(secrets.encryption || "")

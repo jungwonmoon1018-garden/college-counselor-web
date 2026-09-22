@@ -150,7 +150,7 @@ import {
   policyScoutSchedule,
 } from "./server/schedulers.js";
 import { startListening } from "./server/boot.js";
-import { startMemoryWatch } from "./server/memory-watch.js";
+import { dataDirUsageLine, startMemoryWatch } from "./server/memory-watch.js";
 import { mountPillars } from "./server/pillars.js";
 import { registerServerJobs, startModelCatalogRefresh } from "./server/jobs.js";
 import { bindShutdown, shutdown } from "./server/shutdown.js";
@@ -196,6 +196,7 @@ const routeDeps = {
   get SPIKE_TIER_WEIGHT() { return SPIKE_TIER_WEIGHT; },
   get TOKEN_TTL_MS() { return TOKEN_TTL_MS; },
   get WEB_CONFIG_KEY() { return WEB_CONFIG_KEY; },
+  get WEB_CONFIG_UNREADABLE() { return WEB_CONFIG_UNREADABLE; },
   get WEB_DEPLOYMENT() { return WEB_DEPLOYMENT; },
   get WEB_SECRETS_READY() { return WEB_SECRETS_READY; },
   get adminAuthLimiter() { return adminAuthLimiter; },
@@ -321,6 +322,10 @@ const PORT = parseInt(process.env.PORT || "3001", 10);
 const WEB_DEPLOYMENT = process.env.WEB_DEPLOYMENT === "1";
 const WEB_SECRETS_READY = !WEB_DEPLOYMENT || process.env.WEB_SECRETS_READY === "1";
 const WEB_CONFIG_KEY = String(process.env.WEB_CONFIG_KEY || "");
+// Set by the launcher when the encrypted configuration on the disk could
+// not be opened with WEB_CONFIG_KEY (a rotated key): the administrator
+// page says so instead of the site answering "setup required" in silence.
+const WEB_CONFIG_UNREADABLE = String(process.env.WEB_CONFIG_UNREADABLE || "");
 const HOST = process.env.HOST || (WEB_DEPLOYMENT ? "0.0.0.0" : undefined);
 // Installation-wide OpenRouter key. Students never supply provider keys or
 // endpoints; every paid request uses this fixed provider boundary and is
@@ -728,8 +733,13 @@ app.use((req, res, next) => {
 // ── Rate limiters ──
 // RATE_LIMIT_RELAXED=1 multiplies every ceiling so sequential route tests
 // sharing one loopback IP don't trip the per-IP limits. Only the test
-// harnesses set it — production (web-launcher) and development never do.
-const relaxedMax = (max) => process.env.RATE_LIMIT_RELAXED === "1" ? max * 100 : max;
+// runner may relax them: the switch works under NODE_ENV=test alone, and
+// the launcher strips it from the server's environment besides, so a
+// stray dashboard variable cannot open the site to a hundred times the
+// traffic (the deploy checklist of 2026-09-22).
+const RATE_LIMIT_RELAXED = process.env.RATE_LIMIT_RELAXED === "1" && NODE_ENV === "test";
+if (process.env.RATE_LIMIT_RELAXED === "1" && !RATE_LIMIT_RELAXED) console.warn("[BOOT] RATE_LIMIT_RELAXED is set, but only the test runner may relax the rate limits; ignored.");
+const relaxedMax = (max) => RATE_LIMIT_RELAXED ? max * 100 : max;
 const apiLimiter = rateLimit({ windowMs: 60_000, max: relaxedMax(30), keyGenerator: (req) => hashIP(req.ip), message: { error: "Too many requests." } });
 const studentLimiter = rateLimit({ windowMs: 60_000, max: relaxedMax(30), keyGenerator: (req) => hashIP(req.ip) });
 const scorecardLimiter = rateLimit({ windowMs: 60_000, max: relaxedMax(40), keyGenerator: (req) => hashIP(req.ip), message: { error: "Too many college search requests." } });
@@ -1057,8 +1067,12 @@ app.use((err, _req, res, _next) => {
 
 startListening(routeDeps);
 // Memory in the log (a new high, or hourly), so a restart for memory on the
-// host can be read back. Silent under the test runner.
-if (NODE_ENV !== "test") startMemoryWatch();
+// host can be read back, and the data directory's size once, against the
+// 1 GB disk. Silent under the test runner.
+if (NODE_ENV !== "test") {
+  startMemoryWatch();
+  console.log(dataDirUsageLine(DATA_DIR));
+}
 
 
 // A rejected promise nobody awaits would end the process (Node's default).

@@ -236,6 +236,20 @@ function standardFontDataUrl() {
   return _standardFontDataUrl || undefined;
 }
 
+// A PDF whose embedded fonts carry no Unicode map yields a text layer of
+// raw glyph codes: Bradley University's 2025-26 Common Data Set gave 93,000
+// items of control characters, which no "is it empty" check caught, so the
+// parser read nothing and a chat attachment would have handed the model
+// noise. Readable text is mostly letters and digits; when it is not, the
+// text layer is treated as absent and the callers' OCR fallbacks run.
+export function textLayerLooksReadable(text) {
+  const chars = String(text || "").replace(/\s+/g, "");
+  if (chars.length < 20) return true; // too little to judge; the length checks decide
+  let readable = 0;
+  for (const ch of chars) if (/[\p{L}\p{N}]/u.test(ch)) readable += 1;
+  return readable / chars.length >= 0.5;
+}
+
 async function extractPdfTextLayer(buf) {
   const pdfjsLib = await loadPdfJs();
   const loadingTask = pdfjsLib.getDocument({
@@ -264,7 +278,9 @@ async function extractPdfTextLayer(buf) {
       pages.push(text);
       page.cleanup?.();
     }
-    return { text: pages.map((p) => `\n\n${p}`).join(""), pageCount: pageCount || null, warning: null };
+    const text = pages.map((p) => `\n\n${p}`).join("");
+    if (!textLayerLooksReadable(text)) return { text: "", pageCount: pageCount || null, warning: "text_layer_unreadable" };
+    return { text, pageCount: pageCount || null, warning: null };
   } finally {
     try { if (pdf) await (pdf.destroy?.() ?? pdf.loadingTask?.destroy?.()); } catch { /* best-effort */ }
   }

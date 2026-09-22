@@ -1,0 +1,44 @@
+{
+  "source": "cds",
+  "extractionMethod": "ocr",
+  "slug": "bradley-university",
+  "school": "Bradley University",
+  "year": 2025,
+  "yearLabel": "2025-26",
+  "tier": null,
+  "overallAdmitRate": 0.7459,
+  "yieldRate": null,
+  "enrolledSAT": null,
+  "enrolledACT": null,
+  "enrolledGPA": null,
+  "testPolicy": null,
+  "c7": {},
+  "b1": {
+    "applied": 8539,
+    "admitted": 6369
+  },
+  "c1Breakdown": null,
+  "majors": {},
+  "priorities": [],
+  "sourceUrl": "https://www.bradley.edu/wp-content/uploads/CDS_2025-2026.pdf",
+  "sourceKind": "pdf_text",
+  "parserVersion": 7,
+  "parserNotes": [
+    "ocr_fallback"
+  ],
+  "extras": {
+    "waitlist": {
+      "accepted": 1
+    }
+  },
+  "ingestedAt": "2026-09-22 12:24:37",
+  "updatedAt": "2026-09-22 12:24:37",
+  "validation": {
+    "school": "Bradley University",
+    "slug": "bradley-university",
+    "status": "consistent",
+    "discrepancies": [],
+    "overrides": {},
+    "scopeFromPDF": null
+  }
+}

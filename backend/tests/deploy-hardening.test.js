@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 
 import { readServerSource } from "./helpers/server-source.mjs";
 import { ocrCacheDir } from "../shared/file-extractors.js";
+import { dataDirUsageLine } from "../server/memory-watch.js";
 
 const BACKEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -60,4 +61,24 @@ test("every fetch of a URL that is not a constant goes through the guard", () =>
   }
   const search = fs.readFileSync(path.join(BACKEND, "cds", "cds-search.js"), "utf8");
   assert.ok(!/fetchImpl\(url, \{[^}]*redirect: "follow"/s.test(search), "the repository link is no longer fetched plainly");
+});
+
+test("render.yaml pins one instance and deploys only after CI passes", () => {
+  const blueprint = fs.readFileSync(path.join(BACKEND, "..", "render.yaml"), "utf8");
+  assert.match(blueprint, /^\s+numInstances: 1$/m);
+  assert.match(blueprint, /^\s+autoDeployTrigger: checksPass$/m);
+});
+
+test("the boot log's disk line sums the data directory by entry", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cc-disk-"));
+  try {
+    fs.mkdirSync(path.join(dir, "cds-cache"));
+    fs.writeFileSync(path.join(dir, "cds-cache", "a.pdf"), Buffer.alloc(3 * 1024 * 1024));
+    fs.writeFileSync(path.join(dir, "counselor.db"), Buffer.alloc(1024 * 1024 + 10));
+    fs.writeFileSync(path.join(dir, "small.txt"), "x");
+    assert.equal(dataDirUsageLine(dir), "[DISK] data 4 MB: cds-cache 3 MB, counselor.db 1 MB");
+    assert.equal(dataDirUsageLine(path.join(dir, "missing")), "[DISK] data 0 MB");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });

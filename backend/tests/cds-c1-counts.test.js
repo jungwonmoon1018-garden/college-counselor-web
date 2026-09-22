@@ -30,6 +30,52 @@ function table(list) {
   return items;
 }
 
+// Bradley University's 2025-26 document reaches the reader by OCR (its
+// text layer is glyph codes). Recognition kept only the "unknown sex" rows
+// of the C1 table — 19 applied, 1 admitted — and the residency table on
+// the next page, whose Total column carries the real counts; an OCR
+// semicolon follows "admitted", and one residency cell was dropped.
+test("OCR that read only the unknown-sex rows falls back to the residency table's totals", () => {
+  const items = table([
+    ["Total first-time, first-year unknown sex who applied", "19"],
+    ["Total first-time, first-year unknown sex who were admitted", "1"],
+    ["Total first-time, first-year unknown sex who enrolled", "0"],
+    ["Total first-time, first-year (degree-seeking) who applied", "6341", "1369", "2", "8539"],
+    ["Total first-time, first-year (degree-seeking) who were admitted;", "5179", "953", "237", "0", "6369"],
+    ["Total first-time, first-year (degree-seeking) enrolled", "66", "12", "0"],
+  ]);
+  items._source = "tesseract";
+  assert.deepEqual(extractC1Counts(items), { applied: 8539, admitted: 6369 });
+});
+
+test("gender rows still win when men or women rows are among them", () => {
+  const counts = extractC1Counts(table([
+    ["Total first-time, first-year males who applied", "3,000"],
+    ["Total first-time, first-year females who applied", "4,000"],
+    ["Total first-time, first-year (degree-seeking) who applied", "5000", "1900", "100", "7000"],
+    ["Total first-time, first-year males who were admitted", "2,000"],
+    ["Total first-time, first-year females who were admitted", "2,500"],
+  ]));
+  assert.deepEqual(counts, { applied: 7000, admitted: 4500 });
+});
+
+test("a Total column is recognised even when a cell was dropped; two columns are still summed", () => {
+  assert.deepEqual(extractC1Counts(table([["Total first-time, first-year students who applied", "6341", "1369", "2", "8539"]])), { applied: 8539 });
+  assert.deepEqual(extractC1Counts(table([["Total first-time, first-year students who applied", "30,474", "46,302", "20", "5"]])), { applied: 76801 });
+  assert.deepEqual(extractC1Counts(table([["Total first-time, first-year students who applied", "1,000", "1,200"]])), { applied: 2200 });
+});
+
+test("an OCR read of fewer than 100 applicants is refused outright", () => {
+  const items = table([
+    ["Total first-time, first-year unknown sex who applied", "19"],
+    ["Total first-time, first-year unknown sex who were admitted", "1"],
+  ]);
+  items._source = "tesseract";
+  assert.equal(extractC1Counts(items), null);
+  const text = table([["Total first-time, first-year unknown sex who applied", "19"]]);
+  assert.deepEqual(extractC1Counts(text), { applied: 19 }, "a text layer is trusted");
+});
+
 test("the 2023-24 wording: men / women / another gender / unknown gender", () => {
   const counts = extractC1Counts(rows([
     ["First-Time, First-Year Student Applicants", null],

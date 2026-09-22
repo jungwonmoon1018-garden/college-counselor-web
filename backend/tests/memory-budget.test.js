@@ -49,5 +49,5 @@ test("the watch writes its first line at once and does not keep the process aliv
 
 test("server.js starts the watch outside the test runner", () => {
   const source = fs.readFileSync(path.join(BACKEND, "server.js"), "utf8");
-  assert.ok(source.includes('if (NODE_ENV !== "test") startMemoryWatch();'));
+  assert.match(source, /if \(NODE_ENV !== "test"\) \{\r?\n\s+startMemoryWatch\(\);\r?\n\s+console\.log\(dataDirUsageLine\(DATA_DIR\)\);/);
 });

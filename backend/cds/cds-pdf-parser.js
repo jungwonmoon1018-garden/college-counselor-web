@@ -174,9 +174,13 @@ export function extractTestPolicyPositional(items) {
   const lines = groupByLine(items, 2.5);
   // Find C8A row(s). The row is "SAT or ACT" followed by an X mark.
   const satRow = lines.find((l) => l.items.some((i) => /^SAT\s+or\s+ACT$/i.test(i.str.trim())));
-  if (!satRow) return "test_required"; // default
+  // Not found is null, not a policy: the caller decides the default (a
+  // text layer keeps "test_required" as before; an OCR read, which misses
+  // rows, leaves the policy unknown rather than telling a student a
+  // test-optional school requires scores — Bradley's 2025-26 record).
+  if (!satRow) return null;
   const xItem = satRow.items.find((i) => /^[Xx•✓✔]$/.test(i.str.trim()));
-  if (!xItem) return "test_required";
+  if (!xItem) return null;
   const xPos = xItem.x;
 
   // Locate the C8A header band (within ~80pt above the row, same page)
@@ -619,8 +623,10 @@ export function extractExtras(items) {
 // The version both parsers stamp on a record. The store re-ingests a parsed
 // file that carries a newer version than its row, and the refresh skips a
 // cached document whose row already carries this one (cachedParseIsCurrent).
-// Bump it whenever a parser reads more, or reads differently.
-export const CDS_PARSER_VERSION = 6;
+// Bump it whenever a parser reads more, or reads differently. Version 7
+// (2026-09-22) sends a document whose text layer is unreadable glyph codes
+// to OCR instead of reading nothing from it.
+export const CDS_PARSER_VERSION = 7;
 
 export async function parseCDSPositional(pdfPath, { method = "auto" } = {}) {
   const items = await extractItems(pdfPath, { method });
@@ -645,7 +651,7 @@ export async function parseCDSPositional(pdfPath, { method = "auto" } = {}) {
     positional.extractionMethod = "pdfjs";
   }
   positional.year = extractYear(allText);
-  positional.testPolicy = extractTestPolicyPositional(items);
+  positional.testPolicy = extractTestPolicyPositional(items) ?? (items._source === "tesseract" ? null : "test_required");
   const counts = extractC1Counts(items);
   if (counts) {
     positional.b1 = counts;
@@ -698,7 +704,7 @@ export async function parseCDSPositional(pdfPath, { method = "auto" } = {}) {
         if (!positional.enrolledACT && fromForm.enrolledACT) positional.enrolledACT = fromForm.enrolledACT;
         if (!positional.enrolledGPA && fromForm.enrolledGPA) positional.enrolledGPA = fromForm.enrolledGPA;
         if (!positional.c7 && fromForm.c7) positional.c7 = fromForm.c7;
-        if (positional.testPolicy === "test_required" && fromForm.testPolicy && fromForm.testPolicy !== "test_required") {
+        if ((positional.testPolicy === "test_required" || positional.testPolicy == null) && fromForm.testPolicy && fromForm.testPolicy !== "test_required") {
           positional.testPolicy = fromForm.testPolicy;
         }
         positional.parserNotes = (positional.parserNotes || []).concat("merged_form_fields");

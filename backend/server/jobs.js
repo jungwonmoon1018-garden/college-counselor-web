@@ -4,6 +4,7 @@
 // server.js on 2026-09-21; called from the same place, so what runs when at
 // boot is unchanged. `deps` is server.js's routeDeps object of live getters.
 import { registerJob, registerStandardJobs, startAllJobs } from "../scouts/batch-jobs.js";
+import { backupDatabases } from "../storage/db-backup.js";
 import { refreshAllCds, shouldRunCdsRefresh } from "../cds/cds-ingest-pipeline.js";
 import crypto from "node:crypto";
 import { SCOUT_DUE_CHECK_MS } from "../scouts/scout-cadence.js";
@@ -93,6 +94,15 @@ export function registerServerJobs(deps) {
     registerJob("model_catalog_scout", () => maybeRunModelCatalogScout("scheduled"), SCOUT_DUE_CHECK_MS, { enabled: true, runOnStartup: false });
     console.log(`[BOOT] Model-catalog scout scheduled every ${deps.SCOUT_CADENCE_DAYS} day(s), checked hourly (MODEL_SCOUT=0 to disable).`);
   }
+
+  // Daily copies of the three databases onto the persistent disk, seven
+  // kept (storage/db-backup.js); one is taken at boot when the day has none.
+  // Off under the test runner, whose servers point DATA_DIR at the real
+  // local data folder while their databases are scratch files.
+  registerJob("db_backup", () => backupDatabases(
+    { counselor: deps.db, "pii-vault": deps.piiVault?.db || null, vectors: deps.vectorStore?.db || null },
+    { dir: path.join(deps.DATA_DIR, "backups") },
+  ), 24 * 60 * 60 * 1000, { enabled: process.env.NODE_ENV !== "test", runOnStartup: true });
 
   startAllJobs();
 }

@@ -95,7 +95,8 @@ test("parseCDSXlsxFile falls back to the labelled C7 rows", async () => {
   const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "cds-xlsx-c7-")), "labelled.xlsx");
   await workbook.xlsx.writeFile(file);
   const parsed = await parseCDSXlsxFile(file);
-  assert.equal(parsed.parserVersion, 6);
+  const { CDS_PARSER_VERSION } = await import("../cds/cds-pdf-parser.js");
+  assert.equal(parsed.parserVersion, CDS_PARSER_VERSION);
   assert.equal(parsed.c7.rigor, "very_important");
   assert.equal(parsed.c7.class_rank, "considered");
   assert.equal(parsed.c7.gpa, "not_considered");

@@ -3,11 +3,14 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { readWebSecretConfig, webConfigurationReady } from "./security/web-secret-store.js";
+import { openWebSecretConfig, webConfigurationReady } from "./security/web-secret-store.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.resolve(process.env.DATA_DIR || path.join(__dirname, "data"));
 const CONFIG_KEY = String(process.env.WEB_CONFIG_KEY || "");
+// The key that wrote the store before a rotation, for one deploy
+// (RUNBOOK.md, *Runtime*): the store is re-wrapped under CONFIG_KEY.
+const PREVIOUS_CONFIG_KEY = String(process.env.WEB_CONFIG_KEY_PREVIOUS || "");
 const SIM_PORT = String(process.env.SIM_PORT || "3002");
 const SIM_INTERNAL_TOKEN = String(process.env.SIM_INTERNAL_TOKEN || crypto.randomBytes(32).toString("hex"));
 const PUBLIC_DIR = path.resolve(process.env.PUBLIC_DIR || path.join(__dirname, "..", "frontend", "dist"));
@@ -43,7 +46,21 @@ let stopping = false;
 let restartRequested = false;
 
 function resolvedEnvironment() {
-  const stored = readWebSecretConfig({ dataDir: DATA_DIR, configKey: CONFIG_KEY });
+  let stored;
+  let configUnreadable = "";
+  try {
+    const opened = openWebSecretConfig({ dataDir: DATA_DIR, configKey: CONFIG_KEY, previousKey: PREVIOUS_CONFIG_KEY });
+    stored = opened.config;
+    if (opened.opened === "rewrapped") console.log("[WEB] The encrypted configuration was opened with WEB_CONFIG_KEY_PREVIOUS and written again under WEB_CONFIG_KEY; remove WEB_CONFIG_KEY_PREVIOUS now.");
+  } catch (error) {
+    // A store written under another key. The site says setup is required,
+    // the administrator page says why, and saving a secret starts the
+    // store again; this used to end the launcher (a crash loop of 502s).
+    if (error.code !== "web_config_unreadable" && error.code !== "invalid_web_config_key") throw error;
+    configUnreadable = error.code;
+    stored = { secrets: {}, models: {} };
+    console.error(`[WEB] The encrypted configuration on the disk cannot be opened with the current WEB_CONFIG_KEY (${error.code}). Restore the key that wrote it, or set WEB_CONFIG_KEY_PREVIOUS to that key for one deploy so the store is re-wrapped, or re-enter every secret on the administrator page.`);
+  }
   const secrets = {
     encryption: stored.secrets.encryption || String(process.env.ENCRYPTION_KEY || "").trim(),
     openrouter: stored.secrets.openrouter || String(process.env.OPENROUTER_API_KEY || "").trim(),
@@ -52,12 +69,13 @@ function resolvedEnvironment() {
   const ready = webConfigurationReady({ secrets });
   const encryptionConfigured = /^[0-9a-f]{64}$/i.test(secrets.encryption);
 
-  return {
+  const env = {
     ...process.env,
     NODE_ENV: "production",
     WEB_DEPLOYMENT: "1",
     WEB_SECRETS_READY: ready ? "1" : "0",
     WEB_ENCRYPTION_CONFIGURED: encryptionConfigured ? "1" : "0",
+    WEB_CONFIG_UNREADABLE: configUnreadable,
     HOST: process.env.HOST || "0.0.0.0",
     DATA_DIR,
     PUBLIC_DIR,
@@ -71,6 +89,10 @@ function resolvedEnvironment() {
     OPENROUTER_MODEL_MEDIUM: stored.models.medium || process.env.OPENROUTER_MODEL_MEDIUM || "",
     OPENROUTER_MODEL_LARGE: stored.models.large || process.env.OPENROUTER_MODEL_LARGE || "",
   };
+  // Test-runner switches and the previous key never reach the server.
+  delete env.RATE_LIMIT_RELAXED;
+  delete env.WEB_CONFIG_KEY_PREVIOUS;
+  return env;
 }
 
 function startSidecar() {

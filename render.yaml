@@ -6,6 +6,11 @@ services:
     buildCommand: npm run build:web
     startCommand: npm start
     healthCheckPath: /api/health
+    # One instance: SQLite on one persistent disk cannot be shared.
+    numInstances: 1
+    # Deploy only after the linked branch's CI checks pass
+    # (.github/workflows/ci.yml); a red run's commit never reaches the site.
+    autoDeployTrigger: checksPass
     envVars:
       - key: NODE_VERSION
         value: 22.22.0
