@@ -9,27 +9,36 @@ verified live, and what is open. It was compressed on 2026-09-21: the long
 form of every entry dated 2026-09-16 or earlier is in git
 (`git show 812cdeb:SESSION-HANDOFF.md`).
 
-## Where things stand (2026-09-21, evening KST)
+## Where things stand (2026-09-22, evening KST)
 
-- **Deployed:** `main` at `1c0d96c` (plus docs and this handoff), live at
-  https://college-counselor-web.onrender.com. CI green on each push of the
-  session: runs 35517580306 (`9c15000`), 35517945709 (`234c107`),
-  35518625060 (`8b5110a`), 35584449198 (`7fedcf1`), 35586857585
-  (`1c0d96c`). Confirmed by behaviour, see *Verified live*. The session's
-  commits, newest first: `1c0d96c` (App() into nine hooks; logging out ends
-  silent re-authentication), `7fedcf1` (server.js gives up its schedulers,
-  jobs, pillar mount, listen and shutdown), `64cdcaf` (handoff), `8b5110a`
-  (modules into folders by function), `234c107` (the sidebar drawer closes
-  on a phone), `9c15000` (refactoring tools, docs, `.graphifyignore`),
-  `470cd2a` (server.js helpers to `server/`, the 1,300-line modules
-  split), `deb7baf` (App.jsx split).
-- **Tests (run after the last code edit, 2026-09-21 10:00 UTC):** backend
-  `npm test` 741 tests, 737 pass, 4 skipped, 0 fail; `npm run lint` 0
-  errors, 39 warnings (CI cap 500); frontend `npx vitest run` 20 files, 64
-  tests; `npm run build` clean.
-- **Working tree:** clean apart from two untracked files no session made
-  (`AGENTS.md`, `backend/kor.traineddata`) and the gitignored local
-  artefacts (`backend/data/`, `graphify-out/`).
+- **Deployed:** `main` at `db40b80`, live at
+  https://college-counselor-web.onrender.com: `9dc008a` (memory ceilings
+  on every heavy path, the five repaired lazy imports, the deploy
+  checklist's three fixes), `5acd16b` (one new test's timer) and `db40b80`
+  (a 413 says "Request body too large."). CI run 35722320740 for
+  `9dc008a` failed on that test; no health blip was seen between 11:36 UTC
+  and the green run's swap at 11:42, so the red run did not reach
+  production (the three minutes before the poll began were not watched;
+  the dashboard setting is in *Open items*). Run 35722799686 for
+  `5acd16b` is green and its deploy was probed (*Verified live*);
+  `db40b80` changes only the 413's text and was checked by one request
+  after its swap. Before those, the 2026-09-20/21 session's commits
+  newest first: `31cfa2f`, `eb4b2c8` (handoffs and docs), `1c0d96c` (App()
+  into nine hooks; logging out ends silent re-authentication), `7fedcf1`
+  (server.js gives up its schedulers, jobs, pillar mount, listen and
+  shutdown), `64cdcaf`, `8b5110a` (modules into folders by function),
+  `234c107` (the sidebar drawer closes on a phone), `9c15000`
+  (refactoring tools, docs, `.graphifyignore`), `470cd2a` (server.js
+  helpers to `server/`, the 1,300-line modules split), `deb7baf` (App.jsx
+  split).
+- **Tests (run after the last code edit, 2026-09-22 11:40 UTC):** backend
+  `npm test` 766 tests, 762 pass, 4 skipped, 0 fail; `npm run lint` 0
+  errors, 38 warnings (CI cap 500); frontend `npx vitest run` 20 files, 64
+  tests (no frontend change this session; CI's build green).
+- **Working tree:** clean apart from one untracked file no session made
+  (`AGENTS.md`) and the gitignored local artefacts (`backend/data/`, which
+  now also holds the OCR language cache under `tessdata/`, and
+  `graphify-out/`).
 - **Shape of the code now.** Backend entry points stay at the top of
   `backend/` (`server.js` 1,056 lines: configuration, the databases and
   their statements, middleware, `routeDeps`, and one-line calls in boot
@@ -75,7 +84,58 @@ form of every entry dated 2026-09-16 or earlier is in git
 
 ## What changed, newest first
 
-The user's asks in this session, verbatim: "/graphify organize the current
+The user's asks on 2026-09-21/22, verbatim: "/code-review check for
+reasons of memory overflow", "/deploy-checklist render against security
+vulnurabilities commonly made by vibecoders", "init all the fixes".
+
+**Memory has a ceiling on every heavy path; the deploy checklist's three
+fixes (2026-09-22)** — `9dc008a`. The instance has 512 MB for the launcher,
+the server (130 MB idle) and the sidecar (60 MB), and nothing bounded what
+a request or a job could add. Measured in a bare process on 2026-09-21:
+one scanned CDS ingest (its own tesseract worker) peaked at 321 MB, three
+at once — a College Fit request for three schools the store lacks, or the
+daily refresh — at 620 MB; the text of three large PDFs at once 256 MB;
+ten parses in a row left 414 MB resident with 17 MB live (V8 sizes its
+heap from the machine). Now: one document lane for the process
+(`runDocumentJob` in `shared/file-extractors.js` — PDF text, DOCX, each
+rasterized page; a student's job ahead of background work; a stuck job
+given up on after 150 s), the ingest's OCR pass on the shared worker
+through that lane, a 4-million-pixel ceiling per rasterized page, the
+refresh skipping a cached document whose stored row already carries its
+cycle and parser version (`cachedParseIsCurrent`, status `unchanged`),
+documents parsed one at a time (`parseInLane`), downloads read under a
+40 MB cap with a 90 s timeout (`readBodyCapped`, in `cds-search.js`),
+pdf.js documents destroyed in `finally`, the launcher's heap budgets
+(server 192/8 MB, sidecar 96/4; `NODE_FLAGS_SERVER`, `NODE_FLAGS_SIDECAR`
+override), `[MEM]` log lines (`server/memory-watch.js`: a new high by
+32 MB, and hourly), and College Fit waiting at most 20 s for a live read.
+After: three OCR ingests 620 → 407 MB with the pipeline lane bypassed
+(one at a time through it: 261 MB), three PDFs' text 256 → 172 MB, ten
+parses 414 → 163 MB. Found on the way: five lazy `import("./…")` paths
+still named files the folder move relocated, so `GET
+/api/cds/school/:slug` and `/validation/:slug` answered 500 from
+2026-09-20 and the live CDS search, a context read and a calendar read
+failed silently — repaired, pinned by `tests/dynamic-imports.test.js`
+(every relative dynamic import must exist), and `extract-helpers.mjs`
+rewrites them like static imports; the live search also dropped
+`consistent` records (`liveIngestStored`). The checklist's fixes: JSON
+bodies 1 MB everywhere and 10 MB on `/api/chat`,
+`/api/files/extract-text`, `/api/students/transcript-import` parsed after
+the session check (`parseLargeJsonBody`; it was one 20 MB parser for
+every path before any check); the repository link `cds-search.js`
+fetches goes through the SSRF guard with each redirect hop checked — the
+guard moved to `security/safe-fetch.js` (`safeFetch(url, options, {
+fetchImpl, assertTarget })`; the pipeline re-exports the old names);
+tesseract.js's language data is cached under `DATA_DIR/tessdata` instead
+of the working directory (`ocrCacheDir`; `TESSDATA_CACHE_DIR` overrides;
+the two `.traineddata` files that sat beside `server.js` were that cache);
+the CDS read routes log exception text instead of sending it. Tests:
+`ocr-lane`, `memory-budget`, `dynamic-imports`, `deploy-hardening`, the
+ingest and search files, two request-body cases in `endpoints.test.js`.
+`CLAUDE.md` gained the *Memory and outbound requests* paragraph,
+`RUNBOOK.md` the memory notes and two "when something is wrong" bullets.
+
+The user's asks in the previous session, verbatim: "/graphify organize the current
 repo state and make sure that the parsed cache goes to the SSD, not stay on
 RAM" — "Also, use these to make my obsidian graph. Also, split monolithic
 files" — (with a phone screenshot of the open sidebar) "This tab doesn't
@@ -205,6 +265,25 @@ scout deadline tables and the official-source gate (`c4c5bb0` and earlier).
 
 ## Verified live, and not
 
+- **After `5acd16b` (blip 11:42:09–11:42:49 UTC 2026-09-22; the bundle
+  unchanged, `main-C4F9IWW6.js`):** `GET /api/cds/school/harvard-university`
+  401 without a token and 200 with one (Harvard 2025-26, admit 0.0418 — it
+  had answered 500 since 2026-09-20), `/api/cds/validation/…` 200
+  `consistent`; a 1.1 MB JSON body to `/api/students/register` 413; a 2 MB
+  body to `/api/files/extract-text` without a token 401; register 201,
+  consents, sync 200; `POST /api/positioning/targets` 200 in 2.9 s with
+  Indiana (2024-25, consistent) and Bradley University, which the store
+  lacked: the live search downloaded and parsed its 2025-26 document
+  within the request and `GET /api/cds/school/bradley-university` then
+  returned it (no admit rate in the parse — *Open items*); `POST /api/chat`
+  200 in 2.3 s on the medium tier, "In-state: $10,622 / Out-of-state:
+  $40,369" for Indiana; `POST /api/files/extract-text` with a 266 KB PDF
+  200 in 1.5 s, 45,257 characters (the document lane); `DELETE
+  /api/students` 200 and the token 401 afterwards. Not checked: Render's
+  log (`[MEM]` lines, `[cds/live-search]`), which needs the dashboard.
+- **After `db40b80` (blip 11:47:13–11:47:47 UTC 2026-09-22):** a 1.1 MB
+  JSON body to `/api/students/register` answered 413
+  `{"error":"Request body too large."}`.
 - **After `9c15000` (14:50 UTC 2026-09-20, bundle `main-BFi5gbxM.js`):** a
   throwaway account registered, granted the three consents and synced a
   small profile; `/api/positioning/targets` returned Indiana University
@@ -298,8 +377,35 @@ scout deadline tables and the official-source gate (`c4c5bb0` and earlier).
   chat evidence is keyed by activity name; prestige rationales are
   English-only; parser extras are unvalidated; the small tier sometimes
   returns an empty reply.
+- **Deploy checklist, dashboard side (2026-09-22; not checkable from
+  here):** confirm in Render that Auto-Deploy waits for CI, that no stray
+  `RATE_LIMIT_RELAXED` or `NODE_ENV` variable is set, that disk snapshots
+  exist for `college-counselor-data` (the repository has no backup routine
+  of its own), and that the instance count stays 1. `WEB_CONFIG_KEY` must
+  never be rotated: it wraps the encrypted secret store, and a new value
+  makes the counselor's keys unreadable until re-entered.
+- **`[MEM]` lines were not read this session.** After `9dc008a` the boot
+  log should show `[MEM] rss … (high …)` at once and an hourly line after
+  that; the server alone above about 380 MB, or a restart for memory, is
+  the rollback trigger (RUNBOOK.md, *When something is wrong*).
+- **The document lane's queue is unbounded:** a flood of scanned uploads
+  waits in line instead of overflowing memory, bounded per IP by the
+  30-a-minute limiters. If latency complaints appear, refuse when more
+  than a few jobs are waiting.
+- **The live CDS search is back on** (it had failed silently since
+  2026-09-20): College Fit for a school the store lacks downloads and
+  parses its document within 20 s and stores a `consistent` or
+  `no_truth` record, tagged unvalidated. `[cds/live-search] ingested …`
+  in the log; the store grows with what students look up. The probe's
+  Bradley University record (2025-26) came back with no admit rate and
+  College Fit labelled the school "High reach" for a 3.7 GPA / 1420 SAT
+  profile: the parser misses that document's C1 layout
+  (`https://www.bradley.edu/wp-content/uploads/CDS_2025-2026.pdf`) and
+  the engine seems to have had no baseline row either — check both.
 - **Untracked files to decide about:** `AGENTS.md` (a copy of an older
-  CLAUDE.md) and `backend/kor.traineddata`.
+  CLAUDE.md). `backend/kor.traineddata` and `eng.traineddata` were
+  tesseract.js's download cache and now live under
+  `backend/data/tessdata/` (gitignored, `*.traineddata`).
 
 ## Quick verification recipes
 
@@ -324,7 +430,23 @@ the account name first; register `probe-…@example.test` with grade 11, CA,
 without one) and a numbers-only question about a school in the store; a GET
 from each `/api/ec` module; `DELETE /api/students` with retries, then
 confirm the token answers 401. The fuller recipe for the chat-evidence and
-values paths is in the 812cdeb handoff.
+values paths is in the 812cdeb handoff. Since `9dc008a` also: `GET
+/api/cds/school/harvard-university` with the token (200 with the record;
+it answered 500 from 2026-09-20 until then), `POST
+/api/files/extract-text` with a small PDF as base64 (200 with text, through
+the document lane), a 1.1 MB JSON body to `/api/students/register` (413)
+and a 2 MB body to `/api/files/extract-text` without a token (401, the
+body never parsed), and a positioning request naming a school the store
+lacks (the live search; read `dataProvenance`).
+
+Memory scenarios, local: a `.mjs` in a scratch folder that imports
+`cds/cds-pdf-parser.js` or `shared/file-extractors.js`, samples
+`process.memoryUsage.rss()` from a worker thread every 20 ms, and parses
+the largest documents in `backend/tools/cds-cache/pdfs` (one, three at
+once, twenty-four in a row) or runs `extractItems(path, { method: "ocr",
+ocrMaxPages: 4 })`; run it with `--expose-gc`, then again with the
+launcher's heap flags. The figures of 2026-09-21/22 are in `9dc008a`'s
+commit message.
 
 Deploy markers: `/` carries `assets/main-*.js`; `/admin.html` carries
 `assets/admin-*.js`; a backend-only deploy shows only as a brief
@@ -337,7 +459,12 @@ CDS cache: RUNBOOK.md.
   `node -e` / `python -c` strings (`"\n"` arrives as a real newline, and a
   file written that way does not parse). Write scripts, patches and commit
   messages with the Write tool and run or `-F` them. A `python - <<EOF`
-  pipeline hung for its whole timeout; same remedy.
+  pipeline hung for its whole timeout; same remedy. The same mangling hits
+  `cat > file <<'EOF'` heredocs (a regex `\(` arrived as `(` twice on
+  2026-09-21/22) and `printf '\n'`; `sed` patterns without backslashes
+  are safe.
+- `git add -p` is unavailable, so a change set whose files overlap lands
+  as one commit (`9dc008a` carries the memory work and the checklist fixes).
 - Parallel Bash calls share one working directory and a `cd` in one moves
   the others — use absolute paths. `npx vitest run` from the repository
   root finds no jsdom config and fails every test in milliseconds; run it
