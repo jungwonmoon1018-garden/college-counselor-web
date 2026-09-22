@@ -1045,8 +1045,12 @@ if (fs.existsSync(publicDir)) {
 // ═══════════════════════════════════════════════════════════
 app.use((err, _req, res, _next) => {
   console.error("[ERROR]", err.message);
+  // A body over the route's limit is the client's to fix, so it is told so
+  // in production too (the probe of 2026-09-22 got a 413 that read
+  // "Internal server error"); every other failure stays generic there.
+  const tooLarge = err.status === 413 || err.type === "entity.too.large";
   res.status(err.status || 500).json({
-    error: NODE_ENV === "production" ? "Internal server error" : err.message,
+    error: tooLarge ? "Request body too large." : (NODE_ENV === "production" ? "Internal server error" : err.message),
   });
 });
 

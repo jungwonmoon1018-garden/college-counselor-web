@@ -171,9 +171,10 @@ async function createStudentSession(overrides = {}) {
 // take a file as base64 parse a 10 MB body themselves, after the session
 // check, so a stranger's body is never buffered.
 describe("request bodies", () => {
-  it("refuses a JSON body over 1 MB on an ordinary route", async () => {
-    const { status } = await req("POST", "/api/students/register", { email: "big@example.test", password: "p".repeat(1_100_000) });
+  it("refuses a JSON body over 1 MB on an ordinary route, and says so", async () => {
+    const { status, data } = await req("POST", "/api/students/register", { email: "big@example.test", password: "p".repeat(1_100_000) });
     assert.equal(status, 413);
+    assert.equal(data.error, "Request body too large.");
   });
 
   it("takes a larger body on the file routes, but only for a signed-in student", async () => {
