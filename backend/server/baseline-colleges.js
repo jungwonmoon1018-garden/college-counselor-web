@@ -98,7 +98,12 @@ export function resolveBaselineCollegeRow(database, { unitId, schoolName } = {})
   const exact = database.prepare("SELECT * FROM baseline_colleges WHERE lower(name) = lower(?) LIMIT 1").get(schoolName);
   if (exact) return exact;
 
-  const query = strictSchoolKey(schoolName);
+  // IPEDS names a flagship "Purdue University-Main Campus", so the bare
+  // name a student types never matches it exactly, and by the extension
+  // rule below a regional campus ("Purdue University Northwest", one extra
+  // word) used to beat it (two). The suffix is no extension at all.
+  const mainCampus = (key) => key.replace(/\s+main campus$/, "");
+  const query = mainCampus(strictSchoolKey(schoolName));
   if (!query) return null;
   // Narrow with a LIKE on the most distinctive token (longest non-stopword),
   // not "university"/"of" which match thousands of rows.
@@ -113,7 +118,7 @@ export function resolveBaselineCollegeRow(database, { unitId, schoolName } = {})
   let best = null;
   let bestScore = -1;
   for (const row of candidates) {
-    const cand = strictSchoolKey(row.name);
+    const cand = mainCampus(strictSchoolKey(row.name));
     if (!cand) continue;
     let score = -1;
     if (cand === query) {

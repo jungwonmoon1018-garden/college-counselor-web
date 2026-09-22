@@ -182,7 +182,12 @@ export async function runPositioning({ studentId, body = {}, bypassCache = false
       // data (and evidence confidence stops reading "Very Low") whenever we
       // have a CDS record for this school.
       const lookupName = cdsResult.schoolName || requested?.schoolName || collegeRow?.name;
-      let storedCds = resolveStoredCdsRecord(deps.ragStmts, { schoolName: lookupName });
+      // The name the student asked for is tried against the store first:
+      // the repository index resolved "Purdue University" to Purdue
+      // University Northwest on 2026-09-22 while the store held the main
+      // campus, and the index's name used to be the only one looked up.
+      let storedCds = (requested?.schoolName ? resolveStoredCdsRecord(deps.ragStmts, { schoolName: requested.schoolName }) : null)
+        || resolveStoredCdsRecord(deps.ragStmts, { schoolName: lookupName });
       // Not in the store yet? Search this university's CDS live, parse, and
       // persist it — so searching a school in College Fit also pulls its CDS.
       if (!storedCds && searchCds) {

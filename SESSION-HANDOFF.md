@@ -11,7 +11,7 @@ form of every entry dated 2026-09-16 or earlier is in git
 
 ## Where things stand (2026-09-22, evening KST)
 
-- **Deployed:** `main` at `ad13a62`, live at
+- **Deployed:** `main` at `6a5caa6`, live at
   https://college-counselor-web.onrender.com: `9dc008a` (memory ceilings
   on every heavy path, the five repaired lazy imports, the deploy
   checklist's three fixes), `5acd16b` (one new test's timer), `db40b80`
@@ -19,9 +19,11 @@ form of every entry dated 2026-09-16 or earlier is in git
   layers to OCR, the C1 residency fallback, Bradley's seed, the daily
   backups and their download, the rotation of `WEB_CONFIG_KEY`, the
   test-only rate-limit switch, `render.yaml`'s instance and CI-gate keys,
-  the `[DISK]` line), `1810920` (handoff) and `ad13a62` (College Fit's
-  label is an admission likelihood; its CI run and probe are under
-  *Verified live*). CI run 35722320740 for
+  the `[DISK]` line), `1810920` (handoff), `ad13a62` (College Fit's
+  label is an admission likelihood), `a3aefd5` (handoff) and `6a5caa6`
+  (a one-course record is not a light transcript; the GPA as a percentile
+  of the class); the CI runs and probes of the last two are under
+  *Verified live*. CI run 35722320740 for
   `9dc008a` failed on that test; no health blip was seen between 11:36 UTC
   and the green run's swap at 11:42, so the red run did not reach
   production (the three minutes before the poll began were not watched;
@@ -37,8 +39,8 @@ form of every entry dated 2026-09-16 or earlier is in git
   (refactoring tools, docs, `.graphifyignore`), `470cd2a` (server.js
   helpers to `server/`, the 1,300-line modules split), `deb7baf` (App.jsx
   split).
-- **Tests (run after the last code edit, 2026-09-22 13:05 UTC):** backend
-  `npm test` 786 tests, 782 pass, 4 skipped, 0 fail; `npm run lint` 0
+- **Tests (run after the last code edit, 2026-09-22 13:32 UTC):** backend
+  `npm test` 788 tests, 784 pass, 4 skipped, 0 fail; `npm run lint` 0
   errors, 38 warnings (CI cap 500); frontend `npx vitest run` 20 files, 64
   tests (no frontend change this session; CI's build green).
 - **Working tree:** clean apart from one untracked file no session made
@@ -147,6 +149,17 @@ fell to zero 0.35 below. The thin record reads "Reach" at the 50% school
 "Competitive" at 75–82%, "Reach" at 50%; the strong profile unchanged; a
 student at a school's own averages comes to a readiness of 54–63, which
 is what the likelihood is centred on.
+
+**"Purdue University" is the main campus (2026-09-22)** — the commit after
+`6a5caa6`. The probe's request for "Purdue University" was labelled
+Purdue University Northwest: IPEDS names the flagship "Purdue
+University-Main Campus", so the bare name never matched a baseline row
+exactly and `resolveBaselineCollegeRow`'s prefix-extension rule scored
+the regional campus (one extra word) above the main one (two). The "Main
+Campus" suffix now counts as no extension, on the query and the
+candidates; and `runPositioning` asks the CDS store for the name the
+student typed before the repository index's name for it. Tests in
+`baseline-resolver.test.js`.
 
 **Unreadable text layers go to OCR, the C1 reader falls back to the
 residency table, and the databases are backed up daily (2026-09-22)** —
@@ -398,6 +411,14 @@ scout deadline tables and the official-source gate (`c4c5bb0` and earlier).
   one activity): Bradley "Competitive" 52.4, Indiana "Competitive" 45.2,
   Harvard "High reach" 0.4, with the two coursework flags. Before this
   deploy the same strong profile read "Reach" at Bradley and Indiana.
+- **After `6a5caa6` (CI run 35732317885; blip 13:17:19–13:17:54 UTC
+  2026-09-22):** the thin profile reads "Highly competitive" at Bradley
+  (75) and Indiana (77), "Competitive" at a 50%-admit school (42.1 — the
+  store resolved "Purdue University" to Purdue University Northwest, see
+  *Open items*) and "High reach" at Harvard (0.8), with no coursework
+  flags; the strong profile "Highly competitive" at Bradley (90), Indiana
+  (93) and that 50% school (77), "High reach" at Harvard (6.3). Both
+  accounts deleted.
 - **After `03ed23f` (CI run 35727260532; blip 12:28:40–12:29:14 UTC
   2026-09-22):** the same probe as after `5acd16b` passed again (Harvard's
   CDS route 401/200, the 413 with its text, the stranger's 2 MB file 401,
