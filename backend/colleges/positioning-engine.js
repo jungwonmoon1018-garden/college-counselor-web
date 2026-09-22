@@ -54,7 +54,10 @@ export const IPEDS_CIP_GROWTH_PROXY = Object.freeze({
 });
 
 const MAJOR_KEYWORDS = Object.freeze({
-  computer_science: ["computer science", "cs", "programming", "software", "data structures", "algorithms", "machine learning", "python", "java", "javascript", "ap computer science"],
+  // Calculus, linear algebra and discrete mathematics are what a computer
+  // science department asks for first; without them a student with AP CS A,
+  // Calculus BC and Physics C read "without enough preparation".
+  computer_science: ["computer science", "cs", "programming", "software", "data structures", "algorithms", "machine learning", "python", "java", "javascript", "ap computer science", "calculus", "linear algebra", "discrete"],
   data_science: ["data science", "statistics", "data", "analytics", "ap statistics", "probability"],
   computational_biology: ["biology", "bioinformatics", "genomics", "computational", "biostatistics", "ap biology"],
   biomedical_engineering: ["engineering", "biomedical", "physics", "biology", "calculus"],
@@ -251,9 +254,12 @@ export function buildStudentModel(snapshot, strengthRows = [], narrative = null,
     }
   })) || 2;
   const ecMajorAlignment = avg(strengthRows.map((row) => Number(row.major_spike || row.narrative_fit || 0) * 100)) || 0;
+  // No narrative is no evidence, not weak evidence: null, and every reader
+  // treats it as neutral. A flat 25 used to pull every school toward
+  // "Reach" for a student who had not written one yet.
   const narrativeCoherence = narrative
     ? round1(clamp01(avg(strengthRows.map((row) => Number(row.narrative_fit || 0))) || 0.35) * 100)
-    : 25;
+    : null;
 
   return {
     gpa,
@@ -463,7 +469,26 @@ export function scoreTestPercentile(student, college, cdsResult) {
 // distribution: the share of the enrolled class in the student's GPA band
 // or above. With an average, the distribution refines the read (60/40);
 // without one, the distribution or the band stands alone.
-export function compareGpaToSchool(student, college, cdsResult) {
+// What a school's admitted average GPA is likely to be when nothing reports
+// it, from its admit rate: a 5%-admit school's class averages about 3.95,
+// a 75%-admit one about 3.5. A flat 3.75 used to stand in for every unknown
+// school, so a 75%-admit school with no parsed bands read as selective as
+// a 40%-admit one and a 3.7 GPA there scored 46.
+const AVERAGE_GPA_BY_ADMIT_RATE = [[0.05, 3.95], [0.2, 3.85], [0.4, 3.75], [0.6, 3.6], [0.8, 3.45], [0.95, 3.3]];
+export function defaultAverageGpaFor(admitRate) {
+  if (admitRate == null || !Number.isFinite(admitRate)) return 3.75;
+  const points = AVERAGE_GPA_BY_ADMIT_RATE;
+  if (admitRate <= points[0][0]) return points[0][1];
+  if (admitRate >= points[points.length - 1][0]) return points[points.length - 1][1];
+  for (let i = 1; i < points.length; i += 1) {
+    const [r0, g0] = points[i - 1];
+    const [r1, g1] = points[i];
+    if (admitRate <= r1) return round2(g0 + (g1 - g0) * ((admitRate - r0) / (r1 - r0)));
+  }
+  return 3.75;
+}
+
+export function compareGpaToSchool(student, college, cdsResult, { fallbackAverage = null } = {}) {
   const parsed = cdsResult?.parsed || {};
   const average = numberOrNull(college?.avgGpaAdmitted ?? college?.avg_gpa_admitted ?? parsed.gpaAverage);
   const band = bandOf(parsed.gpaBand?.low, parsed.gpaBand?.high);
@@ -475,8 +500,9 @@ export function compareGpaToSchool(student, college, cdsResult) {
   const weightedScale = average != null && average > 4;
   const gpaForAverage = weightedScale ? (student.weightedGpa ?? gpa) : gpa;
   // Tighter than before but not punitive: at the admitted average ≈54, ~0.2
-  // above ≈85, ~0.2 below ≈23. No-GPA default 30.
-  const target = weightedScale && student.weightedGpa == null ? 4 : (average ?? 3.75);
+  // above ≈85, ~0.2 below ≈23. No-GPA default 30. With no average on file
+  // the caller's fallback (from the admit rate) stands in, else 3.75.
+  const target = weightedScale && student.weightedGpa == null ? 4 : (average ?? fallbackAverage ?? 3.75);
   const formulaScore = gpaForAverage != null ? clamp01((gpaForAverage - (target - 0.35)) / 0.65) * 100 : 30;
   let placement = null;
   let distributionScore = null;
@@ -592,10 +618,14 @@ export function compareCourseRigor(student, averageGpa = null) {
 export function scoreAcademicReadiness(student, college, cdsResult) {
   const c7 = cdsResult?.parsed?.c7 || {};
   const tests = compareTestsToSchool(student, college, cdsResult);
-  const gpaRead = compareGpaToSchool(student, college, cdsResult);
+  // A school whose averages are not on file is judged against what its
+  // admit rate implies, not against a selective school's numbers.
+  const admitRateForDefaults = normalizePercentValue(college?.acceptanceRate ?? college?.acceptance ?? college?.admission_rate ?? (cdsResult?.parsed?.admitRatePercent != null ? cdsResult.parsed.admitRatePercent : null));
+  const fallbackAverage = defaultAverageGpaFor(admitRateForDefaults != null && admitRateForDefaults > 0 ? admitRateForDefaults : null);
+  const gpaRead = compareGpaToSchool(student, college, cdsResult, { fallbackAverage });
   const rankRead = compareRankToSchool(student, cdsResult);
   const apRead = compareApExams(student);
-  const rigorRead = compareCourseRigor(student, gpaRead.average);
+  const rigorRead = compareCourseRigor(student, gpaRead.average ?? fallbackAverage);
   const featureWeights = {
     gpa: 0.27 + 0.08 * c7Value(c7, ["academicGpa", "academic_gpa", "gpa"], 0.7),
     rigor: 0.2 + 0.08 * c7Value(c7, ["rigor"], 0.7),
@@ -604,11 +634,16 @@ export function scoreAcademicReadiness(student, college, cdsResult) {
     // never read, so the other evidence carries its weight.
     test: tests.advice === "withhold" ? 0 : 0.14 + 0.08 * c7Value(c7, ["standardizedTests", "standardized_tests", "test_scores"], 0.35),
     // AP exam results count once the student has any; before the first
-    // exam the component is absent rather than a penalty.
+    // exam the component is absent rather than a penalty. The same for
+    // academic awards and class rank since 2026-09-22: no award used to
+    // score 25 and no rank 50, and a constant "trend" of 60 carried 7% of
+    // the weight, so every student was pulled toward the middle and a
+    // 3.95 / 1520 record with six APs scored 75 (the calibration read
+    // "Reach" at a 75%-admit school). What is not on file drops out.
     apExams: apRead.score != null ? 0.06 : 0,
-    awards: 0.08,
-    trend: 0.07,
-    rank: 0.06 + 0.03 * c7Value(c7, ["classRank", "class_rank"], 0.35),
+    awards: student.academicAwardsCount > 0 ? 0.08 : 0,
+    trend: 0,
+    rank: rankRead.basis === "unknown" ? 0 : 0.06 + 0.03 * c7Value(c7, ["classRank", "class_rank"], 0.35),
   };
   const totalWeight = Object.values(featureWeights).reduce((a, b) => a + b, 0);
   for (const key of Object.keys(featureWeights)) featureWeights[key] /= totalWeight;
@@ -618,8 +653,8 @@ export function scoreAcademicReadiness(student, college, cdsResult) {
   const majorPrepScore = clamp01(((student.relevantCourses.length / 5) * 0.55) + (((student.majorRelevantGpa ?? student.gpa ?? 3.2) / 4) * 0.45)) * 100;
   const testScore = tests.score;
   const apExamScore = apRead.score ?? 0;
-  const awardsScore = Math.min(100, student.academicAwardsCount * 18 + 25);
-  const trendScore = 60;
+  const awardsScore = Math.min(100, student.academicAwardsCount * 18 + 40);
+  const trendScore = 60; // reported for the breakdown's shape; weight 0
   const rankScore = rankRead.score;
 
   const componentScores = { gpaScore, rigorScore, majorPrepScore, testScore, apExamScore, awardsScore, trendScore, rankScore };
@@ -698,9 +733,13 @@ export function scoreInstitutionalPriorityFit(student, cdsResult) {
   const characterWeight = c7Value(c7, ["character"], 0.35);
   const recWeight = c7Value(c7, ["recommendation", "recommendations"], 0.35);
 
-  const ecStrength = clamp01((student.ecImpactTier - 1) / 4) * 100;
-  const majorAlignment = clamp01(student.ecMajorAlignment / 100) * 100;
-  const narrative = clamp01(student.narrativeCoherence / 100) * 100;
+  // Missing evidence is neutral (50), not weak: a student with no strength
+  // rows yet, or no narrative, used to score about 18 here, and that number
+  // then counted against every school.
+  const hasEcEvidence = student.strengthRows.length > 0;
+  const ecStrength = hasEcEvidence ? clamp01((student.ecImpactTier - 1) / 4) * 100 : 50;
+  const majorAlignment = hasEcEvidence ? clamp01(student.ecMajorAlignment / 100) * 100 : 50;
+  const narrative = clamp01((student.narrativeCoherence ?? 50) / 100) * 100;
   const recProxy = clamp01((narrative * 0.6 + majorAlignment * 0.4) / 100) * 100;
 
   const raw =
@@ -736,8 +775,10 @@ export function scoreStrategicFocusBonus(strategicSignals = [], majorPolicy = nu
 }
 
 export function scoreNarrativeFit(student) {
-  const coherence = round1(student.narrativeCoherence);
-  const specificity = round1((student.ecMajorAlignment * 0.55) + (clamp01((student.relevantCourses.length || 0) / 5) * 45));
+  // Neutral where there is nothing to read: no narrative, no strength rows.
+  const coherence = round1(student.narrativeCoherence ?? 50);
+  const alignment = student.strengthRows.length ? student.ecMajorAlignment : 50;
+  const specificity = round1((alignment * 0.55) + (clamp01((student.relevantCourses.length || 0) / 5) * 45));
   const authenticity = round1(Math.min(100, 40 + student.strengthRows.length * 8));
   const score = round1((coherence * 0.5) + (specificity * 0.35) + (authenticity * 0.15));
   return { score, coherence, specificity, authenticity };
@@ -838,10 +879,13 @@ export function buildRedFlags(student, collegeContext, majorCompetitiveness, nar
   if (student.activities.length >= 8 && student.strengthRows.length > 0 && (avg(student.strengthRows.map((row) => Number(row.dedication || 0))) || 0) < 0.35) {
     flags.push("Many shallow extracurriculars without enough sustained depth.");
   }
-  if ((student.majorInterest || "").match(/\b(ai|medicine|business)\b/i) && narrativeFit.specificity < 45) {
+  // A narrative that reads weakly is a flag; a narrative not written yet is
+  // not (the advice elsewhere asks for one).
+  const hasNarrative = student.narrativeCoherence != null;
+  if (hasNarrative && (student.majorInterest || "").match(/\b(ai|medicine|business)\b/i) && narrativeFit.specificity < 45) {
     flags.push("Narrative risks sounding generic for a crowded major lane.");
   }
-  if (narrativeFit.coherence < 45) {
+  if (hasNarrative && narrativeFit.coherence < 45) {
     flags.push("Narrative coherence is weak and may read as a list rather than a story.");
   }
   if (majorCompetitiveness.capacityRiskFlag !== "normal" && student.relevantCourses.length <= 2) {
@@ -853,13 +897,33 @@ export function buildRedFlags(student, collegeContext, majorCompetitiveness, nar
   return flags;
 }
 
-export function classifyPositioningLabel(finalScore) {
-  // Raised cutoffs (was 82/67/48). "Competitive" now requires a genuinely
-  // in-range profile rather than a merely plausible one — the labels were
-  // reading too optimistically.
-  if (finalScore >= 85) return "Highly competitive";
-  if (finalScore >= 70) return "Competitive";
-  if (finalScore >= 52) return "Reach";
+// The label is an admission likelihood, not the composite. The school's
+// admit rate is the base rate — what an applicant has before anything is
+// known about them — and the composite (readiness) shifts the log-odds:
+// each ten points above or below 60, about what a student at the school's
+// own averages comes to, moves the odds by e^0.7 (twice), capped at ±2.4.
+// So a 75%-admit school reads "Highly competitive" for a student in its
+// range and "Competitive" or "Reach" for a thin record, a 4%-admit school
+// reads "High reach" for almost everyone and "Reach" for the strongest,
+// and an unknown admit rate is taken as 50%, never as the most selective.
+// Until 2026-09-22 the composite alone was labelled, with cutoffs of
+// 85/70/52 (raised from 82/67/48 when the labels read too optimistically
+// at selective schools), and the admit rate could only lower it, so no
+// school could read better than "Reach" for a student whose evidence was
+// thin, however open its admission: a 3.95 / 1520 profile with six APs
+// read "Reach" at a 75%-admit school.
+export function admissionLikelihood({ readiness, admitRate }) {
+  const base = Math.min(0.98, Math.max(0.02, admitRate == null ? 0.5 : admitRate));
+  const bounded = Math.max(0, Math.min(100, Number(readiness) || 0));
+  const shift = Math.max(-2.4, Math.min(2.4, (bounded - 60) * 0.07));
+  const logit = Math.log(base / (1 - base)) + shift;
+  return 1 / (1 + Math.exp(-logit));
+}
+
+export function classifyPositioningLabel(likelihoodScore) {
+  if (likelihoodScore >= 70) return "Highly competitive";
+  if (likelihoodScore >= 40) return "Competitive";
+  if (likelihoodScore >= 15) return "Reach";
   return "High reach";
 }
 
@@ -937,12 +1001,14 @@ export function buildPositioningForTarget(student, collegeContext, cdsResult, op
     strategicFocus.bonus +
     contextBonus -
     redFlagPenalty;
-  // Devalue the COMPOSITE inversely proportional to the acceptance rate (see
-  // scoreInstitutionalSelectivityAdjustment). Applied once, to the whole score
-  // rather than only the academic sub-score, so a hyper-selective school's
-  // composite is discounted as a whole and selectivity isn't double-counted.
-  const finalScore = (preSelectivityScore / 1.15) * selectivity.adjustment;
-  const boundedFinal = round1(Math.max(0, Math.min(100, finalScore)));
+  // The composite, normalized, is the student's readiness; the admit rate is
+  // the base rate; the likelihood is the score and the label (see
+  // admissionLikelihood). The selectivity adjustment is reported for
+  // transparency and feeds the displayed competitiveness; it no longer
+  // multiplies the score, which would count the admit rate twice.
+  const readiness = round1(Math.max(0, Math.min(100, preSelectivityScore / 1.15)));
+  const admitRate = normalizePercentValue(collegeContext.acceptanceRate ?? collegeContext.acceptance ?? collegeContext.admission_rate ?? null);
+  const boundedFinal = round1(admissionLikelihood({ readiness, admitRate: admitRate != null && admitRate > 0 ? admitRate : null }) * 100);
   const confidence = scoreEvidenceConfidence({
     cdsResult,
     collegeContext,
@@ -965,6 +1031,10 @@ export function buildPositioningForTarget(student, collegeContext, cdsResult, op
     intendedMajor: student.majorInterest || options.major || null,
     overallPositioningLabel: label,
     finalPositioningScore: boundedFinal,
+    // The composite the likelihood was shifted by, and the base rate it
+    // started from (null when the admit rate is unknown: 50% was assumed).
+    readinessScore: readiness,
+    admitRateUsed: admitRate != null && admitRate > 0 ? round2(admitRate) : null,
     admissibility: {
       academicReadinessScore: academic.score,
       summary: academic.score >= 80 ? "academically in-range" : academic.score >= 65 ? "academically plausible but not comfortable" : "academically stretched",

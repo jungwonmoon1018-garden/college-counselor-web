@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  admissionLikelihood,
   buildStudentModel,
   scoreAcademicReadiness,
   scoreInstitutionalPriorityFit,
@@ -72,7 +73,10 @@ test("scoreAcademicReadiness dynamic weights respect OCR-normalized C7 values", 
   });
 
   assert.ok(emphasizedTests.dynamicWeights.test > deemphasizedTests.dynamicWeights.test);
-  assert.equal(deemphasizedTests.dynamicWeights.test < 0.15, true);
+  // De-emphasized tests weigh less than the GPA; the absolute share grew on
+  // 2026-09-22 when the components with nothing on file stopped diluting it.
+  assert.ok(deemphasizedTests.dynamicWeights.test < deemphasizedTests.dynamicWeights.gpa);
+  assert.ok(deemphasizedTests.dynamicWeights.test < 0.2, `test weight ${deemphasizedTests.dynamicWeights.test}`);
 });
 
 test("scoreInstitutionalPriorityFit exposes C7 signals used from normalized OCR weights", () => {
@@ -146,11 +150,56 @@ test("buildPositioningForTarget returns evidence-backed target output", () => {
   assert.ok(Array.isArray(result.mainRedFlags));
 });
 
-test("classifyPositioningLabel uses the four requested bands", () => {
+test("classifyPositioningLabel maps an admission likelihood to the four bands", () => {
   assert.equal(classifyPositioningLabel(85), "Highly competitive");
-  assert.equal(classifyPositioningLabel(70), "Competitive");
-  assert.equal(classifyPositioningLabel(52), "Reach");
-  assert.equal(classifyPositioningLabel(30), "High reach");
+  assert.equal(classifyPositioningLabel(70), "Highly competitive");
+  assert.equal(classifyPositioningLabel(55), "Competitive");
+  assert.equal(classifyPositioningLabel(40), "Competitive");
+  assert.equal(classifyPositioningLabel(25), "Reach");
+  assert.equal(classifyPositioningLabel(15), "Reach");
+  assert.equal(classifyPositioningLabel(10), "High reach");
+});
+
+// The label is a likelihood: the admit rate is the base rate and the
+// composite shifts the odds. Before 2026-09-22 the admit rate could only
+// lower the composite, so a 3.95 / 1520 profile read "Reach" at a 75%-admit
+// school, and missing evidence (no narrative, no strength rows) counted as
+// weak evidence at every school.
+test("admissionLikelihood starts from the admit rate and shifts by readiness", () => {
+  assert.ok(Math.abs(admissionLikelihood({ readiness: 60, admitRate: 0.3 }) - 0.3) < 0.001, "a student at the school's own averages has the admit rate's odds");
+  assert.ok(admissionLikelihood({ readiness: 80, admitRate: 0.3 }) > 0.55);
+  assert.ok(admissionLikelihood({ readiness: 40, admitRate: 0.3 }) < 0.15);
+  assert.ok(Math.abs(admissionLikelihood({ readiness: 60, admitRate: null }) - 0.5) < 0.001, "an unknown admit rate is 50%, never the most selective");
+  assert.ok(admissionLikelihood({ readiness: 100, admitRate: 0.04 }) < 0.4, "a 4%-admit school stays a reach for the strongest");
+  assert.ok(admissionLikelihood({ readiness: 100, admitRate: 0.04 }) > admissionLikelihood({ readiness: 65, admitRate: 0.04 }));
+});
+
+test("a strong student reads Highly competitive at a 75%-admit school and a reach at a 4%-admit one", () => {
+  const student = makeStudent();
+  const cds = { schoolName: "X", fetchStatus: "ok", parsed: { c7: {} } };
+  const open = buildPositioningForTarget(student, { name: "Open", acceptanceRate: 75, sat25: 1050, sat75: 1250, avgGpaAdmitted: 3.5, topMajors: [] }, cds, { major: "Computer Science" });
+  assert.equal(open.overallPositioningLabel, "Highly competitive", `open: ${open.overallPositioningLabel} @ ${open.finalPositioningScore} (readiness ${open.readinessScore})`);
+  assert.equal(open.admitRateUsed, 0.75);
+  const lottery = buildPositioningForTarget(student, { name: "Lottery", acceptanceRate: 4, sat25: 1500, sat75: 1570, avgGpaAdmitted: 3.95, topMajors: [] }, cds, { major: "Computer Science" });
+  assert.ok(["High reach", "Reach"].includes(lottery.overallPositioningLabel), `lottery: ${lottery.overallPositioningLabel} @ ${lottery.finalPositioningScore}`);
+  assert.ok(lottery.finalPositioningScore < open.finalPositioningScore);
+});
+
+test("missing evidence is neutral: no narrative and no strength rows do not drag a school below its academics", () => {
+  const thin = buildStudentModel({
+    gpa_unweighted: 3.7,
+    major_interest: "Computer Science",
+    courses_json: JSON.stringify([{ name: "AP Calculus AB", type: "ap", grade: "A", year: "11" }]),
+    test_scores_json: JSON.stringify([{ test: "sat", totalScore: 1420 }]),
+    activities_json: JSON.stringify([{ name: "Robotics Club", role: "Captain", description: "Led a team to the state final" }]),
+  }, [], null);
+  assert.equal(thin.narrativeCoherence, null, "no narrative is unknown, not 25");
+  const fit = scoreInstitutionalPriorityFit(thin, { parsed: { c7: {} } });
+  assert.ok(fit.score >= 45 && fit.score <= 55, `neutral fit, got ${fit.score}`);
+  const cds = { schoolName: "X", fetchStatus: "ok", parsed: { c7: {} } };
+  const open = buildPositioningForTarget(thin, { name: "Open", acceptanceRate: 75, sat25: 1050, sat75: 1250, avgGpaAdmitted: 3.5, topMajors: [] }, cds, { major: "Computer Science" });
+  assert.ok(["Highly competitive", "Competitive"].includes(open.overallPositioningLabel), `thin at open: ${open.overallPositioningLabel} @ ${open.finalPositioningScore} (readiness ${open.readinessScore})`);
+  assert.ok(!open.mainRedFlags.some((flag) => /Narrative/.test(flag)), "a narrative not written yet is not a red flag");
 });
 
 test("unknown admit rate is NOT treated as maximally selective", () => {
@@ -416,7 +465,8 @@ test("AP exam results enter the readiness blend only once the student has some",
   assert.equal(withExams.apExams.count, 4);
   assert.equal(withExams.apExams.strong, 3);
   assert.equal(withExams.apExams.weak, 1);
-  assert.deepEqual(withExams.apExams.relevant.map((a) => a.name), ["Computer Science A"]);
+  // Calculus counts for computer science since 2026-09-22.
+  assert.deepEqual(withExams.apExams.relevant.map((a) => a.name), ["Computer Science A", "Calculus BC"]);
   const ap = compareApExams(withExams);
   assert.ok(ap.score >= 85, `three 4s and 5s with a 5 in the field should read high, got ${ap.score}`);
   const readiness = scoreAcademicReadiness(withExams, WIDE_COLLEGE, WIDE_CDS);

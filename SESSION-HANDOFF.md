@@ -93,7 +93,46 @@ form of every entry dated 2026-09-16 or earlier is in git
 The user's asks on 2026-09-21/22, verbatim: "/code-review check for
 reasons of memory overflow", "/deploy-checklist render against security
 vulnurabilities commonly made by vibecoders", "init all the fixes", "fix
-the bradley parse and then finish the checklist made earlier".
+the bradley parse and then finish the checklist made earlier", "Fix these
+too" / "Also these" (the checklist's dashboard-side items), "fix the
+College Fit label calibration too".
+
+**College Fit's label is an admission likelihood (2026-09-22)** — the
+commit after `1810920`. With a strong probe profile (3.95 GPA, 1520 SAT,
+six APs, three activities, no narrative) the card read "Reach" for
+Bradley (75% admit) and Indiana (82%) and "High reach" for Harvard. Four
+causes in `colleges/positioning-engine.js`, all fixed: the label came
+from the composite with fixed cutoffs (85/70/52) and the admit rate could
+only lower it (a devaluation of at most 35%), so no open school could
+lift a student; missing evidence read as weak evidence — no narrative
+was a coherence of 25, no strength rows an EC strength of 25, no class
+rank a 50, no awards a 25, and a constant "trend" of 60 carried 7% of
+the readiness weight, pulling every student toward the middle; a school
+with no averages on file was judged against a 3.75 GPA and a six-course
+load, a selective school's numbers, whatever its admit rate; and
+calculus did not count as computer-science preparation, so AP CS A +
+Calculus BC + Physics C read "without enough preparation". Now
+`admissionLikelihood({ readiness, admitRate })`: the admit rate is the
+base rate (50% when unknown, never the most selective), the composite
+shifts the log-odds by 0.07 per point around 60 (about what a student at
+the school's own averages comes to), capped at ±2.4; the likelihood is
+`finalPositioningScore` and the label (`classifyPositioningLabel`:
+70/40/15). Components with nothing on file drop out of the readiness
+blend and the rest re-normalize; the no-narrative and no-rows cases are
+neutral (50); `defaultAverageGpaFor(admitRate)` stands in for a missing
+average (3.95 at 5% admit, 3.5 at 75%); calculus, linear algebra and
+discrete count for CS. Results (local scenarios): the strong profile
+reads "Highly competitive" at 75%, 82% and 50% schools (92 / 95 / 77),
+"Reach" at an 18% one (35) and "High reach" at 4% (6); a thin 3.7 / 1420
+record with one AP reads "Competitive" at 75% and 82% (52 / 47) and
+"High reach" at 50% and below (its one course is read as its transcript);
+a 3.4 / 1280 record reads "Reach" at 75–82% and "High reach" elsewhere.
+The result carries `readinessScore` and `admitRateUsed` for transparency;
+the selectivity adjustment is still reported but no longer multiplies the
+score. Tests: the likelihood's anchors, the strong and thin students at
+open and lottery schools, neutral missing evidence, the recalibrated
+bands; two older pins updated (calculus is relevant; de-emphasized tests
+weigh less than the GPA rather than under 0.15).
 
 **Unreadable text layers go to OCR, the C1 reader falls back to the
 residency table, and the databases are backed up daily (2026-09-22)** —
@@ -465,14 +504,8 @@ scout deadline tables and the official-source gate (`c4c5bb0` and earlier).
   no score bands, GPA or C7. A school with no rate at all is labelled
   "High reach" by the engine's uncertainty penalty (positioning-engine.js
   line ~792), which reads as a verdict rather than "no data" — worth a
-  neutral label. Calibration, seen on 2026-09-22 with a strong probe
-  profile (3.95 GPA, 1520 SAT, six rigorous courses, three activities, no
-  narrative): Bradley "Reach" at 54.3 (admissibility 73.6, competitiveness
-  61, fit 18.1), Indiana "Reach" at 58.7, Harvard "High reach" at 31.3 —
-  the engine tells the schools apart, but a fit component near 18 without
-  a narrative keeps a 75%-admit school at "Reach" for that student; the
-  cutoffs (85/70/52, `classifyPositioningLabel`) were raised on purpose
-  earlier. A product question, not a data one.
+  neutral label — done in the recalibration (the change log above): an
+  unknown admit rate is taken as 50%.
 - **Parser version 7 re-reads the whole store once:** the next daily
   refresh (June to December, daily) parses every cached document again,
   one at a time in the lane — text layers in seconds, the unreadable or
