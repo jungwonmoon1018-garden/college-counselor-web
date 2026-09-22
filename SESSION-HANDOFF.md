@@ -11,15 +11,17 @@ form of every entry dated 2026-09-16 or earlier is in git
 
 ## Where things stand (2026-09-22, evening KST)
 
-- **Deployed:** `main` at `03ed23f`, live at
+- **Deployed:** `main` at `ad13a62`, live at
   https://college-counselor-web.onrender.com: `9dc008a` (memory ceilings
   on every heavy path, the five repaired lazy imports, the deploy
   checklist's three fixes), `5acd16b` (one new test's timer), `db40b80`
-  (a 413 says "Request body too large.") and `03ed23f` (unreadable text
+  (a 413 says "Request body too large."), `03ed23f` (unreadable text
   layers to OCR, the C1 residency fallback, Bradley's seed, the daily
   backups and their download, the rotation of `WEB_CONFIG_KEY`, the
   test-only rate-limit switch, `render.yaml`'s instance and CI-gate keys,
-  the `[DISK]` line; its CI run and probe are under *Verified live*). CI run 35722320740 for
+  the `[DISK]` line), `1810920` (handoff) and `ad13a62` (College Fit's
+  label is an admission likelihood; its CI run and probe are under
+  *Verified live*). CI run 35722320740 for
   `9dc008a` failed on that test; no health blip was seen between 11:36 UTC
   and the green run's swap at 11:42, so the red run did not reach
   production (the three minutes before the poll began were not watched;
@@ -35,8 +37,8 @@ form of every entry dated 2026-09-16 or earlier is in git
   (refactoring tools, docs, `.graphifyignore`), `470cd2a` (server.js
   helpers to `server/`, the 1,300-line modules split), `deb7baf` (App.jsx
   split).
-- **Tests (run after the last code edit, 2026-09-22 12:35 UTC):** backend
-  `npm test` 783 tests, 779 pass, 4 skipped, 0 fail; `npm run lint` 0
+- **Tests (run after the last code edit, 2026-09-22 13:05 UTC):** backend
+  `npm test` 786 tests, 782 pass, 4 skipped, 0 fail; `npm run lint` 0
   errors, 38 warnings (CI cap 500); frontend `npx vitest run` 20 files, 64
   tests (no frontend change this session; CI's build green).
 - **Working tree:** clean apart from one untracked file no session made
@@ -374,6 +376,16 @@ scout deadline tables and the official-source gate (`c4c5bb0` and earlier).
 - **After `db40b80` (blip 11:47:13–11:47:47 UTC 2026-09-22):** a 1.1 MB
   JSON body to `/api/students/register` answered 413
   `{"error":"Request body too large."}`.
+- **After `ad13a62` (CI run 35731065695; blip 13:05:39–13:06:05 UTC
+  2026-09-22):** two throwaway accounts, deleted afterwards. The strong
+  profile (3.95 GPA, 1520 SAT, six APs, three activities, no narrative):
+  Bradley "Highly competitive" 92.1 (readiness 79.7, admit rate used
+  0.75), Indiana "Highly competitive" 94.2 (readiness 81.5, 0.78),
+  Harvard "High reach" 7.4 (readiness 68.6, 0.04; one flag, the transcript
+  light against Harvard's range). The thin profile (3.7 / 1420, one AP,
+  one activity): Bradley "Competitive" 52.4, Indiana "Competitive" 45.2,
+  Harvard "High reach" 0.4, with the two coursework flags. Before this
+  deploy the same strong profile read "Reach" at Bradley and Indiana.
 - **After `03ed23f` (CI run 35727260532; blip 12:28:40–12:29:14 UTC
   2026-09-22):** the same probe as after `5acd16b` passed again (Harvard's
   CDS route 401/200, the 413 with its text, the stranger's 2 MB file 401,
