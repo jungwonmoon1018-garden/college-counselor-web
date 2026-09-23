@@ -24,6 +24,11 @@ import {
   lastAutomaticRun,
   snapshotIsCurrent,
   SCOUT_VERSION,
+  policyScoutRunLimits,
+  policyScoutDue,
+  SWEEP_CEILING,
+  SWEEP_FRESH_MS,
+  SWEEP_RULES_VERSION,
 } from "../scouts/admissions-policy-scout.js";
 
 const NOW = new Date("2026-09-03T12:00:00Z"); // cycle 2026-27 → entering fall 2027
@@ -468,6 +473,70 @@ test("a sweep reads schools without a snapshot first, then older-version ones, t
   const full = await runPolicyScout([TARGET], scoutOptions(stores, fetchImpl));
   assert.equal(full.checked, 1);
   assert.equal(readPolicySnapshot(stores.stmts, { name: "Example University" }).policy.scoutVersion, SCOUT_VERSION);
+});
+
+test("a sweep reads every tracked school, reuses a snapshot's homepage, and leaves alone what was read in the last day", async () => {
+  const stores = freshStores();
+  const { fetchImpl, requested } = makeSite();
+  const put = (slug, name, homepage, checkedAt, policy) => stores.stmts.upsertSnapshot.run(slug, name, null, homepage, checkedAt, null, "h", "[]", JSON.stringify(policy));
+  const current = { cycle: "2026-27", scoutVersion: SCOUT_VERSION, deadlines: {} };
+  // Read two days ago with the homepage that read resolved. The target
+  // carries no website (the IPEDS baseline rarely does), so without the
+  // snapshot's homepage the site would be unresolved without a Scorecard key.
+  put("example-university", "Example University", "https://exampleu.edu/", "2026-09-01T12:00:00.000Z", current);
+  // Read three hours ago by the running version: a sweep leaves it alone.
+  put("fresh-college", "Fresh College", "https://fresh-college.edu/", "2026-09-03T09:00:00.000Z", current);
+  // Read an hour ago, but by an older version: read again.
+  put("old-college", "Old College", null, "2026-09-03T11:00:00.000Z", { ...current, scoutVersion: SCOUT_VERSION - 1 });
+  const many = Array.from({ length: 70 }, (_, i) => ({ name: `Sample School ${i + 1}` }));
+  const targets = [{ name: "Example University" }, { name: "Fresh College" }, { name: "Old College" }, ...many];
+
+  const limits = policyScoutRunLimits("scheduled", { env: {} });
+  assert.deepEqual(limits, { maxSchools: SWEEP_CEILING, concurrency: 2, skipFreshWithinMs: SWEEP_FRESH_MS });
+  const sweep = await runPolicyScout(targets, { ...scoutOptions(stores, fetchImpl), ...limits });
+  // Seventy-two schools, past the old sixty-school cap; Fresh College left alone.
+  assert.equal(sweep.total, 72);
+  assert.equal(sweep.recentlyRead, 1);
+  assert.equal(sweep.checked, 1, JSON.stringify(sweep.failures.slice(0, 3)));
+  assert.ok(requested.includes("https://exampleu.edu/admission/first-year"));
+  assert.ok(!requested.some((u) => u.includes("fresh-college")));
+  assert.equal(readPolicySnapshot(stores.stmts, { name: "Example University" }).checkedAt, NOW.toISOString());
+  assert.equal(lastRunSummary(stores.stmts).recentlyRead, 1);
+
+  // An explicit cap still caps; a counselor's manual run re-reads what it names.
+  assert.equal(policyScoutRunLimits("scheduled", { env: { POLICY_SCOUT_MAX_SCHOOLS: "60" } }).maxSchools, 60);
+  assert.equal(policyScoutRunLimits("scheduled", { env: { POLICY_SCOUT_CONCURRENCY: "3" } }).concurrency, 3);
+  assert.equal(policyScoutRunLimits("manual", { maxSchools: 5, env: {} }).maxSchools, 5);
+  const manual = await runPolicyScout([{ name: "Fresh College" }], { ...scoutOptions(stores, fetchImpl), ...policyScoutRunLimits("manual", { env: {} }) });
+  assert.equal(manual.total, 1);
+  assert.equal(manual.recentlyRead, 0);
+  assert.ok(requested.some((u) => u.includes("fresh-college")));
+});
+
+test("a sweep records the sizing rules it ran under, and one under older rules makes the next sweep due at once", async () => {
+  const stores = freshStores();
+  const cadenceMs = 14 * 24 * 3600 * 1000;
+  // The last sweep, under the old sixty-school rule, finished yesterday:
+  // the next boot sweeps at once instead of a fortnight later, and no
+  // reading is marked stale (the scout version is unchanged).
+  stores.stmts.insertRun.run("run-old", "2026-09-02T09:00:00.000Z", "boot", 60, JSON.stringify({ scoutVersion: SCOUT_VERSION, inProgress: true }));
+  stores.stmts.finishRun.run("2026-09-02T09:40:00.000Z", 58, 2, 0, JSON.stringify({ scoutVersion: SCOUT_VERSION }), "run-old");
+  const before = lastAutomaticRun(stores.stmts);
+  assert.equal(before.sweepRules, 1);
+  assert.deepEqual(policyScoutDue(before, { cadenceMs, now: NOW.getTime() }), { due: true, reason: "sweep_rules_changed", nextRunAt: null, lastFinishedAt: "2026-09-02T09:40:00.000Z" });
+
+  // A sweep under the current rules is due again only a cadence later.
+  const { fetchImpl } = makeSite();
+  await runPolicyScout([TARGET], { ...scoutOptions(stores, fetchImpl), trigger: "boot" });
+  const after = lastAutomaticRun(stores.stmts);
+  assert.equal(after.sweepRules, SWEEP_RULES_VERSION);
+  assert.equal(policyScoutDue(after, { cadenceMs, now: NOW.getTime() + 3600_000 }).due, false);
+  assert.equal(policyScoutDue(after, { cadenceMs, now: NOW.getTime() + cadenceMs + 1 }).reason, "cadence_elapsed");
+  // A newer scout version, or a counselor's force, still wins.
+  assert.equal(policyScoutDue({ ...after, scoutVersion: SCOUT_VERSION - 1 }, { cadenceMs, now: NOW.getTime() }).reason, "scout_version_changed");
+  assert.equal(policyScoutDue(after, { cadenceMs, now: NOW.getTime(), force: "manual" }).reason, "manual");
+  // No sweep yet at all: due.
+  assert.equal(policyScoutDue(null, { cadenceMs, now: NOW.getTime() }).reason, "never_ran");
 });
 
 test("a run the previous process never finished is marked abandoned at boot and is due at once", () => {

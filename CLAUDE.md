@@ -100,7 +100,11 @@ catalog scout (`model-catalog-scout.js`: new OpenRouter chat models from
 trusted providers, sorted into price bands, offered in the counselor's picker
 and the adapter allowlist, pruned when they leave the catalog). Each carries a
 version constant; bump it whenever its rules change so the next boot re-reads
-at once. The three tier defaults (`llm-adapters/tier-defaults.js`) never
+at once. A policy sweep reads every tracked school (the stored homepage
+stands in for a College Scorecard search, what was read in the last day is
+skipped); `SWEEP_RULES_VERSION` tags how sweeps are sized, so a change there
+runs one sweep at the next boot without marking any reading stale, as a
+`SCOUT_VERSION` bump would. The three tier defaults (`llm-adapters/tier-defaults.js`) never
 change on their own, and the provider adapter is text-only.
 
 **Memory and outbound requests.** The instance has 512 MB for the

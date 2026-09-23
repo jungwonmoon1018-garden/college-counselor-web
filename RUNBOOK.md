@@ -63,6 +63,18 @@ starts the store again. The vault's encryption key is one of the stored
 secrets, so keep a copy of it and of `WEB_CONFIG_KEY` outside Render:
 without it the encrypted student data cannot be read back.
 
+The admissions-policy scout sweeps every two weeks, five minutes after a
+boot when a sweep is due, and at the first boot after its scout version or
+its sweep rules change. A sweep reads every tracked school's own pages
+(students' goal schools, every school with a stored Common Data Set, the
+research cache: about three hundred, an hour or more at two at a time) and
+logs `[policy-scout] <trigger>: <checked>/<total> school(s) checked, …`.
+A sweep cut short by a deploy resumes at the next boot and skips what was
+read in the last day. `POLICY_SCOUT_MAX_SCHOOLS` caps a sweep and
+`POLICY_SCOUT_CONCURRENCY` sets how many schools are read at once (2).
+Schools a sweep has read keep their homepage, so only new ones cost a
+College Scorecard search.
+
 ## Ship
 
 1. Backend: `cd backend && npm test && npm run lint && node --check server.js`.

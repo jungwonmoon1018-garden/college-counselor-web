@@ -17,7 +17,7 @@ import { extractGoalUnitIds } from "../storage/rag-engine.js";
 import { extractTargetSchoolNames } from "../cds/cds-search.js";
 import { detectSchoolMentions } from "../chat/chat-grounding.js";
 import { resolveBaselineCollegeRow } from "./baseline-colleges.js";
-import { SCOUT_VERSION, lastAutomaticRun, runPolicyScout } from "../scouts/admissions-policy-scout.js";
+import { lastAutomaticRun, policyScoutDue, policyScoutRunLimits, runPolicyScout } from "../scouts/admissions-policy-scout.js";
 
 let deps;
 export function bindSchedulers(serverDeps) { deps = serverDeps; }
@@ -88,26 +88,26 @@ export async function runScheduledPolicyScout(trigger = "scheduled", { targets =
   if (policyScoutRunning) return { skipped: "already_running" };
   const list = targets || collectPolicyScoutTargets();
   if (!list.length) return { skipped: "no_targets" };
+  // Every tracked school unless POLICY_SCOUT_MAX_SCHOOLS caps it; an
+  // automatic sweep skips what the running scout read in the last day.
   policyScoutRunning = runPolicyScout(list, {
     stmts: deps.policyScoutStmts,
     factStmts: deps.factStmts,
     scorecardKey: deps.SCORECARD_API_KEY || null,
-    concurrency: Number(process.env.POLICY_SCOUT_CONCURRENCY) > 0 ? Number(process.env.POLICY_SCOUT_CONCURRENCY) : 2,
-    maxSchools: maxSchools || (Number(process.env.POLICY_SCOUT_MAX_SCHOOLS) > 0 ? Number(process.env.POLICY_SCOUT_MAX_SCHOOLS) : 60),
+    ...policyScoutRunLimits(trigger, { maxSchools }),
     trigger,
   }).finally(() => { policyScoutRunning = null; });
   const summary = await policyScoutRunning;
-  console.log(`[policy-scout] ${trigger}: ${summary.checked}/${summary.total} school(s) checked, ${summary.changes} change(s), ${summary.failed} failed`);
+  console.log(`[policy-scout] ${trigger}: ${summary.checked}/${summary.total} school(s) checked, ${summary.changes} change(s), ${summary.failed} failed${summary.recentlyRead ? `, ${summary.recentlyRead} read in the last day left alone` : ""}`);
   return { changed: summary.changes > 0, ...summary };
 }
 
 // Due when the last automatic sweep is a cadence old — or when a newer
 // scout version (better discovery/extraction) should re-read every school
-// right away rather than serve the older, weaker snapshots.
+// right away rather than serve the older, weaker snapshots, or when the
+// last sweep ran under older sizing rules (policyScoutDue).
 export function policyScoutSchedule(force = null) {
-  const last = lastAutomaticRun(deps.policyScoutStmts);
-  const staleVersion = last && last.scoutVersion !== SCOUT_VERSION ? "scout_version_changed" : null;
-  return scoutRunDue({ lastRun: last, cadenceMs: deps.SCOUT_CADENCE_MS, force: force || staleVersion });
+  return policyScoutDue(lastAutomaticRun(deps.policyScoutStmts), { cadenceMs: deps.SCOUT_CADENCE_MS, force });
 }
 
 export async function maybeRunPolicyScout(trigger = "scheduled") {

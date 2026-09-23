@@ -23,6 +23,7 @@ import crypto from "node:crypto";
 import { assertSafeFetchTarget } from "../security/safe-fetch.js";
 import { expandCollegeAlias, slugifyCollege, currentAdmissionsCycle } from "../colleges/college-research.js";
 import { insertFact } from "./fact-store.js";
+import { scoutRunDue } from "./scout-cadence.js";
 import { policyFields, extractPolicyFromPages, diffPolicies, SCOUT_VERSION, PLAN_LABELS, TEST_POLICY_LABELS } from "./policy-scout-extract.js";
 import { hostOf, makeFetcher, resolveSchoolSite, gatherPolicyPages } from "./policy-scout-fetch.js";
 export { SCOUT_USER_AGENT, parseRobots, robotsAllows, makeFetcher, resolveSchoolSite, schoolRootHost, schoolDomainToken, rankedPolicyLinks } from "./policy-scout-fetch.js";
@@ -237,32 +238,101 @@ function safeJson(text) {
 }
 
 // ─── The scout run ─────────────────────────────────────────────────────
+// A sweep reads every tracked school. It used to stop at sixty, and the
+// targets — students' goal schools, every school with a stored Common Data
+// Set (about three hundred), the research cache — took a quarter of a year
+// to come round. The ceiling only guards against a runaway target list;
+// POLICY_SCOUT_MAX_SCHOOLS still sets a lower cap.
+export const SWEEP_CEILING = 1000;
+// An automatic sweep leaves alone a school read by the running scout
+// version within this window: a sweep cut short by a deploy resumes where
+// it stopped instead of starting over (three hundred schools take an hour
+// or more), and a school a student's question just read is not read twice.
+export const SWEEP_FRESH_MS = 20 * 60 * 60 * 1000;
+// How long a snapshot's homepage is trusted in place of a new College
+// Scorecard search. A school whose stored homepage stops answering keeps
+// failing without refreshing its snapshot, so after three cadences the
+// sweep resolves its site afresh.
+const HOMEPAGE_TRUST_MS = 45 * 24 * 60 * 60 * 1000;
+
+// The rules a sweep is sized by, recorded on each run. SCOUT_VERSION tags
+// the readings (a bump re-reads every school and treats every snapshot as
+// stale until then); this tags the sweeps, so a change in what a sweep
+// covers runs one at the next boot without marking any reading stale.
+// 1: sixty schools a sweep. 2: every tracked school.
+export const SWEEP_RULES_VERSION = 2;
+
+// Whether an automatic sweep is due: a cadence after the last one, at once
+// after a scout version or sweep rules change, or when forced.
+export function policyScoutDue(lastRun, { cadenceMs, now = Date.now(), force = null } = {}) {
+  const reason = force
+    || (lastRun && lastRun.scoutVersion !== SCOUT_VERSION ? "scout_version_changed" : null)
+    || (lastRun && lastRun.sweepRules !== SWEEP_RULES_VERSION ? "sweep_rules_changed" : null);
+  return scoutRunDue({ lastRun, cadenceMs, now, force: reason });
+}
+
+// How a run is sized. A counselor's manual run re-reads everything it names.
+export function policyScoutRunLimits(trigger, { maxSchools = null, env = process.env } = {}) {
+  const envCap = Number(env?.POLICY_SCOUT_MAX_SCHOOLS);
+  const envConcurrency = Number(env?.POLICY_SCOUT_CONCURRENCY);
+  return {
+    maxSchools: maxSchools || (envCap > 0 ? envCap : SWEEP_CEILING),
+    concurrency: envConcurrency > 0 ? envConcurrency : 2,
+    skipFreshWithinMs: trigger === "manual" ? 0 : SWEEP_FRESH_MS,
+  };
+}
+
 export async function runPolicyScout(targets, {
   stmts, factStmts, scorecardKey = null, fetchImpl = fetch, assertTarget = assertSafeFetchTarget,
-  concurrency = 2, maxSchools = 60, trigger = "scheduled", now = () => new Date(), sleep,
+  concurrency = 2, maxSchools = SWEEP_CEILING, skipFreshWithinMs = 0, trigger = "scheduled", now = () => new Date(), sleep,
 } = {}) {
   // Schools with no snapshot first, then those last read by an older scout,
-  // then the longest-unread — so the cap (students' target schools alone
-  // can fill it) never starves a school for good, and a version bump reaches
-  // every school within a few sweeps. The sweep that followed the version-4
-  // bump spent its sixty slots on the same schools as always and never got
-  // to the Common Data Set schools it was bumped for.
+  // then the longest-unread — so a cap never starves a school for good, a
+  // version bump reaches the stale readings first, and a resumed sweep
+  // reads what the interrupted one had not reached. The sweep that followed
+  // the version-4 bump spent its sixty slots on the same schools as always
+  // and never got to the Common Data Set schools it was bumped for.
+  const nowMs = now().getTime();
   const ranked = dedupeTargets(targets).map((target, index) => {
     let row = null;
     try {
       row = (target.unitId ? stmts.getSnapshotByUnitId.get(String(target.unitId)) : null) || stmts.getSnapshot.get(slugifyCollege(target.name)) || null;
     } catch { row = null; }
     const policy = row ? safeJson(row.policy_json) : null;
-    const rank = !row ? 0 : policy?.scoutVersion === SCOUT_VERSION ? 2 : 1;
-    return { target, index, rank, checkedAt: String(row?.checked_at || "") };
+    const current = Boolean(row) && policy?.scoutVersion === SCOUT_VERSION;
+    const rank = !row ? 0 : current ? 2 : 1;
+    const checkedAtMs = Date.parse(row?.checked_at || "");
+    const ageMs = Number.isFinite(checkedAtMs) ? nowMs - checkedAtMs : Infinity;
+    // A school read before keeps the homepage, name and unit id that read
+    // resolved, so the sweep asks the College Scorecard only about schools
+    // it has never read. The IPEDS baseline carries few websites, so every
+    // tracked school cost one or two Scorecard searches per sweep: sixty
+    // were affordable, three hundred would eat into the hourly quota the
+    // students' College Fit reads share.
+    const known = row?.homepage && !target.website && ageMs < HOMEPAGE_TRUST_MS
+      ? { ...target, name: row.school_name || target.name, unitId: target.unitId || row.unit_id || null, website: row.homepage }
+      : target;
+    const fresh = current && skipFreshWithinMs > 0 && ageMs < skipFreshWithinMs;
+    return { target: known, index, rank, fresh, checkedAt: String(row?.checked_at || "") };
   });
   ranked.sort((a, b) => a.rank - b.rank || (a.checkedAt < b.checkedAt ? -1 : a.checkedAt > b.checkedAt ? 1 : 0) || a.index - b.index);
-  const list = ranked.map((r) => r.target).slice(0, maxSchools);
+  // Two names for one school (an alias and the name its snapshot carries)
+  // are read once.
+  const seen = new Set();
+  const list = [];
+  let recentlyRead = 0;
+  for (const entry of ranked) {
+    const key = slugifyCollege(expandCollegeAlias(entry.target.name));
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (entry.fresh) { recentlyRead += 1; continue; }
+    if (list.length < maxSchools) list.push(entry.target);
+  }
   const runId = crypto.randomUUID();
   const startedAt = now().toISOString();
   // The version is recorded up front so an in-progress run reports the
   // scout that is actually running, not the previous run's.
-  stmts.insertRun.run(runId, startedAt, trigger, list.length, JSON.stringify({ scoutVersion: SCOUT_VERSION, inProgress: true }));
+  stmts.insertRun.run(runId, startedAt, trigger, list.length, JSON.stringify({ scoutVersion: SCOUT_VERSION, sweepRules: SWEEP_RULES_VERSION, inProgress: true }));
   const fetcher = makeFetcher({ fetchImpl, assertTarget, sleep });
   const results = [];
   let cursor = 0;
@@ -282,8 +352,8 @@ export async function runPolicyScout(targets, {
   const failed = results.filter((r) => r.status === "failed").length;
   const changes = results.reduce((sum, r) => sum + (r.changes?.length || 0), 0);
   const summary = {
-    runId, trigger, startedAt, finishedAt: now().toISOString(), scoutVersion: SCOUT_VERSION,
-    total: list.length, checked, failed, skipped: results.length - checked - failed, changes,
+    runId, trigger, startedAt, finishedAt: now().toISOString(), scoutVersion: SCOUT_VERSION, sweepRules: SWEEP_RULES_VERSION,
+    total: list.length, checked, failed, skipped: results.length - checked - failed, recentlyRead, changes,
     changed: results.filter((r) => r.changes?.length).map((r) => ({ school: r.school, changes: r.changes })),
     failures: results.filter((r) => r.status !== "ok").map((r) => ({ school: r.school, reason: r.reason })).slice(0, 40),
   };
@@ -434,8 +504,10 @@ function summarizeRun(row) {
     finishedAt: row.finished_at,
     trigger: row.trigger,
     scoutVersion: summary?.scoutVersion ?? 1,
+    sweepRules: Number(summary?.sweepRules) || 1,
     abandoned: summary?.abandoned === true,
     schoolsTotal: row.schools_total,
+    recentlyRead: Number(summary?.recentlyRead) || 0,
     schoolsChecked: row.schools_checked,
     schoolsFailed: row.schools_failed,
     changes: row.changes,
