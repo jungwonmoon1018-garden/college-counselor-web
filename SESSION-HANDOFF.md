@@ -10,17 +10,17 @@ form of the 2026-09-20 to 22 entries is in git (`git show
 cb499e8:SESSION-HANDOFF.md`) and of everything dated 2026-09-16 or earlier
 in `git show 812cdeb:SESSION-HANDOFF.md`.
 
-## Where things stand (2026-09-22, night KST)
+## Where things stand (2026-09-24, early morning KST)
 
-- **Deployed:** `main` at `9e275cb` is the last code commit live at
-  https://college-counselor-web.onrender.com (CI run 35733188488, health
-  blip 13:25:17–13:25:49 UTC 2026-09-22, probed — *Verified live*). The
-  commits after it change no code: `cb499e8` (handoff), `2842f58`
-  (`AGENTS.md` gitignored and the `CLAUDE.md` sentence that names it) and
-  this file's commit; each redeploys the same server once its CI run is
-  green.
-- **Tests (run 2026-09-22 after the last edit):** backend `npm test` 790
-  tests, 786 pass, 4 skipped, 0 fail; `npm run lint` 0 errors, 38 warnings
+- **Deployed:** `main` at `52e9fb7` is the last code commit live at
+  https://college-counselor-web.onrender.com (CI run 35875601027, health
+  blip 14:39:35–14:40:07 UTC 2026-09-23, probed — *Verified live*). This
+  file's commit after it changes no code and redeploys the same server
+  once its CI run is green. A finished sweep is not repeated (its run is
+  under the current sweep rules); one the restart cuts short resumes at
+  the next boot and skips what it read in the last day.
+- **Tests (run 2026-09-23 after the last edit):** backend `npm test` 792
+  tests, 788 pass, 4 skipped, 0 fail; `npm run lint` 0 errors, 38 warnings
   (CI cap 500); `node --check server.js` clean; frontend `npx vitest run`
   20 files, 64 tests (no frontend change since 2026-09-21; CI's build
   green on every run).
@@ -57,7 +57,8 @@ in `git show 812cdeb:SESSION-HANDOFF.md`.
   owner's vault folder `Obsidian Vault/Collegeapp-AI` (under the OneDrive
   documents folder) beside six hand-written notes that are never touched;
   each export it replaces is moved, not deleted, to a dated folder under
-  `Obsidian Vault archive/` beside the vault.
+  `Obsidian Vault archive/` beside the vault. Not rebuilt after
+  `52e9fb7` (three files edited, nothing moved).
 - **Standing authorizations from the user:** push straight to `main`;
   create and delete throwaway `probe-*@example.test` accounts on
   production for live checks. Never ask for or use the counselor's
@@ -70,6 +71,37 @@ in `git show 812cdeb:SESSION-HANDOFF.md`.
   install` warns `EBADENGINE`.
 
 ## What changed, newest first
+
+The user's ask on 2026-09-23, verbatim: "ok, start doing these things",
+in reply to the three open items of the 2026-09-07 report: two throwaway
+probe accounts whose deletes were lost to a restart and a connection
+timeout, the sixty-school cap on the policy sweep, and `AGENTS.md` /
+`backend/kor.traineddata`. The third had been settled on 2026-09-22
+(`2842f58`: both gitignored, `AGENTS.md` kept on purpose). The first is
+left to the owner (*Open items*). The second is `52e9fb7`.
+
+**A policy sweep reads every tracked school, not sixty (2026-09-23)** —
+`52e9fb7`. The tracked list (students' goal schools, every school with a
+stored CDS, the research cache) is about three hundred schools, so sixty a
+fortnight left most of them unread for months (*Verified live*,
+baseline). In `scouts/admissions-policy-scout.js`: `policyScoutRunLimits`
+sizes a run (every tracked school up to `SWEEP_CEILING`, 1,000, a runaway
+guard; `POLICY_SCOUT_MAX_SCHOOLS` and `POLICY_SCOUT_CONCURRENCY` still
+apply); a school a sweep has read keeps its stored homepage, name and
+unit id for 45 days instead of a new College Scorecard search (the IPEDS
+seed carries no websites, and the Scorecard quota is College Fit's too);
+an automatic sweep skips what the running scout version read in the last
+20 hours (`SWEEP_FRESH_MS`), so a sweep cut short by a deploy resumes
+where it stopped; a counselor's manual run skips nothing. Each run
+records `sweepRules` (`SWEEP_RULES_VERSION`, now 2) and `recentlyRead`,
+and `policyScoutDue` makes a sweep due at once after a sweep under older
+rules — how the first full sweep ran at the first boot rather than around
+2026-10-05, without a `SCOUT_VERSION` bump that would have marked every
+stored reading stale. `CLAUDE.md` and `RUNBOOK.md` describe the sweep.
+Found on the way: no administrator route lists or removes a student
+account (the 2026-09-07 advice to delete the probes "from the admin
+roster" was wrong), and the scout's manual run is an API route with no
+control on the admin page.
 
 The user's asks on 2026-09-21/22, verbatim: "/code-review check for
 reasons of memory overflow", "/deploy-checklist render against security
@@ -190,26 +222,14 @@ language data is cached under `DATA_DIR/tessdata`; the CDS read routes
 log exception text instead of sending it. `CLAUDE.md` gained *Memory and
 outbound requests*; `RUNBOOK.md` the memory notes.
 
-**The reorganization (2026-09-20/21)** — `deb7baf` (App.jsx 5,078 →
-1,266 lines, module-level code moved as closed sets, `ChatScreen.jsx`),
-`470cd2a` (1,840 lines of server.js helpers into nine `server/<area>.js`
-modules bound to `routeDeps`; the 1,300-line modules split at their
-seams; `routes/ec.js` into four), `9c15000` (the AST tools in
-`backend/scripts/refactor/` and their README; `.graphifyignore`),
-`234c107` (the phone sidebar's × and backdrop), `8b5110a` (108 files
-moved into folders by function; `move-modules.mjs` rewrote 447 path
-literals — its first version also rewrote `"."` and `".."`, which was
-redone), `7fedcf1` (`server/schedulers.js`, `jobs.js`, `pillars.js`,
-`boot.js`, `shutdown.js` through `wrap-statements.mjs`, boot order
-unchanged), `1c0d96c` (App() into nine hooks with `extract-hook.mjs`,
-which fails if the 15 effects change order; `App.flows.test.jsx` first).
-The logout test failed one run in three and the bug was older than the
-refactor: `authedFetch` re-authenticated silently after logout;
-`chat/chat-client.js` gains `endSessionReauth()`, called by
-`handleLogout` first and by `handleDeleteAccount` after the server
-confirms. In plan mode the user chose "Both" further splits and, for
-Obsidian, "Leave settings alone" (no colour groups written into the main
-vault's graph settings).
+**The reorganization (2026-09-20/21), compressed** (long form: `git show
+cb499e8:SESSION-HANDOFF.md`) — `deb7baf`, `470cd2a`, `9c15000`,
+`234c107`, `8b5110a`, `7fedcf1`, `1c0d96c`: App.jsx and server.js split
+into hooks, screens and `server/<area>.js` modules, 108 files moved into
+folders by function with the AST tools in `backend/scripts/refactor/`,
+and the logout race fixed (`endSessionReauth()` in `chat/chat-client.js`).
+The user chose "Both" further splits and, for Obsidian, "Leave settings
+alone".
 
 **Earlier sessions, compressed** (long form: `git show
 812cdeb:SESSION-HANDOFF.md`). 2026-09-16, the tech-debt plan: CI job
@@ -236,6 +256,28 @@ tables and the official-source gate (`c4c5bb0` and earlier).
 
 ## Verified live, and not
 
+- **The full policy sweep after `52e9fb7` (CI run 35875601027, swap
+  14:39:35–14:40:07 UTC 2026-09-23),** read through `POST
+  /api/calendar/context` from throwaway accounts, all deleted (200).
+  *Baseline at 14:35*, twelve tracked schools (every 25th of the seed):
+  Florida State answered from the 2026-09-21 sweep's reading in 108 ms;
+  Adelphi held an unstamped 2026-09-07 reading, stale, so the request
+  read it live; six had no current reading and were read live by the
+  request (8–15 s: Bryant, Colorado College, Illinois Wesleyan,
+  Princeton, Tufts, Vermont); Miami University, Delaware and New Hampshire
+  fell back to the typical dates and St. John's College - Maryland to its
+  CDS. *After*: the sweep started at the first boot (earliest reading seen
+  14:49:25) and reached Florida State, near the end of its order, at
+  15:16:07. Of twelve schools the baseline had not touched, seven were
+  read by the sweep between 14:49 and 15:13 (Bates, Lawrence,
+  Northeastern, SUNY Geneseo, Maine, Rhode Island, Washington and Lee);
+  Centre, Drew, Gonzaga, San Diego State and UCLA have no reading, and a
+  live read failed again. The eight baseline schools read in the hour
+  before the deploy kept those readings (the one-day skip), including
+  Adelphi and Delaware, whose live reads finished in the background
+  after the request had given up at 15 s. Not seen from outside: the
+  `[policy-scout] boot: …` totals, and the Scorecard searches saved (the
+  homepage reuse is pinned by tests only).
 - **College Fit after `9e275cb` (and `6a5caa6`, `ad13a62`; CI runs
   35733188488, 35732317885, 35731065695; 2026-09-22):** throwaway
   accounts, deleted afterwards. The strong profile: Bradley "Highly
@@ -284,6 +326,31 @@ tables and the official-source gate (`c4c5bb0` and earlier).
 
 ## Open items and things to watch
 
+- **Two throwaway probe accounts from 2026-09-07 remain on production**
+  (`probe-…@example.test`, grade 11, CA, registered around 10:29 and 10:44
+  UTC that day; their deletes were lost to a restart and a connection
+  timeout). Only an account's own session can delete it and no
+  administrator route lists or removes student accounts, so this session
+  left them; they hold a synthetic profile with no goals, so nothing
+  (the scout's target list included) reads them. Removing them needs a
+  counselor-side account control, which does not exist yet — the owner's
+  call.
+- **Tracked schools the scout cannot read.** Eight of the twenty-four
+  sampled on 2026-09-23 have no reading after the full sweep and a live
+  read of each failed too: Centre, Drew, Gonzaga, Miami University, San
+  Diego State, St. John's College - Maryland, UCLA, New Hampshire. If that
+  third holds across the list, the reason (the site not resolved from the
+  name, pages the fetcher cannot use, the fetch budget) is the next thing
+  to look at in `scouts/policy-scout-fetch.js`; such schools fall back to
+  their CDS dates or the typical cycle, and without a snapshot each costs
+  a Scorecard search every sweep. The run summary's `failures` names up to
+  forty, with reasons, on `GET /api/admin/policy-scout/status`.
+- **Lawrence University's reading** cites the conservatory's audition
+  page (`…/conservatory/audition-requirements/`, Regular Decision
+  2027-02-05); check whether the college's own deadline differs.
+- Readings written on 2026-09-07 between `81e400b` and `f9a8346` carry no
+  version stamp and count as stale (Adelphi at the baseline); the first
+  request or sweep that reaches one re-reads it.
 - **The dashboard checks left to the owner:** read the boot log for
   `[MEM] rss … (high …)` at once and hourly after, `[DISK] data … MB` and
   the first `[BATCH] cds_daily_refresh` under parser version 7 (it
@@ -381,6 +448,12 @@ a 2 MB body to `/api/files/extract-text` without a token (401, the body
 never parsed), and a positioning request naming a school the store lacks
 (the live search; read `dataProvenance`). The fuller recipe for the
 chat-evidence and values paths is in the 812cdeb handoff.
+
+Policy sweep, live: `POST /api/calendar/context` with `{ targetSchools:
+[<one school>], research: false }` from a probe account. A current reading
+answers in about 100 ms (an `extractedAt` newer than the boot means the
+sweep read it); 10–15 s is a live read made by the request itself, which
+the sweep then skips as read in the last day.
 
 Memory scenarios, local: a `.mjs` that imports `cds/cds-pdf-parser.js` or
 `shared/file-extractors.js`, samples `process.memoryUsage.rss()` from a
