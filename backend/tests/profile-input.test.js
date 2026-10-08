@@ -2,6 +2,17 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { GPA_LIMITS, normalizeSyncInput, previousFromSnapshot } from "../academics/profile-input.js";
+import { GPA_LIMITS as FRONTEND_GPA_LIMITS, validateGpa } from "../../frontend/src/profile/gpa.js";
+
+test("the app's GPA check and the server's agree", () => {
+  assert.deepEqual(JSON.parse(JSON.stringify(FRONTEND_GPA_LIMITS)), JSON.parse(JSON.stringify(GPA_LIMITS)));
+  // What the app lets through, the server stores; what it refuses, the server sets aside.
+  for (const [unweighted, weighted] of [["3.9", ""], ["4.33", "5.8"], ["39", ""], ["95", ""], ["3.9", "6.5"], ["3.9/4.0", ""]]) {
+    const app = validateGpa({ unweighted, weighted }).ok;
+    const server = normalizeSyncInput({ profile: { gpa: { unweighted, weighted: weighted || null } } }).setAside.length === 0;
+    assert.equal(app, server, `unweighted ${unweighted}, weighted ${weighted}`);
+  }
+});
 
 const VALID = {
   profile: {
