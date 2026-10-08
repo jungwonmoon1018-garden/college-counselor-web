@@ -14,6 +14,7 @@ import { isCrisisText } from "../chat/policy-router.js";
 import { parseAttachedFilesPreface } from "../activities/ec-chat-evidence.js";
 import * as chatGraph from "../chat/chat-graph.js";
 import { buildTranscriptParseMessages, parseTranscriptModelReply } from "../academics/transcript-import.js";
+import { normalizeSyncInput, previousFromSnapshot } from "../academics/profile-input.js";
 import { ExtractionError, SUPPORTED_MIME_TYPES, extractPdfOCR, extractText, isSupportedMime } from "../shared/file-extractors.js";
 import { resolveLocale, t } from "../shared/i18n.js";
 
@@ -124,9 +125,15 @@ export function registerStudentsRoutes(app, deps) {
 
   app.post("/api/students/sync", deps.studentLimiter, deps.requireStudentAuth, (req, res) => {
     try {
-      const { profile, activities, goals, majorInterest, trigger } = req.body;
+      // Each field is checked before it is stored (academics/profile-input.js):
+      // what cannot be stored is set aside and named in the response, and the
+      // rest of the save lands. Only field names reach the log, never values.
+      const input = normalizeSyncInput(req.body || {}, previousFromSnapshot(deps.ragStmts.getLatestSnapshot.get(req.studentId)));
+      const { profile, activities, goals, majorInterest, setAside } = input;
+      const trigger = typeof req.body?.trigger === "string" && req.body.trigger ? req.body.trigger.slice(0, 40) : "user_update";
+      if (setAside.length) console.warn(`[SYNC] set aside: ${setAside.map((s) => (s.count ? `${s.field} (${s.count})` : s.field)).join(", ")}`);
       if (profile?.grade != null) deps.authStore.setStudentGrade(req.studentId, profile.grade);
-      const result = syncStudentData(deps.ragStmts, req.studentId, profile, activities, goals, majorInterest, trigger || "user_update");
+      const result = syncStudentData(deps.ragStmts, req.studentId, profile, activities, goals, majorInterest, trigger);
 
       for (const change of result.changes || []) {
         if (change.significant) {
@@ -154,7 +161,7 @@ export function registerStudentsRoutes(app, deps) {
         }
       }
 
-      res.json(result);
+      res.json({ ...result, setAside });
     } catch (err) {
       console.error("[SYNC] Error:", err.message);
       res.status(500).json({ error: "Sync failed" });

@@ -5,6 +5,7 @@
 import { TEST_ORDER, TEST_SCORE_LIMITS, blankTestForm, entryToForm, formToEntry, formatClassRank, formatSections, normalizeClassRank, sectionDefs, testLabel, validateTestEntry, withSection } from "../profile/test-scores.js";
 import { t as tt } from "../i18n.js";
 import { formatServerDate } from "../profile/dates.js";
+import { gpaNumber, validateGpa } from "../profile/gpa.js";
 import { useState } from "react";
 import SidebarSection from "../components/SidebarSection.jsx";
 import CloseButton from "../components/CloseButton.jsx";
@@ -212,6 +213,44 @@ function ClassRankEditor({ initial, onSave, onCancel, onDelete }) {
         <button type="button" onClick={save} style={EDITOR_SAVE}>Save</button>
         <button type="button" onClick={onCancel} style={EDITOR_BUTTON}>Cancel</button>
         {onDelete && <button type="button" onClick={onDelete} style={EDITOR_REMOVE}>Remove</button>}
+      </div>
+    </div>
+  );
+}
+
+// The profile's GPA editor. It accepted any number, so a missed decimal (39)
+// or a 100-point average (95) was saved as the GPA; validateGpa holds the
+// range the server enforces. A blank unweighted field keeps the stored GPA,
+// a blank weighted field clears the weighted one, as before.
+function GpaEditor({ initial, onSave, onCancel }) {
+  const [form, setForm] = useState({
+    unweighted: initial?.unweighted != null ? String(initial.unweighted) : "",
+    weighted: initial?.weighted != null ? String(initial.weighted) : "",
+  });
+  const [error, setError] = useState("");
+  const save = () => {
+    const check = validateGpa(form);
+    if (!check.ok) { setError(check.errors[0]); return; }
+    const unweighted = form.unweighted.trim() === "" ? (initial?.unweighted ?? null) : gpaNumber(form.unweighted);
+    const weighted = form.weighted.trim() === "" ? null : gpaNumber(form.weighted);
+    onSave(unweighted == null && weighted == null ? null : { unweighted, weighted });
+  };
+  const onKeyDown = (e) => {
+    if (e.key === "Enter") save();
+    else if (e.key === "Escape") onCancel();
+  };
+  return (
+    <div data-testid="gpa-editor" style={{ background:"rgba(55,138,221,0.08)", borderRadius:10, padding:12, marginBottom:12, border:"1px solid rgba(55,138,221,0.3)" }}>
+      <div style={{ fontSize:11, color:"#6a8ab5", marginBottom:6 }}>GPA (unweighted / weighted)</div>
+      <div style={{ display:"flex", gap:6, alignItems:"center", marginBottom:6 }}>
+        <input autoFocus aria-label="Unweighted GPA" inputMode="decimal" value={form.unweighted} onChange={(e) => { setError(""); setForm((p) => ({ ...p, unweighted: e.target.value })); }} onKeyDown={onKeyDown} placeholder="3.92" style={{ ...EDITOR_INPUT, width:64 }} />
+        <span style={{ color:"#6a8ab5" }}>/</span>
+        <input aria-label="Weighted GPA" inputMode="decimal" value={form.weighted} onChange={(e) => { setError(""); setForm((p) => ({ ...p, weighted: e.target.value })); }} onKeyDown={onKeyDown} placeholder="—" style={{ ...EDITOR_INPUT, width:64 }} />
+      </div>
+      {error && <div role="alert" style={EDITOR_ERROR}>{error}</div>}
+      <div style={{ display:"flex", gap:6 }}>
+        <button type="button" onClick={save} style={EDITOR_SAVE}>Save</button>
+        <button type="button" onClick={onCancel} style={EDITOR_BUTTON}>Cancel</button>
       </div>
     </div>
   );
@@ -493,19 +532,9 @@ export default function Sidebar(props) {
           </button>
         </div>
         {editingField === "gpa" ? (
-          <div style={{ background:"rgba(55,138,221,0.08)",borderRadius:10,padding:12,marginBottom:12,border:"1px solid rgba(55,138,221,0.3)" }}>
-            <div style={{ fontSize:11,color:"#6a8ab5",marginBottom:6 }}>GPA (unweighted / weighted)</div>
-            <div style={{display:"flex",gap:6,alignItems:"center"}}>
-              <input autoFocus value={draftA} onChange={e=>setDraftA(e.target.value)}
-                onKeyDown={e=>{ if(e.key==="Enter"){ commitProfile(p=>{ const uw=parseFloat(draftA); const w=parseFloat(draftB); p.gpa={ unweighted: Number.isFinite(uw)?uw:(p.gpa?.unweighted ?? null), weighted: Number.isFinite(w)?w:(draftB.trim()===""?null:(p.gpa?.weighted ?? null)) }; }); } else if(e.key==="Escape") setEditingField(null); }}
-                placeholder="3.92" style={{width:64,padding:"4px 8px",borderRadius:6,border:"1px solid rgba(55,138,221,0.4)",background:"rgba(255,255,255,0.06)",color:"#fff",fontSize:14,outline:"none"}} />
-              <span style={{color:"#6a8ab5"}}>/</span>
-              <input value={draftB} onChange={e=>setDraftB(e.target.value)}
-                onKeyDown={e=>{ if(e.key==="Enter"){ commitProfile(p=>{ const uw=parseFloat(draftA); const w=parseFloat(draftB); p.gpa={ unweighted: Number.isFinite(uw)?uw:(p.gpa?.unweighted ?? null), weighted: Number.isFinite(w)?w:(draftB.trim()===""?null:(p.gpa?.weighted ?? null)) }; }); } else if(e.key==="Escape") setEditingField(null); }}
-                placeholder="—" style={{width:64,padding:"4px 8px",borderRadius:6,border:"1px solid rgba(55,138,221,0.4)",background:"rgba(255,255,255,0.06)",color:"#fff",fontSize:14,outline:"none"}} />
-              <button onClick={()=>commitProfile(p=>{ const uw=parseFloat(draftA); const w=parseFloat(draftB); p.gpa={ unweighted: Number.isFinite(uw)?uw:(p.gpa?.unweighted ?? null), weighted: Number.isFinite(w)?w:(draftB.trim()===""?null:(p.gpa?.weighted ?? null)) }; })} style={{padding:"4px 8px",borderRadius:6,border:"none",background:"rgba(104,211,145,0.15)",color:"#68d391",fontSize:11,cursor:"pointer"}}>Save</button>
-            </div>
-          </div>
+          <GpaEditor initial={profile.gpa || null}
+            onSave={(gpa)=>commitProfile(p=>{ p.gpa = gpa; if (gpa) p.gpaStatus = undefined; })}
+            onCancel={()=>setEditingField(null)} />
         ) : profile.gpa ? (
           <div onDoubleClick={()=>beginEdit("gpa", profile.gpa.unweighted ?? "", profile.gpa.weighted ?? "")} title="Double-click to edit"
             style={{ background:"rgba(55,138,221,0.08)",borderRadius:10,padding:12,marginBottom:12,border:"1px solid rgba(55,138,221,0.15)",cursor:"pointer",userSelect:"none" }}>

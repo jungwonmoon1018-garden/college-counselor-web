@@ -3,6 +3,7 @@
 // profile. App() keeps each hook and its dependency array and calls these with the
 // render's bindings as `ctx`. Moved out of App.jsx on 2026-09-20.
 import { normalizeClassRank, formToEntry, blankTestForm, entryToForm } from "../profile/test-scores.js";
+import { describeSetAside, syncFailureMessage } from "../profile/sync-result.js";
 import { S } from "../app-shared.js";
 import { storageApi, safeBtoa } from "../session/vault-storage.js";
 
@@ -56,9 +57,13 @@ export async function handleSurveyComplete(ctx) {
   // a retry message instead of dropping them into a chat the backend knows
   // nothing about. (Skipped entirely in offline/local-only mode.)
   const proxyUrl = window.__CC_PROXY_URL__;
+  // What the server could not store (a value out of range from an older
+  // build); the rest of the save landed and the student hears which part.
+  let setAsideNote = "";
   if (proxyUrl) {
+    let response;
     try {
-      await authedFetch("/api/students/sync", {
+      response = await authedFetch("/api/students/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ profile, activities, goals: sGoals, majorInterest: sMajorInterest, trigger: "survey_complete" }),
@@ -67,16 +72,26 @@ export async function handleSurveyComplete(ctx) {
       setSurveyError("Couldn't save your profile to your counselor — check your connection and try again.");
       return; // stay on the survey; do NOT enter a chat the backend can't back
     }
+    // authedFetch resolves on every HTTP status. A refused save (413, 429,
+    // 500, 503) used to pass as saved and drop the student into a chat that
+    // knew nothing of the profile.
+    if (!response?.ok) {
+      setSurveyError(syncFailureMessage(response?.status));
+      return;
+    }
+    const body = await response.json().catch(() => ({}));
+    setAsideNote = describeSetAside(body?.setAside);
   }
 
   // FIX P2: Only reset messages on FIRST setup. If editing from chat, append an update
   // summary instead of wiping the entire conversation history.
   const isEditFromChat = messages.length > 1; // If there's an existing conversation, this is an edit
+  const setAsideLine = setAsideNote ? `\n\n${setAsideNote}` : "";
   const updateMsg = {
     role: "assistant",
     content: isEditFromChat
-      ? `Profile updated! Here's what changed:\n\n${sum.length ? sum.join("\n") : "No changes detected."}\n${sMajorInterest ? `\nInterested in: ${sMajorInterest}` : ""}${sGoals.length ? `\nGoals: ${sGoals.join(", ")}` : ""}\n\nWhat would you like to work on next?`
-      : `✓ Connected to your AI counselor — your profile is saved and synced.\n\nHere's what I have:\n\n${sum.length ? sum.join("\n") : "No data entered yet — that's okay, we can add things as we go."}\n${sMajorInterest ? `\nInterested in: ${sMajorInterest}` : ""}${sGoals.length ? `\nGoals: ${sGoals.join(", ")}` : ""}\n\nBefore we dive in — tell me a bit about yourself. What drives you? What's a challenge you've worked through, or something you're genuinely proud of? This helps me understand you beyond the numbers.\n\nYou can also upload report cards or score reports with 📎.`
+      ? `Profile updated! Here's what changed:\n\n${sum.length ? sum.join("\n") : "No changes detected."}\n${sMajorInterest ? `\nInterested in: ${sMajorInterest}` : ""}${sGoals.length ? `\nGoals: ${sGoals.join(", ")}` : ""}${setAsideLine}\n\nWhat would you like to work on next?`
+      : `✓ Connected to your AI counselor — your profile is saved and synced.${setAsideLine}\n\nHere's what I have:\n\n${sum.length ? sum.join("\n") : "No data entered yet — that's okay, we can add things as we go."}\n${sMajorInterest ? `\nInterested in: ${sMajorInterest}` : ""}${sGoals.length ? `\nGoals: ${sGoals.join(", ")}` : ""}\n\nBefore we dive in — tell me a bit about yourself. What drives you? What's a challenge you've worked through, or something you're genuinely proud of? This helps me understand you beyond the numbers.\n\nYou can also upload report cards or score reports with 📎.`
   };
 
   if (isEditFromChat) {

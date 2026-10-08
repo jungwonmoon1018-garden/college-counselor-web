@@ -30,9 +30,13 @@ const backendProfile = {
 
 describe("Dashboard profile editing", () => {
   let syncBodies;
+  // What the sync answers; a test may replace it (a refused save, a save
+  // with a field set aside).
+  let syncReply;
 
   beforeEach(() => {
     syncBodies = [];
+    syncReply = null;
     if (!globalThis.crypto?.subtle) vi.stubGlobal("crypto", webcrypto);
     vi.stubGlobal("localStorage", memoryStorage());
     vi.stubGlobal("fetch", vi.fn(async (url, options = {}) => {
@@ -45,6 +49,7 @@ describe("Dashboard profile editing", () => {
       if (path.includes("/api/students/profile")) return json({ profile: backendProfile, metrics: [], milestoneCount: 0 });
       if (method === "POST" && path.includes("/api/students/sync")) {
         syncBodies.push(JSON.parse(options.body));
+        if (syncReply) return syncReply(json);
         return json({ synced: true, changesDetected: 0, changes: [] });
       }
       return json({});
@@ -143,6 +148,39 @@ describe("Dashboard profile editing", () => {
       expect(lastSync()?.profile?.classRank).toEqual({ topPercent: 3, rank: 12, size: 400 });
     }, { timeout: 5000 });
   }, 40000);
+
+  it("edits the GPA, refuses a missed decimal, and syncs a GPA in range", async () => {
+    await signIn();
+    fireEvent.doubleClick(screen.getByText("3.9"));
+    const editor = screen.getByTestId("gpa-editor");
+    fireEvent.change(within(editor).getByLabelText("Unweighted GPA"), { target: { value: "39" } });
+    fireEvent.click(within(editor).getByRole("button", { name: "Save" }));
+    expect(await within(editor).findByRole("alert")).toHaveTextContent("An unweighted GPA is between 0 and 5");
+    expect(syncBodies.every((body) => body.profile.gpa.unweighted === 3.9)).toBe(true);
+
+    fireEvent.change(within(editor).getByLabelText("Unweighted GPA"), { target: { value: "3.95" } });
+    fireEvent.change(within(editor).getByLabelText("Weighted GPA"), { target: { value: "4.4" } });
+    fireEvent.click(within(editor).getByRole("button", { name: "Save" }));
+    await waitFor(() => {
+      expect(lastSync()?.profile?.gpa).toEqual({ unweighted: 3.95, weighted: 4.4 });
+    }, { timeout: 5000 });
+    expect(screen.queryByTestId("gpa-editor")).not.toBeInTheDocument();
+  }, 30000);
+
+  it("says when the server refuses a save, and names what it set aside", async () => {
+    // A refused save used to show as synced: authedFetch resolves on 413.
+    syncReply = () => ({ ok: false, status: 413, json: async () => ({ error: "Request body too large." }), text: async () => "" });
+    await signIn();
+    expect(await screen.findByText("Your profile is too large to save — shorten a long activity description and try again.", {}, { timeout: 5000 })).toBeInTheDocument();
+
+    // A save that lands with a field set aside says which one.
+    syncReply = (json) => json({ synced: true, changesDetected: 0, changes: [], setAside: [{ field: "testScores", reason: "invalid_entry", count: 1 }] });
+    fireEvent.click(screen.getByRole("button", { name: "+ Add class rank" }));
+    const editor = screen.getByTestId("class-rank-editor");
+    fireEvent.change(within(editor).getByLabelText("Top percent"), { target: { value: "5" } });
+    fireEvent.click(within(editor).getByRole("button", { name: "Save" }));
+    expect(await screen.findByText("Saved, except 1 test score, which couldn't be read — check it in your profile.", {}, { timeout: 5000 })).toBeInTheDocument();
+  }, 30000);
 
   it("folds a sidebar section from its heading and remembers the fold on the device", async () => {
     await signIn();
