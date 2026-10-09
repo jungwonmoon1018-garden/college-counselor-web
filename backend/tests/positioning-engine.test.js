@@ -14,6 +14,8 @@ import {
   buildPositioningForTarget,
   classifyPositioningLabel,
   compareTestsToSchool,
+  statedTestPolicy,
+  testPolicyBucket,
   compareGpaToSchool,
   compareRankToSchool,
   compareApExams,
@@ -509,6 +511,58 @@ test("the stronger test is read, through concordance when the school reports onl
   assert.equal(satOnly.distribution, null, "a converted score is not placed in the other test's table");
   assert.equal(actToSat(36), 1590);
   assert.equal(satToAct(1460), 33);
+});
+
+// A Common Data Set's test policy describes a class that entered a year or
+// two ago; the policy scout's reading of the school's own pages is this
+// cycle's. Dartmouth has required scores since the 2024-25 cycle while the
+// 2025-26 set in the store reads test-optional (2026-10-09).
+test("the test policy a school states this cycle outranks its Common Data Set's, and a missing required score is flagged", () => {
+  const NOW = Date.parse("2026-10-09T00:00:00Z");
+  const snapshot = (testPolicy, checkedAt = "2026-10-01T00:00:00Z") => ({ checkedAt, policy: { testPolicy } });
+  const required = statedTestPolicy(snapshot({ value: "test_required", evidence: "We require the SAT or ACT for first-year applicants.", sourceUrl: "https://admissions.example.edu/testing" }), { now: NOW });
+  assert.equal(required.bucket, "test_considered_or_required");
+  assert.equal(required.value, "test_required");
+  // A value with no sentence behind it, a reading over a year old, and an
+  // unrecognized value do not override the CDS.
+  assert.equal(statedTestPolicy(snapshot({ value: "test_required", evidence: "" }), { now: NOW }), null);
+  assert.equal(statedTestPolicy(snapshot({ value: "test_required", evidence: "Scores are required." }, "2025-09-01T00:00:00Z"), { now: NOW }), null);
+  assert.equal(statedTestPolicy(snapshot({ value: "unknown", evidence: "x" }), { now: NOW }), null);
+  assert.equal(statedTestPolicy(null), null);
+  assert.equal(testPolicyBucket("test_flexible"), "test_considered_or_required");
+  assert.equal(testPolicyBucket("test_blind"), "test_optional_or_deemphasized");
+  assert.equal(testPolicyBucket("test_required_some"), "test_considered_or_required");
+
+  // The CDS says test-optional; the school's pages now say required.
+  const optionalCds = { ...WIDE_CDS, parsed: { ...WIDE_CDS.parsed, testPolicy: "test_optional_or_deemphasized" } };
+  const statedCds = (stated) => ({ ...optionalCds, parsed: { ...optionalCds.parsed, testPolicy: stated.bucket, testPolicyStated: stated } });
+  const noScores = studentWith({ testScores: [] });
+  const asCds = buildPositioningForTarget(noScores, WIDE_COLLEGE, optionalCds, { major: "Computer Science" });
+  const asStated = buildPositioningForTarget(noScores, WIDE_COLLEGE, statedCds(required), { major: "Computer Science" });
+  assert.equal(asCds.profileComparison.tests.policy, "test_optional_or_deemphasized");
+  assert.equal(asStated.profileComparison.tests.policy, "test_considered_or_required");
+  assert.equal(asStated.profileComparison.tests.stated.value, "test_required");
+  assert.equal(asStated.profileComparison.tests.stated.checkedAt, "2026-10-01T00:00:00Z");
+  assert.equal(asStated.profileComparison.tests.score, 18, "no score where one is required");
+  assert.equal(asCds.profileComparison.tests.score, 42);
+  assert.ok(asStated.readinessScore < asCds.readinessScore);
+  assert.ok(asStated.mainRedFlags.some((f) => /admissions site \(checked 2026-10-01\) says SAT or ACT scores are required this cycle, and no score is on file/.test(f)), JSON.stringify(asStated.mainRedFlags));
+  assert.ok(!asCds.mainRedFlags.some((f) => /required this cycle/.test(f)));
+  // A score on file answers the requirement; no flag.
+  const withScore = buildPositioningForTarget(studentWith(), WIDE_COLLEGE, statedCds(required), { major: "Computer Science" });
+  assert.ok(!withScore.mainRedFlags.some((f) => /required this cycle/.test(f)));
+
+  // Test-flexible: AP results on file meet it, none at all does not.
+  const flexible = statedTestPolicy(snapshot({ value: "test_flexible", evidence: "Applicants may submit ACT, AP, IB, or SAT scores.", sourceUrl: "u" }), { now: NOW });
+  const apOnly = studentWith({ testScores: [], apScores: [{ exam: "Calculus BC", score: 5, year: 2026 }] });
+  assert.ok(!buildPositioningForTarget(apOnly, WIDE_COLLEGE, statedCds(flexible), { major: "Computer Science" }).mainRedFlags.some((f) => /test-flexible/.test(f)));
+  assert.ok(buildPositioningForTarget(noScores, WIDE_COLLEGE, statedCds(flexible), { major: "Computer Science" }).mainRedFlags.some((f) => /requires test scores this cycle \(SAT, ACT, or AP or IB results under its test-flexible policy\), and none is on file/.test(f)));
+
+  // A school that states test-optional stays optional, unflagged.
+  const optional = statedTestPolicy(snapshot({ value: "test_optional", evidence: "We are test-optional for first-year applicants.", sourceUrl: "u" }), { now: NOW });
+  const optionalRead = buildPositioningForTarget(noScores, WIDE_COLLEGE, statedCds(optional), { major: "Computer Science" });
+  assert.equal(optionalRead.profileComparison.tests.policy, "test_optional_or_deemphasized");
+  assert.ok(!optionalRead.mainRedFlags.some((f) => /this cycle/.test(f)));
 });
 
 test("a below-range score at a test-optional school is withheld and weighs nothing", () => {

@@ -643,6 +643,61 @@ test("College Fit starts a regular-round read from the admit rate outside Early 
   assert.match(wire, /it starts from the 2\.8% admit rate for applicants outside Early Decision \(3\.9% overall; 13\.2% of Early Decision applicants were admitted\)/);
 });
 
+// The test policy a school states this cycle on its own pages, as the policy
+// scout read them, outranks the Common Data Set's: Dartmouth has required
+// scores since the 2024-25 cycle while the 2025-26 set in the store reads
+// test-optional, so a student with no score was read as if none were needed
+// (2026-10-09).
+test("College Fit reads the test policy the school states this cycle and flags a missing required score", async () => {
+  const db = new Database(path.join(testDataDir, "operational.db"));
+  const checkedAt = new Date().toISOString();
+  try {
+    db.prepare(`INSERT OR REPLACE INTO admissions_policy_snapshots (slug, school_name, unit_id, homepage, checked_at, changed_at, content_hash, pages_json, policy_json, check_count)
+      VALUES (?, ?, NULL, ?, ?, NULL, ?, ?, ?, 1)`).run(
+      "dartmouth-college", "Dartmouth College", "https://www.dartmouth.edu/", checkedAt, "test-hash", "[]",
+      JSON.stringify({ cycle: "2026-27", scoutVersion: SCOUT_VERSION, testPolicy: { value: "test_required", through: null, evidence: "Dartmouth requires the SAT or ACT of first-year applicants.", sourceUrl: "https://admissions.dartmouth.edu/apply/testing" }, applicationFee: null, deadlines: {} }),
+    );
+  } finally {
+    db.close();
+  }
+  const token = await registerStudent("fit-stated-policy");
+  for (const consentType of ["data_processing", "ai_interaction", "cross_border_transfer"]) {
+    const consent = await request("POST", "/api/consent/grant", { token, body: { consentType, grantedBy: "student" } });
+    assert.equal(consent.status, 200, JSON.stringify(consent.data));
+  }
+  const synced = await request("POST", "/api/students/sync", {
+    token,
+    body: {
+      profile: { gpa: { unweighted: 3.9 }, courses: [{ name: "AP Calculus BC", type: "ap", grade: "A", year: "junior" }], testScores: [], apScores: [] },
+      activities: [],
+      majorInterest: "Computer Science",
+      goals: [],
+    },
+  });
+  assert.equal(synced.status, 200, JSON.stringify(synced.data));
+
+  const fit = await request("POST", "/api/positioning/targets", {
+    token,
+    body: { targets: [{ schoolName: "Dartmouth College" }], major: "Computer Science", searchCds: false },
+  });
+  assert.equal(fit.status, 200, `${JSON.stringify(fit.data)}\n${serverOutput}`);
+  const read = fit.data.targets[0];
+  assert.equal(read.profileComparison.tests.policy, "test_considered_or_required", JSON.stringify(read.profileComparison.tests));
+  assert.equal(read.profileComparison.tests.stated.value, "test_required");
+  assert.equal(read.profileComparison.tests.score, 18);
+  assert.equal(read.dataProvenance.testPolicy.source, "official_site");
+  assert.equal(read.dataProvenance.testPolicy.sourceUrl, "https://admissions.dartmouth.edu/apply/testing");
+  assert.ok(read.mainRedFlags.some((f) => /says SAT or ACT scores are required this cycle, and no score is on file/.test(f)), JSON.stringify(read.mainRedFlags));
+
+  // The double-check compares the live pages with the policy the read used
+  // and says where that came from (the live read fails in tests).
+  const verify = await request("POST", "/api/positioning/verify", { token, body: { schoolName: "Dartmouth College", major: "Computer Science" } });
+  assert.equal(verify.status, 200, `${JSON.stringify(verify.data)}\n${serverOutput}`);
+  const policyCheck = verify.data.checks.find((c) => c.field === "test_policy");
+  assert.equal(policyCheck.used, "tests considered or required");
+  assert.match(policyCheck.usedSource, /^official admissions site \(policy scout, checked \d{4}-\d{2}-\d{2}\)$/);
+});
+
 test("a document block reaches the model as its full extracted text, and the profile check yields to the document", async () => {
   const token = await registerWithProfile("attachment-inline");
   const transcript = "Official Transcript\nGrade Level: 11\nAP English Language and Composition  A\nAP Statistics  A\nCredits earned: 2.0\n";

@@ -3,14 +3,15 @@
 // `deps` is server.js's routeDeps object: live getters onto the bindings
 // these functions read there (CDS_LIVE_COOLDOWN_MS, SCORECARD_API_KEY,
 // admissionsIntelStmts, cdsLiveAttemptAt, db, getScorecardQueryCache,
-// normalizeUnitId, putScorecardQueryCache, ragStmts,
+// normalizeUnitId, policyScoutStmts, putScorecardQueryCache, ragStmts,
 // resolveBaselineCollegeRow).
 import { cdsRecordToPositioningResult, cdsVerification, isCdsRecordValidated, resolveStoredCdsRecord, schoolNamesCompatible, slugifySchoolName } from "../cds/cds-store.js";
 import { httpError, safeParseJSON } from "./model-calls.js";
 import { extractGoalUnitIds } from "../storage/rag-engine.js";
 import { computeCdsQueryCacheKey, extractTargetSchoolNames, resolveAndParseCdsTargets } from "../cds/cds-search.js";
 import { getActiveNarrative } from "../activities/narrative-store.js";
-import { POSITIONING_MODEL_VERSION, admitRatePools, buildPositioningForTarget, buildStudentModel } from "../colleges/positioning-engine.js";
+import { POSITIONING_MODEL_VERSION, admitRatePools, buildPositioningForTarget, buildStudentModel, statedTestPolicy } from "../colleges/positioning-engine.js";
+import { readPolicySnapshot } from "../scouts/admissions-policy-scout.js";
 import { resolveIpedsGrowthForMajor, resolveMajorPolicyForSchool, resolveStrategicFocusForSchool } from "../colleges/admissions-intelligence.js";
 import { expandCollegeAlias, pickScorecardHit } from "../colleges/college-research.js";
 import { getCollegeById, searchScorecard } from "../colleges/college-scorecard.js";
@@ -266,6 +267,25 @@ export async function runPositioning({ studentId, body = {}, bypassCache = false
         }
       }
 
+      // The test policy the school states this cycle on its own admissions
+      // pages, as the policy scout last read them, outranks the Common Data
+      // Set's, which describes a class that entered a year or two ago
+      // (statedTestPolicy). The read is a cheap table lookup; without one the
+      // CDS policy stands.
+      let stated = null;
+      try {
+        stated = statedTestPolicy(readPolicySnapshot(deps.policyScoutStmts, { unitId: collegeContext.unitId, name: collegeContext.name }));
+      } catch {
+        stated = null;
+      }
+      const cdsForRead = stated
+        ? {
+          ...(effectiveCds || {}),
+          parsed: { ...(effectiveCds?.parsed || {}), testPolicy: stated.bucket, testPolicyStated: stated },
+          testPolicySource: `official admissions site (policy scout, checked ${String(stated.checkedAt).slice(0, 10)})`,
+        }
+        : effectiveCds;
+
       const majorPolicy =
         resolveMajorPolicyForSchool(deps.admissionsIntelStmts, {
           unitId: collegeContext.unitId,
@@ -293,11 +313,11 @@ export async function runPositioning({ studentId, body = {}, bypassCache = false
         },
         strategicSignals,
       };
-      const positioning = buildPositioningForTarget(studentModel, collegeContext, effectiveCds, positioningOptions);
+      const positioning = buildPositioningForTarget(studentModel, collegeContext, cdsForRead, positioningOptions);
       internals.push({
         schoolName: positioning.schoolName,
         collegeContext: { ...collegeContext },
-        effectiveCds,
+        effectiveCds: cdsForRead,
         options: positioningOptions,
         website: collegeRow?.website || null,
         cdsYear: storedCds?.year ?? null,
@@ -318,6 +338,11 @@ export async function runPositioning({ studentId, body = {}, bypassCache = false
         }),
         // Which admit rate the read started from; the chat's fit line says so.
         admitRate: positioning.admitRate,
+        // Where the test policy came from: the school's own pages this
+        // cycle, or the Common Data Set.
+        testPolicy: stated
+          ? { bucket: stated.bucket, value: stated.value, source: "official_site", checkedAt: stated.checkedAt, sourceUrl: stated.sourceUrl }
+          : { bucket: effectiveCds?.parsed?.testPolicy ?? null, source: effectiveCds?.parsed?.testPolicy ? "cds" : "default" },
       };
       return positioning;
     }));

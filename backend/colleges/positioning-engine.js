@@ -426,10 +426,51 @@ function distributionPlacement(rows, value) {
   };
 }
 
+// The two ways the read treats a test policy. Test-flexible (SAT, ACT, AP
+// or IB, Yale's from 2024 until May 2026) still requires a score, so it
+// reads as required; test-blind and test-free read as optional, where a
+// score the student would withhold is not counted. CDS values
+// ("test_required_some") and the read's own buckets map to themselves.
+export function testPolicyBucket(value) {
+  const v = String(value || "").toLowerCase();
+  if (!v) return null;
+  if (/flexible/.test(v)) return "test_considered_or_required";
+  if (/optional|blind|deemphas|de-emphas|free/.test(v)) return "test_optional_or_deemphasized";
+  if (/required|considered/.test(v)) return "test_considered_or_required";
+  return null;
+}
+
+// The test policy a school states now, from the policy scout's reading of
+// its own admissions pages: a recognized value with the sentence it was read
+// from, checked within the last year. A Common Data Set describes the class
+// that entered a year or two before, and the most selective schools changed
+// course in between: Dartmouth has required scores again since the 2024-25
+// cycle while the 2025-26 set in the store reads test-optional, so a student
+// with no score was read as if none were needed.
+const STATED_POLICY_MAX_AGE_MS = 365 * 24 * 60 * 60 * 1000;
+export function statedTestPolicy(snapshot, { now = Date.now() } = {}) {
+  const tp = snapshot?.policy?.testPolicy;
+  const bucket = testPolicyBucket(tp?.value);
+  if (!bucket || !String(tp?.evidence || "").trim()) return null;
+  const checked = Date.parse(snapshot?.checkedAt || "");
+  if (!Number.isFinite(checked) || now - checked > STATED_POLICY_MAX_AGE_MS) return null;
+  return {
+    value: tp.value,
+    bucket,
+    through: tp.through || null,
+    checkedAt: snapshot.checkedAt,
+    sourceUrl: tp.sourceUrl || null,
+    evidence: tp.evidence,
+  };
+}
+
 export function compareTestsToSchool(student, college, cdsResult) {
   const parsed = cdsResult?.parsed || {};
   const policy = parsed.testPolicy || "test_considered_or_required";
   const optional = policy === "test_optional_or_deemphasized";
+  // What the school's own pages say this cycle, when the caller read it
+  // (statedTestPolicy); `policy` is then its bucket.
+  const stated = parsed.testPolicyStated || null;
   const satBand = bandOf(college?.sat25 ?? college?.sat_25 ?? parsed.satComposite?.low, college?.sat75 ?? college?.sat_75 ?? parsed.satComposite?.high);
   const actBand = bandOf(college?.act25 ?? college?.act_25 ?? parsed.actComposite?.low, college?.act75 ?? college?.act_75 ?? parsed.actComposite?.high);
   const candidates = [];
@@ -471,6 +512,7 @@ export function compareTestsToSchool(student, college, cdsResult) {
     : null;
   return {
     policy,
+    stated: stated ? { value: stated.value, through: stated.through ?? null, checkedAt: stated.checkedAt ?? null, sourceUrl: stated.sourceUrl ?? null } : null,
     advice,
     score: round1(score),
     best,
@@ -896,6 +938,18 @@ export function buildRedFlags(student, collegeContext, majorCompetitiveness, nar
       flags.push(`${best.test.toUpperCase()} Math (${mathSection.value}) sits below this school's 25th percentile (${mathSection.band.low}), which a quantitative major will notice.`);
     }
   }
+  // A school whose own admissions pages require scores this cycle, with no
+  // SAT or ACT on file: the application is not complete without one. Under
+  // a test-flexible policy AP results on file meet the requirement.
+  const stated = reads?.tests?.stated;
+  if (stated && !best) {
+    const checked = String(stated.checkedAt || "").slice(0, 10);
+    if (stated.value === "test_required") {
+      flags.push(`This school's admissions site (checked ${checked}) says SAT or ACT scores are required this cycle, and no score is on file.`);
+    } else if (stated.value === "test_flexible" && !(student.apExams?.count > 0)) {
+      flags.push(`This school's admissions site (checked ${checked}) requires test scores this cycle (SAT, ACT, or AP or IB results under its test-flexible policy), and none is on file.`);
+    }
+  }
   if (reads?.apExams?.relevant?.length && reads.apExams.relevantAverage != null && reads.apExams.relevantAverage < 3) {
     flags.push("AP exam scores in the intended field average below 3.");
   }
@@ -1036,6 +1090,9 @@ export function buildProfileComparison(reads) {
   return {
     tests: {
       policy: tests?.policy ?? null,
+      // The school's own statement of it this cycle, when the policy scout
+      // has read one; otherwise the policy is the Common Data Set's.
+      stated: tests?.stated ?? null,
       advice: tests?.advice ?? "none",
       used: best ? { ...brief(best), weakSection: best.weakSection } : null,
       sections: best ? best.sections.map((s) => ({ key: s.key, label: s.label, value: s.value, band: s.band, position: s.position })) : [],

@@ -46,7 +46,12 @@ academic decile near 13–15% against about 5% overall. At schools admitting
 45% or more the lift can reach about eleven times. Falling below a school's
 range lowers the odds at every level of selectivity. The bands are: 70% and
 above "Highly competitive", 40–70% "Competitive", 15–40% "Reach", below 15%
-"High reach". The estimate cannot see what decides most outcomes at the most
+"High reach". The test policy is the one the school states for the current
+cycle on its own admissions pages, as the policy scout last read them, and
+the Common Data Set's only when no reading from the past year is held: several
+of the most selective schools require scores again although their latest set
+still describes a test-optional year. Where scores are required and none is
+on file, the card says so. The estimate cannot see what decides most outcomes at the most
 selective schools (essays, recommendations, recruited-athlete or legacy
 status), nor the in-state and out-of-state rates of public universities, and
 the card says which admit rate it used.
