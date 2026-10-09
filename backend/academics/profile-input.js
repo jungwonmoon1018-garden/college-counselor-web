@@ -21,6 +21,7 @@
 // tests/profile-input.test.js pins the two copies together.
 
 import { normalizeTestScores, normalizeClassRank } from "./test-catalog.js";
+import { apFirstExamYear } from "./ap-exams.js";
 
 // Unweighted GPAs are reported on 4.0, 4.3 or 5.0 scales (transcript import
 // accepts the same 0–5); weighted scales reach 5.0 or 6.0.
@@ -74,15 +75,24 @@ function dropInvalid(list, keep, field, setAside) {
   return out;
 }
 
-function normalizeApScores(list) {
+// AP exam scores: a whole score 1–5 for a named exam (an entry with no exam
+// name says nothing and is dropped). The year is kept when a score from it
+// can exist, from the exam's first year (2000, or later for the newest
+// exams in ap-exams.js) through the current year; another year is dropped
+// and the entry kept. Until 2026-10-09 any year to 2100 was kept.
+function normalizeApScores(list, now = new Date()) {
+  const latest = now.getUTCFullYear();
   const out = [];
   for (const raw of list) {
     if (!isPlainObject(raw)) continue;
+    const name = String(raw.exam ?? raw.subject ?? raw.name ?? "").trim();
+    if (!name) continue;
     const score = toNumber(raw.score);
     if (score == null || !Number.isInteger(score) || score < 1 || score > 5) continue;
     const entry = { ...raw, score };
     const year = toNumber(raw.year);
-    if (year != null && Number.isInteger(year) && year >= 2000 && year <= 2100) entry.year = year;
+    const first = Math.max(2000, apFirstExamYear(name) ?? 2000);
+    if (year != null && Number.isInteger(year) && year >= first && year <= latest) entry.year = year;
     else delete entry.year;
     out.push(entry);
   }
@@ -95,9 +105,10 @@ function normalizeApScores(list) {
  * @param {object} previous the last stored values (from the latest snapshot):
  *                          { gpaUnweighted, gpaWeighted, courses, activities,
  *                            goals, majorInterest }
+ * @param {object} options  { now }: the clock an AP score's year is checked against
  * @returns {{ profile, activities, goals, majorInterest, setAside: Array<{field, reason, count?}> }}
  */
-export function normalizeSyncInput({ profile, activities, goals, majorInterest } = {}, previous = {}) {
+export function normalizeSyncInput({ profile, activities, goals, majorInterest } = {}, previous = {}, { now = new Date() } = {}) {
   const setAside = [];
   const source = isPlainObject(profile) ? profile : {};
   if (profile != null && !isPlainObject(profile)) setAside.push({ field: "profile", reason: "not_an_object" });
@@ -130,14 +141,14 @@ export function normalizeSyncInput({ profile, activities, goals, majorInterest }
     if (out.testScores.length < sent.length) setAside.push({ field: "testScores", reason: "invalid_entry", count: sent.length - out.testScores.length });
   }
 
-  // AP exam scores: whole numbers 1–5; a year outside 2000–2100 is dropped
-  // from its entry, not the entry itself.
+  // AP exam scores: whole numbers 1–5 for a named exam; a year no score can
+  // come from is dropped from its entry, not the entry itself.
   if (source.apScores != null && !Array.isArray(source.apScores)) {
     setAside.push({ field: "apScores", reason: "not_a_list" });
     out.apScores = [];
   } else {
     const sent = Array.isArray(source.apScores) ? source.apScores : [];
-    out.apScores = normalizeApScores(sent);
+    out.apScores = normalizeApScores(sent, now);
     if (out.apScores.length < sent.length) setAside.push({ field: "apScores", reason: "invalid_entry", count: sent.length - out.apScores.length });
   }
 

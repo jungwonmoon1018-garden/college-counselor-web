@@ -29,10 +29,15 @@ export const GRADE_SCALE = [
 // sections, date, subject), every AP exam score, and the class rank can be
 // edited, removed or added without re-running the survey. Forms hold
 // strings; the profile stores the numeric entries the backend validates.
+// The stored names of the AP exams. backend/academics/ap-exams.js reads
+// the same names plus the College Board's full names and abbreviations;
+// Business with Personal Finance and Cybersecurity have their first exams in
+// May 2027, and the score pickers list them from that July.
 export const AP_EXAM_LIST = [
-  "African American Studies","Art History","Biology","Calculus AB","Calculus BC",
+  "African American Studies","Art History","Biology","Business with Personal Finance",
+  "Calculus AB","Calculus BC",
   "Chemistry","Chinese Language","Comparative Government","Computer Science A",
-  "Computer Science Principles","English Language","English Literature",
+  "Computer Science Principles","Cybersecurity","English Language","English Literature",
   "Environmental Science","European History","French Language","German Language",
   "Human Geography","Italian Language","Japanese Language","Latin",
   "Macroeconomics","Microeconomics","Music Theory","Physics 1","Physics 2",

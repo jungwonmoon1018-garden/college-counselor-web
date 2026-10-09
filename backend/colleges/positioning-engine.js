@@ -1,6 +1,7 @@
 import { clamp01, matchMajorBucket } from "../activities/ec-vectorizer.js";
 import { normalizeClassRank, sectionEntries } from "../academics/test-catalog.js";
 import { readCourseRigor } from "../academics/course-rigor.js";
+import { apExamKey, apNameWords } from "../academics/ap-exams.js";
 
 export const C7_RATING_VALUES = Object.freeze({
   very_important: 1,
@@ -189,11 +190,21 @@ function sectionMap(entry) {
 // AP exam results as evidence of college-level mastery: how many, the
 // average, the strong (4–5) and weak (1–2) counts, and the exams that speak
 // to the intended major (whole-word keyword match, so "cs" never claims
-// "Physics").
+// "Physics"). An exam is named as the AP catalog names it ("APUSH" is US
+// History), and one taken twice counts once, at its better score: each
+// sitting used to count as another exam in the count and the average.
 function summarizeApExams(apScores, keywords = []) {
-  const exams = (Array.isArray(apScores) ? apScores : [])
-    .map((a) => ({ name: String(a?.exam || a?.subject || a?.name || "").trim(), score: Number(a?.score) }))
-    .filter((a) => a.name && Number.isFinite(a.score) && a.score >= 1 && a.score <= 5);
+  const byExam = new Map();
+  for (const a of Array.isArray(apScores) ? apScores : []) {
+    const raw = String(a?.exam || a?.subject || a?.name || "").trim();
+    const score = Number(a?.score);
+    if (!raw || !Number.isFinite(score) || score < 1 || score > 5) continue;
+    const name = apExamKey(raw) || raw;
+    const id = apExamKey(raw) || apNameWords(raw);
+    const held = byExam.get(id);
+    if (!held || score > held.score) byExam.set(id, { name, score });
+  }
+  const exams = [...byExam.values()];
   const patterns = keywords.map((kw) => new RegExp(`(?<![a-z0-9])${String(kw).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![a-z0-9])`, "i"));
   const relevant = exams.filter((a) => patterns.some((re) => re.test(a.name)));
   const average = avg(exams.map((a) => a.score));

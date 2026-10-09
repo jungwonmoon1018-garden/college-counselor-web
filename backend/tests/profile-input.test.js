@@ -93,6 +93,32 @@ test("a GPA sent as numeric text is read as the number; one that is not a GPA ke
   assert.deepEqual(GPA_LIMITS, { unweighted: { min: 0, max: 5 }, weighted: { min: 0, max: 6 } });
 });
 
+// An AP score's year is kept only when a score from it can exist: not in
+// the future, not before the exam was first given (AP Precalculus, 2024).
+// An entry with no exam name is dropped (2026-10-09).
+test("an AP entry needs an exam name, and its year must be one a score can come from", () => {
+  const now = new Date("2026-10-09T00:00:00Z");
+  const out = normalizeSyncInput({
+    profile: {
+      apScores: [
+        { score: 5, year: 2025 },
+        { exam: "  ", score: 4 },
+        { exam: "Precalculus", score: 5, year: 2023 },
+        { exam: "AP Precalculus", score: 4, year: 2024 },
+        { exam: "Biology", score: 4, year: 2027 },
+        { subject: "Chemistry", score: 3, year: 2026 },
+      ],
+    },
+  }, PREVIOUS, { now });
+  assert.deepEqual(out.profile.apScores, [
+    { exam: "Precalculus", score: 5 },
+    { exam: "AP Precalculus", score: 4, year: 2024 },
+    { exam: "Biology", score: 4 },
+    { subject: "Chemistry", score: 3, year: 2026 },
+  ]);
+  assert.deepEqual(reasons(out.setAside), ["apScores:invalid_entry:2"]);
+});
+
 test("test scores outside the catalog's ranges, AP scores that are not 1-5, and non-object entries are dropped and counted", () => {
   const out = normalizeSyncInput({
     profile: {
@@ -109,7 +135,7 @@ test("test scores outside the catalog's ranges, AP scores that are not 1-5, and 
     goals: ["Purdue University", "", 42],
   }, PREVIOUS);
   assert.deepEqual(out.profile.testScores, [{ test: "act", totalScore: 34 }]);
-  // Numeric text is read as the score; a year outside 2000-2100 leaves the entry, not the exam.
+  // Numeric text is read as the score; a year no score can come from leaves the entry, not the exam.
   assert.deepEqual(out.profile.apScores, [{ exam: "Chemistry", score: 4 }]);
   assert.deepEqual(out.profile.courses, [{ name: "Chemistry" }]);
   assert.deepEqual(out.activities, [{ name: "Band" }]);

@@ -18,6 +18,7 @@
 
 import { formatVerificationLine } from "../colleges/fit-verifier.js";
 import { testLabel, sectionEntries, formatSections, formatClassRank, normalizeClassRank } from "../academics/test-catalog.js";
+import { apExamAliases, apExamKey } from "../academics/ap-exams.js";
 
 export const CHAT_PROFILE_LIMITS = Object.freeze({ maxCourses: 40, maxActivities: 20 });
 
@@ -482,14 +483,29 @@ export function checkProfileFidelity(answerText, profile) {
     }
   }
 
+  // One check per exam, under every name the AP catalog knows for it
+  // ("APUSH", "AP Calc BC", the College Board's full name). An exam taken
+  // twice has two true scores: a 4 stated for a Calculus AB recorded as 3
+  // in 2025 and 4 in 2026 used to be a contradiction against the 3, and
+  // the retry "corrected" a right answer.
+  const apByExam = new Map();
   for (const exam of (Array.isArray(profile.apScores) ? profile.apScores : [])) {
     const name = apExamName(exam);
     if (name.length < 3) continue;
-    const aliases = [...new Set([name, `AP ${name.replace(/^AP\s+/i, "")}`])].sort((a, b) => b.length - a.length);
-    const actual = Number.isFinite(Number(exam?.score)) ? Number(exam.score) : null;
+    const id = apExamKey(name) || name.replace(/^AP\s+/i, "").toLowerCase();
+    const entry = apByExam.get(id) || { label: apExamKey(name) || name.replace(/^AP\s+/i, ""), aliases: new Set(), scores: [] };
+    for (const alias of apExamAliases(name)) entry.aliases.add(alias);
+    const score = Number(exam?.score);
+    if (Number.isFinite(score) && !entry.scores.includes(score)) entry.scores.push(score);
+    apByExam.set(id, entry);
+  }
+  for (const entry of apByExam.values()) {
+    const aliases = [...entry.aliases].sort((a, b) => b.length - a.length);
+    const scores = [...entry.scores].sort((a, b) => b - a);
     for (const stated of statedApScores(text, aliases)) {
-      if (actual != null && stated === actual) continue;
-      add({ kind: "ap_score", item: `AP ${name.replace(/^AP\s+/i, "")} exam`, stated: String(stated), actual: actual != null ? String(actual) : "no score recorded" });
+      if (scores.includes(stated)) continue;
+      const actual = !scores.length ? "no score recorded" : scores.length === 1 ? String(scores[0]) : `${scores.join(" and ")} (the exam was taken ${scores.length} times)`;
+      add({ kind: "ap_score", item: `AP ${entry.label} exam`, stated: String(stated), actual });
     }
   }
 

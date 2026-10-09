@@ -565,6 +565,21 @@ test("the test policy a school states this cycle outranks its Common Data Set's,
   assert.ok(!optionalRead.mainRedFlags.some((f) => /this cycle/.test(f)));
 });
 
+// An AP exam is named as the catalog names it and counted once at its
+// better score: "APCSA" 3 and "Computer Science A" 5 used to be two exams
+// averaging 4 (2026-10-09).
+test("a retaken AP exam counts once at its better score, under the catalog's name", () => {
+  const student = buildStudentModel({ major_interest: "Computer Science", apScores: [
+    { exam: "APCSA", score: 3, year: 2025 },
+    { exam: "Computer Science A", score: 5, year: 2026 },
+    { exam: "AP Calc BC", score: 4, year: 2026 },
+  ] }, [], null);
+  assert.equal(student.apExams.count, 2);
+  assert.equal(student.apExams.average, 4.5);
+  assert.deepEqual(student.apExams.relevant, [{ name: "Computer Science A", score: 5 }, { name: "Calculus BC", score: 4 }]);
+  assert.equal(student.rigor.apTaken, 2);
+});
+
 test("a below-range score at a test-optional school is withheld and weighs nothing", () => {
   const optional = { ...WIDE_CDS, parsed: { ...WIDE_CDS.parsed, testPolicy: "test_optional_or_deemphasized" } };
   const weak = studentWith({ testScores: [{ test: "sat", totalScore: 1250 }] });

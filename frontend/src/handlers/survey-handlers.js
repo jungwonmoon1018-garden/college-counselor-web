@@ -5,6 +5,7 @@
 import { normalizeClassRank, formToEntry, blankTestForm, entryToForm } from "../profile/test-scores.js";
 import { describeSetAside, syncFailureMessage } from "../profile/sync-result.js";
 import { S } from "../app-shared.js";
+import { latestApScoreYear } from "../profile/ap-entry.js";
 import { storageApi, safeBtoa } from "../session/vault-storage.js";
 
 // ─── COMPLETE SURVEY → build profile → go to chat ───
@@ -155,7 +156,7 @@ export function hydrateSurveyFromCurrentData(ctx, src) {
     score: String(a.score ?? 5),
     year: String(a.year || new Date().getFullYear())
   })));
-  setSAPInput({ subject:"", score:"5", year:String(new Date().getFullYear()) });
+  setSAPInput({ subject:"", score:"5", year:String(latestApScoreYear()) });
   setSECs((d.activities || []).map(a => ({
     name: a.name || "",
     category: a.category || "club",

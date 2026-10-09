@@ -22,7 +22,8 @@ import { TEST_SCORE_LIMITS, validateTestEntry, blankTestForm, entryToForm, formT
 import { validateGpa } from "./profile/gpa.js";
 import "./profile/strategy-council.js";
 import Sidebar from "./screens/Sidebar.jsx";
-import { AP_EXAM_LIST, GRADE_SCALE } from "./app-shared.js";
+import { GRADE_SCALE } from "./app-shared.js";
+import { apExamsWithScores, validateApEntry } from "./profile/ap-entry.js";
 import SurveyScreen from "./screens/SurveyScreen.jsx";
 import { BG, FONT, GLOBAL_CSS, inputStyle } from "./app-shared.js";
 import LoginScreen from "./screens/LoginScreen.jsx";
@@ -476,7 +477,7 @@ export default function App() {
     const st = STEPS[surveyStep]||STEPS[0];
     const total = STEPS.length;
 
-    const AP_COURSES = AP_EXAM_LIST;
+    const AP_COURSES = apExamsWithScores();
     const RIGOR = { regular:"Standard",elective:"Elective (graduation requirement)",honors:"Honors (+0.5w)",ap:"AP (+1.0w, College-level)",ib:"IB (+1.0w)",dual_enrollment:"Dual Enrollment (+1.0w)" };
     const YEARS = SURVEY_YEARS;
     const ylbl = y => y.charAt(0).toUpperCase()+y.slice(1);
@@ -595,7 +596,16 @@ export default function App() {
       setSTests(p=>[...p, entryToForm(entry)]);
       setSTestInput(blankTestForm(sTestInput.test));
     };
-    const addAP = () => { if (!sAPInput.subject || sAPScores.length >= MAX_ITEMS) return; setSAPScores(p=>[...p,{...sAPInput}]); setSAPInput({subject:"",score:"5",year:sAPInput.year}); };
+    // One check with the sidebar editor (profile/ap-entry.js): an exam, a
+    // score 1-5, a year with scores out, and not the same exam and year twice.
+    const addAP = () => {
+      if (sAPScores.length >= MAX_ITEMS) return;
+      const check = validateApEntry({ exam: sAPInput.subject, score: sAPInput.score, year: sAPInput.year }, { others: sAPScores.map(a => ({ exam: a.subject, year: a.year })) });
+      if (!check.ok) { setSurveyError(check.error); return; }
+      setSurveyError("");
+      setSAPScores(p=>[...p,{ subject: check.entry.exam, score: String(check.entry.score), year: String(check.entry.year) }]);
+      setSAPInput({subject:"",score:"5",year:sAPInput.year});
+    };
 
     const addEC = () => {
       if (!sECInput.name.trim() || !sECInput.role.trim()) return;

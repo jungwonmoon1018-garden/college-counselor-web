@@ -131,6 +131,20 @@ describe("Dashboard profile editing", () => {
       expect(lastSync()?.profile?.apScores).toEqual([{ exam: "Statistics", score: 5, year: 2026 }, { exam: "Calculus BC", score: 5, year: 2025 }]);
     }, { timeout: 5000 });
 
+    // The same exam and year again is refused (profile/ap-entry.js); a year
+    // whose scores are not out yet too.
+    fireEvent.click(screen.getByRole("button", { name: "+ Add AP score" }));
+    editor = screen.getByTestId("ap-score-editor");
+    fireEvent.change(within(editor).getByLabelText("AP exam"), { target: { value: "Calculus BC" } });
+    fireEvent.change(within(editor).getByLabelText("AP exam year"), { target: { value: "2025" } });
+    fireEvent.click(within(editor).getByRole("button", { name: "Save" }));
+    expect(within(editor).getByRole("alert")).toHaveTextContent("AP Calculus BC (2025) is already on your list.");
+    fireEvent.change(within(editor).getByLabelText("AP exam year"), { target: { value: "2099" } });
+    fireEvent.click(within(editor).getByRole("button", { name: "Save" }));
+    expect(within(editor).getByRole("alert")).toHaveTextContent(/Enter the year you took the exam, 2000–\d{4}\. Scores come out in July\./);
+    fireEvent.click(within(editor).getByRole("button", { name: "Cancel" }));
+    expect(lastSync()?.profile?.apScores).toHaveLength(2);
+
     fireEvent.click(screen.getByRole("button", { name: "Edit AP Statistics score" }));
     editor = screen.getByTestId("ap-score-editor");
     fireEvent.click(within(editor).getByRole("button", { name: "Remove" }));

@@ -12,7 +12,8 @@ import CloseButton from "../components/CloseButton.jsx";
 import CalibratedFitCard from "../components/CalibratedFitCard.jsx";
 import EcEvidence, { ChatEvidenceSync } from "../components/EcEvidence.jsx";
 import PrestigeCard from "../components/PrestigeCard.jsx";
-import { AP_EXAM_LIST, GRADE_SCALE } from "../app-shared.js";
+import { GRADE_SCALE } from "../app-shared.js";
+import { apExamsWithScores, latestApScoreYear, validateApEntry } from "../profile/ap-entry.js";
 
 // ═══════════════════════════════════════════════════════════
 // GPA CALCULATOR — unweighted (4.0 scale) + weighted (rigor bonus).
@@ -148,35 +149,35 @@ function TestScoreEditor({ initial, onSave, onCancel, onDelete }) {
   );
 }
 
-function ApScoreEditor({ initial, onSave, onCancel, onDelete }) {
+// The same check as the survey's AP step (profile/ap-entry.js): a year with
+// scores out, not before the exam was first given, and not the same exam
+// and year as another entry (`others`, the list without this one).
+function ApScoreEditor({ initial, others = [], onSave, onCancel, onDelete }) {
   const [form, setForm] = useState({
     exam: initial?.exam || initial?.subject || initial?.name || "",
     score: String(initial?.score ?? 5),
-    year: String(initial?.year || new Date().getFullYear()),
+    year: String(initial?.year || latestApScoreYear()),
   });
   const [error, setError] = useState("");
   const save = () => {
-    const exam = String(form.exam || "").trim().slice(0, 80);
-    const score = parseInt(form.score, 10);
-    const year = parseInt(form.year, 10);
-    if (!exam) { setError("Pick the AP exam."); return; }
-    if (!(score >= 1 && score <= 5)) { setError("AP scores run 1-5."); return; }
-    if (!(year >= 2000 && year <= 2100)) { setError("Enter the exam year."); return; }
-    onSave({ exam, score, year });
+    const check = validateApEntry(form, { others });
+    if (!check.ok) { setError(check.error); return; }
+    onSave(check.entry);
   };
-  const known = AP_EXAM_LIST.includes(form.exam);
+  const exams = apExamsWithScores();
+  const known = exams.includes(form.exam);
   return (
     <div data-testid="ap-score-editor" style={{ background:"rgba(246,173,85,0.08)", borderRadius:10, padding:12, marginBottom:12, border:"1px solid rgba(246,173,85,0.35)" }}>
       <select aria-label="AP exam" value={known ? form.exam : (form.exam ? "__custom" : "")} onChange={(e) => setForm((p) => ({ ...p, exam: e.target.value === "__custom" ? p.exam : e.target.value }))} style={{ ...EDITOR_SELECT, marginBottom:6 }}>
         <option value="">Select AP exam (CollegeBoard)</option>
-        {AP_EXAM_LIST.map((c) => <option key={c} value={c}>{`AP ${c}`}</option>)}
+        {exams.map((c) => <option key={c} value={c}>{`AP ${c}`}</option>)}
         {!known && form.exam && <option value="__custom">{`AP ${form.exam}`}</option>}
       </select>
       <div style={{ display:"flex", gap:6, marginBottom:6 }}>
         <select aria-label="AP score" value={form.score} onChange={(e) => setForm((p) => ({ ...p, score: e.target.value }))} style={{ ...EDITOR_SELECT, flex:1 }}>
           {["5", "4", "3", "2", "1"].map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
-        <input aria-label="AP exam year" type="number" min="2000" max="2100" value={form.year} onChange={(e) => setForm((p) => ({ ...p, year: e.target.value }))} placeholder="Year" style={{ ...EDITOR_INPUT, flex:1 }} />
+        <input aria-label="AP exam year" type="number" min="2000" max={latestApScoreYear()} value={form.year} onChange={(e) => setForm((p) => ({ ...p, year: e.target.value }))} placeholder="Year" style={{ ...EDITOR_INPUT, flex:1 }} />
       </div>
       {error && <div role="alert" style={EDITOR_ERROR}>{error}</div>}
       <div style={{ display:"flex", gap:6 }}>
@@ -647,7 +648,7 @@ export default function Sidebar(props) {
         <SidebarSection id="ap-scores" title="AP exam scores" count={(profile.apScores || []).length}>
         {(profile.apScores || []).map((x,i)=>(
           editingField === `ap:${i}` ? (
-            <ApScoreEditor key={i} initial={x}
+            <ApScoreEditor key={i} initial={x} others={(profile.apScores||[]).filter((_,j)=>j!==i)}
               onSave={(entry)=>commitProfile(p=>{ const a=[...(p.apScores||[])]; a[i]=entry; p.apScores=a; })}
               onCancel={()=>setEditingField(null)}
               onDelete={()=>commitProfile(p=>{ p.apScores=(p.apScores||[]).filter((_,j)=>j!==i); })} />
@@ -663,7 +664,7 @@ export default function Sidebar(props) {
           )
         ))}
         {editingField === "ap:new" ? (
-          <ApScoreEditor initial={null}
+          <ApScoreEditor initial={null} others={profile.apScores||[]}
             onSave={(entry)=>commitProfile(p=>{ p.apScores=[...(p.apScores||[]), entry]; })}
             onCancel={()=>setEditingField(null)} />
         ) : (
