@@ -259,6 +259,56 @@ test("deadline cascade is tenant-scoped and matches literal school names and com
   assert.ok((await listDeadlineTitles(secondToken)).includes("Same unit ID, different student"));
 });
 
+// A deadline's name had no cap and its date only had to parse, so a year
+// typed as 0202 was stored as given (2026-10-09). Create, bulk create and
+// edit now hold the same rules.
+test("deadline names are capped and dates must fall between 2000 and six years out, on create, bulk and edit", async () => {
+  const token = await registerStudent("deadline-limits");
+  const valid = "2027-01-05T12:00:00.000Z";
+  const sevenYearsOut = new Date(Date.now() + 7 * 365.25 * 86_400_000).toISOString();
+
+  const tooLong = await request("POST", "/api/students/deadlines", { token, body: { title: "x".repeat(201), dueAt: valid } });
+  assert.equal(tooLong.status, 400, JSON.stringify(tooLong.data));
+  assert.equal(tooLong.data.friendlyMessage, "Keep the deadline's name to 200 characters or fewer.");
+  const typoYear = await request("POST", "/api/students/deadlines", { token, body: { title: "Typo year", dueAt: "0202-01-05T00:00:00.000Z" } });
+  assert.equal(typoYear.status, 400, JSON.stringify(typoYear.data));
+  assert.match(typoYear.data.friendlyMessage, /^Pick a date between 2000-01-01 and \d{4}-\d{2}-\d{2}\.$/);
+  const farOut = await request("POST", "/api/students/deadlines?locale=ko", { token, body: { title: "Far out", dueAt: sevenYearsOut } });
+  assert.equal(farOut.status, 400, JSON.stringify(farOut.data));
+  assert.match(farOut.data.friendlyMessage, /^2000-01-01부터 \d{4}-\d{2}-\d{2} 사이의 날짜를 골라주세요\.$/);
+  const atCap = await request("POST", "/api/students/deadlines", { token, body: { title: "y".repeat(200), dueAt: valid } });
+  assert.equal(atCap.status, 201, JSON.stringify(atCap.data));
+
+  // Bulk create skips what the single create refuses, and counts it.
+  const bulk = await request("POST", "/api/students/deadlines/bulk", {
+    token,
+    body: { items: [
+      { title: "z".repeat(201), dueAt: valid },
+      { title: "Before 2000", dueAt: "1999-12-31T00:00:00.000Z" },
+      { title: "Example University — Regular Decision", dueAt: valid },
+    ] },
+  });
+  assert.equal(bulk.status, 201, JSON.stringify(bulk.data));
+  assert.equal(bulk.data.createdCount, 1);
+  assert.equal(bulk.data.skipped, 2);
+
+  // An edit is held to the same rules; a title that is not text is a 400,
+  // not a 500, and an unknown category leaves the stored one.
+  const id = bulk.data.created[0].id;
+  const notText = await request("PATCH", `/api/students/deadlines/${id}`, { token, body: { title: 42 } });
+  assert.equal(notText.status, 400, JSON.stringify(notText.data));
+  const longEdit = await request("PATCH", `/api/students/deadlines/${id}`, { token, body: { title: "w".repeat(201) } });
+  assert.equal(longEdit.status, 400, JSON.stringify(longEdit.data));
+  assert.equal(longEdit.data.friendlyMessage, "Keep the deadline's name to 200 characters or fewer.");
+  const farEdit = await request("PATCH", `/api/students/deadlines/${id}`, { token, body: { dueAt: sevenYearsOut } });
+  assert.equal(farEdit.status, 400, JSON.stringify(farEdit.data));
+  const edit = await request("PATCH", `/api/students/deadlines/${id}`, { token, body: { category: "made-up", notes: "Portal checked", dueAt: "2027-01-02T12:00:00.000Z" } });
+  assert.equal(edit.status, 200, JSON.stringify(edit.data));
+  assert.equal(edit.data.deadline.category, "admissions");
+  assert.equal(edit.data.deadline.notes, "Portal checked");
+  assert.equal(edit.data.deadline.dueAt, "2027-01-02T12:00:00.000Z");
+});
+
 test("consent status reports missing onboarding rows and clears once granted", async () => {
   const token = await registerStudent("consent-status");
 

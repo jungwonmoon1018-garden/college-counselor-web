@@ -259,6 +259,8 @@ export const STRINGS = {
     "deadlines.upcoming_next_many": "{count} upcoming \u2014 next is {title} in {days} days.",
     "deadlines.due_at_invalid": "dueAt must be a parseable ISO-8601 date",
     "deadlines.status_invalid": "status must be open|done|snoozed",
+    "deadlines.title_too_long": "Keep the deadline's name to {max} characters or fewer.",
+    "deadlines.due_at_range": "Pick a date between {from} and {to}.",
 
     // ─── Prestige rationale (F5) ───
     "prestige.ec_not_found": "We don't have this activity on file. Check the spelling on your activities list, or upload a new attachment for it.",
@@ -539,6 +541,8 @@ export const STRINGS = {
     "deadlines.upcoming_next_many": "\uc608\uc815 {count}\uac74 \u2014 \ub2e4\uc74c\uc740 {title}, {days}\uc77c \ub0a8\uc558\uc5b4\uc694.",
     "deadlines.due_at_invalid": "dueAt\uc740 ISO-8601 \ud615\uc2dd\uc758 \uc5bc\uc73c\ub85c \ubd84\uc11d \uac00\ub2a5\ud55c \ub0a0\uc9dc\uc5ec\uc57c \ud569\ub2c8\ub2e4",
     "deadlines.status_invalid": "status\ub294 open|done|snoozed \uc911 \ud558\ub098\uc5ec\uc57c \ud569\ub2c8\ub2e4",
+    "deadlines.title_too_long": "\ub9c8\uac10\uc77c \uc774\ub984\uc740 {max}\uc790 \uc774\ub0b4\ub85c \uc801\uc5b4\uc8fc\uc138\uc694.",
+    "deadlines.due_at_range": "{from}\ubd80\ud130 {to} \uc0ac\uc774\uc758 \ub0a0\uc9dc\ub97c \uace8\ub77c\uc8fc\uc138\uc694.",
 
     // ─── Prestige rationale (F5) ───
     "prestige.ec_not_found": "\uc774 \ud65c\ub3d9\uc774 \ub4f1\ub85d\ub418\uc5b4 \uc788\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4. \ud65c\ub3d9 \ubaa9\ub85d\uc5d0\uc11c \uc2a4\ud3c6\ub9c1\uc744 \ud655\uc778\ud558\uac70\ub098, \uc0c8 \ucca8\ubd80 \ud30c\uc77c\uc744 \uc5c5\ub85c\ub4dc\ud574\uc8fc\uc138\uc694.",
