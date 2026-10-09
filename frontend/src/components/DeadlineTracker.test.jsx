@@ -36,5 +36,7 @@ describe("DeadlineTracker", () => {
     fireEvent.change(date, { target: { value: "2027-01-05" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Pick a date between 2000-01-01 and 2032-10-09.");
-  });
+  // The whole-suite run queues each test's steps behind the other files'
+  // (vitest 4.1.11; see AdminApp.test.jsx); alone this is well under 5 s.
+  }, 20_000);
 });

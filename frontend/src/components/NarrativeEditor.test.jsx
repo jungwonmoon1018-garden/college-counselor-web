@@ -43,5 +43,8 @@ describe("NarrativeEditor", () => {
     expect(screen.queryByDisplayValue(STORY)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Delete narrative" })).not.toBeInTheDocument();
     expect(screen.queryByText("Not found")).not.toBeInTheDocument();
-  });
+  // Alone this takes well under a second; in the whole-suite run vitest
+  // 4.1.11 queues each test's steps behind the other files' (see
+  // AdminApp.test.jsx), and on 2026-10-09 it crossed the 5 s default.
+  }, 20_000);
 });
