@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   admissionLikelihood,
+  maxReadinessLift,
   buildStudentModel,
   scoreAcademicReadiness,
   scoreInstitutionalPriorityFit,
@@ -172,6 +173,41 @@ test("admissionLikelihood starts from the admit rate and shifts by readiness", (
   assert.ok(Math.abs(admissionLikelihood({ readiness: 60, admitRate: null }) - 0.5) < 0.001, "an unknown admit rate is 50%, never the most selective");
   assert.ok(admissionLikelihood({ readiness: 100, admitRate: 0.04 }) < 0.4, "a 4%-admit school stays a reach for the strongest");
   assert.ok(admissionLikelihood({ readiness: 100, admitRate: 0.04 }) > admissionLikelihood({ readiness: 65, admitRate: 0.04 }));
+});
+
+// The lift strong academics can give shrinks as a school gets more
+// selective: Harvard's SFFA data put its top academic decile at about three
+// times the base odds (a log-odds lift near 1.1), and counselors treat
+// schools under about 10-15% as reaches for everyone. Before 2026-10-09 the
+// lift was 2.4 everywhere, so the strongest record read "Competitive" (49%)
+// at an 8%-admit school and 31% at a 4%-admit one.
+test("the lift readiness can give shrinks with selectivity; a weak record still falls everywhere", () => {
+  assert.equal(maxReadinessLift(0.05), 1.1);
+  assert.equal(maxReadinessLift(0.45), 2.4);
+  assert.equal(maxReadinessLift(0.8), 2.4);
+  assert.equal(maxReadinessLift(null), 2.4, "an unknown admit rate is read as 50%");
+  assert.ok(Math.abs(maxReadinessLift(0.25) - 1.75) < 1e-9);
+
+  const pct = (readiness, admitRate) => admissionLikelihood({ readiness, admitRate }) * 100;
+  // The strongest record: a high reach at 4%, a reach at 8%, near-certain at 75%.
+  assert.equal(classifyPositioningLabel(pct(100, 0.04)), "High reach", `100 @ 4%: ${pct(100, 0.04).toFixed(1)}`);
+  assert.ok(pct(100, 0.04) > 10 && pct(100, 0.04) < 15, `about three times the base odds: ${pct(100, 0.04).toFixed(1)}`);
+  assert.equal(classifyPositioningLabel(pct(100, 0.08)), "Reach", `100 @ 8%: ${pct(100, 0.08).toFixed(1)}`);
+  assert.ok(pct(100, 0.75) > 95);
+  // A record at the school's own averages keeps the admit rate's odds.
+  for (const rate of [0.04, 0.25, 0.75]) assert.ok(Math.abs(pct(60, rate) - rate * 100) < 0.01);
+  // Below a school's range hurts at every level of selectivity.
+  assert.ok(pct(26, 0.75) < 25, `a weak record at an open school: ${pct(26, 0.75).toFixed(1)}`);
+  assert.ok(pct(26, 0.04) < 0.5);
+  // More selective never reads better for the same record.
+  for (const readiness of [30, 60, 80, 100]) {
+    let previous = -1;
+    for (const rate of [0.03, 0.05, 0.08, 0.12, 0.2, 0.3, 0.45, 0.6, 0.8]) {
+      const value = pct(readiness, rate);
+      assert.ok(value >= previous, `readiness ${readiness}: ${value.toFixed(2)} at ${rate} after ${previous.toFixed(2)}`);
+      previous = value;
+    }
+  }
 });
 
 test("a strong student reads Highly competitive at a 75%-admit school and a reach at a 4%-admit one", () => {

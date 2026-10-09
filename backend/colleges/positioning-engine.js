@@ -938,10 +938,32 @@ export function buildRedFlags(student, collegeContext, majorCompetitiveness, nar
 // school could read better than "Reach" for a student whose evidence was
 // thin, however open its admission: a 3.95 / 1520 profile with six APs
 // read "Reach" at a 75%-admit school.
+//
+// How far strong academics can lift the odds depends on the school (since
+// 2026-10-09). At the most selective colleges nearly every applicant is
+// academically qualified and the decision turns on what the record cannot
+// show (essays, recommendations, recruited athletes, legacies): in Harvard's
+// admissions data from the SFFA litigation (2014-2019), applicants in the top
+// academic decile were admitted at about 13-15% against roughly 5% overall,
+// odds about three times the base, a log-odds lift near 1.1. Chetty, Deming
+// and Friedman (2023) found non-academic factors drive much of selection at
+// Ivy-Plus colleges. Counselors accordingly treat schools admitting under
+// about 10-15% as reaches for everyone. At a school admitting half its
+// applicants, a record well above its averages is very likely admitted.
+// So the upward lift is capped at 1.1 for a 5%-admit school, rising
+// linearly to the former 2.4 at 45% and above; a 4%-admit school reads "High
+// reach" even for the strongest record and an 8%-admit one "Reach". A weak
+// record still loses up to 2.4 everywhere: falling below a school's range
+// hurts at every level of selectivity.
+export function maxReadinessLift(admitRate) {
+  const base = admitRate == null ? 0.5 : admitRate;
+  return Math.round((1.1 + 1.3 * Math.max(0, Math.min(1, (base - 0.05) / 0.40))) * 1e4) / 1e4;
+}
+
 export function admissionLikelihood({ readiness, admitRate }) {
   const base = Math.min(0.98, Math.max(0.02, admitRate == null ? 0.5 : admitRate));
   const bounded = Math.max(0, Math.min(100, Number(readiness) || 0));
-  const shift = Math.max(-2.4, Math.min(2.4, (bounded - 60) * 0.07));
+  const shift = Math.max(-2.4, Math.min(maxReadinessLift(admitRate), (bounded - 60) * 0.07));
   const logit = Math.log(base / (1 - base)) + shift;
   return 1 / (1 + Math.exp(-logit));
 }
