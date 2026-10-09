@@ -610,6 +610,39 @@ test("the College Fit double-check compares the stored read with live sources an
   assert.match(wire, /College Fit double-check \(\d{4}-\d{2}-\d{2}\): live sources differ from the stored data — Admit rate: fit used \d+(?:\.\d)?%, live 49%/);
 });
 
+// A regular-round applicant starts from the admit rate outside Early
+// Decision: Columbia's 2024-25 CDS admitted 3.9% overall, 13.2% of its ED
+// applicants and 2.8% of everyone else, and the headline rate used to be
+// the base for everyone (2026-10-09).
+test("College Fit starts a regular-round read from the admit rate outside Early Decision, and the chat hears which rate", async () => {
+  const token = await registerWithProfile("fit-regular-pool");
+  const fit = await request("POST", "/api/positioning/targets", {
+    token,
+    body: { targets: [{ schoolName: "Columbia University" }], major: "Computer Science", searchCds: false },
+  });
+  assert.equal(fit.status, 200, `${JSON.stringify(fit.data)}\n${serverOutput}`);
+  assert.equal(fit.data.modelVersion, "positioning_v2");
+  const read = fit.data.targets[0];
+  assert.equal(read.admitRateBasis, "outside_early_decision", JSON.stringify(read.admitRate));
+  assert.ok(Math.abs(read.admitRateUsed - 0.0282) < 0.0005, `used ${read.admitRateUsed}`);
+  assert.ok(Math.abs(read.admitRate.overall - 0.0386) < 0.0005, `overall ${read.admitRate.overall}`);
+  assert.ok(Math.abs(read.admitRate.earlyDecision - 0.1323) < 0.0005, `ED ${read.admitRate.earlyDecision}`);
+  assert.deepEqual(read.profileComparison.admitRate, read.admitRate);
+
+  const turn = await request("POST", "/api/chat", {
+    token,
+    body: {
+      system: "You are the COLLEGE FIT specialist for students ages 14-18.",
+      messages: [{ role: "user", content: `How do I stand at Columbia University? MOCKREPLY:${b64("Columbia is a high reach.")}:` }],
+      request_id: "fit-regular-pool-chat-1",
+    },
+  });
+  assert.equal(turn.status, 200, `${JSON.stringify(turn.data)}\n${serverOutput}`);
+  const calls = loggedModelCalls();
+  const wire = JSON.stringify(calls[calls.length - 1].messages);
+  assert.match(wire, /it starts from the 2\.8% admit rate for applicants outside Early Decision \(3\.9% overall; 13\.2% of Early Decision applicants were admitted\)/);
+});
+
 test("a document block reaches the model as its full extracted text, and the profile check yields to the document", async () => {
   const token = await registerWithProfile("attachment-inline");
   const transcript = "Official Transcript\nGrade Level: 11\nAP English Language and Composition  A\nAP Statistics  A\nCredits earned: 2.0\n";

@@ -207,6 +207,19 @@ function evidenceText(e, locale) {
 
 function ProfileComparison({ pc, locale }) {
   const rows = [];
+  // The admit rate the read started from. For a regular-round applicant it
+  // is the pool outside Early Decision when the school's counts give one,
+  // lower than the headline rate wherever ED admits are counted in it.
+  const admit = pc.admitRate;
+  if (admit?.used != null) {
+    const pct = (v) => Math.round(v * 1000) / 10;
+    const value = admit.basis === "outside_early_decision"
+      ? [fill(t(locale, "fit.cmp_admit_regular"), { used: pct(admit.used) }),
+        admit.overall != null ? fill(t(locale, "fit.cmp_admit_overall"), { overall: pct(admit.overall) }) : null,
+        admit.earlyDecision != null ? fill(t(locale, "fit.cmp_admit_ed"), { ed: pct(admit.earlyDecision) }) : null].filter(Boolean).join(" · ")
+      : fill(t(locale, "fit.cmp_admit_all"), { used: pct(admit.used) });
+    rows.push({ label: t(locale, "fit.cmp_admit"), value, tone: "unknown" });
+  }
   const tests = pc.tests;
   if (tests?.used) {
     const u = tests.used;

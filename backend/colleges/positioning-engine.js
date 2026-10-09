@@ -86,6 +86,10 @@ function round2(x) {
   return Math.round(Number(x || 0) * 100) / 100;
 }
 
+function round4(x) {
+  return Math.round(Number(x || 0) * 10000) / 10000;
+}
+
 function avg(values) {
   const nums = (values || []).map(Number).filter((n) => Number.isFinite(n));
   return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null;
@@ -968,6 +972,41 @@ export function admissionLikelihood({ readiness, admitRate }) {
   return 1 / (1 + Math.exp(-logit));
 }
 
+// The admit rate outside Early Decision, from a Common Data Set's own
+// counts. A school's headline rate counts its Early Decision admits, and ED
+// pools are admitted at two to three times the regular rate (Avery,
+// Fairbanks and Zeckhauser put the early boost near 100 SAT points; ED
+// pools also carry recruited athletes and legacies), so for a student
+// applying in the regular round the headline overstates the odds:
+// Columbia's 2024-25 set admitted 3.9% overall, 13.2% of its 6,007 ED
+// applicants, and 2.8% of everyone else. Returns fractions, or null when
+// the counts are missing, inconsistent with the record's admit rate (a
+// registry correction can replace the rate but not the counts), or would
+// make the regular pool look easier than the whole. EA counts are not in
+// the CDS, so the regular pool still includes Early Action.
+export function admitRatePools(record) {
+  const applied = Number(record?.b1?.applied);
+  const admitted = Number(record?.b1?.admitted);
+  const edApplied = Number(record?.extras?.earlyDecision?.applications);
+  const edAdmitted = Number(record?.extras?.earlyDecision?.admitted);
+  if (![applied, admitted, edApplied, edAdmitted].every((n) => Number.isFinite(n) && n > 0)) return null;
+  if (edApplied >= applied || edAdmitted >= admitted || edAdmitted > edApplied) return null;
+  const overall = admitted / applied;
+  if (record?.overallAdmitRate != null && Math.abs(overall - Number(record.overallAdmitRate)) > 0.01) return null;
+  const regular = (admitted - edAdmitted) / (applied - edApplied);
+  if (!(regular > 0 && regular < overall)) return null;
+  return {
+    overall: Math.round(overall * 10000) / 10000,
+    regular: Math.round(regular * 10000) / 10000,
+    earlyDecision: Math.round((edAdmitted / edApplied) * 10000) / 10000,
+  };
+}
+
+// Bumped whenever the read changes, so cached College Fit results (kept
+// seven days, keyed by student and snapshot) are recomputed: "positioning_v2"
+// is the selectivity-aware lift and the regular-pool base rate (2026-10-09).
+export const POSITIONING_MODEL_VERSION = "positioning_v2";
+
 export function classifyPositioningLabel(likelihoodScore) {
   if (likelihoodScore >= 70) return "Highly competitive";
   if (likelihoodScore >= 40) return "Competitive";
@@ -1055,8 +1094,21 @@ export function buildPositioningForTarget(student, collegeContext, cdsResult, op
   // transparency and feeds the displayed competitiveness; it no longer
   // multiplies the score, which would count the admit rate twice.
   const readiness = round1(Math.max(0, Math.min(100, preSelectivityScore / 1.15)));
-  const admitRate = normalizePercentValue(collegeContext.acceptanceRate ?? collegeContext.acceptance ?? collegeContext.admission_rate ?? null);
-  const boundedFinal = round1(admissionLikelihood({ readiness, admitRate: admitRate != null && admitRate > 0 ? admitRate : null }) * 100);
+  const overallRate = normalizePercentValue(collegeContext.acceptanceRate ?? collegeContext.acceptance ?? collegeContext.admission_rate ?? null);
+  // A student applying in the regular round starts from the admit rate
+  // outside Early Decision when the school's counts give one
+  // (admitRatePools); otherwise from the headline rate.
+  const pools = collegeContext.admitRatePools || null;
+  const regularRate = pools?.regular > 0 ? pools.regular : null;
+  const admitRate = regularRate ?? (overallRate != null && overallRate > 0 ? overallRate : null);
+  const admitRateBasis = regularRate != null ? "outside_early_decision" : admitRate != null ? "overall" : "unknown";
+  const admitRateSummary = {
+    used: admitRate != null ? round4(admitRate) : null,
+    basis: admitRateBasis,
+    overall: overallRate != null && overallRate > 0 ? round4(overallRate) : (pools?.overall ?? null),
+    earlyDecision: pools?.earlyDecision ?? null,
+  };
+  const boundedFinal = round1(admissionLikelihood({ readiness, admitRate }) * 100);
   const confidence = scoreEvidenceConfidence({
     cdsResult,
     collegeContext,
@@ -1080,9 +1132,13 @@ export function buildPositioningForTarget(student, collegeContext, cdsResult, op
     overallPositioningLabel: label,
     finalPositioningScore: boundedFinal,
     // The composite the likelihood was shifted by, and the base rate it
-    // started from (null when the admit rate is unknown: 50% was assumed).
+    // started from (null when the admit rate is unknown: 50% was assumed),
+    // with what that rate is: the pool outside Early Decision when the CDS
+    // counts give one, else the headline rate.
     readinessScore: readiness,
-    admitRateUsed: admitRate != null && admitRate > 0 ? round2(admitRate) : null,
+    admitRateUsed: admitRateSummary.used,
+    admitRateBasis: admitRateBasis,
+    admitRate: admitRateSummary,
     admissibility: {
       academicReadinessScore: academic.score,
       summary: academic.score >= 80 ? "academically in-range" : academic.score >= 65 ? "academically plausible but not comfortable" : "academically stretched",
@@ -1116,7 +1172,7 @@ export function buildPositioningForTarget(student, collegeContext, cdsResult, op
     recommendedPositioningStrategy: recommendStrategy(label, redFlags, majorComp),
     // How this student's own record compares with the enrolled class the
     // Common Data Set describes: the facts the readiness blend used.
-    profileComparison: buildProfileComparison(academic.reads),
+    profileComparison: { ...buildProfileComparison(academic.reads), admitRate: admitRateSummary },
     featureBreakdown: {
       gpa: round1(student.gpa ?? 0),
       courseRigor: round1(academic.componentScores.rigorScore),

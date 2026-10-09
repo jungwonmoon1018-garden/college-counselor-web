@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   admissionLikelihood,
   maxReadinessLift,
+  admitRatePools,
   buildStudentModel,
   scoreAcademicReadiness,
   scoreInstitutionalPriorityFit,
@@ -208,6 +209,39 @@ test("the lift readiness can give shrinks with selectivity; a weak record still 
       previous = value;
     }
   }
+});
+
+// The headline admit rate counts Early Decision admits; a regular-round
+// applicant starts from everyone else's rate when the CDS gives the counts.
+test("the admit rate outside Early Decision comes from the CDS counts and is the base rate", () => {
+  const columbia = { overallAdmitRate: 0.0386, b1: { applied: 60247, admitted: 2325, enrolled: 1483 }, extras: { earlyDecision: { applications: 6007, admitted: 795 } } };
+  assert.deepEqual(admitRatePools(columbia), { overall: 0.0386, regular: 0.0282, earlyDecision: 0.1323 });
+  // Counts that disagree with the record's rate (a registry correction),
+  // missing counts, or an ED pool larger than the whole are not used.
+  assert.equal(admitRatePools({ ...columbia, overallAdmitRate: 0.0644 }), null);
+  assert.equal(admitRatePools({ ...columbia, extras: {} }), null);
+  assert.equal(admitRatePools({ ...columbia, extras: { earlyDecision: { applications: 70000, admitted: 795 } } }), null);
+  // An ED pool admitted below the overall rate would make the rest look
+  // easier than the whole: not used.
+  assert.equal(admitRatePools({ overallAdmitRate: 0.2, b1: { applied: 1000, admitted: 200 }, extras: { earlyDecision: { applications: 500, admitted: 50 } } }), null);
+
+  const student = makeStudent();
+  const cds = { schoolName: "Columbia", fetchStatus: "ok", parsed: { c7: {} } };
+  const college = { name: "Columbia", acceptanceRate: 3.9, sat25: 1510, sat75: 1560, avgGpaAdmitted: 3.95, topMajors: [] };
+  const headline = buildPositioningForTarget(student, college, cds, { major: "Computer Science" });
+  const regular = buildPositioningForTarget(student, { ...college, admitRatePools: admitRatePools(columbia) }, cds, { major: "Computer Science" });
+  assert.equal(headline.admitRateBasis, "overall");
+  assert.equal(headline.admitRateUsed, 0.039);
+  assert.equal(regular.admitRateBasis, "outside_early_decision");
+  assert.equal(regular.admitRateUsed, 0.0282);
+  assert.deepEqual(regular.admitRate, { used: 0.0282, basis: "outside_early_decision", overall: 0.039, earlyDecision: 0.1323 });
+  assert.ok(regular.finalPositioningScore < headline.finalPositioningScore, `${regular.finalPositioningScore} < ${headline.finalPositioningScore}`);
+  assert.equal(regular.readinessScore, headline.readinessScore, "the record is read the same; only the base rate moves");
+  assert.deepEqual(regular.profileComparison.admitRate, regular.admitRate);
+  // Unknown: no rate, basis unknown.
+  const unknown = buildPositioningForTarget(student, { name: "Unknown", topMajors: [] }, cds, { major: "Computer Science" });
+  assert.equal(unknown.admitRateBasis, "unknown");
+  assert.equal(unknown.admitRateUsed, null);
 });
 
 test("a strong student reads Highly competitive at a 75%-admit school and a reach at a 4%-admit one", () => {

@@ -859,6 +859,19 @@ function fitReadLine(read) {
   let line = `College Fit read for THIS student (computed ${date} from ${provenance}): ${read.label}`;
   if (dims.length) line += ` — ${dims.join(", ")}`;
   if (read.confidence) line += `; evidence confidence ${read.confidence}`;
+  // The admit rate the read started from: for a regular-round applicant,
+  // the pool outside Early Decision, which is lower than the headline rate
+  // wherever ED admits are counted in it.
+  const admit = read.provenance?.admitRate;
+  if (admit?.basis === "outside_early_decision" && admit.used != null) {
+    const pct = (v) => `${Math.round(v * 1000) / 10}%`;
+    const context = [
+      admit.overall != null ? `${pct(admit.overall)} overall` : null,
+      admit.earlyDecision != null ? `${pct(admit.earlyDecision)} of Early Decision applicants were admitted` : null,
+    ].filter(Boolean);
+    line += `; it starts from the ${pct(admit.used)} admit rate for applicants outside Early Decision`
+      + (context.length ? ` (${context.join("; ")})` : "");
+  }
   line += ". Use this exact label when the student asks how they stand here.";
   if (read.verification) line += ` ${formatVerificationLine(read.verification)}.`;
   return line;

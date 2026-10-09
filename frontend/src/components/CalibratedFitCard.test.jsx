@@ -72,6 +72,20 @@ describe("CalibratedFitCard", () => {
     render(<CalibratedFitCard collegeValues={{ displayName: "Y", values: [] }} positioning={{ ...positioning, mainRedFlags: [], profileComparison: null }} loading={false} />);
     expect(screen.queryByTestId("profile-comparison")).not.toBeInTheDocument();
   });
+
+  // The read starts from the admit rate outside Early Decision when the CDS
+  // counts give one; the card says which rate, in both languages.
+  it("shows which admit rate the read started from", () => {
+    const withAdmit = (admitRate) => ({ ...positioning, profileComparison: { ...positioning.profileComparison, admitRate } });
+    render(<CalibratedFitCard collegeValues={{ displayName: "Columbia University", values: [] }} positioning={withAdmit({ used: 0.0282, basis: "outside_early_decision", overall: 0.0386, earlyDecision: 0.1323 })} loading={false} />);
+    expect(screen.getByTestId("profile-comparison")).toHaveTextContent("Admit rate: 2.8% outside Early Decision · 3.9% overall · Early Decision 13.2%");
+    cleanup();
+    render(<CalibratedFitCard collegeValues={{ displayName: "Stanford University", values: [] }} positioning={withAdmit({ used: 0.036, basis: "overall", overall: 0.036, earlyDecision: null })} loading={false} />);
+    expect(screen.getByTestId("profile-comparison")).toHaveTextContent("Admit rate: 3.6% of all applicants");
+    cleanup();
+    render(<CalibratedFitCard collegeValues={{ displayName: "Columbia University", values: [] }} positioning={withAdmit({ used: 0.0282, basis: "outside_early_decision", overall: 0.0386, earlyDecision: 0.1323 })} loading={false} locale="ko" />);
+    expect(screen.getByTestId("profile-comparison")).toHaveTextContent("합격률: 얼리 디시전 외 지원자 2.8% · 전체 3.9% · 얼리 디시전 13.2%");
+  });
 });
 
 // The priorities matrix under the card: what in the record speaks to each
