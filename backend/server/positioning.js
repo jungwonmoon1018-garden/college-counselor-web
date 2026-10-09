@@ -3,14 +3,15 @@
 // `deps` is server.js's routeDeps object: live getters onto the bindings
 // these functions read there (CDS_LIVE_COOLDOWN_MS, SCORECARD_API_KEY,
 // admissionsIntelStmts, cdsLiveAttemptAt, db, getScorecardQueryCache,
-// normalizeUnitId, putScorecardQueryCache, ragStmts,
+// normalizeUnitId, policyScoutStmts, putScorecardQueryCache, ragStmts,
 // resolveBaselineCollegeRow).
 import { cdsRecordToPositioningResult, cdsVerification, isCdsRecordValidated, resolveStoredCdsRecord, schoolNamesCompatible, slugifySchoolName } from "../cds/cds-store.js";
 import { httpError, safeParseJSON } from "./model-calls.js";
 import { extractGoalUnitIds } from "../storage/rag-engine.js";
 import { computeCdsQueryCacheKey, extractTargetSchoolNames, resolveAndParseCdsTargets } from "../cds/cds-search.js";
 import { getActiveNarrative } from "../activities/narrative-store.js";
-import { buildPositioningForTarget, buildStudentModel } from "../colleges/positioning-engine.js";
+import { POSITIONING_MODEL_VERSION, admitRatePools, buildPositioningForTarget, buildStudentModel, statedTestPolicy } from "../colleges/positioning-engine.js";
+import { readPolicySnapshot } from "../scouts/admissions-policy-scout.js";
 import { resolveIpedsGrowthForMajor, resolveMajorPolicyForSchool, resolveStrategicFocusForSchool } from "../colleges/admissions-intelligence.js";
 import { expandCollegeAlias, pickScorecardHit } from "../colleges/college-research.js";
 import { getCollegeById, searchScorecard } from "../colleges/college-scorecard.js";
@@ -121,7 +122,9 @@ export async function runPositioning({ studentId, body = {}, bypassCache = false
       // it was computed from, so one student's fit (which now carries their
       // own scores, rank and GPA against the school) is never served to
       // another with the same targets, and a profile edit recomputes it.
-      const cachedPositioning = bypassCache ? null : deps.getScorecardQueryCache("positioning_targets", { cacheKey, cdsVersion, targets: rawTargets, major: requestedMajor, studentId, snapshot: snap.id });
+      // The model version is part of the key: a changed read is recomputed
+      // instead of served from a cache kept seven days.
+      const cachedPositioning = bypassCache ? null : deps.getScorecardQueryCache("positioning_targets", { cacheKey, cdsVersion, targets: rawTargets, major: requestedMajor, studentId, snapshot: snap.id, model: POSITIONING_MODEL_VERSION });
       if (cachedPositioning?.data) {
         return { payload: cachedPositioning.data, cached: true, internals: null };
       }
@@ -223,6 +226,9 @@ export async function runPositioning({ studentId, body = {}, bypassCache = false
         act25: pick(storedCds?.enrolledACT?.p25, collegeRow?.act_25) ?? null,
         act75: pick(storedCds?.enrolledACT?.p75, collegeRow?.act_75) ?? null,
         acceptanceRate: cdsAdmitPercent ?? baselineAdmitPercent ?? effectiveCds?.parsed?.admitRatePercent ?? null,
+        // The admit rate outside Early Decision, from the CDS's own counts,
+        // as fractions (admitRatePools); the read starts from it.
+        admitRatePools: storedCds ? admitRatePools(storedCds) : null,
         avgGpaAdmitted: pick(storedCds?.enrolledGPA?.avg, collegeRow?.avg_gpa_admitted) ?? effectiveCds?.parsed?.gpaAverage ?? null,
         topMajors: safeParseJSON(collegeRow?.top_majors_json, []),
         source: cdsFirst ? "cds_store" : (collegeRow?.source || (storedCds ? "cds_store" : "baseline_colleges")),
@@ -261,6 +267,25 @@ export async function runPositioning({ studentId, body = {}, bypassCache = false
         }
       }
 
+      // The test policy the school states this cycle on its own admissions
+      // pages, as the policy scout last read them, outranks the Common Data
+      // Set's, which describes a class that entered a year or two ago
+      // (statedTestPolicy). The read is a cheap table lookup; without one the
+      // CDS policy stands.
+      let stated = null;
+      try {
+        stated = statedTestPolicy(readPolicySnapshot(deps.policyScoutStmts, { unitId: collegeContext.unitId, name: collegeContext.name }));
+      } catch {
+        stated = null;
+      }
+      const cdsForRead = stated
+        ? {
+          ...(effectiveCds || {}),
+          parsed: { ...(effectiveCds?.parsed || {}), testPolicy: stated.bucket, testPolicyStated: stated },
+          testPolicySource: `official admissions site (policy scout, checked ${String(stated.checkedAt).slice(0, 10)})`,
+        }
+        : effectiveCds;
+
       const majorPolicy =
         resolveMajorPolicyForSchool(deps.admissionsIntelStmts, {
           unitId: collegeContext.unitId,
@@ -288,11 +313,11 @@ export async function runPositioning({ studentId, body = {}, bypassCache = false
         },
         strategicSignals,
       };
-      const positioning = buildPositioningForTarget(studentModel, collegeContext, effectiveCds, positioningOptions);
+      const positioning = buildPositioningForTarget(studentModel, collegeContext, cdsForRead, positioningOptions);
       internals.push({
         schoolName: positioning.schoolName,
         collegeContext: { ...collegeContext },
-        effectiveCds,
+        effectiveCds: cdsForRead,
         options: positioningOptions,
         website: collegeRow?.website || null,
         cdsYear: storedCds?.year ?? null,
@@ -300,22 +325,31 @@ export async function runPositioning({ studentId, body = {}, bypassCache = false
       });
       // Surface where the numbers came from so the card can link to the CDS
       // source and show the reporting year.
-      positioning.dataProvenance = effectiveCds?.provenance || {
-        kind: storedCds
-          ? "cds_store"
-          : (cdsResult?.fetchStatus === "ok"
-            ? "cds_live"
-            : (collegeContext.source === "college_scorecard" ? "college_scorecard" : "baseline_only")),
-        validated: Boolean(storedCds),
-        sourceUrl: effectiveCds?.sourceUrl
-          || (collegeContext.source === "college_scorecard" ? "https://collegescorecard.ed.gov/" : null),
+      positioning.dataProvenance = {
+        ...(effectiveCds?.provenance || {
+          kind: storedCds
+            ? "cds_store"
+            : (cdsResult?.fetchStatus === "ok"
+              ? "cds_live"
+              : (collegeContext.source === "college_scorecard" ? "college_scorecard" : "baseline_only")),
+          validated: Boolean(storedCds),
+          sourceUrl: effectiveCds?.sourceUrl
+            || (collegeContext.source === "college_scorecard" ? "https://collegescorecard.ed.gov/" : null),
+        }),
+        // Which admit rate the read started from; the chat's fit line says so.
+        admitRate: positioning.admitRate,
+        // Where the test policy came from: the school's own pages this
+        // cycle, or the Common Data Set.
+        testPolicy: stated
+          ? { bucket: stated.bucket, value: stated.value, source: "official_site", checkedAt: stated.checkedAt, sourceUrl: stated.sourceUrl }
+          : { bucket: effectiveCds?.parsed?.testPolicy ?? null, source: effectiveCds?.parsed?.testPolicy ? "cds" : "default" },
       };
       return positioning;
     }));
 
     const payload = {
       major: requestedMajor,
-      modelVersion: "positioning_mvp_v1",
+      modelVersion: POSITIONING_MODEL_VERSION,
       separation: {
         admissibility: "academic preparation for the target school-major pair",
         competitiveness: "crowding and selectivity pressure in the target applicant pool",
@@ -326,7 +360,7 @@ export async function runPositioning({ studentId, body = {}, bypassCache = false
       targets: scoredTargets,
     };
 
-    deps.putScorecardQueryCache("positioning_targets", { cacheKey, cdsVersion, targets: rawTargets, major: requestedMajor, studentId, snapshot: snap.id }, payload);
+    deps.putScorecardQueryCache("positioning_targets", { cacheKey, cdsVersion, targets: rawTargets, major: requestedMajor, studentId, snapshot: snap.id, model: POSITIONING_MODEL_VERSION }, payload);
     for (const target of scoredTargets) rememberFitRead(studentId, target);
     return { payload, cached: false, internals };
 }

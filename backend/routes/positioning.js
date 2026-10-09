@@ -70,7 +70,7 @@ export function registerPositioningRoutes(app, deps) {
         sat25: collegeContext.sat25 ?? null, sat75: collegeContext.sat75 ?? null,
         act25: collegeContext.act25 ?? null, act75: collegeContext.act75 ?? null,
         testPolicy: effectiveCds?.parsed?.testPolicy || null,
-        testPolicySource: effectiveCds?.sourceLabel || effectiveCds?.source || null,
+        testPolicySource: effectiveCds?.testPolicySource || effectiveCds?.sourceLabel || effectiveCds?.source || null,
         source: collegeContext.source || null,
         cdsYear: internals.cdsYear,
       };

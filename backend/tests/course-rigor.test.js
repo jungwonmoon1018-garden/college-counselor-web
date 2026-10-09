@@ -71,6 +71,42 @@ test("the load counts college-level courses by type or name, AP exams no course 
   assert.equal(describeCourseRigor(rigor), "4 AP (4 with exam scores), 1 dual enrollment, 1 honors");
 });
 
+// The AP catalog (ap-exams.js) reads a course and an exam written
+// differently as one AP, and a retaken exam as one AP at its better score;
+// each used to count as one more AP taken (2026-10-09).
+test("a course and an exam named differently are one AP, and a retaken exam counts once at its better score", () => {
+  const rigor = readCourseRigor([
+    { name: "AP United States History", type: "regular", grade: "A", year: "11" },
+    { name: "APES", type: "regular", grade: "A", year: "10" },
+    { name: "AP Calc AB", type: "ap", grade: "B", year: "11" },
+    { name: "Physics C: Electricity & Magnetism", type: "ap", grade: "A", year: "11" },
+  ], [
+    { exam: "US History", score: 5, year: 2026 },
+    { exam: "Environmental Science", score: 4, year: 2025 },
+    { exam: "Calculus AB", score: 3, year: 2025 },
+    { exam: "Calculus AB", score: 4, year: 2026 },
+    { exam: "Physics C: E&M", score: 5, year: 2026 },
+  ]);
+  assert.equal(rigor.apCourses, 4);
+  assert.equal(rigor.apExamsWithoutCourse, 0, JSON.stringify(rigor.items));
+  assert.equal(rigor.apTaken, 4);
+  assert.deepEqual(rigor.items.map((i) => [i.name, i.examScore]), [
+    ["AP United States History", 5],
+    ["APES", 4],
+    ["AP Calc AB", 4],
+    ["Physics C: Electricity & Magnetism", 5],
+  ]);
+  // A glued abbreviation is AP by its name; "Apes" the word is not.
+  assert.equal(courseLevel({ name: "APUSH", type: "regular" }), "ap");
+  assert.equal(courseLevel({ name: "Apes and Primates" }), null);
+  // A retake with no course listed is one AP taken; two exams one name could
+  // mean stay two.
+  const retake = readCourseRigor([], [{ exam: "Biology", score: 2, year: 2025 }, { exam: "AP Biology", score: 4, year: 2026 }]);
+  assert.equal(retake.apTaken, 1);
+  assert.deepEqual(retake.items.map((i) => [i.name, i.examScore]), [["Biology", 4]]);
+  assert.equal(readCourseRigor([], [{ exam: "AP Calculus", score: 4 }, { exam: "Calculus BC", score: 5 }]).apTaken, 2);
+});
+
 test("an exam is matched to one course only, and an empty record reads as no load", () => {
   const twice = readCourseRigor([{ name: "AP Biology", type: "ap" }, { name: "AP Biology", type: "ap" }], [{ exam: "Biology", score: 5 }]);
   assert.equal(twice.apCourses, 2);

@@ -20,6 +20,7 @@
 // Scorecard lookup, the page reader, the model, and the re-scorer.
 
 import { verifyQuote } from "./college-research.js";
+import { testPolicyBucket } from "./positioning-engine.js";
 
 export const FIT_VERIFY_TTL_DAYS = 1;
 const MAX_MODEL_PAGE_CHARS = 9_000;
@@ -31,12 +32,11 @@ const TOLERANCE = Object.freeze({
   actPoints: 2,
 });
 
+// One mapping for the read and its double-check (testPolicyBucket): a
+// test-flexible school requires a score, and used to be compared here as
+// test-optional.
 export function normalizeTestPolicyBucket(value) {
-  const v = String(value || "").toLowerCase();
-  if (!v) return null;
-  if (/optional|blind|deemphas|de-emphas|flexible|free/.test(v)) return "test_optional_or_deemphasized";
-  if (/required|considered/.test(v)) return "test_considered_or_required";
-  return null;
+  return testPolicyBucket(value);
 }
 
 export function describeTestPolicyBucket(bucket) {

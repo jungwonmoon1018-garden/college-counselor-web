@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 
 import {
   admissionLikelihood,
+  maxReadinessLift,
+  admitRatePools,
   buildStudentModel,
   scoreAcademicReadiness,
   scoreInstitutionalPriorityFit,
@@ -12,6 +14,8 @@ import {
   buildPositioningForTarget,
   classifyPositioningLabel,
   compareTestsToSchool,
+  statedTestPolicy,
+  testPolicyBucket,
   compareGpaToSchool,
   compareRankToSchool,
   compareApExams,
@@ -172,6 +176,74 @@ test("admissionLikelihood starts from the admit rate and shifts by readiness", (
   assert.ok(Math.abs(admissionLikelihood({ readiness: 60, admitRate: null }) - 0.5) < 0.001, "an unknown admit rate is 50%, never the most selective");
   assert.ok(admissionLikelihood({ readiness: 100, admitRate: 0.04 }) < 0.4, "a 4%-admit school stays a reach for the strongest");
   assert.ok(admissionLikelihood({ readiness: 100, admitRate: 0.04 }) > admissionLikelihood({ readiness: 65, admitRate: 0.04 }));
+});
+
+// The lift strong academics can give shrinks as a school gets more
+// selective: Harvard's SFFA data put its top academic decile at about three
+// times the base odds (a log-odds lift near 1.1), and counselors treat
+// schools under about 10-15% as reaches for everyone. Before 2026-10-09 the
+// lift was 2.4 everywhere, so the strongest record read "Competitive" (49%)
+// at an 8%-admit school and 31% at a 4%-admit one.
+test("the lift readiness can give shrinks with selectivity; a weak record still falls everywhere", () => {
+  assert.equal(maxReadinessLift(0.05), 1.1);
+  assert.equal(maxReadinessLift(0.45), 2.4);
+  assert.equal(maxReadinessLift(0.8), 2.4);
+  assert.equal(maxReadinessLift(null), 2.4, "an unknown admit rate is read as 50%");
+  assert.ok(Math.abs(maxReadinessLift(0.25) - 1.75) < 1e-9);
+
+  const pct = (readiness, admitRate) => admissionLikelihood({ readiness, admitRate }) * 100;
+  // The strongest record: a high reach at 4%, a reach at 8%, near-certain at 75%.
+  assert.equal(classifyPositioningLabel(pct(100, 0.04)), "High reach", `100 @ 4%: ${pct(100, 0.04).toFixed(1)}`);
+  assert.ok(pct(100, 0.04) > 10 && pct(100, 0.04) < 15, `about three times the base odds: ${pct(100, 0.04).toFixed(1)}`);
+  assert.equal(classifyPositioningLabel(pct(100, 0.08)), "Reach", `100 @ 8%: ${pct(100, 0.08).toFixed(1)}`);
+  assert.ok(pct(100, 0.75) > 95);
+  // A record at the school's own averages keeps the admit rate's odds.
+  for (const rate of [0.04, 0.25, 0.75]) assert.ok(Math.abs(pct(60, rate) - rate * 100) < 0.01);
+  // Below a school's range hurts at every level of selectivity.
+  assert.ok(pct(26, 0.75) < 25, `a weak record at an open school: ${pct(26, 0.75).toFixed(1)}`);
+  assert.ok(pct(26, 0.04) < 0.5);
+  // More selective never reads better for the same record.
+  for (const readiness of [30, 60, 80, 100]) {
+    let previous = -1;
+    for (const rate of [0.03, 0.05, 0.08, 0.12, 0.2, 0.3, 0.45, 0.6, 0.8]) {
+      const value = pct(readiness, rate);
+      assert.ok(value >= previous, `readiness ${readiness}: ${value.toFixed(2)} at ${rate} after ${previous.toFixed(2)}`);
+      previous = value;
+    }
+  }
+});
+
+// The headline admit rate counts Early Decision admits; a regular-round
+// applicant starts from everyone else's rate when the CDS gives the counts.
+test("the admit rate outside Early Decision comes from the CDS counts and is the base rate", () => {
+  const columbia = { overallAdmitRate: 0.0386, b1: { applied: 60247, admitted: 2325, enrolled: 1483 }, extras: { earlyDecision: { applications: 6007, admitted: 795 } } };
+  assert.deepEqual(admitRatePools(columbia), { overall: 0.0386, regular: 0.0282, earlyDecision: 0.1323 });
+  // Counts that disagree with the record's rate (a registry correction),
+  // missing counts, or an ED pool larger than the whole are not used.
+  assert.equal(admitRatePools({ ...columbia, overallAdmitRate: 0.0644 }), null);
+  assert.equal(admitRatePools({ ...columbia, extras: {} }), null);
+  assert.equal(admitRatePools({ ...columbia, extras: { earlyDecision: { applications: 70000, admitted: 795 } } }), null);
+  // An ED pool admitted below the overall rate would make the rest look
+  // easier than the whole: not used.
+  assert.equal(admitRatePools({ overallAdmitRate: 0.2, b1: { applied: 1000, admitted: 200 }, extras: { earlyDecision: { applications: 500, admitted: 50 } } }), null);
+
+  const student = makeStudent();
+  const cds = { schoolName: "Columbia", fetchStatus: "ok", parsed: { c7: {} } };
+  const college = { name: "Columbia", acceptanceRate: 3.9, sat25: 1510, sat75: 1560, avgGpaAdmitted: 3.95, topMajors: [] };
+  const headline = buildPositioningForTarget(student, college, cds, { major: "Computer Science" });
+  const regular = buildPositioningForTarget(student, { ...college, admitRatePools: admitRatePools(columbia) }, cds, { major: "Computer Science" });
+  assert.equal(headline.admitRateBasis, "overall");
+  assert.equal(headline.admitRateUsed, 0.039);
+  assert.equal(regular.admitRateBasis, "outside_early_decision");
+  assert.equal(regular.admitRateUsed, 0.0282);
+  assert.deepEqual(regular.admitRate, { used: 0.0282, basis: "outside_early_decision", overall: 0.039, earlyDecision: 0.1323 });
+  assert.ok(regular.finalPositioningScore < headline.finalPositioningScore, `${regular.finalPositioningScore} < ${headline.finalPositioningScore}`);
+  assert.equal(regular.readinessScore, headline.readinessScore, "the record is read the same; only the base rate moves");
+  assert.deepEqual(regular.profileComparison.admitRate, regular.admitRate);
+  // Unknown: no rate, basis unknown.
+  const unknown = buildPositioningForTarget(student, { name: "Unknown", topMajors: [] }, cds, { major: "Computer Science" });
+  assert.equal(unknown.admitRateBasis, "unknown");
+  assert.equal(unknown.admitRateUsed, null);
 });
 
 test("a strong student reads Highly competitive at a 75%-admit school and a reach at a 4%-admit one", () => {
@@ -439,6 +511,73 @@ test("the stronger test is read, through concordance when the school reports onl
   assert.equal(satOnly.distribution, null, "a converted score is not placed in the other test's table");
   assert.equal(actToSat(36), 1590);
   assert.equal(satToAct(1460), 33);
+});
+
+// A Common Data Set's test policy describes a class that entered a year or
+// two ago; the policy scout's reading of the school's own pages is this
+// cycle's. Dartmouth has required scores since the 2024-25 cycle while the
+// 2025-26 set in the store reads test-optional (2026-10-09).
+test("the test policy a school states this cycle outranks its Common Data Set's, and a missing required score is flagged", () => {
+  const NOW = Date.parse("2026-10-09T00:00:00Z");
+  const snapshot = (testPolicy, checkedAt = "2026-10-01T00:00:00Z") => ({ checkedAt, policy: { testPolicy } });
+  const required = statedTestPolicy(snapshot({ value: "test_required", evidence: "We require the SAT or ACT for first-year applicants.", sourceUrl: "https://admissions.example.edu/testing" }), { now: NOW });
+  assert.equal(required.bucket, "test_considered_or_required");
+  assert.equal(required.value, "test_required");
+  // A value with no sentence behind it, a reading over a year old, and an
+  // unrecognized value do not override the CDS.
+  assert.equal(statedTestPolicy(snapshot({ value: "test_required", evidence: "" }), { now: NOW }), null);
+  assert.equal(statedTestPolicy(snapshot({ value: "test_required", evidence: "Scores are required." }, "2025-09-01T00:00:00Z"), { now: NOW }), null);
+  assert.equal(statedTestPolicy(snapshot({ value: "unknown", evidence: "x" }), { now: NOW }), null);
+  assert.equal(statedTestPolicy(null), null);
+  assert.equal(testPolicyBucket("test_flexible"), "test_considered_or_required");
+  assert.equal(testPolicyBucket("test_blind"), "test_optional_or_deemphasized");
+  assert.equal(testPolicyBucket("test_required_some"), "test_considered_or_required");
+
+  // The CDS says test-optional; the school's pages now say required.
+  const optionalCds = { ...WIDE_CDS, parsed: { ...WIDE_CDS.parsed, testPolicy: "test_optional_or_deemphasized" } };
+  const statedCds = (stated) => ({ ...optionalCds, parsed: { ...optionalCds.parsed, testPolicy: stated.bucket, testPolicyStated: stated } });
+  const noScores = studentWith({ testScores: [] });
+  const asCds = buildPositioningForTarget(noScores, WIDE_COLLEGE, optionalCds, { major: "Computer Science" });
+  const asStated = buildPositioningForTarget(noScores, WIDE_COLLEGE, statedCds(required), { major: "Computer Science" });
+  assert.equal(asCds.profileComparison.tests.policy, "test_optional_or_deemphasized");
+  assert.equal(asStated.profileComparison.tests.policy, "test_considered_or_required");
+  assert.equal(asStated.profileComparison.tests.stated.value, "test_required");
+  assert.equal(asStated.profileComparison.tests.stated.checkedAt, "2026-10-01T00:00:00Z");
+  assert.equal(asStated.profileComparison.tests.score, 18, "no score where one is required");
+  assert.equal(asCds.profileComparison.tests.score, 42);
+  assert.ok(asStated.readinessScore < asCds.readinessScore);
+  assert.ok(asStated.mainRedFlags.some((f) => /admissions site \(checked 2026-10-01\) says SAT or ACT scores are required this cycle, and no score is on file/.test(f)), JSON.stringify(asStated.mainRedFlags));
+  assert.ok(!asCds.mainRedFlags.some((f) => /required this cycle/.test(f)));
+  // A score on file answers the requirement; no flag.
+  const withScore = buildPositioningForTarget(studentWith(), WIDE_COLLEGE, statedCds(required), { major: "Computer Science" });
+  assert.ok(!withScore.mainRedFlags.some((f) => /required this cycle/.test(f)));
+
+  // Test-flexible: AP results on file meet it, none at all does not.
+  const flexible = statedTestPolicy(snapshot({ value: "test_flexible", evidence: "Applicants may submit ACT, AP, IB, or SAT scores.", sourceUrl: "u" }), { now: NOW });
+  const apOnly = studentWith({ testScores: [], apScores: [{ exam: "Calculus BC", score: 5, year: 2026 }] });
+  assert.ok(!buildPositioningForTarget(apOnly, WIDE_COLLEGE, statedCds(flexible), { major: "Computer Science" }).mainRedFlags.some((f) => /test-flexible/.test(f)));
+  assert.ok(buildPositioningForTarget(noScores, WIDE_COLLEGE, statedCds(flexible), { major: "Computer Science" }).mainRedFlags.some((f) => /requires test scores this cycle \(SAT, ACT, or AP or IB results under its test-flexible policy\), and none is on file/.test(f)));
+
+  // A school that states test-optional stays optional, unflagged.
+  const optional = statedTestPolicy(snapshot({ value: "test_optional", evidence: "We are test-optional for first-year applicants.", sourceUrl: "u" }), { now: NOW });
+  const optionalRead = buildPositioningForTarget(noScores, WIDE_COLLEGE, statedCds(optional), { major: "Computer Science" });
+  assert.equal(optionalRead.profileComparison.tests.policy, "test_optional_or_deemphasized");
+  assert.ok(!optionalRead.mainRedFlags.some((f) => /this cycle/.test(f)));
+});
+
+// An AP exam is named as the catalog names it and counted once at its
+// better score: "APCSA" 3 and "Computer Science A" 5 used to be two exams
+// averaging 4 (2026-10-09).
+test("a retaken AP exam counts once at its better score, under the catalog's name", () => {
+  const student = buildStudentModel({ major_interest: "Computer Science", apScores: [
+    { exam: "APCSA", score: 3, year: 2025 },
+    { exam: "Computer Science A", score: 5, year: 2026 },
+    { exam: "AP Calc BC", score: 4, year: 2026 },
+  ] }, [], null);
+  assert.equal(student.apExams.count, 2);
+  assert.equal(student.apExams.average, 4.5);
+  assert.deepEqual(student.apExams.relevant, [{ name: "Computer Science A", score: 5 }, { name: "Calculus BC", score: 4 }]);
+  assert.equal(student.rigor.apTaken, 2);
 });
 
 test("a below-range score at a test-optional school is withheld and weighs nothing", () => {

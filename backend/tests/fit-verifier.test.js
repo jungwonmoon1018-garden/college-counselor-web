@@ -22,6 +22,9 @@ test("test-policy buckets normalize every phrasing the readers produce", () => {
   assert.equal(normalizeTestPolicyBucket("test_blind"), "test_optional_or_deemphasized");
   assert.equal(normalizeTestPolicyBucket("test_required"), "test_considered_or_required");
   assert.equal(normalizeTestPolicyBucket("test_considered_or_required"), "test_considered_or_required");
+  // Test-flexible requires a score (SAT, ACT, AP or IB), so the double-check
+  // compares it as required, the way the read itself treats it.
+  assert.equal(normalizeTestPolicyBucket("test_flexible"), "test_considered_or_required");
   assert.equal(normalizeTestPolicyBucket(null), null);
 });
 

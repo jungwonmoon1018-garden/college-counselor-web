@@ -2,6 +2,7 @@
 // rank, courses by year, tests, AP scores, activities, goals. Moved out of App() on 2026-09-21 as one contiguous run, so the order of every hook and effect is unchanged.
 import { useState } from "react";
 import { blankTestForm } from "../profile/test-scores.js";
+import { latestApScoreYear } from "../profile/ap-entry.js";
 
 export function useSurveyForm() {
   // Survey state
@@ -27,7 +28,7 @@ export function useSurveyForm() {
   const [sNoTestsYet, setSNoTestsYet] = useState(false);
   // AP exam scores (separate from test scores for clarity)
   const [sAPScores, setSAPScores] = useState([]); // [{subject,score,year}]
-  const [sAPInput, setSAPInput] = useState({ subject:"", score:"5", year:"2025" });
+  const [sAPInput, setSAPInput] = useState({ subject:"", score:"5", year:String(latestApScoreYear()) });
   // ECs
   const [sECs, setSECs] = useState([]);
   // The default category must be a value the dropdown actually offers. It

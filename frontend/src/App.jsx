@@ -19,9 +19,11 @@ import { detectLocale, t as tt } from "./i18n.js";
 import "./profile/fit-refresh.js";
 import "./profile/dates.js";
 import { TEST_SCORE_LIMITS, validateTestEntry, blankTestForm, entryToForm, formToEntry } from "./profile/test-scores.js";
+import { validateGpa } from "./profile/gpa.js";
 import "./profile/strategy-council.js";
 import Sidebar from "./screens/Sidebar.jsx";
-import { AP_EXAM_LIST, GRADE_SCALE } from "./app-shared.js";
+import { GRADE_SCALE } from "./app-shared.js";
+import { apExamsWithScores, validateApEntry } from "./profile/ap-entry.js";
 import SurveyScreen from "./screens/SurveyScreen.jsx";
 import { BG, FONT, GLOBAL_CSS, inputStyle } from "./app-shared.js";
 import LoginScreen from "./screens/LoginScreen.jsx";
@@ -129,7 +131,7 @@ export default function App() {
   const councilTurnSequenceRef = useRef(0);
   // Observable session health: re-auth + background-sync status for non-blocking toasts.
   const [reauthStatus, setReauthStatus] = useState("idle"); // idle | attempting | ok | failed
-  const [syncStatus, setSyncStatus] = useState("idle");     // idle | ok | failed
+  const [syncStatus, setSyncStatus] = useState("idle");     // idle | ok | partial | failed
   const [syncNote, setSyncNote] = useState("");             // overrides the default "didn't sync" toast text
   // True during the last minute before the inactivity sign-out — rendered as a
   // prominent toast so the auto-lock never silently eats a drafted message.
@@ -475,7 +477,7 @@ export default function App() {
     const st = STEPS[surveyStep]||STEPS[0];
     const total = STEPS.length;
 
-    const AP_COURSES = AP_EXAM_LIST;
+    const AP_COURSES = apExamsWithScores();
     const RIGOR = { regular:"Standard",elective:"Elective (graduation requirement)",honors:"Honors (+0.5w)",ap:"AP (+1.0w, College-level)",ib:"IB (+1.0w)",dual_enrollment:"Dual Enrollment (+1.0w)" };
     const YEARS = SURVEY_YEARS;
     const ylbl = y => y.charAt(0).toUpperCase()+y.slice(1);
@@ -493,6 +495,8 @@ export default function App() {
     const canProceed = () => {
       setSurveyError("");
       if (surveyStep===0 && !sNoGpaYet && !sGpaUw) { setSurveyError("Enter your GPA, or choose \"I don't have a GPA yet.\""); return false; }
+      // A missed decimal (39) or a 100-point average (95) used to pass as the GPA.
+      if (surveyStep===0 && !sNoGpaYet) { const gpa = validateGpa({ unweighted: sGpaUw, weighted: sGpaW }); if (!gpa.ok) { setSurveyError(gpa.errors[0]); return false; } }
       if (surveyStep===1 && Object.values(sCourses).flat().length===0) { setSurveyError("Add at least one course."); return false; }
       if (surveyStep===2 && !sNoTestsYet && sTests.length===0 && sAPScores.length===0) { setSurveyError("Add a test score, an AP exam score, or choose \"I haven't taken standardized tests yet.\""); return false; }
       if (surveyStep===4 && sGoals.length===0) { setSurveyError("Select at least one goal"); return false; }
@@ -592,7 +596,16 @@ export default function App() {
       setSTests(p=>[...p, entryToForm(entry)]);
       setSTestInput(blankTestForm(sTestInput.test));
     };
-    const addAP = () => { if (!sAPInput.subject || sAPScores.length >= MAX_ITEMS) return; setSAPScores(p=>[...p,{...sAPInput}]); setSAPInput({subject:"",score:"5",year:sAPInput.year}); };
+    // One check with the sidebar editor (profile/ap-entry.js): an exam, a
+    // score 1-5, a year with scores out, and not the same exam and year twice.
+    const addAP = () => {
+      if (sAPScores.length >= MAX_ITEMS) return;
+      const check = validateApEntry({ exam: sAPInput.subject, score: sAPInput.score, year: sAPInput.year }, { others: sAPScores.map(a => ({ exam: a.subject, year: a.year })) });
+      if (!check.ok) { setSurveyError(check.error); return; }
+      setSurveyError("");
+      setSAPScores(p=>[...p,{ subject: check.entry.exam, score: String(check.entry.score), year: String(check.entry.year) }]);
+      setSAPInput({subject:"",score:"5",year:sAPInput.year});
+    };
 
     const addEC = () => {
       if (!sECInput.name.trim() || !sECInput.role.trim()) return;
@@ -670,20 +683,22 @@ export default function App() {
       {/* Non-blocking session-health toast (offline / re-auth / background-sync status). */}
       {/* Its × hides the current notice only; a different notice still shows.       */}
       {(() => {
+        // "partial": the save landed but the server set a field aside.
+        const syncWarning = syncStatus === "failed" || syncStatus === "partial";
         const notice = expiryWarning ? EXPIRY_NOTICE
           : reauthStatus === "attempting" ? "Reconnecting to your counselor…"
           : reauthStatus === "failed" ? "Session expired — sign out and sign in again."
           : offlineMode ? "Offline — your data is safe on this device. Counseling features resume when you reconnect."
-          : syncStatus === "failed" ? (syncNote || "Last change didn't sync — will retry.")
+          : syncWarning ? (syncNote || "Last change didn't sync — will retry.")
           : null;
         if (!notice || notice === dismissedNotice) return null;
         return (
         <div role="status" aria-live="polite" style={{
           position:"fixed", top:12, left:"50%", transform:"translateX(-50%)", zIndex:9999,
           padding:"8px 14px", borderRadius:10, fontSize:12, fontWeight:600, boxShadow:"0 4px 16px rgba(0,0,0,0.3)",
-          background: expiryWarning ? "rgba(246,173,85,0.22)" : reauthStatus==="failed" ? "rgba(245,101,101,0.15)" : (offlineMode || syncStatus==="failed") ? "rgba(246,173,85,0.15)" : "rgba(99,179,237,0.15)",
-          border:`1px solid ${expiryWarning ? "rgba(246,173,85,0.55)" : reauthStatus==="failed" ? "rgba(245,101,101,0.4)" : (offlineMode || syncStatus==="failed") ? "rgba(246,173,85,0.4)" : "rgba(99,179,237,0.4)"}`,
-          color: expiryWarning ? "#fbd38d" : reauthStatus==="failed" ? "#fc8181" : (offlineMode || syncStatus==="failed") ? "#f6ad55" : "#63b3ed",
+          background: expiryWarning ? "rgba(246,173,85,0.22)" : reauthStatus==="failed" ? "rgba(245,101,101,0.15)" : (offlineMode || syncWarning) ? "rgba(246,173,85,0.15)" : "rgba(99,179,237,0.15)",
+          border:`1px solid ${expiryWarning ? "rgba(246,173,85,0.55)" : reauthStatus==="failed" ? "rgba(245,101,101,0.4)" : (offlineMode || syncWarning) ? "rgba(246,173,85,0.4)" : "rgba(99,179,237,0.4)"}`,
+          color: expiryWarning ? "#fbd38d" : reauthStatus==="failed" ? "#fc8181" : (offlineMode || syncWarning) ? "#f6ad55" : "#63b3ed",
           display:"flex", alignItems:"center", gap:10,
         }}>
           <span>{notice}</span>

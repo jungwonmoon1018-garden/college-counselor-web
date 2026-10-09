@@ -5,13 +5,15 @@
 import { TEST_ORDER, TEST_SCORE_LIMITS, blankTestForm, entryToForm, formToEntry, formatClassRank, formatSections, normalizeClassRank, sectionDefs, testLabel, validateTestEntry, withSection } from "../profile/test-scores.js";
 import { t as tt } from "../i18n.js";
 import { formatServerDate } from "../profile/dates.js";
+import { gpaNumber, validateGpa } from "../profile/gpa.js";
 import { useState } from "react";
 import SidebarSection from "../components/SidebarSection.jsx";
 import CloseButton from "../components/CloseButton.jsx";
 import CalibratedFitCard from "../components/CalibratedFitCard.jsx";
 import EcEvidence, { ChatEvidenceSync } from "../components/EcEvidence.jsx";
 import PrestigeCard from "../components/PrestigeCard.jsx";
-import { AP_EXAM_LIST, GRADE_SCALE } from "../app-shared.js";
+import { GRADE_SCALE } from "../app-shared.js";
+import { apExamsWithScores, latestApScoreYear, validateApEntry } from "../profile/ap-entry.js";
 
 // ═══════════════════════════════════════════════════════════
 // GPA CALCULATOR — unweighted (4.0 scale) + weighted (rigor bonus).
@@ -147,35 +149,35 @@ function TestScoreEditor({ initial, onSave, onCancel, onDelete }) {
   );
 }
 
-function ApScoreEditor({ initial, onSave, onCancel, onDelete }) {
+// The same check as the survey's AP step (profile/ap-entry.js): a year with
+// scores out, not before the exam was first given, and not the same exam
+// and year as another entry (`others`, the list without this one).
+function ApScoreEditor({ initial, others = [], onSave, onCancel, onDelete }) {
   const [form, setForm] = useState({
     exam: initial?.exam || initial?.subject || initial?.name || "",
     score: String(initial?.score ?? 5),
-    year: String(initial?.year || new Date().getFullYear()),
+    year: String(initial?.year || latestApScoreYear()),
   });
   const [error, setError] = useState("");
   const save = () => {
-    const exam = String(form.exam || "").trim().slice(0, 80);
-    const score = parseInt(form.score, 10);
-    const year = parseInt(form.year, 10);
-    if (!exam) { setError("Pick the AP exam."); return; }
-    if (!(score >= 1 && score <= 5)) { setError("AP scores run 1-5."); return; }
-    if (!(year >= 2000 && year <= 2100)) { setError("Enter the exam year."); return; }
-    onSave({ exam, score, year });
+    const check = validateApEntry(form, { others });
+    if (!check.ok) { setError(check.error); return; }
+    onSave(check.entry);
   };
-  const known = AP_EXAM_LIST.includes(form.exam);
+  const exams = apExamsWithScores();
+  const known = exams.includes(form.exam);
   return (
     <div data-testid="ap-score-editor" style={{ background:"rgba(246,173,85,0.08)", borderRadius:10, padding:12, marginBottom:12, border:"1px solid rgba(246,173,85,0.35)" }}>
       <select aria-label="AP exam" value={known ? form.exam : (form.exam ? "__custom" : "")} onChange={(e) => setForm((p) => ({ ...p, exam: e.target.value === "__custom" ? p.exam : e.target.value }))} style={{ ...EDITOR_SELECT, marginBottom:6 }}>
         <option value="">Select AP exam (CollegeBoard)</option>
-        {AP_EXAM_LIST.map((c) => <option key={c} value={c}>{`AP ${c}`}</option>)}
+        {exams.map((c) => <option key={c} value={c}>{`AP ${c}`}</option>)}
         {!known && form.exam && <option value="__custom">{`AP ${form.exam}`}</option>}
       </select>
       <div style={{ display:"flex", gap:6, marginBottom:6 }}>
         <select aria-label="AP score" value={form.score} onChange={(e) => setForm((p) => ({ ...p, score: e.target.value }))} style={{ ...EDITOR_SELECT, flex:1 }}>
           {["5", "4", "3", "2", "1"].map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
-        <input aria-label="AP exam year" type="number" min="2000" max="2100" value={form.year} onChange={(e) => setForm((p) => ({ ...p, year: e.target.value }))} placeholder="Year" style={{ ...EDITOR_INPUT, flex:1 }} />
+        <input aria-label="AP exam year" type="number" min="2000" max={latestApScoreYear()} value={form.year} onChange={(e) => setForm((p) => ({ ...p, year: e.target.value }))} placeholder="Year" style={{ ...EDITOR_INPUT, flex:1 }} />
       </div>
       {error && <div role="alert" style={EDITOR_ERROR}>{error}</div>}
       <div style={{ display:"flex", gap:6 }}>
@@ -212,6 +214,44 @@ function ClassRankEditor({ initial, onSave, onCancel, onDelete }) {
         <button type="button" onClick={save} style={EDITOR_SAVE}>Save</button>
         <button type="button" onClick={onCancel} style={EDITOR_BUTTON}>Cancel</button>
         {onDelete && <button type="button" onClick={onDelete} style={EDITOR_REMOVE}>Remove</button>}
+      </div>
+    </div>
+  );
+}
+
+// The profile's GPA editor. It accepted any number, so a missed decimal (39)
+// or a 100-point average (95) was saved as the GPA; validateGpa holds the
+// range the server enforces. A blank unweighted field keeps the stored GPA,
+// a blank weighted field clears the weighted one, as before.
+function GpaEditor({ initial, onSave, onCancel }) {
+  const [form, setForm] = useState({
+    unweighted: initial?.unweighted != null ? String(initial.unweighted) : "",
+    weighted: initial?.weighted != null ? String(initial.weighted) : "",
+  });
+  const [error, setError] = useState("");
+  const save = () => {
+    const check = validateGpa(form);
+    if (!check.ok) { setError(check.errors[0]); return; }
+    const unweighted = form.unweighted.trim() === "" ? (initial?.unweighted ?? null) : gpaNumber(form.unweighted);
+    const weighted = form.weighted.trim() === "" ? null : gpaNumber(form.weighted);
+    onSave(unweighted == null && weighted == null ? null : { unweighted, weighted });
+  };
+  const onKeyDown = (e) => {
+    if (e.key === "Enter") save();
+    else if (e.key === "Escape") onCancel();
+  };
+  return (
+    <div data-testid="gpa-editor" style={{ background:"rgba(55,138,221,0.08)", borderRadius:10, padding:12, marginBottom:12, border:"1px solid rgba(55,138,221,0.3)" }}>
+      <div style={{ fontSize:11, color:"#6a8ab5", marginBottom:6 }}>GPA (unweighted / weighted)</div>
+      <div style={{ display:"flex", gap:6, alignItems:"center", marginBottom:6 }}>
+        <input autoFocus aria-label="Unweighted GPA" inputMode="decimal" value={form.unweighted} onChange={(e) => { setError(""); setForm((p) => ({ ...p, unweighted: e.target.value })); }} onKeyDown={onKeyDown} placeholder="3.92" style={{ ...EDITOR_INPUT, width:64 }} />
+        <span style={{ color:"#6a8ab5" }}>/</span>
+        <input aria-label="Weighted GPA" inputMode="decimal" value={form.weighted} onChange={(e) => { setError(""); setForm((p) => ({ ...p, weighted: e.target.value })); }} onKeyDown={onKeyDown} placeholder="—" style={{ ...EDITOR_INPUT, width:64 }} />
+      </div>
+      {error && <div role="alert" style={EDITOR_ERROR}>{error}</div>}
+      <div style={{ display:"flex", gap:6 }}>
+        <button type="button" onClick={save} style={EDITOR_SAVE}>Save</button>
+        <button type="button" onClick={onCancel} style={EDITOR_BUTTON}>Cancel</button>
       </div>
     </div>
   );
@@ -493,19 +533,9 @@ export default function Sidebar(props) {
           </button>
         </div>
         {editingField === "gpa" ? (
-          <div style={{ background:"rgba(55,138,221,0.08)",borderRadius:10,padding:12,marginBottom:12,border:"1px solid rgba(55,138,221,0.3)" }}>
-            <div style={{ fontSize:11,color:"#6a8ab5",marginBottom:6 }}>GPA (unweighted / weighted)</div>
-            <div style={{display:"flex",gap:6,alignItems:"center"}}>
-              <input autoFocus value={draftA} onChange={e=>setDraftA(e.target.value)}
-                onKeyDown={e=>{ if(e.key==="Enter"){ commitProfile(p=>{ const uw=parseFloat(draftA); const w=parseFloat(draftB); p.gpa={ unweighted: Number.isFinite(uw)?uw:(p.gpa?.unweighted ?? null), weighted: Number.isFinite(w)?w:(draftB.trim()===""?null:(p.gpa?.weighted ?? null)) }; }); } else if(e.key==="Escape") setEditingField(null); }}
-                placeholder="3.92" style={{width:64,padding:"4px 8px",borderRadius:6,border:"1px solid rgba(55,138,221,0.4)",background:"rgba(255,255,255,0.06)",color:"#fff",fontSize:14,outline:"none"}} />
-              <span style={{color:"#6a8ab5"}}>/</span>
-              <input value={draftB} onChange={e=>setDraftB(e.target.value)}
-                onKeyDown={e=>{ if(e.key==="Enter"){ commitProfile(p=>{ const uw=parseFloat(draftA); const w=parseFloat(draftB); p.gpa={ unweighted: Number.isFinite(uw)?uw:(p.gpa?.unweighted ?? null), weighted: Number.isFinite(w)?w:(draftB.trim()===""?null:(p.gpa?.weighted ?? null)) }; }); } else if(e.key==="Escape") setEditingField(null); }}
-                placeholder="—" style={{width:64,padding:"4px 8px",borderRadius:6,border:"1px solid rgba(55,138,221,0.4)",background:"rgba(255,255,255,0.06)",color:"#fff",fontSize:14,outline:"none"}} />
-              <button onClick={()=>commitProfile(p=>{ const uw=parseFloat(draftA); const w=parseFloat(draftB); p.gpa={ unweighted: Number.isFinite(uw)?uw:(p.gpa?.unweighted ?? null), weighted: Number.isFinite(w)?w:(draftB.trim()===""?null:(p.gpa?.weighted ?? null)) }; })} style={{padding:"4px 8px",borderRadius:6,border:"none",background:"rgba(104,211,145,0.15)",color:"#68d391",fontSize:11,cursor:"pointer"}}>Save</button>
-            </div>
-          </div>
+          <GpaEditor initial={profile.gpa || null}
+            onSave={(gpa)=>commitProfile(p=>{ p.gpa = gpa; if (gpa) p.gpaStatus = undefined; })}
+            onCancel={()=>setEditingField(null)} />
         ) : profile.gpa ? (
           <div onDoubleClick={()=>beginEdit("gpa", profile.gpa.unweighted ?? "", profile.gpa.weighted ?? "")} title="Double-click to edit"
             style={{ background:"rgba(55,138,221,0.08)",borderRadius:10,padding:12,marginBottom:12,border:"1px solid rgba(55,138,221,0.15)",cursor:"pointer",userSelect:"none" }}>
@@ -618,7 +648,7 @@ export default function Sidebar(props) {
         <SidebarSection id="ap-scores" title="AP exam scores" count={(profile.apScores || []).length}>
         {(profile.apScores || []).map((x,i)=>(
           editingField === `ap:${i}` ? (
-            <ApScoreEditor key={i} initial={x}
+            <ApScoreEditor key={i} initial={x} others={(profile.apScores||[]).filter((_,j)=>j!==i)}
               onSave={(entry)=>commitProfile(p=>{ const a=[...(p.apScores||[])]; a[i]=entry; p.apScores=a; })}
               onCancel={()=>setEditingField(null)}
               onDelete={()=>commitProfile(p=>{ p.apScores=(p.apScores||[]).filter((_,j)=>j!==i); })} />
@@ -634,7 +664,7 @@ export default function Sidebar(props) {
           )
         ))}
         {editingField === "ap:new" ? (
-          <ApScoreEditor initial={null}
+          <ApScoreEditor initial={null} others={profile.apScores||[]}
             onSave={(entry)=>commitProfile(p=>{ p.apScores=[...(p.apScores||[]), entry]; })}
             onCancel={()=>setEditingField(null)} />
         ) : (

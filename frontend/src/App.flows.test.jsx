@@ -108,6 +108,11 @@ describe("App flows", () => {
 
     // The survey's own state: a GPA moves the student on to the transcript step.
     fireEvent.click(screen.getByRole("button", { name: "I saved it" }));
+    // A missed decimal is not a GPA: the student stays on the step and is told why.
+    fireEvent.change(screen.getByPlaceholderText("e.g. 3.75"), { target: { value: "39" } });
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByText(/An unweighted GPA is between 0 and 5, like 3\.75/)).toBeInTheDocument();
+    expect(screen.queryByText("Add courses by school year")).not.toBeInTheDocument();
     fireEvent.change(screen.getByPlaceholderText("e.g. 3.75"), { target: { value: "3.8" } });
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     expect(await screen.findByText("Add courses by school year")).toBeInTheDocument();
