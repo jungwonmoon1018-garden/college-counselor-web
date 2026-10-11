@@ -141,6 +141,7 @@ const KO_REQUIRED_KEYS = [
   "deadlines.no_upcoming", "deadlines.overdue_one", "deadlines.overdue_many",
   "deadlines.upcoming_next_one", "deadlines.upcoming_next_many",
   "deadlines.due_at_invalid", "deadlines.status_invalid",
+  "deadlines.title_too_long", "deadlines.due_at_range",
   "prestige.ec_not_found", "prestige.no_cached_rationale",
   // Register.js
   "register.usage.line1", "register.usage.line2", "register.tagline",

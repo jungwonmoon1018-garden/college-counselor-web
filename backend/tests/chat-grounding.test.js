@@ -91,6 +91,26 @@ test("fidelity check catches misstated grades, GPA, test and AP scores", () => {
   assert.match(buildFidelityFootnote(contradictions, "ko"), /저장된 프로필 기준 정정/);
 });
 
+// An exam is checked under every name the AP catalog knows for it, and a
+// retaken exam has every recorded score as a true one: a 4 stated for a
+// Calculus AB recorded as 3 and then 4 used to be "corrected" (2026-10-09).
+test("AP scores are checked under every name for the exam, and a retake's scores are all true", () => {
+  const retaken = { apScores: [
+    { exam: "Calculus AB", score: 3, year: 2025 },
+    { exam: "Calculus AB", score: 4, year: 2026 },
+    { exam: "US History", score: 5, year: 2026 },
+  ] };
+  assert.deepEqual(checkProfileFidelity("You scored a 4 on AP Calc AB after retaking it.", retaken).contradictions, []);
+  assert.deepEqual(checkProfileFidelity("You earned a 3 on AP Calculus AB the first time.", retaken).contradictions, []);
+  assert.deepEqual(checkProfileFidelity("You got a 5 on AP United States History.", retaken).contradictions, []);
+  const wrong = checkProfileFidelity("You scored a 5 on AP Calculus AB, and you got a 3 on APUSH.", retaken).contradictions;
+  assert.deepEqual(wrong.map((c) => `${c.item}:${c.stated}:${c.actual}`), [
+    "AP Calculus AB exam:5:4 and 3 (the exam was taken 2 times)",
+    "AP US History exam:3:5",
+  ]);
+  assert.match(buildFidelityCorrection(wrong), /- AP Calculus AB exam: recorded score 4 and 3 \(the exam was taken 2 times\) \(the reply said 5\)/);
+});
+
 test("SAT section scores reach the model and are checked as sections, not totals", () => {
   const withSections = {
     ...profile,

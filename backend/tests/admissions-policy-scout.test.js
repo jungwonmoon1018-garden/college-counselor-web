@@ -414,7 +414,10 @@ test("a scout run snapshots a school, writes verified facts, and logs changes on
   const second = await runPolicyScout([TARGET], { ...scoutOptions(stores, v2.fetchImpl), now: () => later, trigger: "manual" });
   assert.equal(second.checked, 1);
   assert.equal(second.changes, 2);
-  const changes = listRecentChanges(stores.stmts, { days: 30 });
+  // Counted back from the run's own clock: against the wall clock this test
+  // expired 30 days after its fixture dates and failed CI from 2026-10-04.
+  const changes = listRecentChanges(stores.stmts, { days: 30, now: later });
+  assert.deepEqual(listRecentChanges(stores.stmts, { days: 30, now: new Date("2026-10-05T12:00:00Z") }), []);
   assert.deepEqual(
     changes.map((c) => [c.label, c.previousValue, c.newValue, c.severity]).sort(),
     [

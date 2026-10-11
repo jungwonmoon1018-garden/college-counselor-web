@@ -67,7 +67,7 @@ import { initAdmissionsIntelligenceTables, prepareAdmissionsIntelStatements, see
 import "./colleges/admissions-intelligence-loader.js";
 import { loadOrchestrationCatalog } from "./chat/orchestration-engine.js";
 import { initAuthStore } from "./security/security-auth.js";
-import { ADMIN_AUTH_RATE_LIMIT, AUTH_RATE_LIMIT, buildHealthResponse, securityResponseMiddleware } from "./security/security-hardening.js";
+import { ADMIN_AUTH_RATE_LIMIT, AUTH_RATE_LIMIT, buildHealthResponse, resolveAllowedOrigins, securityResponseMiddleware } from "./security/security-hardening.js";
 import { OPENROUTER_MODEL_OPTIONS } from "./llm-adapters/tier-defaults.js";
 import {
   initModelCatalogScout,
@@ -336,10 +336,12 @@ function resolveOperatorLLM() {
   return null;
 }
 const OPERATOR_LLM = resolveOperatorLLM();
-const ALLOWED_ORIGINS = [...new Set([
-  ...(process.env.ALLOWED_ORIGINS || "http://localhost:3000,http://localhost:5173,http://localhost:5180").split(","),
-  process.env.PUBLIC_APP_URL || "",
-].map((value) => value.trim().replace(/\/$/, "")).filter(Boolean))];
+// The website names no localhost dev origin (resolveAllowedOrigins).
+const ALLOWED_ORIGINS = resolveAllowedOrigins({
+  configured: process.env.ALLOWED_ORIGINS,
+  publicAppUrl: process.env.PUBLIC_APP_URL,
+  webDeployment: WEB_DEPLOYMENT,
+});
 const NODE_ENV = process.env.NODE_ENV || "development";
 // Treat an unfilled `.env.example` placeholder (REPLACE_WITH…) as unset, so a
 // freshly-copied .env doesn't make the server think a bogus key is live data.

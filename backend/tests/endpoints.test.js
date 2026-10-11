@@ -194,6 +194,61 @@ describe("request bodies", () => {
 });
 
 // ═══════════════════════════════════════════════════════════
+// PROFILE SYNC INPUT
+// ═══════════════════════════════════════════════════════════
+// The sync stored the body as sent: a GPA of 39 or 95, an SAT of 1700, an
+// AP score of 9 reached the profile block and College Fit, and a GPA sent
+// as text or a course list that was not a list crashed the save (500).
+// Each field is now checked; what cannot be stored is set aside, named in
+// the response, and the rest lands (academics/profile-input.js).
+describe("POST /api/students/sync input", () => {
+  it("stores what is valid, sets aside what is not, and says what it set aside", async () => {
+    const { token } = await createStudentSession();
+    const auth = { Authorization: `Bearer ${token}` };
+    const sync = (profile, extra = {}) => req("POST", "/api/students/sync", { profile, activities: [], goals: [], majorInterest: "Computer Science", ...extra }, auth);
+    const stored = async () => (await req("GET", "/api/students/profile", undefined, auth)).data.profile;
+    const base = {
+      gpa: { unweighted: 3.86, weighted: 4.32 },
+      courses: [{ name: "AP Calculus BC", type: "ap", grade: "A", year: "junior" }],
+      testScores: [{ test: "act", totalScore: 33 }],
+      apScores: [{ exam: "Calculus BC", score: 5, year: 2026 }],
+    };
+
+    const valid = await sync(base);
+    assert.equal(valid.status, 200, JSON.stringify(valid.data));
+    assert.deepEqual(valid.data.setAside, []);
+
+    // Numeric text is read as the number (it was a 500).
+    const text = await sync({ ...base, gpa: { unweighted: "3.71" } });
+    assert.equal(text.status, 200, JSON.stringify(text.data));
+    assert.equal((await stored()).gpa.unweighted, 3.71);
+
+    // A missed decimal: set aside, the stored GPA stays.
+    const typo = await sync({ ...base, gpa: { unweighted: 39 } });
+    assert.equal(typo.status, 200);
+    assert.deepEqual(typo.data.setAside, [{ field: "gpa.unweighted", reason: "out_of_range" }]);
+    assert.equal((await stored()).gpa.unweighted, 3.71);
+
+    // Out-of-range scores are dropped, valid ones kept, and counted.
+    const scores = await sync({ ...base, testScores: [{ test: "sat", totalScore: 1700 }, { test: "act", totalScore: 34 }], apScores: [{ exam: "Biology", score: 9 }, { exam: "Calculus BC", score: 5, year: 2026 }] });
+    assert.equal(scores.status, 200);
+    assert.deepEqual(scores.data.setAside, [
+      { field: "testScores", reason: "invalid_entry", count: 1 },
+      { field: "apScores", reason: "invalid_entry", count: 1 },
+    ]);
+    const after = await stored();
+    assert.deepEqual(after.testScores, [{ test: "act", totalScore: 34 }]);
+    assert.deepEqual(after.apScores, [{ exam: "Calculus BC", score: 5, year: 2026 }]);
+
+    // A course list that is not a list keeps the stored courses (it was a 500).
+    const notList = await sync({ ...base, courses: { name: "Chemistry" } });
+    assert.equal(notList.status, 200, JSON.stringify(notList.data));
+    assert.deepEqual(notList.data.setAside, [{ field: "courses", reason: "not_a_list" }]);
+    assert.deepEqual((await stored()).courses, base.courses);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════
 // HEALTH CHECK
 // ═══════════════════════════════════════════════════════════
 describe("GET /api/health", () => {

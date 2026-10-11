@@ -259,6 +259,56 @@ test("deadline cascade is tenant-scoped and matches literal school names and com
   assert.ok((await listDeadlineTitles(secondToken)).includes("Same unit ID, different student"));
 });
 
+// A deadline's name had no cap and its date only had to parse, so a year
+// typed as 0202 was stored as given (2026-10-09). Create, bulk create and
+// edit now hold the same rules.
+test("deadline names are capped and dates must fall between 2000 and six years out, on create, bulk and edit", async () => {
+  const token = await registerStudent("deadline-limits");
+  const valid = "2027-01-05T12:00:00.000Z";
+  const sevenYearsOut = new Date(Date.now() + 7 * 365.25 * 86_400_000).toISOString();
+
+  const tooLong = await request("POST", "/api/students/deadlines", { token, body: { title: "x".repeat(201), dueAt: valid } });
+  assert.equal(tooLong.status, 400, JSON.stringify(tooLong.data));
+  assert.equal(tooLong.data.friendlyMessage, "Keep the deadline's name to 200 characters or fewer.");
+  const typoYear = await request("POST", "/api/students/deadlines", { token, body: { title: "Typo year", dueAt: "0202-01-05T00:00:00.000Z" } });
+  assert.equal(typoYear.status, 400, JSON.stringify(typoYear.data));
+  assert.match(typoYear.data.friendlyMessage, /^Pick a date between 2000-01-01 and \d{4}-\d{2}-\d{2}\.$/);
+  const farOut = await request("POST", "/api/students/deadlines?locale=ko", { token, body: { title: "Far out", dueAt: sevenYearsOut } });
+  assert.equal(farOut.status, 400, JSON.stringify(farOut.data));
+  assert.match(farOut.data.friendlyMessage, /^2000-01-01부터 \d{4}-\d{2}-\d{2} 사이의 날짜를 골라주세요\.$/);
+  const atCap = await request("POST", "/api/students/deadlines", { token, body: { title: "y".repeat(200), dueAt: valid } });
+  assert.equal(atCap.status, 201, JSON.stringify(atCap.data));
+
+  // Bulk create skips what the single create refuses, and counts it.
+  const bulk = await request("POST", "/api/students/deadlines/bulk", {
+    token,
+    body: { items: [
+      { title: "z".repeat(201), dueAt: valid },
+      { title: "Before 2000", dueAt: "1999-12-31T00:00:00.000Z" },
+      { title: "Example University — Regular Decision", dueAt: valid },
+    ] },
+  });
+  assert.equal(bulk.status, 201, JSON.stringify(bulk.data));
+  assert.equal(bulk.data.createdCount, 1);
+  assert.equal(bulk.data.skipped, 2);
+
+  // An edit is held to the same rules; a title that is not text is a 400,
+  // not a 500, and an unknown category leaves the stored one.
+  const id = bulk.data.created[0].id;
+  const notText = await request("PATCH", `/api/students/deadlines/${id}`, { token, body: { title: 42 } });
+  assert.equal(notText.status, 400, JSON.stringify(notText.data));
+  const longEdit = await request("PATCH", `/api/students/deadlines/${id}`, { token, body: { title: "w".repeat(201) } });
+  assert.equal(longEdit.status, 400, JSON.stringify(longEdit.data));
+  assert.equal(longEdit.data.friendlyMessage, "Keep the deadline's name to 200 characters or fewer.");
+  const farEdit = await request("PATCH", `/api/students/deadlines/${id}`, { token, body: { dueAt: sevenYearsOut } });
+  assert.equal(farEdit.status, 400, JSON.stringify(farEdit.data));
+  const edit = await request("PATCH", `/api/students/deadlines/${id}`, { token, body: { category: "made-up", notes: "Portal checked", dueAt: "2027-01-02T12:00:00.000Z" } });
+  assert.equal(edit.status, 200, JSON.stringify(edit.data));
+  assert.equal(edit.data.deadline.category, "admissions");
+  assert.equal(edit.data.deadline.notes, "Portal checked");
+  assert.equal(edit.data.deadline.dueAt, "2027-01-02T12:00:00.000Z");
+});
+
 test("consent status reports missing onboarding rows and clears once granted", async () => {
   const token = await registerStudent("consent-status");
 
@@ -608,6 +658,94 @@ test("the College Fit double-check compares the stored read with live sources an
   const wire = JSON.stringify(calls[calls.length - 1].messages);
   assert.match(wire, new RegExp(`College Fit read for THIS student \\(computed \\d{4}-\\d{2}-\\d{2} from validated Common Data Set\\): ${read.overallPositioningLabel}`));
   assert.match(wire, /College Fit double-check \(\d{4}-\d{2}-\d{2}\): live sources differ from the stored data — Admit rate: fit used \d+(?:\.\d)?%, live 49%/);
+});
+
+// A regular-round applicant starts from the admit rate outside Early
+// Decision: Columbia's 2024-25 CDS admitted 3.9% overall, 13.2% of its ED
+// applicants and 2.8% of everyone else, and the headline rate used to be
+// the base for everyone (2026-10-09).
+test("College Fit starts a regular-round read from the admit rate outside Early Decision, and the chat hears which rate", async () => {
+  const token = await registerWithProfile("fit-regular-pool");
+  const fit = await request("POST", "/api/positioning/targets", {
+    token,
+    body: { targets: [{ schoolName: "Columbia University" }], major: "Computer Science", searchCds: false },
+  });
+  assert.equal(fit.status, 200, `${JSON.stringify(fit.data)}\n${serverOutput}`);
+  assert.equal(fit.data.modelVersion, "positioning_v2");
+  const read = fit.data.targets[0];
+  assert.equal(read.admitRateBasis, "outside_early_decision", JSON.stringify(read.admitRate));
+  assert.ok(Math.abs(read.admitRateUsed - 0.0282) < 0.0005, `used ${read.admitRateUsed}`);
+  assert.ok(Math.abs(read.admitRate.overall - 0.0386) < 0.0005, `overall ${read.admitRate.overall}`);
+  assert.ok(Math.abs(read.admitRate.earlyDecision - 0.1323) < 0.0005, `ED ${read.admitRate.earlyDecision}`);
+  assert.deepEqual(read.profileComparison.admitRate, read.admitRate);
+
+  const turn = await request("POST", "/api/chat", {
+    token,
+    body: {
+      system: "You are the COLLEGE FIT specialist for students ages 14-18.",
+      messages: [{ role: "user", content: `How do I stand at Columbia University? MOCKREPLY:${b64("Columbia is a high reach.")}:` }],
+      request_id: "fit-regular-pool-chat-1",
+    },
+  });
+  assert.equal(turn.status, 200, `${JSON.stringify(turn.data)}\n${serverOutput}`);
+  const calls = loggedModelCalls();
+  const wire = JSON.stringify(calls[calls.length - 1].messages);
+  assert.match(wire, /it starts from the 2\.8% admit rate for applicants outside Early Decision \(3\.9% overall; 13\.2% of Early Decision applicants were admitted\)/);
+});
+
+// The test policy a school states this cycle on its own pages, as the policy
+// scout read them, outranks the Common Data Set's: Dartmouth has required
+// scores since the 2024-25 cycle while the 2025-26 set in the store reads
+// test-optional, so a student with no score was read as if none were needed
+// (2026-10-09).
+test("College Fit reads the test policy the school states this cycle and flags a missing required score", async () => {
+  const db = new Database(path.join(testDataDir, "operational.db"));
+  const checkedAt = new Date().toISOString();
+  try {
+    db.prepare(`INSERT OR REPLACE INTO admissions_policy_snapshots (slug, school_name, unit_id, homepage, checked_at, changed_at, content_hash, pages_json, policy_json, check_count)
+      VALUES (?, ?, NULL, ?, ?, NULL, ?, ?, ?, 1)`).run(
+      "dartmouth-college", "Dartmouth College", "https://www.dartmouth.edu/", checkedAt, "test-hash", "[]",
+      JSON.stringify({ cycle: "2026-27", scoutVersion: SCOUT_VERSION, testPolicy: { value: "test_required", through: null, evidence: "Dartmouth requires the SAT or ACT of first-year applicants.", sourceUrl: "https://admissions.dartmouth.edu/apply/testing" }, applicationFee: null, deadlines: {} }),
+    );
+  } finally {
+    db.close();
+  }
+  const token = await registerStudent("fit-stated-policy");
+  for (const consentType of ["data_processing", "ai_interaction", "cross_border_transfer"]) {
+    const consent = await request("POST", "/api/consent/grant", { token, body: { consentType, grantedBy: "student" } });
+    assert.equal(consent.status, 200, JSON.stringify(consent.data));
+  }
+  const synced = await request("POST", "/api/students/sync", {
+    token,
+    body: {
+      profile: { gpa: { unweighted: 3.9 }, courses: [{ name: "AP Calculus BC", type: "ap", grade: "A", year: "junior" }], testScores: [], apScores: [] },
+      activities: [],
+      majorInterest: "Computer Science",
+      goals: [],
+    },
+  });
+  assert.equal(synced.status, 200, JSON.stringify(synced.data));
+
+  const fit = await request("POST", "/api/positioning/targets", {
+    token,
+    body: { targets: [{ schoolName: "Dartmouth College" }], major: "Computer Science", searchCds: false },
+  });
+  assert.equal(fit.status, 200, `${JSON.stringify(fit.data)}\n${serverOutput}`);
+  const read = fit.data.targets[0];
+  assert.equal(read.profileComparison.tests.policy, "test_considered_or_required", JSON.stringify(read.profileComparison.tests));
+  assert.equal(read.profileComparison.tests.stated.value, "test_required");
+  assert.equal(read.profileComparison.tests.score, 18);
+  assert.equal(read.dataProvenance.testPolicy.source, "official_site");
+  assert.equal(read.dataProvenance.testPolicy.sourceUrl, "https://admissions.dartmouth.edu/apply/testing");
+  assert.ok(read.mainRedFlags.some((f) => /says SAT or ACT scores are required this cycle, and no score is on file/.test(f)), JSON.stringify(read.mainRedFlags));
+
+  // The double-check compares the live pages with the policy the read used
+  // and says where that came from (the live read fails in tests).
+  const verify = await request("POST", "/api/positioning/verify", { token, body: { schoolName: "Dartmouth College", major: "Computer Science" } });
+  assert.equal(verify.status, 200, `${JSON.stringify(verify.data)}\n${serverOutput}`);
+  const policyCheck = verify.data.checks.find((c) => c.field === "test_policy");
+  assert.equal(policyCheck.used, "tests considered or required");
+  assert.match(policyCheck.usedSource, /^official admissions site \(policy scout, checked \d{4}-\d{2}-\d{2}\)$/);
 });
 
 test("a document block reaches the model as its full extracted text, and the profile check yields to the document", async () => {

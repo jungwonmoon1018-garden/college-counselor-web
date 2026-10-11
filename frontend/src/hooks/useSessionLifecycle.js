@@ -7,6 +7,7 @@ import { setReauthListener, setReauthCredentialProvider } from "../chat/chat-cli
 import { clearSession, storageKeyFor, encrypt, buildVaultBlob, storageApi } from "../session/vault-storage.js";
 import { S } from "../app-shared.js";
 import { sessionTimer } from "../session/server-session.js";
+import { describeSetAside, syncFailureMessage } from "../profile/sync-result.js";
 
 export function useSessionLifecycle(ctx) {
   const {
@@ -64,7 +65,7 @@ export function useSessionLifecycle(ctx) {
       //    no-oping.
       if (data.profile) {
         try {
-          await authedFetch("/api/students/sync", {
+          const response = await authedFetch("/api/students/sync", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -75,10 +76,26 @@ export function useSessionLifecycle(ctx) {
               trigger: "auto_sync"
             })
           });
-          setSyncStatus("ok");
-          setSyncNote("");
-          setOfflineMode(false); // a sync landed — backend is reachable again
-          setTimeout(() => setSyncStatus((s) => (s === "ok" ? "idle" : s)), 2000);
+          setOfflineMode(false); // the backend answered — it is reachable
+          // authedFetch resolves on every HTTP status; a refused save (413,
+          // 429, 500, 503) used to show as synced and refresh College Fit
+          // against the old record.
+          if (!response?.ok) {
+            setSyncNote(syncFailureMessage(response?.status));
+            setSyncStatus("failed");
+            return;
+          }
+          const body = await response.json().catch(() => ({}));
+          const setAsideNote = describeSetAside(body?.setAside);
+          if (setAsideNote) {
+            // Saved, but a field the server could not store was left out.
+            setSyncNote(setAsideNote);
+            setSyncStatus("partial");
+          } else {
+            setSyncStatus("ok");
+            setSyncNote("");
+            setTimeout(() => setSyncStatus((s) => (s === "ok" ? "idle" : s)), 2000);
+          }
           // 3. The College Fit card follows the record: once the sync has
           //    landed (the server reads the profile it holds), re-read the
           //    shown school if a course, score, activity or major changed.

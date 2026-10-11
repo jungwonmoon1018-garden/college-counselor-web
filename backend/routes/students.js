@@ -14,8 +14,28 @@ import { isCrisisText } from "../chat/policy-router.js";
 import { parseAttachedFilesPreface } from "../activities/ec-chat-evidence.js";
 import * as chatGraph from "../chat/chat-graph.js";
 import { buildTranscriptParseMessages, parseTranscriptModelReply } from "../academics/transcript-import.js";
+import { normalizeSyncInput, previousFromSnapshot } from "../academics/profile-input.js";
 import { ExtractionError, SUPPORTED_MIME_TYPES, extractPdfOCR, extractText, isSupportedMime } from "../shared/file-extractors.js";
 import { resolveLocale, t } from "../shared/i18n.js";
+
+// A deadline's name and date are held to the same rules on create, bulk
+// create and edit. The name is what the list, the reminders and the chat
+// show, and had no cap; 200 characters is a long sentence. A date before
+// 2000 or more than six years out is a typing slip (a ninth grader's
+// furthest real deadline is about four years away): a year typed as 0202
+// or 20266 was stored as given and sorted to the ends of the list.
+const DEADLINE_TITLE_MAX = 200;
+const DEADLINE_CATEGORIES = ["personal", "admissions", "financial_aid", "test", "other"];
+const DEADLINE_EARLIEST_MS = Date.UTC(2000, 0, 1);
+const DEADLINE_YEARS_AHEAD = 6;
+
+// The allowed window ({ from, to } as dates) when `ms` falls outside it.
+function deadlineDateOutside(ms, now = Date.now()) {
+  const latest = new Date(now);
+  latest.setUTCFullYear(latest.getUTCFullYear() + DEADLINE_YEARS_AHEAD);
+  if (ms >= DEADLINE_EARLIEST_MS && ms <= latest.getTime()) return null;
+  return { from: new Date(DEADLINE_EARLIEST_MS).toISOString().slice(0, 10), to: latest.toISOString().slice(0, 10) };
+}
 
 export function registerStudentsRoutes(app, deps) {
   app.post("/api/students/register", deps.authLimiter, (req, res) => {
@@ -124,9 +144,15 @@ export function registerStudentsRoutes(app, deps) {
 
   app.post("/api/students/sync", deps.studentLimiter, deps.requireStudentAuth, (req, res) => {
     try {
-      const { profile, activities, goals, majorInterest, trigger } = req.body;
+      // Each field is checked before it is stored (academics/profile-input.js):
+      // what cannot be stored is set aside and named in the response, and the
+      // rest of the save lands. Only field names reach the log, never values.
+      const input = normalizeSyncInput(req.body || {}, previousFromSnapshot(deps.ragStmts.getLatestSnapshot.get(req.studentId)));
+      const { profile, activities, goals, majorInterest, setAside } = input;
+      const trigger = typeof req.body?.trigger === "string" && req.body.trigger ? req.body.trigger.slice(0, 40) : "user_update";
+      if (setAside.length) console.warn(`[SYNC] set aside: ${setAside.map((s) => (s.count ? `${s.field} (${s.count})` : s.field)).join(", ")}`);
       if (profile?.grade != null) deps.authStore.setStudentGrade(req.studentId, profile.grade);
-      const result = syncStudentData(deps.ragStmts, req.studentId, profile, activities, goals, majorInterest, trigger || "user_update");
+      const result = syncStudentData(deps.ragStmts, req.studentId, profile, activities, goals, majorInterest, trigger);
 
       for (const change of result.changes || []) {
         if (change.significant) {
@@ -154,7 +180,7 @@ export function registerStudentsRoutes(app, deps) {
         }
       }
 
-      res.json(result);
+      res.json({ ...result, setAside });
     } catch (err) {
       console.error("[SYNC] Error:", err.message);
       res.status(500).json({ error: "Sync failed" });
@@ -692,18 +718,25 @@ export function registerStudentsRoutes(app, deps) {
   app.post("/api/students/deadlines", deps.studentLimiter, deps.requireStudentAuth, (req, res) => {
     try {
       const { title, dueAt, category, notes, collegeIds } = req.body || {};
+      const locale = resolveLocale(req);
       if (!title || typeof title !== "string" || title.trim().length === 0) {
         return res.status(400).json({ error: "title required" });
+      }
+      if (title.trim().length > DEADLINE_TITLE_MAX) {
+        return res.status(400).json({ error: `title must be ${DEADLINE_TITLE_MAX} characters or fewer`, friendlyMessage: t("deadlines.title_too_long", locale, { max: DEADLINE_TITLE_MAX }) });
       }
       if (!dueAt || typeof dueAt !== "string") {
         return res.status(400).json({ error: "dueAt (ISO-8601) required" });
       }
       const parsed = Date.parse(dueAt);
       if (!Number.isFinite(parsed)) {
-        return res.status(400).json({ error: "dueAt must be a parseable ISO-8601 date", friendlyMessage: t("deadlines.due_at_invalid", resolveLocale(req)) });
+        return res.status(400).json({ error: "dueAt must be a parseable ISO-8601 date", friendlyMessage: t("deadlines.due_at_invalid", locale) });
       }
-      const allowedCategories = ["personal", "admissions", "financial_aid", "test", "other"];
-      const cat = allowedCategories.includes(category) ? category : "personal";
+      const outside = deadlineDateOutside(parsed);
+      if (outside) {
+        return res.status(400).json({ error: `dueAt must fall between ${outside.from} and ${outside.to}`, friendlyMessage: t("deadlines.due_at_range", locale, outside) });
+      }
+      const cat = DEADLINE_CATEGORIES.includes(category) ? category : "personal";
       const id = crypto.randomUUID();
       deps.ragStmts.deadlines.insert.run(
         id,
@@ -731,7 +764,6 @@ export function registerStudentsRoutes(app, deps) {
     try {
       const items = Array.isArray(req.body?.items) ? req.body.items.slice(0, 20) : null;
       if (!items || items.length === 0) return res.status(400).json({ error: "items (non-empty array) required" });
-      const allowed = ["personal", "admissions", "financial_aid", "test", "other"];
       const existing = deps.ragStmts.deadlines.listByStudent.all(req.studentId) || [];
       const existingTitles = new Set(existing.map((d) => String(d.title || "").trim().toLowerCase()));
       const created = [];
@@ -739,9 +771,10 @@ export function registerStudentsRoutes(app, deps) {
       for (const it of items) {
         const title = String(it?.title || "").trim();
         const due = Date.parse(it?.dueAt);
-        if (!title || !Number.isFinite(due)) { skipped += 1; continue; }
+        // An item the single create would refuse is skipped and counted.
+        if (!title || title.length > DEADLINE_TITLE_MAX || !Number.isFinite(due) || deadlineDateOutside(due)) { skipped += 1; continue; }
         if (existingTitles.has(title.toLowerCase())) { skipped += 1; continue; }
-        const cat = allowed.includes(it?.category) ? it.category : "admissions";
+        const cat = DEADLINE_CATEGORIES.includes(it?.category) ? it.category : "admissions";
         const id = crypto.randomUUID();
         deps.ragStmts.deadlines.insert.run(
           id, req.studentId, title, new Date(due).toISOString(), cat,
@@ -830,16 +863,29 @@ export function registerStudentsRoutes(app, deps) {
         }
         deps.ragStmts.deadlines.updateStatus.run(status, id, req.studentId);
       } else {
+        // An edit is held to the create's rules: a title that is not text
+        // used to throw (a 500), and neither length nor date was checked.
+        if (title != null && typeof title !== "string") {
+          return res.status(400).json({ error: "title must be a string" });
+        }
+        if (typeof title === "string" && title.trim().length > DEADLINE_TITLE_MAX) {
+          return res.status(400).json({ error: `title must be ${DEADLINE_TITLE_MAX} characters or fewer`, friendlyMessage: t("deadlines.title_too_long", locale, { max: DEADLINE_TITLE_MAX }) });
+        }
         if (dueAt && !Number.isFinite(Date.parse(dueAt))) {
           return res.status(400).json({ error: "dueAt must be a parseable ISO-8601 date", friendlyMessage: t("deadlines.due_at_invalid", locale) });
+        }
+        const outside = dueAt ? deadlineDateOutside(Date.parse(dueAt)) : null;
+        if (outside) {
+          return res.status(400).json({ error: `dueAt must fall between ${outside.from} and ${outside.to}`, friendlyMessage: t("deadlines.due_at_range", locale, outside) });
         }
         if (status && !["open", "done", "snoozed"].includes(status)) {
           return res.status(400).json({ error: "status must be open|done|snoozed", friendlyMessage: t("deadlines.status_invalid", locale) });
         }
         deps.ragStmts.deadlines.updateFields.run(
-          title ? title.trim() : null,
+          title ? title.trim() || null : null,
           dueAt ? new Date(Date.parse(dueAt)).toISOString() : null,
-          category || null,
+          // An unknown category leaves the stored one as it is.
+          DEADLINE_CATEGORIES.includes(category) ? category : null,
           notes !== undefined ? (notes ? String(notes).slice(0, 2000) : null) : null,
           Array.isArray(collegeIds) ? JSON.stringify(collegeIds.slice(0, 20).map(String)) : null,
           id,

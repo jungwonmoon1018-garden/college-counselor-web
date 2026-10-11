@@ -49,6 +49,23 @@ export function securityResponseMiddleware({ production = false } = {}) {
   };
 }
 
+// The origins the API answers besides the page's own. Development defaults
+// to the Vite and preview ports on localhost; the website does not. Until
+// 2026-10-09 production carried those three dev origins too, so a page on
+// one of those ports on any visitor's machine passed the origin check that
+// the admin routes also rely on. Nothing rode a session that way (student
+// requests carry a bearer token and the admin cookie is SameSite=Strict),
+// but the check should not admit origins the site never serves. The website
+// is same-origin (isAllowedRequestOrigin), PUBLIC_APP_URL adds a custom
+// domain, and an explicit ALLOWED_ORIGINS replaces the defaults either way.
+const DEV_ORIGINS = "http://localhost:3000,http://localhost:5173,http://localhost:5180";
+export function resolveAllowedOrigins({ configured = "", publicAppUrl = "", webDeployment = false } = {}) {
+  const list = String(configured || "").trim() ? String(configured) : (webDeployment ? "" : DEV_ORIGINS);
+  return [...new Set([...list.split(","), String(publicAppUrl || "")]
+    .map((value) => value.trim().replace(/\/$/, ""))
+    .filter(Boolean))];
+}
+
 export function shouldUseSecureAdminCookie({ requestSecure = false, webDeployment = false } = {}) {
   return Boolean(requestSecure || webDeployment);
 }

@@ -137,8 +137,11 @@ export const narrative = {
       throw err;
     }
   },
-  async delete(id) {
-    return ccFetch(`/api/ec/narrative/${encodeURIComponent(id)}`, { method: "DELETE" });
+  // The server soft-deletes the session's active narrative; there is no
+  // per-id route. The id path this used to send answered 404, so Delete
+  // showed "Not found" and the story kept feeding the counselor.
+  async delete() {
+    return ccFetch("/api/ec/narrative", { method: "DELETE" });
   },
   async drift() {
     return ccFetch("/api/narrative/drift", { method: "GET" });

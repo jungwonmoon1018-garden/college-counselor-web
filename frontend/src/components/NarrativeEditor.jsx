@@ -85,7 +85,7 @@ export default function NarrativeEditor({ locale = "en-US", onSaved, targetSchoo
     if (!activeId) return;
     setBusy(true); setErr("");
     try {
-      await narrativeApi.delete(activeId);
+      await narrativeApi.delete();
       setText(""); setActiveId(null); setSavedAt(null);
       if (onSaved) onSaved(null);
     } catch (e) {

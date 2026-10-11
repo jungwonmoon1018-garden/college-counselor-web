@@ -8,6 +8,7 @@ import {
   buildHealthResponse,
   isSensitiveResponsePath,
   redactProductionErrorBody,
+  resolveAllowedOrigins,
   securityResponseMiddleware,
   shouldUseSecureAdminCookie,
 } from "../security/security-hardening.js";
@@ -58,6 +59,21 @@ test("production health response is minimal", () => {
   const development = buildHealthResponse({ production: false, uptime: 99, timestamp: "now", details: { scorecard: true } });
   assert.deepEqual(development, { status: "ok", uptime: 99, timestamp: "now", scorecard: true });
   assert.match(SERVER, /res\.json\(buildHealthResponse\(/);
+});
+
+// Production carried the three localhost dev origins until 2026-10-09; the
+// website answers its own origin and PUBLIC_APP_URL only.
+test("the website's origin allowlist names no localhost dev port", () => {
+  assert.deepEqual(resolveAllowedOrigins({ webDeployment: true }), []);
+  assert.deepEqual(resolveAllowedOrigins({ webDeployment: true, publicAppUrl: "https://counselor.example.org/" }), ["https://counselor.example.org"]);
+  // Development keeps the Vite and preview ports.
+  assert.deepEqual(resolveAllowedOrigins({}), ["http://localhost:3000", "http://localhost:5173", "http://localhost:5180"]);
+  // An explicit list replaces the defaults either way.
+  assert.deepEqual(resolveAllowedOrigins({ configured: " https://a.example , https://b.example/ ", webDeployment: true }), ["https://a.example", "https://b.example"]);
+  assert.deepEqual(resolveAllowedOrigins({ configured: "http://localhost:4000", publicAppUrl: "https://c.example" }), ["http://localhost:4000", "https://c.example"]);
+  // server.js builds its list through the helper, with the deployment flag.
+  assert.match(SERVER, /const ALLOWED_ORIGINS = resolveAllowedOrigins\(\{\s*configured: process\.env\.ALLOWED_ORIGINS,\s*publicAppUrl: process\.env\.PUBLIC_APP_URL,\s*webDeployment: WEB_DEPLOYMENT,\s*\}\);/);
+  assert.doesNotMatch(SERVER, /process\.env\.ALLOWED_ORIGINS \|\| "http:\/\/localhost/);
 });
 
 test("hosted admin cookies are always Secure", () => {

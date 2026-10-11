@@ -465,8 +465,11 @@ export function formatPolicyLine(snapshot) {
   return `Admissions policy (official site, checked ${checked}): ${parts.join("; ")} [Source: ${sources.slice(0, 2).join(" ; ") || "official admissions pages"}]`;
 }
 
-export function listRecentChanges(stmts, { days = 30, limit = 100 } = {}) {
-  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+// `now` is the clock the window counts back from. The scout's own test ran
+// its sweeps on fixed September dates and read the changes back against the
+// wall clock, so it began failing 30 days later and took CI down with it.
+export function listRecentChanges(stmts, { days = 30, limit = 100, now = new Date() } = {}) {
+  const since = new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
   return stmts.listChangesSince.all(since, limit).map((row) => ({
     id: row.id,
     school: row.school_name,

@@ -4,6 +4,7 @@
 // except through those callbacks.
 import { t as tt } from "../i18n.js";
 import { GRADE_SCALE } from "../app-shared.js";
+import { latestApScoreYear } from "../profile/ap-entry.js";
 import { TEST_ORDER, blankTestForm, formToEntry, formatSections, sectionDefs, testLabel, withSection } from "../profile/test-scores.js";
 import CloseButton from "../components/CloseButton.jsx";
 import { BG, FONT, GLOBAL_CSS, inputStyle, labelStyle } from "../app-shared.js";
@@ -310,7 +311,7 @@ export default function SurveyScreen(props) {
               <div style={{flex:1}}><select value={sAPInput.score} onChange={e=>setSAPInput(p=>({...p,score:e.target.value}))} style={sl}>{["5","4","3","2","1"].map(s=>(<option key={s} value={s}>{s}</option>))}</select></div>
             </div>
             <div style={{display:"flex",gap:8}}>
-              <div style={{flex:1}}><input type="number" min="2020" max="2030" value={sAPInput.year} onChange={e=>setSAPInput(p=>({...p,year:e.target.value}))} placeholder="Year" style={inputStyle} /></div>
+              <div style={{flex:1}}><input type="number" aria-label="AP exam year" min="2000" max={latestApScoreYear()} value={sAPInput.year} onChange={e=>setSAPInput(p=>({...p,year:e.target.value}))} placeholder="Year" style={inputStyle} /></div>
               <button onClick={addAP} style={{padding:"0 20px",borderRadius:12,border:"none",background:sAPInput.subject?"linear-gradient(135deg,#378ADD,#667eea)":"rgba(255,255,255,0.03)",color:sAPInput.subject?"#fff":"#444",fontSize:14,fontWeight:600,cursor:sAPInput.subject?"pointer":"default"}}>Add</button>
             </div>
             <div style={{fontSize:10,color:"#555",marginTop:6}}>AP scores 1-5 (CollegeBoard). Score of 3+ generally qualifies for college credit.</div>

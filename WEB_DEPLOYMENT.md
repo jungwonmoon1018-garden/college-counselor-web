@@ -13,7 +13,10 @@ Configure these values in the hosting platform, not in the repository:
   it once when creating the first administrator account.
 - `DATA_DIR`: an absolute persistent mounted directory.
 - `PUBLIC_APP_URL`: the final HTTPS origin when the platform uses a custom domain.
-  Same-origin deployments also work without it.
+  Same-origin deployments also work without it. The website answers its own
+  origin and this one only; the localhost development origins are not admitted
+  there. `ALLOWED_ORIGINS` (comma-separated) replaces that list when another
+  origin must call the API.
 
 `render.yaml` supplies a native Node.js Render Blueprint with generated platform
 secrets and a persistent disk mounted at `/opt/render/project/src/backend/data`.

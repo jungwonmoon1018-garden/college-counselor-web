@@ -1,6 +1,7 @@
 import { clamp01, matchMajorBucket } from "../activities/ec-vectorizer.js";
 import { normalizeClassRank, sectionEntries } from "../academics/test-catalog.js";
 import { readCourseRigor } from "../academics/course-rigor.js";
+import { apExamKey, apNameWords } from "../academics/ap-exams.js";
 
 export const C7_RATING_VALUES = Object.freeze({
   very_important: 1,
@@ -84,6 +85,10 @@ function round1(x) {
 
 function round2(x) {
   return Math.round(Number(x || 0) * 100) / 100;
+}
+
+function round4(x) {
+  return Math.round(Number(x || 0) * 10000) / 10000;
 }
 
 function avg(values) {
@@ -185,11 +190,21 @@ function sectionMap(entry) {
 // AP exam results as evidence of college-level mastery: how many, the
 // average, the strong (4–5) and weak (1–2) counts, and the exams that speak
 // to the intended major (whole-word keyword match, so "cs" never claims
-// "Physics").
+// "Physics"). An exam is named as the AP catalog names it ("APUSH" is US
+// History), and one taken twice counts once, at its better score: each
+// sitting used to count as another exam in the count and the average.
 function summarizeApExams(apScores, keywords = []) {
-  const exams = (Array.isArray(apScores) ? apScores : [])
-    .map((a) => ({ name: String(a?.exam || a?.subject || a?.name || "").trim(), score: Number(a?.score) }))
-    .filter((a) => a.name && Number.isFinite(a.score) && a.score >= 1 && a.score <= 5);
+  const byExam = new Map();
+  for (const a of Array.isArray(apScores) ? apScores : []) {
+    const raw = String(a?.exam || a?.subject || a?.name || "").trim();
+    const score = Number(a?.score);
+    if (!raw || !Number.isFinite(score) || score < 1 || score > 5) continue;
+    const name = apExamKey(raw) || raw;
+    const id = apExamKey(raw) || apNameWords(raw);
+    const held = byExam.get(id);
+    if (!held || score > held.score) byExam.set(id, { name, score });
+  }
+  const exams = [...byExam.values()];
   const patterns = keywords.map((kw) => new RegExp(`(?<![a-z0-9])${String(kw).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![a-z0-9])`, "i"));
   const relevant = exams.filter((a) => patterns.some((re) => re.test(a.name)));
   const average = avg(exams.map((a) => a.score));
@@ -422,10 +437,51 @@ function distributionPlacement(rows, value) {
   };
 }
 
+// The two ways the read treats a test policy. Test-flexible (SAT, ACT, AP
+// or IB, Yale's from 2024 until May 2026) still requires a score, so it
+// reads as required; test-blind and test-free read as optional, where a
+// score the student would withhold is not counted. CDS values
+// ("test_required_some") and the read's own buckets map to themselves.
+export function testPolicyBucket(value) {
+  const v = String(value || "").toLowerCase();
+  if (!v) return null;
+  if (/flexible/.test(v)) return "test_considered_or_required";
+  if (/optional|blind|deemphas|de-emphas|free/.test(v)) return "test_optional_or_deemphasized";
+  if (/required|considered/.test(v)) return "test_considered_or_required";
+  return null;
+}
+
+// The test policy a school states now, from the policy scout's reading of
+// its own admissions pages: a recognized value with the sentence it was read
+// from, checked within the last year. A Common Data Set describes the class
+// that entered a year or two before, and the most selective schools changed
+// course in between: Dartmouth has required scores again since the 2024-25
+// cycle while the 2025-26 set in the store reads test-optional, so a student
+// with no score was read as if none were needed.
+const STATED_POLICY_MAX_AGE_MS = 365 * 24 * 60 * 60 * 1000;
+export function statedTestPolicy(snapshot, { now = Date.now() } = {}) {
+  const tp = snapshot?.policy?.testPolicy;
+  const bucket = testPolicyBucket(tp?.value);
+  if (!bucket || !String(tp?.evidence || "").trim()) return null;
+  const checked = Date.parse(snapshot?.checkedAt || "");
+  if (!Number.isFinite(checked) || now - checked > STATED_POLICY_MAX_AGE_MS) return null;
+  return {
+    value: tp.value,
+    bucket,
+    through: tp.through || null,
+    checkedAt: snapshot.checkedAt,
+    sourceUrl: tp.sourceUrl || null,
+    evidence: tp.evidence,
+  };
+}
+
 export function compareTestsToSchool(student, college, cdsResult) {
   const parsed = cdsResult?.parsed || {};
   const policy = parsed.testPolicy || "test_considered_or_required";
   const optional = policy === "test_optional_or_deemphasized";
+  // What the school's own pages say this cycle, when the caller read it
+  // (statedTestPolicy); `policy` is then its bucket.
+  const stated = parsed.testPolicyStated || null;
   const satBand = bandOf(college?.sat25 ?? college?.sat_25 ?? parsed.satComposite?.low, college?.sat75 ?? college?.sat_75 ?? parsed.satComposite?.high);
   const actBand = bandOf(college?.act25 ?? college?.act_25 ?? parsed.actComposite?.low, college?.act75 ?? college?.act_75 ?? parsed.actComposite?.high);
   const candidates = [];
@@ -467,6 +523,7 @@ export function compareTestsToSchool(student, college, cdsResult) {
     : null;
   return {
     policy,
+    stated: stated ? { value: stated.value, through: stated.through ?? null, checkedAt: stated.checkedAt ?? null, sourceUrl: stated.sourceUrl ?? null } : null,
     advice,
     score: round1(score),
     best,
@@ -892,6 +949,18 @@ export function buildRedFlags(student, collegeContext, majorCompetitiveness, nar
       flags.push(`${best.test.toUpperCase()} Math (${mathSection.value}) sits below this school's 25th percentile (${mathSection.band.low}), which a quantitative major will notice.`);
     }
   }
+  // A school whose own admissions pages require scores this cycle, with no
+  // SAT or ACT on file: the application is not complete without one. Under
+  // a test-flexible policy AP results on file meet the requirement.
+  const stated = reads?.tests?.stated;
+  if (stated && !best) {
+    const checked = String(stated.checkedAt || "").slice(0, 10);
+    if (stated.value === "test_required") {
+      flags.push(`This school's admissions site (checked ${checked}) says SAT or ACT scores are required this cycle, and no score is on file.`);
+    } else if (stated.value === "test_flexible" && !(student.apExams?.count > 0)) {
+      flags.push(`This school's admissions site (checked ${checked}) requires test scores this cycle (SAT, ACT, or AP or IB results under its test-flexible policy), and none is on file.`);
+    }
+  }
   if (reads?.apExams?.relevant?.length && reads.apExams.relevantAverage != null && reads.apExams.relevantAverage < 3) {
     flags.push("AP exam scores in the intended field average below 3.");
   }
@@ -938,13 +1007,70 @@ export function buildRedFlags(student, collegeContext, majorCompetitiveness, nar
 // school could read better than "Reach" for a student whose evidence was
 // thin, however open its admission: a 3.95 / 1520 profile with six APs
 // read "Reach" at a 75%-admit school.
+//
+// How far strong academics can lift the odds depends on the school (since
+// 2026-10-09). At the most selective colleges nearly every applicant is
+// academically qualified and the decision turns on what the record cannot
+// show (essays, recommendations, recruited athletes, legacies): in Harvard's
+// admissions data from the SFFA litigation (2014-2019), applicants in the top
+// academic decile were admitted at about 13-15% against roughly 5% overall,
+// odds about three times the base, a log-odds lift near 1.1. Chetty, Deming
+// and Friedman (2023) found non-academic factors drive much of selection at
+// Ivy-Plus colleges. Counselors accordingly treat schools admitting under
+// about 10-15% as reaches for everyone. At a school admitting half its
+// applicants, a record well above its averages is very likely admitted.
+// So the upward lift is capped at 1.1 for a 5%-admit school, rising
+// linearly to the former 2.4 at 45% and above; a 4%-admit school reads "High
+// reach" even for the strongest record and an 8%-admit one "Reach". A weak
+// record still loses up to 2.4 everywhere: falling below a school's range
+// hurts at every level of selectivity.
+export function maxReadinessLift(admitRate) {
+  const base = admitRate == null ? 0.5 : admitRate;
+  return Math.round((1.1 + 1.3 * Math.max(0, Math.min(1, (base - 0.05) / 0.40))) * 1e4) / 1e4;
+}
+
 export function admissionLikelihood({ readiness, admitRate }) {
   const base = Math.min(0.98, Math.max(0.02, admitRate == null ? 0.5 : admitRate));
   const bounded = Math.max(0, Math.min(100, Number(readiness) || 0));
-  const shift = Math.max(-2.4, Math.min(2.4, (bounded - 60) * 0.07));
+  const shift = Math.max(-2.4, Math.min(maxReadinessLift(admitRate), (bounded - 60) * 0.07));
   const logit = Math.log(base / (1 - base)) + shift;
   return 1 / (1 + Math.exp(-logit));
 }
+
+// The admit rate outside Early Decision, from a Common Data Set's own
+// counts. A school's headline rate counts its Early Decision admits, and ED
+// pools are admitted at two to three times the regular rate (Avery,
+// Fairbanks and Zeckhauser put the early boost near 100 SAT points; ED
+// pools also carry recruited athletes and legacies), so for a student
+// applying in the regular round the headline overstates the odds:
+// Columbia's 2024-25 set admitted 3.9% overall, 13.2% of its 6,007 ED
+// applicants, and 2.8% of everyone else. Returns fractions, or null when
+// the counts are missing, inconsistent with the record's admit rate (a
+// registry correction can replace the rate but not the counts), or would
+// make the regular pool look easier than the whole. EA counts are not in
+// the CDS, so the regular pool still includes Early Action.
+export function admitRatePools(record) {
+  const applied = Number(record?.b1?.applied);
+  const admitted = Number(record?.b1?.admitted);
+  const edApplied = Number(record?.extras?.earlyDecision?.applications);
+  const edAdmitted = Number(record?.extras?.earlyDecision?.admitted);
+  if (![applied, admitted, edApplied, edAdmitted].every((n) => Number.isFinite(n) && n > 0)) return null;
+  if (edApplied >= applied || edAdmitted >= admitted || edAdmitted > edApplied) return null;
+  const overall = admitted / applied;
+  if (record?.overallAdmitRate != null && Math.abs(overall - Number(record.overallAdmitRate)) > 0.01) return null;
+  const regular = (admitted - edAdmitted) / (applied - edApplied);
+  if (!(regular > 0 && regular < overall)) return null;
+  return {
+    overall: Math.round(overall * 10000) / 10000,
+    regular: Math.round(regular * 10000) / 10000,
+    earlyDecision: Math.round((edAdmitted / edApplied) * 10000) / 10000,
+  };
+}
+
+// Bumped whenever the read changes, so cached College Fit results (kept
+// seven days, keyed by student and snapshot) are recomputed: "positioning_v2"
+// is the selectivity-aware lift and the regular-pool base rate (2026-10-09).
+export const POSITIONING_MODEL_VERSION = "positioning_v2";
 
 export function classifyPositioningLabel(likelihoodScore) {
   if (likelihoodScore >= 70) return "Highly competitive";
@@ -975,6 +1101,9 @@ export function buildProfileComparison(reads) {
   return {
     tests: {
       policy: tests?.policy ?? null,
+      // The school's own statement of it this cycle, when the policy scout
+      // has read one; otherwise the policy is the Common Data Set's.
+      stated: tests?.stated ?? null,
       advice: tests?.advice ?? "none",
       used: best ? { ...brief(best), weakSection: best.weakSection } : null,
       sections: best ? best.sections.map((s) => ({ key: s.key, label: s.label, value: s.value, band: s.band, position: s.position })) : [],
@@ -1033,8 +1162,21 @@ export function buildPositioningForTarget(student, collegeContext, cdsResult, op
   // transparency and feeds the displayed competitiveness; it no longer
   // multiplies the score, which would count the admit rate twice.
   const readiness = round1(Math.max(0, Math.min(100, preSelectivityScore / 1.15)));
-  const admitRate = normalizePercentValue(collegeContext.acceptanceRate ?? collegeContext.acceptance ?? collegeContext.admission_rate ?? null);
-  const boundedFinal = round1(admissionLikelihood({ readiness, admitRate: admitRate != null && admitRate > 0 ? admitRate : null }) * 100);
+  const overallRate = normalizePercentValue(collegeContext.acceptanceRate ?? collegeContext.acceptance ?? collegeContext.admission_rate ?? null);
+  // A student applying in the regular round starts from the admit rate
+  // outside Early Decision when the school's counts give one
+  // (admitRatePools); otherwise from the headline rate.
+  const pools = collegeContext.admitRatePools || null;
+  const regularRate = pools?.regular > 0 ? pools.regular : null;
+  const admitRate = regularRate ?? (overallRate != null && overallRate > 0 ? overallRate : null);
+  const admitRateBasis = regularRate != null ? "outside_early_decision" : admitRate != null ? "overall" : "unknown";
+  const admitRateSummary = {
+    used: admitRate != null ? round4(admitRate) : null,
+    basis: admitRateBasis,
+    overall: overallRate != null && overallRate > 0 ? round4(overallRate) : (pools?.overall ?? null),
+    earlyDecision: pools?.earlyDecision ?? null,
+  };
+  const boundedFinal = round1(admissionLikelihood({ readiness, admitRate }) * 100);
   const confidence = scoreEvidenceConfidence({
     cdsResult,
     collegeContext,
@@ -1058,9 +1200,13 @@ export function buildPositioningForTarget(student, collegeContext, cdsResult, op
     overallPositioningLabel: label,
     finalPositioningScore: boundedFinal,
     // The composite the likelihood was shifted by, and the base rate it
-    // started from (null when the admit rate is unknown: 50% was assumed).
+    // started from (null when the admit rate is unknown: 50% was assumed),
+    // with what that rate is: the pool outside Early Decision when the CDS
+    // counts give one, else the headline rate.
     readinessScore: readiness,
-    admitRateUsed: admitRate != null && admitRate > 0 ? round2(admitRate) : null,
+    admitRateUsed: admitRateSummary.used,
+    admitRateBasis: admitRateBasis,
+    admitRate: admitRateSummary,
     admissibility: {
       academicReadinessScore: academic.score,
       summary: academic.score >= 80 ? "academically in-range" : academic.score >= 65 ? "academically plausible but not comfortable" : "academically stretched",
@@ -1094,7 +1240,7 @@ export function buildPositioningForTarget(student, collegeContext, cdsResult, op
     recommendedPositioningStrategy: recommendStrategy(label, redFlags, majorComp),
     // How this student's own record compares with the enrolled class the
     // Common Data Set describes: the facts the readiness blend used.
-    profileComparison: buildProfileComparison(academic.reads),
+    profileComparison: { ...buildProfileComparison(academic.reads), admitRate: admitRateSummary },
     featureBreakdown: {
       gpa: round1(student.gpa ?? 0),
       courseRigor: round1(academic.componentScores.rigorScore),

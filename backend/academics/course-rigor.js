@@ -16,6 +16,13 @@
 // subject no listed course names counts as an AP taken, and each AP's exam
 // score lifts or lowers the weight it carries (a 5 is stronger evidence of
 // handling college-level work than an unscored course; a 1 is weaker).
+//
+// A course and an exam are the same AP when the AP catalog (ap-exams.js)
+// reads them as one exam ("AP United States History" and "US History",
+// "APES" and "Environmental Science"), or, for names it does not know, when
+// their words match. An exam taken twice is one AP, at its better score.
+
+import { apExamKey, isGluedApName } from "./ap-exams.js";
 
 const LEVEL_BY_TYPE = Object.freeze({
   ap: "ap",
@@ -61,7 +68,7 @@ export function courseLevel(course) {
   if (LEVEL_BY_TYPE[type]) return LEVEL_BY_TYPE[type];
   const name = String(course.name || "").trim();
   if (!name) return null;
-  if (/^ap\b/i.test(name) || /\badvanced placement\b/i.test(name)) return "ap";
+  if (/^ap\b/i.test(name) || /\badvanced placement\b/i.test(name) || isGluedApName(name)) return "ap";
   if (/^ib\b/i.test(name) || (/\b(?:hl|sl)\b/i.test(name) && /\bib\b/i.test(name))) return "ib";
   if (/\bdual[- ]enrol?l?ment\b/i.test(name) || /\b(?:college|university) credit\b/i.test(name)) return "dual_enrollment";
   if (/\ba[- ]level\b/i.test(name)) return "a_level";
@@ -95,9 +102,33 @@ function sameSubject(a, b) {
   return new RegExp(`(?:^|\\s)${short.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:\\s|$)`).test(long);
 }
 
+// The catalog's reading first; the words of the two names otherwise.
+function sameExam(a, b) {
+  if (a.key && b.key) return a.key === b.key;
+  return sameSubject(a.subject, b.subject);
+}
+
 function examScore(entry) {
   const score = Number(entry?.score);
   return Number.isFinite(score) && score >= 1 && score <= 5 ? score : null;
+}
+
+// One entry per exam: a retake ("Calculus AB" 3 in 2025, 4 in 2026) is the
+// same AP taken once, at the better score, the one a student sends. Each
+// sitting used to count as one more AP taken. Only the same exam merges
+// (one catalog name, or identical words); "AP Calculus" and "Calculus BC"
+// stay two entries.
+function distinctExams(apScores) {
+  const out = [];
+  for (const raw of Array.isArray(apScores) ? apScores : []) {
+    const name = String(raw?.exam || raw?.subject || raw?.name || "").trim();
+    if (!name) continue;
+    const exam = { name, score: examScore(raw), subject: normalizeApSubject(name), key: apExamKey(name), used: false };
+    const held = out.find((e) => (e.key || exam.key ? e.key === exam.key : e.subject === exam.subject));
+    if (!held) { out.push(exam); continue; }
+    if (exam.score != null && (held.score == null || exam.score > held.score)) held.score = exam.score;
+  }
+  return out;
 }
 
 /**
@@ -118,10 +149,7 @@ function examScore(entry) {
  * }}
  */
 export function readCourseRigor(courses, apScores) {
-  const exams = (Array.isArray(apScores) ? apScores : [])
-    .map((a) => ({ name: String(a?.exam || a?.subject || a?.name || "").trim(), score: examScore(a) }))
-    .filter((a) => a.name)
-    .map((a) => ({ ...a, subject: normalizeApSubject(a.name), used: false }));
+  const exams = distinctExams(apScores);
 
   const items = [];
   const counts = { ap: 0, ib: 0, dual_enrollment: 0, a_level: 0, honors: 0 };
@@ -138,8 +166,8 @@ export function readCourseRigor(courses, apScores) {
     if (/(12|senior)/.test(year)) seniorCollegeLevel += 1;
     let score = null;
     if (level === "ap") {
-      const subject = normalizeApSubject(course.name);
-      const exam = exams.find((e) => !e.used && sameSubject(e.subject, subject));
+      const named = { subject: normalizeApSubject(course.name), key: apExamKey(course.name) };
+      const exam = exams.find((e) => !e.used && sameExam(e, named));
       if (exam) { exam.used = true; score = exam.score; }
     }
     items.push({

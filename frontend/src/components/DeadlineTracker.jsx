@@ -10,6 +10,17 @@ import { t } from "../i18n.js";
 
 const STATUS_NEXT = { open: "done", done: "open", snoozed: "open" };
 
+// The server holds a deadline's name to 200 characters and its date to
+// 2000-01-01 through six years out (routes/students.js); the inputs say so
+// up front, and a refusal's friendlyMessage still shows below the form.
+const TITLE_MAX = 200;
+const EARLIEST_DUE = "2000-01-01";
+function latestDue() {
+  const d = new Date();
+  d.setUTCFullYear(d.getUTCFullYear() + 6);
+  return d.toISOString().slice(0, 10);
+}
+
 export default function DeadlineTracker({ locale = "en-US", compact = false, refreshKey = 0 }) {
   const [list, setList] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -137,10 +148,13 @@ export default function DeadlineTracker({ locale = "en-US", compact = false, ref
             onChange={(e) => setDraft((p) => ({ ...p, title: e.target.value }))}
             placeholder={t(locale, "deadlines.title_field")}
             aria-label={t(locale, "deadlines.title_field")}
+            maxLength={TITLE_MAX}
             style={inp}
           />
           <input
             type="date"
+            min={EARLIEST_DUE}
+            max={latestDue()}
             value={draft.dueAt}
             onChange={(e) => setDraft((p) => ({ ...p, dueAt: e.target.value }))}
             aria-label={t(locale, "deadlines.title")}
