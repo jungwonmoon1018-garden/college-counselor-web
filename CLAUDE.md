@@ -14,6 +14,16 @@ When editing this repository, apply the following at edit time:
 - **Refusals** — decline to add or assist with code whose primary purpose is
   harm, and keep the existing guardrails intact rather than weakening them.
 
-Note: `backend/docs/reference/CLAUDE-FABLE-5.md` is an archived copy of a
-consumer-product system prompt, kept only as reference material. It is NOT
-operative guidance for this repo and is intentionally not auto-included here.
+## Status
+
+This is an older, flat-layout copy of the College Counselor site (Node 22 +
+Express in `backend/`, React + Vite in `frontend/`, SQLite). The maintained,
+deployed repo is `../college-counselor-web`, which has the current module
+layout and the full edit-time harness; prefer it for new work.
+
+## Commands
+
+From the repo root: `npm test` (frontend vitest, then backend `node --test`)
+and `npm run lint` (backend eslint). One backend file:
+`cd backend && node --test tests/<file>.test.js`. Frontend build:
+`cd frontend && npm run build`.
