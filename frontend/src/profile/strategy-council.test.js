@@ -88,3 +88,18 @@ describe("Strategy Council client contract", () => {
     expect(result.council).toBe(false);
   });
 });
+
+// chat-9 / decision B: the Council route's codes. A provider outage used to
+// end as a 200 "no recommendation from the available context", and a 429 or
+// a refused key read as a generic failure.
+describe("Council error copy by code", () => {
+  it("tells the student an outage is not about their profile, in Korean too", () => {
+    expect(councilErrorMessage(503, { code: "COUNCIL_PROVIDER_UNAVAILABLE" }, "en-US")).toMatch(/isn't about your profile/);
+    expect(councilErrorMessage(503, { code: "COUNCIL_PROVIDER_UNAVAILABLE" }, "ko")).toMatch(/잠시 후 다시 시도/);
+  });
+  it("shares the chat copy for the codes both routes send", () => {
+    expect(councilErrorMessage(429, { code: "rate_limited", retryAfterSeconds: 30 }, "en-US")).toMatch(/Wait 30 seconds/);
+    expect(councilErrorMessage(502, { code: "provider_auth_failed" }, "en-US")).toMatch(/still signed in/);
+    expect(councilErrorMessage(402, {}, "en-US")).toMatch(/remaining monthly AI budget/i);
+  });
+});

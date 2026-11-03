@@ -2,7 +2,9 @@
 // preambles, the quick-query shortcut, the exchange memory, the gatekeeper
 // and the staged agent run. Moved out of App.jsx on 2026-09-20.
 import { execTool } from "./agent-tools.js";
-import { requestChat, sanitizeInput, screenUploadForSafety, auditLog, isCrisisReplyError } from "./chat-client.js";
+import { requestChat, sanitizeInput, screenUploadForSafety, auditLog, isCrisisReplyError, parseUtilityJson } from "./chat-client.js";
+import { cancelledError, formatChatError, isAbortError } from "./chat-errors.js";
+import { formatGpa, hasGpa } from "../profile/gpa.js";
 import { ACADEMICS_AGENT, EC_AGENT, COLLEGE_AGENT, STRATEGY_AGENT, GATEKEEPER, OUTPUT_VALIDATOR } from "./agent-prompts.js";
 import { testLabel, formatSections, formatClassRank } from "../profile/test-scores.js";
 import { crisisResponseText, crisisTurnResult, isCrisisStatement, isCrisisTopicMention, isDistressed, stripResourceFooters, withResourceFooter, withSupport } from "./crisis-lexicon.js";
@@ -95,25 +97,12 @@ export function buildCalendarPreamble(cal, targetSchools = []) {
   return lines.join("\n");
 }
 
-// Client-side typical-cycle ISO deadlines — mirrors the backend's
-// buildAdmissionsCalendar fallback so deadline auto-creation still works
-// even when the calendar/web call is unavailable (e.g. rate-limited).
-export function clientTypicalISO() {
-  const now = new Date();
-  const y = now.getUTCFullYear();
-  const m = now.getUTCMonth() + 1;
-  // Roll to the next season once RD is over (Feb onward); January stays on
-  // the active RD cycle. Mirrors the backend buildAdmissionsCalendar pivot.
-  const start = m >= 2 ? y : y - 1;
-  const entry = start + 1;
-  return {
-    earlyEaEd: `${start}-11-01`,
-    regularDecision: `${entry}-01-01`,
-    financialAidPriority: `${entry}-02-01`,
-    nationalDepositDeadline: `${entry}-05-01`,
-    cycleEntryYear: entry,
-  };
-}
+// Client-side typical-cycle ISO deadlines, so deadline auto-creation still
+// works when the calendar call is unavailable (e.g. rate-limited). The copy
+// that stood here only mirrored the server by comment; the one planning-cycle
+// rule now lives in profile/admissions-cycle.js, held equal to the server's
+// by a parity test, and is re-exported for the callers that import it here.
+export { clientTypicalISO } from "../profile/admissions-cycle.js";
 
 // FIX 5c: Agent runner with tool authorization. `locale` is the UI language,
 // sent on every call so the server's crisis reply, footnotes and refusals
@@ -141,8 +130,13 @@ async function runAgent(agent, userContent, data, setData, signal, history = [],
   const stateRef = { current: data };
   let iter=0;
   while(iter<8){
-    iter++; if(signal?.aborted)throw new Error("Cancelled");
+    // Named as fetch names an aborted request, so a Cancel between two calls
+    // reads "Cancelled" in chat-send, not "Something went wrong".
+    iter++; if(signal?.aborted)throw cancelledError();
     const d = await requestChat({
+      // The gatekeeper and the validator answer JSON for this client, not the
+      // student (agent-prompts.js `utility`).
+      ...(agent.utility ? { mode: "utility" } : {}),
       tier: agent.tier,
       max_tokens: agent.maxTokens,
       system: agent.system,
@@ -221,8 +215,10 @@ function maybeHandleQuickQuery(userMsg, data, user) {
   const tests = profile.testScores || [];
   const apScores = profile.apScores || [];
   const goals = data?.goals || [];
-  const gpaLine = profile.gpa
-    ? `GPA: ${profile.gpa.unweighted}${profile.gpa.weighted ? ` / ${profile.gpa.weighted} weighted` : ""}`
+  // hasGpa, not truthiness: the profile route answers { unweighted: null,
+  // weighted: null } for a student with no GPA, which printed "GPA: null".
+  const gpaLine = hasGpa(profile.gpa)
+    ? `GPA: ${formatGpa(profile.gpa)}`
     : profile.gpaStatus === "pending"
       ? "GPA: not yet available."
       : null;
@@ -377,6 +373,21 @@ function startTurnClock() {
   };
 }
 
+// A policy block from the server's input screen ({ blocked: true } on a 400)
+// carries the counselor's own reply, which already says what the student can
+// do instead (brainstorm or outline rather than a ghost-written essay, ask
+// without the ID or password). Caught at the LLM gatekeeper it used to read
+// as a model outage ("I couldn't reach the model… ask this device's
+// administrator"), and when both specialists of a two-route turn were
+// blocked, as "Could you try rephrasing?"; retrying hit the same block.
+function blockedReply(err, locale) {
+  auditLog.log("policy_blocked");
+  const text = String(err?.message || "").trim() || (locale === "ko"
+    ? "이 요청은 도와드릴 수 없어요. 질문을 바꿔서 다시 물어봐 주세요."
+    : "I can't help with that request as written. Try asking it a different way.");
+  return { text, blocked: true, policyBlocked: true };
+}
+
 // FIX 1a: Rules-first orchestration — backend handles deterministic topics before any model call
 // `options.locale` is the UI language ("ko" or "en-US"), threaded to every
 // /api/chat call and to the crisis reply.
@@ -393,9 +404,16 @@ export async function orchestrate(userMsg,data,setData,setStatus,signal,pendingF
     // Wherever it lands, the turn ends with it at once: no merge, no
     // validation, and (blocked) no persistence of the student's words and
     // no counseling memory.
-    if (!isCrisisReplyError(err)) throw err;
-    auditLog.log("crisis_detected_server");
-    result = crisisTurnResult(err.text, locale);
+    if (isCrisisReplyError(err)) {
+      auditLog.log("crisis_detected_server");
+      result = crisisTurnResult(err.text, locale);
+    } else if (err?.blocked) {
+      // A policy block that reached here from a specialist call is the
+      // counselor's answer, the same as one caught at the gatekeeper.
+      result = blockedReply(err, locale);
+    } else {
+      throw err;
+    }
   } finally {
     const timings = clock.finish();
     if (result && typeof result === "object") result.timings = timings;
@@ -551,7 +569,10 @@ async function orchestrateStages(userMsg,data,setData,setStatus,signal,pendingFi
     gate = quickGate;
   } else { try{
     const raw=await runAgent(GATEKEEPER,`Classify: "${sanitizeInput(gatekeeperInput)}"`,data,setData,signal,[],locale);
-    gate=JSON.parse(raw.replace(/```json|```/g,"").trim());
+    // Read tolerantly: a small model wraps its JSON in prose. No object at
+    // all is a parse failure, handled like one below.
+    gate=parseUtilityJson(raw);
+    if (!gate) throw Object.assign(new Error("Gatekeeper reply had no JSON"), { gatekeeperParse: true });
 
     // ── Override unreliable "off_topic" classifications ───────────
     // Open-weight models such as Gemma 4 via OpenRouter can over-trigger
@@ -583,31 +604,34 @@ async function orchestrateStages(userMsg,data,setData,setStatus,signal,pendingFi
   } catch (err) {
     // The server's crisis reply is neither a parse failure nor an outage.
     if (isCrisisReplyError(err)) throw err;
+    if (err?.blocked) return blockedReply(err, locale);
+    if (isAbortError(err)) throw err;
     const msg = String(err?.message || "");
-    // Distinguish JSON-parse failures (small model returned text
-    // instead of valid JSON) from network/auth failures. For parse
-    // failures we can safely default to `safe_multi` and let
-    // downstream specialists + output validator do their thing — the
+    // A reply with no classification in it (prose, or an empty reply the
+    // server gave up on) is not an outage: default to `safe_multi` and let
+    // the specialists and the output validator do their thing — the
     // gatekeeper is one of several safety layers, not the only one.
-    const isParseFailure = /JSON|Unexpected token|Unexpected end of input/i.test(msg);
-    if (isParseFailure) {
-      console.warn(`[gatekeeper] JSON parse failed; defaulting to safe_multi:`, msg);
+    if (err?.gatekeeperParse || err?.code === "empty_model_reply") {
+      console.warn(`[gatekeeper] no classification; defaulting to safe_multi:`, msg);
       auditLog.log("gatekeeper_parse_fallback", `Parse failed: ${msg.slice(0, 200)}`);
       gate = { category: "safe_multi", reason: "parse fallback", route_to: ["academics","ec","college","strategy"] };
     } else {
       console.warn("Gatekeeper classification failed:", msg);
-      auditLog.log("gatekeeper_outage", `Gatekeeper classification failed: ${msg || "unknown error"}`);
+      auditLog.log("gatekeeper_outage", `Gatekeeper classification failed: ${err?.code || msg || "unknown error"}`);
       // The question itself was checked above; this wider read also covers
       // attached text, so an outage never hides the hotlines from it.
-      const looksLikeCrisis = isCrisisStatement(coreMsg);
-      const m = msg.match(/"message"\s*:\s*"([^"]+)"/);
-      const concise = m ? m[1] : msg.replace(/^Error:\s*/, "").slice(0, 240);
-      const base = `I couldn't reach the model just now. The provider returned:\n\n> ${concise}\n\nTry again. If this continues, ask this device's administrator to check the local service configuration.`;
-      return {
-        text: looksLikeCrisis ? `${base}\n\n---\n${crisisResponseText(locale)}` : base,
-        blocked: true,
-        crisisSafe: looksLikeCrisis,
-      };
+      if (isCrisisStatement(coreMsg)) {
+        return {
+          text: `${formatChatError(err, locale)}\n\n---\n${crisisResponseText(locale)}`,
+          blocked: true,
+          crisisSafe: true,
+        };
+      }
+      // Any other failure fails the turn with its typed error: chat-send
+      // shows the code's own copy and puts the question back in the
+      // composer. The outage line that stood here quoted the provider's raw
+      // message and sent a student to "this device's administrator".
+      throw err;
     }
   } } // close try/catch + outer `else {`
   let supportNeeded = isDistressed(lexiconInput);
@@ -655,12 +679,36 @@ async function orchestrateStages(userMsg,data,setData,setStatus,signal,pendingFi
 
   // ── STEP 2: File upload safety screening ──
   const multimodalContent = [];
+  let uploadScreenNote = "";
   if (pendingFileData) {
     setStatus({active:"upload_screener",phase:"Checking upload safety..."});
     const screenResult = await screenUploadForSafety(pendingFileData, signal, locale);
+    // A screen that could not reach a verdict is a try-again, not a verdict
+    // on the file: "please upload a school document" told a student with a
+    // transcript in hand that it was the wrong file. chat-send puts the file
+    // back in the composer (uploadTransient).
+    if (!screenResult.safe && screenResult.transient) {
+      auditLog.log("upload_screen_retry");
+      return { text: screenResult.reason, blocked: true, uploadRejected: true, uploadTransient: true };
+    }
     if (!screenResult.safe) {
       auditLog.log("upload_rejected", screenResult.reason);
-      return { text: `I can't process this file: ${screenResult.reason}\n\nPlease upload a school document like a report card, transcript, or score report.`, blocked: true, uploadRejected: true };
+      return {
+        text: locale === "ko"
+          ? `이 파일은 처리할 수 없어요: ${screenResult.reason}\n\n성적표, 성적 증명서, 시험 성적표 같은 학교 서류를 올려 주세요.`
+          : `I can't process this file: ${screenResult.reason}\n\nPlease upload a school document like a report card, transcript, or score report.`,
+        blocked: true,
+        uploadRejected: true,
+      };
+    }
+    if (screenResult.screened === false) {
+      // The screener was silent twice. The file goes on through the server's
+      // screens and the output validator (every attachment turn runs it), and
+      // the student is told the extra check was out.
+      auditLog.log("upload_screen_unavailable");
+      uploadScreenNote = locale === "ko"
+        ? "\n\n_참고: 자동 파일 검사를 지금 사용할 수 없어서, 이 파일은 기본 안전 검사만 거쳐 읽었어요._"
+        : "\n\n_Note: the automatic file check wasn't available just now, so this file was read with the basic safety checks only._";
     }
     auditLog.log("upload_accepted", `File "${sanitizeFilename(pendingFileData.name)}" passed safety screening`);
     if (pendingFileData.type === "application/pdf") {
@@ -703,16 +751,26 @@ async function orchestrateStages(userMsg,data,setData,setStatus,signal,pendingFi
     const crisisReply = settled.find((r) => r.status === "rejected" && isCrisisReplyError(r.reason));
     if (crisisReply) throw crisisReply.reason;
     results.push(...settled.filter(r=>r.status==="fulfilled"&&r.value).map(r=>r.value));
+    // When no specialist answered, the turn says why: a policy block shows
+    // its own reply, and any other failure (budget, rate limit, outage,
+    // Cancel) is thrown as the first typed error. Both used to collapse into
+    // "Could you try rephrasing?", saved to the thread as an answer.
+    if (results.length === 0) {
+      const rejected = settled.filter((r) => r.status === "rejected").map((r) => r.reason);
+      const block = rejected.find((reason) => reason?.blocked);
+      if (block) return blockedReply(block, locale);
+      if (rejected.length) throw rejected.find((reason) => isAbortError(reason)) || rejected[0];
+    }
   }
   clock.mark("specialists");
-  if(results.length===0)return{text:"I couldn't process that request. Could you try rephrasing?",blocked:false};
+  if(results.length===0)return{text:"I couldn't process that request. Could you try rephrasing?",blocked:true};
 
   // ── STEP 5: Merge multi-agent results ──
   // The server's topic footer comes off every draft before it is sent back
   // through /api/chat (supervisor, validator) and goes back on at the end,
   // once.
   for (const r of results) r.result = typeof r.result === "string" ? stripResourceFooters(r.result) : r.result;
-  const finish = (text) => withSupport(withResourceFooter(text, topicFooterNeeded, locale), supportNeeded, locale);
+  const finish = (text) => withSupport(withResourceFooter(`${text}${uploadScreenNote}`, topicFooterNeeded, locale), supportNeeded, locale);
   let draft;
   if(results.length===1){draft=results[0].result;}
   else{setStatus({active:"supervisor",phase:"Combining advice..."});
@@ -735,7 +793,17 @@ SOURCES (required):
 - Never invent a source. If neither web results nor profile data were used, omit the section entirely.
 - Do NOT mention model names, providers, or the system's internals anywhere.`;
     const supervisorUserMsg = `Merge these specialist responses into ONE cohesive answer. Do NOT add any new information — only reorganize and deduplicate what the specialists wrote.\n\nStudent question: "${sanitizeInput(userMsg)}"\n\n${results.map(a=>`--- ${a.label} ---\n${a.result}`).join("\n\n")}`;
-    draft=stripResourceFooters(await runAgent({id:"supervisor",label:"Supervisor",color:"#7F77DD",tier:"medium",system:supervisorSystem,tools:[],maxTokens:2000},supervisorUserMsg,data,setData,signal,[],locale));
+    try {
+      draft=stripResourceFooters(await runAgent({id:"supervisor",label:"Supervisor",color:"#7F77DD",tier:"medium",system:supervisorSystem,tools:[],maxTokens:2000},supervisorUserMsg,data,setData,signal,[],locale));
+    } catch (err) {
+      // The merge call carries the specialists' own drafts, which the
+      // student's question already passed; a policy block on it is the
+      // screen reading model text, not a refusal of the student. The
+      // unmerged answers go out instead of a block the student never caused.
+      if (!err?.blocked) throw err;
+      auditLog.log("supervisor_blocked");
+      draft = results.map((r) => r.result).filter(Boolean).join("\n\n");
+    }
     clock.mark("supervisor");}
 
   // ── STEP 5b: Off-theme refusal recovery ──
@@ -749,9 +817,17 @@ SOURCES (required):
     const retryAgent = AGENT_MAP[results[0].agent] || EC_AGENT;
     setStatus({active:retryAgent.id,phase:"Taking another look..."});
     const correction = `\n\nIMPORTANT CORRECTION: everything the student did, made, or uploaded IS in scope when they want help presenting it for their applications — regardless of its subject or their declared major. Do not decline as "unrelated"; answer the question substantively.`;
-    const retried = multimodalContent.length > 0
-      ? await runAgentMultimodal(retryAgent, buildScopedMultimodalContent([...multimodalContent, { type:"text", text: correction }], retryAgent.label), data, setData, signal, history, locale)
-      : await runAgent(retryAgent, `${sanitizeInput(userMsg)}${evidenceContext}${correction}`, data, setData, signal, history, locale);
+    let retried = null;
+    try {
+      retried = multimodalContent.length > 0
+        ? await runAgentMultimodal(retryAgent, buildScopedMultimodalContent([...multimodalContent, { type:"text", text: correction }], retryAgent.label), data, setData, signal, history, locale)
+        : await runAgent(retryAgent, `${sanitizeInput(userMsg)}${evidenceContext}${correction}`, data, setData, signal, history, locale);
+    } catch (err) {
+      // The retry is a second chance, not a requirement: a block or a failed
+      // call on it leaves the first draft standing.
+      if (isCrisisReplyError(err) || isAbortError(err)) throw err;
+      console.warn("[off-theme retry] failed:", err?.code || err?.message);
+    }
     if (typeof retried === "string" && retried && !OFF_THEME_REFUSAL_RE.test(retried)) draft = stripResourceFooters(retried);
     clock.mark("refusal_retry");
   }
@@ -796,14 +872,22 @@ SOURCES (required):
   let final=draft;
   let validationPassed = false;
   try{
-    const vr=await runAgent(OUTPUT_VALIDATOR,`Review:\n---\n${draft}\n---`,data,setData,signal,[],locale);
-    const vj=JSON.parse(vr.replace(/```json|```/g,"").trim());
+    // The validator echoes the whole cleaned answer back, and specialist
+    // drafts run to 2,000 tokens: at its fixed 600 a long draft's JSON was
+    // cut off mid-string and the cleanup lost. Its budget follows the draft
+    // (about three characters a token, plus room for the verdict).
+    const validatorTokens = Math.min(2400, Math.max(OUTPUT_VALIDATOR.maxTokens, Math.ceil(draftText.length / 3) + 200));
+    const vr=await runAgent({ ...OUTPUT_VALIDATOR, maxTokens: validatorTokens },`Review:\n---\n${draft}\n---`,data,setData,signal,[],locale);
+    const vj=parseUtilityJson(vr);
+    if (!vj) throw new Error("Validator reply had no JSON");
     if(vj.passed) { validationPassed = true; }
     else if(vj.cleaned_response) { final=vj.cleaned_response; validationPassed = true; auditLog.log("validation_cleaned", vj.issues?.join("; ") || "Response cleaned by validator"); }
     else { auditLog.log("validation_failed", vj.issues?.join("; ") || "Response failed validation"); }
   }catch(err){
-    // A crisis reply on the validator call ends the turn like any other.
-    if (isCrisisReplyError(err)) throw err;
+    // A crisis reply on the validator call ends the turn like any other, and
+    // a Cancel is the student's. Anything else (a block on the draft text, an
+    // outage, a reply with no verdict) keeps the draft, marked unverified.
+    if (isCrisisReplyError(err) || isAbortError(err)) throw err;
     console.warn("Output validation failed:", err?.message); auditLog.log("validation_error", err?.message || "Validator parse error");
   }
   if(!validationPassed){
@@ -822,7 +906,7 @@ async function runAgentMultimodal(agent, contentBlocks, data, setData, signal, h
   const stateRef = { current: data };
   let iter=0;
   while(iter<8){
-    iter++; if(signal?.aborted)throw new Error("Cancelled");
+    iter++; if(signal?.aborted)throw cancelledError();
     const d = await requestChat({
       tier: agent.tier,
       max_tokens: agent.maxTokens,

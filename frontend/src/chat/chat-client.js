@@ -3,6 +3,7 @@
 // 401, the upload safety screen and the audit log call. Moved out of App.jsx
 // on 2026-09-20.
 import { formatCrisisReply, isCrisisReplyBody } from "./crisis-lexicon.js";
+import { chatErrorFromResponse, clientTimeoutError, isAbortError, isSessionExpiry, readErrorBody } from "./chat-errors.js";
 
 // FIX 7d: Sanitize free-text inputs to prevent persistent prompt injection
 // `maxChars` defaults to a budget far above any attachment preface: the old
@@ -25,10 +26,30 @@ export function sanitizeInput(text, maxChars = 200_000) {
   s = s.split("\n").map((line) => (SENTINEL_LINE_RE.test(line) ? line : line.replace(/[\[\]{}<>]/g, ""))).join("\n");
   // Broad pattern: catch "ignore/disregard/forget/override previous/prior/above/all instructions/prompts/rules"
   s = s.replace(/(ignore|disregard|forget|override|bypass|skip|drop)\s*(all\s*)?(previous|prior|above|earlier|system|original|initial)?\s*(instructions?|prompts?|rules?|directives?|guidelines?|constraints?)/gi, "[removed]");
-  // Catch "you are now" / "act as" / "new instructions" prompt takeover attempts
-  s = s.replace(/(you\s+are\s+now|act\s+as|new\s+(instructions?|role|persona)|pretend\s+(to\s+be|you\s+are)|system\s*:)/gi, "[removed]");
+  // Prompt-takeover phrases, each shaped like an order to the assistant.
+  for (const re of TAKEOVER_RES) s = s.replace(re, "[removed]");
   return s.slice(0, maxChars);
 }
+
+// The takeover line used to take out every "act as", "new role", "pretend to
+// be" and "system:" anywhere in the text, word boundaries or not, after the
+// server's screen had stopped refusing those phrases: "I act as treasurer",
+// "my new role as captain", "pretend to be an admissions officer and read my
+// essay" and "the grading system: weighted" reached the model as "[removed]",
+// and "contact as many professors" as "cont[removed] many professors". Each
+// pattern now needs the shape of an instruction to the assistant: an AI
+// identity after "act as" / "pretend", "you are now", "your new
+// instructions", or a line that opens as a system turn.
+const AI_IDENTITY = String.raw`(?:an?\s+|the\s+)?(?:[\w-]+\s+){0,2}?(?:AI|A\.I\.|chatbot|language\s+model|LLM|DAN|jailbroken|jailbreak|unfiltered|uncensored|unrestricted|developer\s+mode)\b`;
+const TAKEOVER_RES = [
+  /\byou\s+are\s+now\b/gi,
+  new RegExp(String.raw`\b(?:act|behave|respond)\s+as\s+${AI_IDENTITY}`, "gi"),
+  /\b(?:act|behave)\s+as\s+(?:if|though)\s+you\s+(?:have|had)\s+no\s+(?:rules|restrictions|filters|limits|guidelines)\b/gi,
+  new RegExp(String.raw`\bpretend\s+(?:to\s+be|(?:that\s+)?you\s+(?:are|were))\s+${AI_IDENTITY}`, "gi"),
+  /\bpretend\s+(?:that\s+)?you\s+(?:have|had)\s+no\s+(?:rules|restrictions|filters|limits|guidelines)\b/gi,
+  /\b(?:your\s+)?new\s+(?:system\s+)?(?:instructions?|persona|rules)\s*:|\byour\s+new\s+(?:instructions?|persona|role|rules)\b/gi,
+  /^\s*system\s*:/gim,
+];
 
 // Client-side rate limit — burst guard ONLY.
 // Original design (Mar 2026) gated to 15/min + 3/10s when the app
@@ -128,17 +149,18 @@ function newChatRequestId() {
 // Hard cap per model call. Without one, a stalled provider call left the UI
 // showing its status line ("Final safety check…") forever, with manual Cancel
 // as the only way out. 120s is generous for a single LLM call; the abort
-// reason carries a message formatUserFacingError knows how to present.
+// reason is a TimeoutError (code client_timeout), never an AbortError, so a
+// timeout is not shown as the student's own Cancel.
 const MODEL_CALL_TIMEOUT_MS = 120_000;
 
-function withCallTimeout(signal, ms) {
+export function withCallTimeout(signal, ms, makeReason = () => clientTimeoutError()) {
   const ctrl = new AbortController();
   const onOuterAbort = () => ctrl.abort(signal?.reason);
   if (signal) {
     if (signal.aborted) ctrl.abort(signal.reason);
     else signal.addEventListener("abort", onOuterAbort, { once: true });
   }
-  const timer = setTimeout(() => ctrl.abort(new Error("The model call timed out")), ms);
+  const timer = setTimeout(() => ctrl.abort(makeReason()), ms);
   ctrl.signal.addEventListener("abort", () => {
     clearTimeout(timer);
     if (signal) signal.removeEventListener("abort", onOuterAbort);
@@ -148,57 +170,110 @@ function withCallTimeout(signal, ms) {
 
 // `locale` is the UI language. Every caller used to leave it out, so every
 // call said en-US and a Korean student's crisis reply listed only US lines.
+//
+// `payload.mode === "utility"` marks a call whose reply is JSON for the
+// client, not an answer for the student (the gatekeeper, the output
+// validator, the upload screener). The server then leaves out the profile,
+// the theme guard and the gate decoration, and this function hands back the
+// model's text as it came. It used to guess from the prompt wording with a
+// regex that matched neither the gatekeeper's "Respond ONLY with valid JSON"
+// nor the validator's "Respond JSON only", so on any aid, cost or deadline
+// text the JSON came back with Limitations and Next actions appended.
 export async function requestChat(payload, signal, locale = "en-US") {
   const lang = locale === "ko" ? "ko" : "en-US";
   const url = `${CHAT_PATH}?locale=${encodeURIComponent(lang)}`;
   const headers = { "Content-Type": "application/json", "Accept-Language": lang, "X-CollegeApp-Locale": lang };
+  const utility = payload?.mode === "utility";
   // Send the session token for tenant authorization and usage accounting.
   if (window.__CC_SESSION_TOKEN__) {
     headers["Authorization"] = `Bearer ${window.__CC_SESSION_TOKEN__}`;
   }
   // Fresh id per call — each agent/tool-loop invocation is its own billed
-  // model call, so ids must never repeat. The 401 re-auth retry below reuses
-  // the same body safely: the first attempt failed auth before any budget
-  // reservation happened.
-  const requestBody = JSON.stringify({ request_id: newChatRequestId(), ...payload });
+  // model call, so ids must never repeat, the 401 resend below included.
+  const post = () => fetch(url, {
+    method: "POST", credentials: "same-origin", headers,
+    body: JSON.stringify({ request_id: newChatRequestId(), ...payload }),
+    signal: withCallTimeout(signal, MODEL_CALL_TIMEOUT_MS),
+  });
 
-  let r = await fetch(url, { method: "POST", credentials: "same-origin", headers, body: requestBody, signal: withCallTimeout(signal, MODEL_CALL_TIMEOUT_MS) });
+  let r = await post();
 
-  // Auto re-authenticate on 401 (backend may have restarted, clearing in-memory tokens)
+  // Re-authenticate on a 401 that is about the session (the backend may have
+  // restarted, clearing in-memory tokens) and resend once. A 401 that names
+  // the provider is the operator's key being refused: signing in again cannot
+  // fix it, and each attempt spent the per-IP login limit. The resend carries
+  // a new request_id: the first attempt may already have reserved budget
+  // under its id and released it, and the ledger refuses a released id as if
+  // the monthly budget were spent.
   if (r.status === 401) {
+    const first = await readErrorBody(r);
+    if (!isSessionExpiry(401, first)) throw chatErrorFromResponse(401, first, r.headers);
     console.warn("[requestChat] 401 — attempting re-authentication…");
-    const refreshed = await _tryReAuth();
-    if (refreshed) {
-      headers["Authorization"] = `Bearer ${window.__CC_SESSION_TOKEN__}`;
-      r = await fetch(url, { method: "POST", credentials: "same-origin", headers, body: requestBody, signal: withCallTimeout(signal, MODEL_CALL_TIMEOUT_MS) });
-    }
+    if (!(await _tryReAuth())) throw chatErrorFromResponse(401, first, r.headers);
+    headers["Authorization"] = `Bearer ${window.__CC_SESSION_TOKEN__}`;
+    r = await post();
   }
 
-  if (!r.ok) {
-    const e = await r.json().catch(() => ({}));
-    // Backend may return { error: "string" } or { error: { message: "string" } }
-    const errMsg = typeof e.error === "string" ? e.error : (e.error?.message || `API ${r.status}`);
-    const err = new Error(errMsg);
-    // A policy block ({ blocked: true }) carries the counselor's own reply —
-    // for an essay-ghostwriting request, the coaching redirect (brainstorm,
-    // outline, feedback). It is an answer to show, not a failure to hide
-    // behind "Something went wrong".
-    if (e.blocked === true) err.blocked = true;
-    err.status = r.status;
-    throw err;
-  }
+  // Every failure keeps the route's code, budget, missing consents and
+  // Retry-After (chat-errors.js), so the student is told the real reason.
+  if (!r.ok) throw chatErrorFromResponse(r.status, await readErrorBody(r), r.headers);
 
   const body = await r.json();
   // Before any formatting or JSON parse: a crisis reply ends the turn.
   if (isCrisisReplyBody(body)) throw new CrisisReplyError(body, lang);
   if (body?.answer) {
-    const expectsJson = /respond\s+(only\s+)?with\s+json|return\s+only\s+json/i.test(String(payload?.system || ""));
-    const text = expectsJson ? String(body.answer) : formatStructuredChatResponse(body);
+    const text = utility ? String(body.answer) : formatStructuredChatResponse(body);
     const hasToolUse = Array.isArray(body.content) && body.content.some((block) => block.type === "tool_use");
-    if (!hasToolUse || !Array.isArray(body.content) || body.content.length === 0) body.content = [{ type:"text", text }];
+    if (!hasToolUse || !Array.isArray(body.content) || body.content.length === 0 || utility) body.content = [{ type:"text", text }];
     body.structuredText = text;
   }
   return body;
+}
+
+// The first JSON object in a utility call's reply. The small models wrap
+// their verdict in prose ("Sure! Here is the result: {…}") or fences, and an
+// older server may still prefix an advisory line or append Limitations; a
+// strict JSON.parse turned each of those into "Unexpected token" and threw
+// the verdict away. Braces inside strings are skipped. Null when there is no
+// object to read.
+export function parseUtilityJson(text) {
+  const s = String(text ?? "").replace(/```(?:json)?/gi, "").trim();
+  if (!s) return null;
+  try {
+    const whole = JSON.parse(s);
+    if (whole && typeof whole === "object") return whole;
+  } catch { /* look for an object inside */ }
+  for (let start = s.indexOf("{"); start !== -1; start = s.indexOf("{", start + 1)) {
+    const end = matchingBrace(s, start);
+    if (end === -1) continue;
+    try {
+      const value = JSON.parse(s.slice(start, end + 1));
+      if (value && typeof value === "object") return value;
+    } catch { /* try the next opening brace */ }
+  }
+  return null;
+}
+
+function matchingBrace(s, start) {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < s.length; i += 1) {
+    const c = s[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (c === "\\") escaped = true;
+      else if (c === "\"") inString = false;
+      continue;
+    }
+    if (c === "\"") inString = true;
+    else if (c === "{") depth += 1;
+    else if (c === "}") {
+      depth -= 1;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
 }
 
 // Lightweight observability for the otherwise-silent token re-auth. The React
@@ -292,42 +367,67 @@ If uncertain whether the content is unsafe, ACCEPT — downstream moderation run
   }
   contentBlocks.push({ type: "text", text: "Is this file safe and appropriate for a K-12 educational app? Respond with JSON only." });
 
-  try {
-    const d = await requestChat({
-      tier: UPLOAD_SCREENER.tier,
-      max_tokens: UPLOAD_SCREENER.maxTokens,
-      system: UPLOAD_SCREENER.system,
-      messages: [{ role: "user", content: contentBlocks }]
-    }, signal, locale);
-    const text = d.content?.filter(b => b.type === "text").map(b => b.text).join("") || "";
-    const result = JSON.parse(text.replace(/```json|```/g, "").trim());
-    return { safe: !!result.safe, reason: result.reason || "" };
-  } catch (err) {
-    // A crisis reply is not a screening failure; orchestrate() ends the turn.
-    if (isCrisisReplyError(err)) throw err;
-    // Fail CLOSED — if screening fails, reject the upload
-    // But surface the real error so the user can fix it (auth, missing key, payload size, etc.)
-    console.warn("Upload safety screening failed:", err?.message);
-    const msg = err?.message || "";
-    // Surface actionable errors instead of a generic message
-    if (/no api key|noKey|not configured|service not configured/i.test(msg)) {
-      return { safe: false, reason: "AI service not configured. Contact your school administrator." };
+  // The verdict is read tolerantly (parseUtilityJson) and asked for twice.
+  // The strict JSON.parse that stood here turned an empty reply, or a safe
+  // verdict wrapped in "Sure! Here is the result:", into "Safety screening
+  // failed: Unexpected token…", and a student's transcript was refused as
+  // not a school document. What the outcomes mean:
+  //   - an explicit verdict is final, unsafe included, and never re-asked;
+  //   - silence (an empty reply, the server's empty_model_reply, or the
+  //     composer's "not enough information" sentence an older server put in
+  //     place of one) twice is not a verdict: the file is not refused for it.
+  //     It goes on as `screened: false`, through the server's input, crisis
+  //     and output screens and the output validator, which every attachment
+  //     turn runs, and orchestrate() tells the student the check was out;
+  //   - prose with no verdict twice may be a refusal, so the file is held back
+  //     as a try-again (`transient`), never as "not a school document";
+  //   - a failed call (budget, consent, rate limit, outage) is thrown as its
+  //     typed error, so the turn fails the way any other call does and the
+  //     student's files go back into the composer.
+  const ask = () => requestChat({
+    mode: "utility",
+    tier: UPLOAD_SCREENER.tier,
+    max_tokens: UPLOAD_SCREENER.maxTokens,
+    system: UPLOAD_SCREENER.system,
+    messages: [{ role: "user", content: contentBlocks }]
+  }, signal, locale);
+
+  let sawProse = false;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    let text = "";
+    try {
+      const d = await ask();
+      text = d.content?.filter(b => b.type === "text").map(b => b.text).join("") || "";
+    } catch (err) {
+      // A crisis reply is not a screening failure; orchestrate() ends the turn.
+      if (isCrisisReplyError(err) || isAbortError(err) || signal?.aborted) throw err;
+      if (err?.code !== "empty_model_reply") throw err;
+      text = "";
     }
-    if (/sign in|session|unauthorized|401/i.test(msg)) {
-      return { safe: false, reason: "Session expired. Please log out and log back in, then try again." };
-    }
-    if (/too large|payload|413|entity/i.test(msg)) {
-      return { safe: false, reason: "File too large for processing. Try a smaller file (under 4 MB)." };
-    }
-    if (/rate|429|too many/i.test(msg)) {
-      return { safe: false, reason: "Too many requests. Wait a moment and try again." };
-    }
-    if (/model not allowed/i.test(msg)) {
-      return { safe: false, reason: "Model access error. Please contact support." };
-    }
-    return { safe: false, reason: `Safety screening failed: ${msg || "Unknown error"}. Please try again.` };
+    const verdict = parseUtilityJson(text);
+    const safe = verdict?.safe === true || verdict?.safe === "true" ? true
+      : verdict?.safe === false || verdict?.safe === "false" ? false
+        : null;
+    if (safe !== null) return { safe, screened: true, reason: String(verdict.reason || "") };
+    if (text.trim() && !SILENT_REPLY_RE.test(text.trim())) sawProse = true;
+    console.warn(`[upload screen] no verdict on attempt ${attempt + 1}`);
   }
+  if (sawProse) {
+    return {
+      safe: false,
+      transient: true,
+      screened: true,
+      reason: locale === "ko"
+        ? "지금은 이 파일을 확인할 수 없었어요. 잠시 후 다시 보내 주세요."
+        : "We couldn't check this file just now. Please send it again in a moment.",
+    };
+  }
+  return { safe: true, screened: false, reason: "" };
 }
+
+// The composer's sentence for a model reply with nothing in it; an older
+// server sent it in place of an empty reply.
+const SILENT_REPLY_RE = /^There is not enough information to produce a specific suggestion\.?$/i;
 
 // (score-report / transcript readers removed — feature retired)
 

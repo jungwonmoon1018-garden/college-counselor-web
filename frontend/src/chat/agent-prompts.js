@@ -8,8 +8,11 @@ const RAG_TOOLS = [
   { name:"fetch_milestones",description:"Get the student's milestone history — achievements, changes, and progress markers in chronological order.",input_schema:{type:"object",properties:{},required:[]} },
 ];
 
+// `utility: true` marks an agent whose reply is JSON for the client, not an
+// answer for the student: runAgent sends it as mode "utility", and the server
+// and requestChat leave the reply undecorated (chat-client.js).
 export const GATEKEEPER = {
-  id:"gatekeeper",label:"Gatekeeper",color:"#E24B4A",tier:"small",maxTokens:300,
+  id:"gatekeeper",label:"Gatekeeper",color:"#E24B4A",tier:"small",maxTokens:300,utility:true,
   system:`You are a safety gatekeeper for a high school college counseling app. Users are ages 14-18.
 YOUR ONLY JOB: classify and route. You MUST NOT generate counseling advice, opinions, or substantive responses.
 CLASSIFY the student's message into exactly ONE category. Respond ONLY with valid JSON.
@@ -221,7 +224,7 @@ IMPORTANT: The student's profile (GPA, courses, activities, goals) appears in yo
 };
 
 export const OUTPUT_VALIDATOR = {
-  id:"validator",label:"Validator",color:"#1D9E75",tier:"small",maxTokens:600,
+  id:"validator",label:"Validator",color:"#1D9E75",tier:"small",maxTokens:600,utility:true,
   system:`You validate responses for a college counseling app (students ages 14-18). Respond JSON only.
 YOUR ROLE: Check and clean. You MUST NOT introduce new facts, advice, or content. Only flag or remove problematic content.
 Check ALL of the following — fail if ANY is present:

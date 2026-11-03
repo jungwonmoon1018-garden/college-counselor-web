@@ -35,6 +35,7 @@ import { closeStudentSession } from "./session/end-session.js";
 import "./profile/profile-analysis.js";
 import { MAX_SCHOOL_FILE_SIZE_BYTES } from "./chat/chat-files.js";
 import { _tryReAuth } from "./chat/chat-client.js";
+import { isSessionExpiryResponse } from "./chat/chat-errors.js";
 import "./chat/markdown.jsx";
 import "./chat/chat-orchestrator.js";
 import ChatScreen from "./screens/ChatScreen.jsx";
@@ -77,16 +78,6 @@ function makeExportFilename(user) {
   const safeName = (user?.name || "college_vault").replace(/[^a-z0-9]+/gi,"_").replace(/^_+|_+$/g,"") || "college_vault";
   const stamp = new Date().toISOString().slice(0, 10);
   return `${safeName}_vault_${stamp}.enc.json`;
-}
-
-function formatUserFacingError(error) {
-  const msg = String(error?.message || "").toLowerCase();
-  if (msg.includes("api 429") || msg.includes("rate limit")) return "The system is busy right now. Please try again in a minute.";
-  if (msg.includes("api 413") || msg.includes("too large")) return "Your message was too long. Try a shorter question or smaller file.";
-  if (msg.includes("timed out") || msg.includes("took too long")) return "The counselor took too long to respond, so the request was stopped. Please try again.";
-  if (msg.includes("failed to fetch") || msg.includes("network")) return "Check your internet connection and try again.";
-  if (/no api key|not configured|missing .*api key/i.test(msg)) return "Chat isn't configured yet. Ask this device's administrator to configure OpenRouter.";
-  return "Something went wrong while answering that. Please try again.";
 }
 
 
@@ -215,7 +206,10 @@ function StudentApp({ endedBy = null, onSessionEnd }) {
       token = window.__CC_SESSION_TOKEN__;
     }
     let r = await doFetch(token);
-    if (r.status === 401) {
+    // Only a 401 about the session signs in again. The Council and the other
+    // model routes forwarded an upstream OpenRouter 401 as their own, and each
+    // one set off a hidden sign-in against the per-IP login limit.
+    if (r.status === 401 && await isSessionExpiryResponse(r)) {
       const ok = await _tryReAuth(proxyUrl);
       if (ok) r = await doFetch(window.__CC_SESSION_TOKEN__);
     }
@@ -256,7 +250,7 @@ function StudentApp({ endedBy = null, onSessionEnd }) {
     renameThreadTitle, renamingThreadId, searchThreads, setRenamingThreadId, setThreadSearchQ, setThreadSearchResults,
     threadList, threadSearchQ, threadSearchResults,
   } = useChatThreads({
-    authedFetch, setMessages, setSyncNote, setSyncStatus,
+    authedFetch, locale, setMessages, setSyncNote, setSyncStatus,
   });
 
 
@@ -479,7 +473,7 @@ function StudentApp({ endedBy = null, onSessionEnd }) {
 
   const send = useCallback((...args) => sendImpl({
       abortRef, activeThreadId, authedFetch, calendarCtx, chatFiles, chatTextareaRef,
-      conveneStrategyCouncil, councilDecisionType, councilTurnSequenceRef, data, formatUserFacingError, input,
+      conveneStrategyCouncil, councilDecisionType, councilTurnSequenceRef, data, input,
       inputRef, loading, locale, messages, newThread, pendingFile,
       persistTurn, refreshBudget, refreshThreadList, setAgentStatus, setChatFiles, setChatFilesExpanded,
       setCouncilDecisionType, setData, setInput, setLoading, setMessages, setPendingFile,

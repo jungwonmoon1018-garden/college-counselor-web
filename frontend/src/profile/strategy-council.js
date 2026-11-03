@@ -1,4 +1,5 @@
 import { formatCrisisReply, isCrisisReplyBody } from "../chat/crisis-lexicon.js";
+import { chatErrorFromResponse, formatChatError } from "../chat/chat-errors.js";
 
 export const COUNCIL_DECISION_OPTIONS = Object.freeze([
   Object.freeze({ value: "course-selection", label: "Course selection", labelKo: "과목 선택" }),
@@ -117,11 +118,36 @@ export function formatCouncilResult(body = {}, locale = "en-US") {
   };
 }
 
+// The client's deadline for one Council run. Four seats run in series, each
+// with up to two tries against the adapter's 105-second budget, so a stalled
+// provider held a Council turn for many minutes with no way out; a healthy
+// run takes well under this.
+export const COUNCIL_CLIENT_TIMEOUT_MS = 5 * 60_000;
+
+export function councilTimeoutMessage(locale = "en-US") {
+  return locale === "ko"
+    ? "전략 위원회 검토가 5분 넘게 걸려서 중단했어요. 질문은 입력창에 다시 넣어 두었어요. 잠시 후 다시 시도하거나 일반 채팅을 사용해 주세요."
+    : "The Strategy Council took more than 5 minutes, so the request was stopped. Your question is back in the message box; try again in a little while, or use ordinary chat.";
+}
+
+// Codes the Council route shares with /api/chat (consent, rate limit,
+// provider failures) get the chat copy; the Council's own cases keep theirs.
+const SHARED_CODES = new Set(["rate_limited", "provider_error", "provider_auth_failed", "provider_auth_rejected", "auth_rejected", "provider_timeout", "empty_model_reply", "unknown_model_pricing", "grade_required", "openrouter_not_configured", "installation_setup_required"]);
+
 export function councilErrorMessage(status, body = {}, locale = "en-US") {
   const ko = locale === "ko";
   const serverMessage = typeof body?.error === "string"
     ? body.error
     : (body?.error?.message || body?.message || "");
+  const code = String(body?.code || "");
+  if (code === "COUNCIL_PROVIDER_UNAVAILABLE") {
+    return ko
+      ? "지금 AI 서비스에 연결할 수 없어서 전략 위원회가 검토를 마치지 못했어요. 학생의 정보가 부족해서가 아니에요. 잠시 후 다시 시도해 주세요."
+      : "The Strategy Council couldn't reach the AI service just now, so it stopped before reviewing your question. It isn't about your profile; try again in a little while.";
+  }
+  if (SHARED_CODES.has(code) || status === 429) {
+    return formatChatError(chatErrorFromResponse(status, body), locale);
+  }
   if (status === 402) {
     return ko
       ? "이번 전략 위원회 검토는 남은 월간 AI 예산을 초과합니다. 일반 채팅을 사용하거나 다음 예산 주기를 기다려 주세요."
