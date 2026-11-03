@@ -222,8 +222,12 @@ export async function scoutSchoolOnDemand(schoolName, { timeoutMs = 15_000, sign
       }),
     });
     const created = { controller, waiters: 0, run: null };
-    created.run = scoutSchool(target, { stmts: deps.policyScoutStmts, factStmts: deps.factStmts, scorecardKey: deps.SCORECARD_API_KEY || null, fetcher })
-      .catch((err) => { console.warn("[policy-scout] on-demand read failed:", err?.message); return { status: "error" }; })
+    created.run = scoutSchool(target, { stmts: snapshotWritesUntilAborted(deps.policyScoutStmts, controller.signal), factStmts: deps.factStmts, scorecardKey: deps.SCORECARD_API_KEY || null, fetcher })
+      .catch((err) => {
+        if (controller.signal.aborted) return { status: "aborted" };
+        console.warn("[policy-scout] on-demand read failed:", err?.message);
+        return { status: "error" };
+      })
       .finally(() => { if (deps.onDemandScouts.get(key) === created) deps.onDemandScouts.delete(key); });
     deps.onDemandScouts.set(key, created);
     entry = created;
@@ -235,13 +239,37 @@ export async function scoutSchoolOnDemand(schoolName, { timeoutMs = 15_000, sign
     const result = await orAbort(Promise.race([entry.run, timedOut]), signal);
     if (result === ABORTED) return "aborted";
     if (!result) return "timeout";
-    if (["skipped", "failed", "error"].includes(result.status)) return result.status;
+    if (["skipped", "failed", "error", "aborted"].includes(result.status)) return result.status;
     return "ok";
   } finally {
     clearTimeout(timer);
     entry.waiters -= 1;
-    if (signal?.aborted && entry.waiters === 0) entry.controller.abort(new Error("Every chat turn waiting on this read has closed."));
+    if (signal?.aborted && entry.waiters === 0) {
+      entry.controller.abort(new Error("Every chat turn waiting on this read has closed."));
+      // A turn that arrives now starts its own read rather than joining one
+      // that will store nothing.
+      if (deps.onDemandScouts.get(key) === entry) deps.onDemandScouts.delete(key);
+    }
   }
+}
+
+// The policy scout's statements for one on-demand read, with the snapshot
+// writes refused once the read is stopped. The fetcher answers a stopped
+// page as "no page", so a read cut off part-way still returned the pages it
+// had and scoutSchool stored that partial reading as the school's current
+// snapshot: the dates on the pages never read were gone for every student
+// until the cycle turned, since a current snapshot is never re-read on
+// demand (backend-1). The snapshot is the first write and the change rows
+// and facts follow it in the same tick, so refusing it refuses them all.
+function snapshotWritesUntilAborted(stmts, signal) {
+  if (!stmts) return stmts;
+  const gated = (stmt) => stmt && {
+    run: (...args) => {
+      signal.throwIfAborted();
+      return stmt.run(...args);
+    },
+  };
+  return { ...stmts, upsertSnapshot: gated(stmts.upsertSnapshot), insertChange: gated(stmts.insertChange) };
 }
 
 // The Scorecard's figures for one school. A turn whose student went away

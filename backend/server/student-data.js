@@ -37,10 +37,91 @@ export function collectStudentRows(database, studentId, { exclude = [], open = n
   return out;
 }
 
+// The College Fit double-check is cached in the shared research cache under
+// "fitverify:<student id>:<school>:<snapshot>:<version>", one row per
+// profile snapshot, each with the student's fit label and score for that
+// school. The table has no student_id column, so erasure, the tombstone
+// sweep and the export all missed it (backend-2). Matched by prefix with
+// substr, not LIKE, so an id is never read as a pattern.
+const FIT_VERIFY_PREFIX = "fitverify:";
+
+function fitVerifyKeyPrefix(studentId) {
+  return `${FIT_VERIFY_PREFIX}${studentId}:`;
+}
+
+// The student's own activity names and narrative hashes. The EC caches
+// (ec_component_cache, ec_prestige_cache) are shared by content and carry
+// no student_id: their rows are keyed by the activity name the student typed
+// and, for the narrative-fit factor, by the narrative's hash, and that row
+// holds a model-written reason about the student's narrative. The names come
+// from every stored snapshot as well as the current reads, so an activity
+// the student removed earlier is found too. A row another student's
+// identical activity name shares goes with them; it is a cache and is
+// recomputed on the next read.
+function studentCacheKeys(database, studentId, names) {
+  const ecNames = new Set();
+  const add = (value) => {
+    const name = String(value ?? "").trim();
+    // The vectorizer's stand-in for an activity with no name or role.
+    if (name && name !== "unnamed_ec") ecNames.add(name);
+  };
+  if (names.has("ec_strength_vectors")) {
+    for (const row of database.prepare("SELECT DISTINCT ec_name FROM ec_strength_vectors WHERE student_id = ?").all(studentId)) add(row.ec_name);
+  }
+  if (names.has("ec_attachments")) {
+    for (const row of database.prepare("SELECT DISTINCT ec_name FROM ec_attachments WHERE student_id = ?").all(studentId)) add(row.ec_name);
+  }
+  if (names.has("profile_snapshots")) {
+    for (const row of database.prepare("SELECT activities_json FROM profile_snapshots WHERE student_id = ?").all(studentId)) {
+      let activities = [];
+      try { activities = JSON.parse(row.activities_json || "[]"); } catch { activities = []; }
+      // The cache key's name is the activity's name, or its role without one.
+      for (const activity of Array.isArray(activities) ? activities : []) add(activity?.name || activity?.role);
+    }
+  }
+  const narrativeHashes = names.has("student_narratives")
+    ? database.prepare("SELECT DISTINCT narrative_hash FROM student_narratives WHERE student_id = ?").all(studentId).map((row) => row.narrative_hash).filter(Boolean)
+    : [];
+  return { ecNames: [...ecNames], narrativeHashes };
+}
+
+function deleteStudentCacheRows(database, studentId, names) {
+  if (names.has("college_research_cache")) {
+    const prefix = fitVerifyKeyPrefix(studentId);
+    database.prepare("DELETE FROM college_research_cache WHERE kind = 'fitverify' AND substr(cache_key, 1, length(?)) = ?").run(prefix, prefix);
+  }
+  if (!["ec_component_cache", "ec_prestige_cache", "narrative_fit_cache"].some((table) => names.has(table))) return;
+  const { ecNames, narrativeHashes } = studentCacheKeys(database, studentId, names);
+  if (names.has("ec_component_cache")) {
+    // input_sig is the JSON of the factor's inputs, its first key the
+    // activity's name (activityName for prestige, ecName for the rest).
+    const byPrefix = database.prepare("DELETE FROM ec_component_cache WHERE substr(input_sig, 1, length(?)) = ?");
+    for (const name of ecNames) {
+      for (const prefix of [`{"ecName":${JSON.stringify(name)},`, `{"activityName":${JSON.stringify(name)},`]) byPrefix.run(prefix, prefix);
+    }
+    const byNarrative = database.prepare("DELETE FROM ec_component_cache WHERE instr(input_sig, ?) > 0");
+    for (const hash of narrativeHashes) byNarrative.run(`"narrativeHash":${JSON.stringify(hash)}`);
+  }
+  if (names.has("ec_prestige_cache")) {
+    const byName = database.prepare("DELETE FROM ec_prestige_cache WHERE activity_name = ?");
+    for (const name of ecNames) byName.run(name);
+  }
+  // The narrative-fit model cache is keyed by a hash of the narrative's hash
+  // and the activity text's, so its rows can be found only once they record
+  // the narrative's hash beside the key.
+  if (names.has("narrative_fit_cache") && database.prepare("PRAGMA table_info(narrative_fit_cache)").all().some((column) => column.name === "narrative_hash")) {
+    const byNarrative = database.prepare("DELETE FROM narrative_fit_cache WHERE narrative_hash = ?");
+    for (const hash of narrativeHashes) byNarrative.run(hash);
+  }
+}
+
 export function deleteStudentRows(database, studentId) {
   const tables = tablesContainingColumn(database, "student_id");
   const tx = database.transaction(() => {
     const names = new Set(database.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all().map((row) => row.name));
+    // Before the generic delete below: the cache keys are read from the
+    // student's own rows.
+    deleteStudentCacheRows(database, studentId, names);
     if (names.has("chat_messages") && names.has("chat_threads")) {
       database.prepare("DELETE FROM chat_messages WHERE thread_id IN (SELECT id FROM chat_threads WHERE student_id = ?)").run(studentId);
     }
@@ -132,6 +213,8 @@ export function purgeStudentAudit(database, { studentId, emailHash = null } = {}
     for (const hint of [idHint, emailHint].filter(Boolean)) {
       result.deleted += database.prepare("DELETE FROM notification_queue WHERE student_hint = ?").run(hint).changes;
     }
+    // A notification names its recipient by the full email hash as well.
+    if (emailHash) result.deleted += database.prepare("DELETE FROM notification_queue WHERE recipient_email_hash = ?").run(String(emailHash)).changes;
   }
   return result;
 }
@@ -147,6 +230,32 @@ export function purgeStudentRecords(studentId, { emailHash = null } = {}) {
   purgeStudentAudit(deps.db, { studentId, emailHash });
 }
 
+// The simulation sidecar keeps each scenario's base profile (the student's
+// whole profile and narrative) in databases of its own for up to its TTL,
+// out of reach of the deletes above, so it is asked to drop the student's
+// rows. A sidecar that is down or slow is logged and not waited on past a
+// few seconds: its rows still expire on their own, and the follow-up and
+// daily sweeps ask again.
+const SIDECAR_ERASE_WAIT_MS = 5_000;
+
+async function eraseStudentSimulations(studentId) {
+  if (typeof deps.callSimulationSidecar !== "function") return;
+  let timer = null;
+  try {
+    await Promise.race([
+      deps.callSimulationSidecar(`/students/${encodeURIComponent(studentId)}`, { method: "DELETE" }),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error("timed out")), SIDECAR_ERASE_WAIT_MS);
+        timer.unref?.();
+      }),
+    ]);
+  } catch (err) {
+    console.warn("[ERASURE] simulation sidecar delete failed:", err?.message);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function eraseStudent({ studentId, emailHash = null } = {}) {
   if (!studentId) throw new Error("studentId required");
   // The account ends first: no session works and no login succeeds while
@@ -157,11 +266,13 @@ export async function eraseStudent({ studentId, emailHash = null } = {}) {
     .run(erasureIdHash(studentId), new Date().toISOString());
   purgeStudentRecords(studentId, { emailHash });
   await removeStudentFiles(studentId);
+  await eraseStudentSimulations(studentId);
   // A write already under way (a model call outlives a request by up to two
   // minutes) is caught by sweeping the id again once it has had time to land.
   const resweep = setTimeout(() => {
     try { purgeStudentRecords(studentId, { emailHash }); } catch (err) { console.warn("[ERASURE] follow-up sweep failed:", err.message); }
     removeStudentFiles(studentId).catch((err) => console.warn("[ERASURE] follow-up file sweep failed:", err.message));
+    eraseStudentSimulations(studentId);
   }, RESWEEP_MS);
   resweep.unref?.();
   return { erased: true };
@@ -179,6 +290,18 @@ function tombstonedIdsIn(database, hashes, { column = "student_id", tables = nul
   return found;
 }
 
+// The ids in the College Fit double-check keys whose tombstone hash is in
+// `hashes` (the id is the key's second field).
+function tombstonedFitVerifyIds(database, hashes) {
+  const found = new Set();
+  if (!tableExists(database, "college_research_cache")) return found;
+  for (const row of database.prepare("SELECT cache_key FROM college_research_cache WHERE kind = 'fitverify'").all()) {
+    const id = String(row.cache_key || "").slice(FIT_VERIFY_PREFIX.length).split(":")[0];
+    if (id && hashes.has(erasureIdHash(id))) found.add(id);
+  }
+  return found;
+}
+
 // The boot and daily sweep: rows (and files) for any erased id that a late
 // write, or a restore from one of the daily backups, put back.
 export async function sweepErasedStudents() {
@@ -186,6 +309,7 @@ export async function sweepErasedStudents() {
   const hashes = new Set(deps.db.prepare("SELECT id_hash FROM erasure_tombstones").all().map((row) => row.id_hash));
   if (hashes.size === 0) return { deleted: 0 };
   const ids = tombstonedIdsIn(deps.db, hashes);
+  for (const id of tombstonedFitVerifyIds(deps.db, hashes)) ids.add(id);
   if (deps.piiVault?.db) for (const id of tombstonedIdsIn(deps.piiVault.db, hashes)) ids.add(id);
   if (deps.vectorStore?.db) for (const id of tombstonedIdsIn(deps.vectorStore.db, hashes, { column: "source_id", tables: ["embeddings"] })) ids.add(id);
   try {
@@ -202,6 +326,7 @@ export async function sweepErasedStudents() {
     if (deps.authStore?.studentExists?.(id)) continue;
     purgeStudentRecords(id);
     await removeStudentFiles(id).catch((err) => console.warn("[ERASURE] file sweep failed:", err.message));
+    await eraseStudentSimulations(id);
   }
   return { deleted: ids.size };
 }

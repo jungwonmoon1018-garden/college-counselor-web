@@ -646,12 +646,22 @@ export function prepareRAGStatements(db) {
     countCapabilitiesForSnapshot: db.prepare(`SELECT COUNT(*) AS n FROM capability_timeline WHERE snapshot_id = ?`),
     // Students with percentile rows from before snapshot_id existed whose
     // latest snapshot has none linked yet: the one-time backfill's work list.
+    // One window pass ranks each history once, as compaction does. A
+    // correlated subquery here sorted a student's whole history again for
+    // every one of its snapshots (no index serves datetime(created_at)), and
+    // the backfill runs at boot before compaction has trimmed an unpruned
+    // history: the first boot on production blocked for the square of each
+    // student's snapshot count (backend-4). Both capability checks lead with
+    // student_id, so idx_cap_snapshot serves them.
     latestSnapshotsWithoutCapabilities: db.prepare(`
-      SELECT s.* FROM profile_snapshots s
-      WHERE s.rowid = (SELECT s2.rowid FROM profile_snapshots s2 WHERE s2.student_id = s.student_id
-                       ORDER BY datetime(s2.created_at) DESC, s2.rowid DESC LIMIT 1)
-        AND NOT EXISTS (SELECT 1 FROM capability_timeline c WHERE c.snapshot_id = s.id)
-        AND EXISTS (SELECT 1 FROM capability_timeline c WHERE c.student_id = s.student_id)`),
+      WITH latest AS (
+        SELECT id, ROW_NUMBER() OVER (PARTITION BY student_id ORDER BY datetime(created_at) DESC, rowid DESC) AS rn
+        FROM profile_snapshots
+        WHERE student_id IN (SELECT DISTINCT student_id FROM capability_timeline)
+      )
+      SELECT s.* FROM latest l JOIN profile_snapshots s ON s.id = l.id
+      WHERE l.rn = 1
+        AND NOT EXISTS (SELECT 1 FROM capability_timeline c WHERE c.student_id = s.student_id AND c.snapshot_id = s.id)`),
     getCapabilityTrend: db.prepare(`SELECT metric, value, percentile_national, computed_at FROM capability_timeline WHERE student_id = ? AND metric = ? ORDER BY computed_at ASC, rowid ASC`),
 
     // Baselines

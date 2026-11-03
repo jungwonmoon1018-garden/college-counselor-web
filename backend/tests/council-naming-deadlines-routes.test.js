@@ -9,8 +9,9 @@ import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import Database from "better-sqlite3";
 import { SCOUT_VERSION } from "../scouts/admissions-policy-scout.js";
+import { selectFafsaRuleset } from "../chat/rules-engine.js";
 import { addCalendarDays, anywhereOnEarthToday } from "../shared/calendar-date.js";
-import { applicationCycleStartYear, cycleDate, planningCycle, planningCycleStartYear } from "../shared/admissions-cycle.js";
+import { applicationCycleStartYear, cycleDate, planningCycle, planningCycleStartYear, shiftDateToCycle } from "../shared/admissions-cycle.js";
 import { classOfForGrade } from "../shared/school-year.js";
 
 // A seeded scout snapshot is current only for the planning cycle (it moves
@@ -404,7 +405,11 @@ test("bulk deadlines skip past items, de-duplicate per cycle, and say why each w
   const token = await registerStudent("deadline-bulk-cycle");
   const today = anywhereOnEarthToday();
   const thisRd = addCalendarDays(today, 40);
-  const nextRd = addCalendarDays(thisRd, 365);
+  // The same month and day a year on, never thisRd + 365 days: across a
+  // leap day that lands on Jul 31, still this cycle, and on 2027-06-22
+  // (thisRd 2027-08-01) the server rightly called both items duplicates.
+  const year = Number(thisRd.slice(0, 4));
+  const nextRd = shiftDateToCycle(thisRd, year, year + 1);
   const first = await request("POST", "/api/students/deadlines/bulk", {
     token,
     body: { items: [
@@ -558,15 +563,20 @@ test("chat does not serve the FAFSA checklist for non-aid eligibility questions"
   assert.equal(admissions.data._meta.deterministic, false);
 
   // Genuine federal-aid eligibility checks still get the deterministic
-  // rules-engine answer without a model call.
+  // rules-engine answer without a model call while a reviewed ruleset
+  // covers the date; after it lapses the question reaches the model as
+  // labeled general guidance. The turn carries a request_id because that
+  // path is a paid call: without one it answered 400 from 2027-07-01 and
+  // held CI, and every deploy, red.
   const federal = await request("POST", "/api/chat", {
     token,
     body: {
       messages: [{ role: "user", content: "Am I eligible for FAFSA federal student aid?" }],
+      request_id: "eligibility-chat-2",
     },
   });
   assert.equal(federal.status, 200, JSON.stringify(federal.data));
-  assert.equal(federal.data._meta.deterministic, true);
+  assert.equal(federal.data._meta.deterministic, Boolean(selectFafsaRuleset(new Date())));
 });
 
 test("chat injects the student profile and theme guard into model calls", async () => {

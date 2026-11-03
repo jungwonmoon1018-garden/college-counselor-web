@@ -63,6 +63,18 @@ export function councilProviderError(output) {
   return error;
 }
 
+// A stage the run stops at is reconciled before the error goes up. A
+// failure to reconcile is logged and does not replace the error the route
+// maps to a status; the route then releases the stage as before.
+async function reconcileStoppedStage(afterStage, stage) {
+  if (!afterStage) return;
+  try {
+    await afterStage(stage);
+  } catch (err) {
+    console.warn("[COUNCIL] reconciling the stopped stage failed:", err?.message);
+  }
+}
+
 function normalizeContext(value) {
   if (!value) return null;
   if (typeof value === "string") return { text: value, evidenceIndex: {}, immutable: true };
@@ -126,15 +138,25 @@ export async function convene(opts = {}) {
       error.stage = seat.role;
       throw error;
     }
-    const output = await seat.deliberate({
-      question,
-      decisionType,
-      student,
-      context,
-      priorOutputs: outputs,
-      llm,
-      signal,
-    });
+    let output;
+    try {
+      output = await seat.deliberate({
+        question,
+        decisionType,
+        student,
+        context,
+        priorOutputs: outputs,
+        llm,
+        signal,
+      });
+    } catch (error) {
+      // The student closed the request on a retry after a try that was
+      // billed: the stage is reconciled at that usage, not released.
+      if (error?.billedUsage) {
+        await reconcileStoppedStage(afterStage, { ...stageInfo, output: { role: seat.role, usage: error.billedUsage, abstained: true, abstain_reason: "aborted" }, approval });
+      }
+      throw error;
+    }
     // Without the Strategist there is no recommendation to review, and when
     // it abstained because the provider failed, the other seats would only
     // wait on the same outage (up to 105 s each) before the moderator
@@ -142,8 +164,13 @@ export async function convene(opts = {}) {
     // available context" with Confidence 0% and a 0 USD cost, which reads as
     // the student's profile being too thin. The run stops with the
     // provider's error instead; the route answers it with a coded status and
-    // releases every stage it reserved, this one included.
+    // releases every stage it has not reconciled. This one is reconciled
+    // first: a try before the failure may have been billed (an unparseable
+    // reply, then a 401 or a 5xx on the retry), and releasing it counted a
+    // paid call as 0 USD against the student's cap (backend-3). With no
+    // billed try its usage is null, which records 0 USD as a release would.
     if (index === 0 && output?.abstained && output.abstain_reason === "provider") {
+      await reconcileStoppedStage(afterStage, { ...stageInfo, output, approval });
       throw councilProviderError(output);
     }
     outputs.push(output);

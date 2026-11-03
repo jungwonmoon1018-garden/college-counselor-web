@@ -142,8 +142,13 @@ export class Councilor {
           signal,
         });
       } catch (error) {
-        // The student closed the request: stop, do not abstain.
-        if (signal?.aborted) throw error;
+        // The student closed the request: stop, do not abstain. A try
+        // already billed rides on the error, so convene can reconcile the
+        // stage at it before the route releases the rest (backend-3).
+        if (signal?.aborted) {
+          if (usage && error && typeof error === "object") error.billedUsage = usage;
+          throw error;
+        }
         // A stall or a rejected key is not retried here: the adapter already
         // made its own two attempts at a stall, a rejected key stays
         // rejected, and a second round only doubled a 105 s wait during an

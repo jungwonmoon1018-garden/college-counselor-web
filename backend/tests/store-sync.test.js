@@ -129,6 +129,52 @@ test("a snapshot whose rows predate snapshot_id is linked once by the backfill",
   assert.equal(backfillLatestCapabilities(stmts).students, 0, "idempotent");
 });
 
+// backend-4: the work list found each student's latest snapshot with a
+// correlated subquery that sorted the student's whole history again for
+// every one of its snapshots (datetime(created_at) no index can serve), and
+// it ran synchronously at boot before compaction had trimmed the
+// unpruned history of a snapshot per chat answer: seconds to a minute of
+// downtime on the deploy that landed it, growing with the square of a
+// student's snapshot count. One window pass now ranks every history once.
+test("the backfill's work list ranks each history once and picks the same rows", () => {
+  const { db, stmts } = store();
+  // No sort runs once per row: a temp b-tree under a correlated subquery is
+  // the per-snapshot re-sort. (An index probe per row is fine.)
+  const plan = db.prepare(`EXPLAIN QUERY PLAN ${stmts.latestSnapshotsWithoutCapabilities.source}`).all();
+  const byId = new Map(plan.map((row) => [row.id, row]));
+  const underCorrelated = (row) => {
+    for (let at = byId.get(row.parent); at; at = byId.get(at.parent)) if (/CORRELATED/i.test(at.detail)) return true;
+    return false;
+  };
+  const resorts = plan.filter((row) => /TEMP B-TREE/i.test(row.detail) && underCorrelated(row));
+  assert.deepEqual(resorts, [], plan.map((row) => row.detail).join("\n"));
+
+  const insertSnapshot = db.prepare("INSERT INTO profile_snapshots (id, student_id, snapshot_type, courses_json, ap_scores_json, test_scores_json, activities_json, goals_json, created_at) VALUES (?, ?, 'sync', '[]', '[]', '[]', '[]', '[]', ?)");
+  const insertLegacy = db.prepare("INSERT INTO capability_timeline (id, student_id, metric, value, snapshot_id) VALUES (?, ?, 'gpa_uw', 3.5, ?)");
+  const history = (sid, count, { sameSecond = false } = {}) => {
+    for (let i = 0; i < count; i += 1) {
+      insertSnapshot.run(`${sid}-snap-${i}`, sid, sameSecond ? "2026-11-03 12:00:00" : `2026-11-03 12:${String(Math.floor(i / 60)).padStart(2, "0")}:${String(i % 60).padStart(2, "0")}`);
+    }
+  };
+  db.transaction(() => {
+    // Legacy rows only: its latest snapshot is on the list.
+    history("legacy", 120);
+    insertLegacy.run("legacy-row", "legacy", null);
+    // Two snapshots in one second: the later insert is the latest.
+    history("tied", 3, { sameSecond: true });
+    insertLegacy.run("tied-row", "tied", null);
+    // Its latest snapshot already has rows of its own.
+    history("linked", 4);
+    insertLegacy.run("linked-row", "linked", "linked-snap-3");
+    // No capability rows at all: nothing to link.
+    history("fresh", 2);
+  })();
+  const ids = stmts.latestSnapshotsWithoutCapabilities.all().map((row) => row.id).sort();
+  assert.deepEqual(ids, ["legacy-snap-119", "tied-snap-2"]);
+  // Each row is the whole snapshot, as the backfill reads it.
+  assert.ok(stmts.latestSnapshotsWithoutCapabilities.all().every((row) => row.student_id && row.activities_json === "[]"));
+});
+
 test("compaction keeps the newest 50 snapshots and their rows, and bounds the rest", () => {
   const { db, stmts } = store();
   const sid = crypto.randomUUID();

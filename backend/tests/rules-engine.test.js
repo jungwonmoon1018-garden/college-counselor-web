@@ -25,6 +25,12 @@ import { daysUntilDue } from "../shared/calendar-date.js";
 describe("runFAFSAEligibilityCheck", () => {
   // Rules are keyed by rule id with boolean values; required rules must all
   // be true for eligible === true (results carry per-rule status + source).
+  // Every call reads a fixed clock inside the 2026-27 ruleset's window: on
+  // the real clock four of these went red on 2027-07-01, when that ruleset
+  // lapsed and the check answered "no ruleset" (tests/clock-independence
+  // runs this file on that date).
+  const now = new Date("2026-11-03T12:00:00.000Z");
+
   it("passes all checks for eligible student", () => {
     const result = runFAFSAEligibilityCheck({
       citizenship: true,
@@ -33,7 +39,7 @@ describe("runFAFSAEligibilityCheck", () => {
       high_school_completion: true,
       satisfactory_progress: true,
       not_in_default: true,
-    });
+    }, { now });
     assert.equal(result.eligible, true);
     assert.equal(result.results.filter((r) => r.status === "fail").length, 0);
   });
@@ -44,26 +50,28 @@ describe("runFAFSAEligibilityCheck", () => {
       ssn: true,
       enrollment: true,
       high_school_completion: true,
-    });
+    }, { now });
     assert.equal(result.eligible, false);
     assert.ok(result.results.some((r) => r.status === "fail"));
   });
 
   it("returns unknown for missing data", () => {
-    const result = runFAFSAEligibilityCheck({});
+    const result = runFAFSAEligibilityCheck({}, { now });
     assert.ok(result.results.some((r) => r.status === "unknown"));
     assert.equal(result.eligible, null);
   });
 
   it("includes source URLs for every rule", () => {
-    const result = runFAFSAEligibilityCheck({ citizenship: true });
+    const result = runFAFSAEligibilityCheck({ citizenship: true }, { now });
+    // An empty list would pass the loop below vacuously.
+    assert.ok(result.results.length > 0);
     for (const rule of result.results) {
       assert.ok(rule.source, `Rule ${rule.ruleId} missing source URL`);
     }
   });
 
   it("does not treat Selective Service registration as an eligibility requirement", () => {
-    const result = runFAFSAEligibilityCheck({ selective_service: false });
+    const result = runFAFSAEligibilityCheck({ selective_service: false }, { now });
     assert.equal(result.results.some((rule) => rule.ruleId === "selective_service"), false);
     assert.ok(result.removedRequirements.some((rule) => rule.id === "selective_service"));
     assert.notEqual(result.eligible, false);
@@ -73,7 +81,6 @@ describe("runFAFSAEligibilityCheck", () => {
   // does not turn red on the day a ruleset lapses (the admin status and the
   // boot line carry that warning instead).
   it("versions every FAFSA rule with the ruleset that covers the date", () => {
-    const now = new Date("2026-11-03T12:00:00.000Z");
     const ruleset = selectFafsaRuleset(now);
     const result = runFAFSAEligibilityCheck({}, { now });
     assert.equal(result.academicYear, ruleset.academicYear);

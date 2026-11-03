@@ -15,6 +15,7 @@ import { initRAGTables, prepareRAGStatements, syncStudentData } from "../storage
 import { initPIIVault, preparePIIStatements, storeStudentPII } from "../storage/pii-vault.js";
 import { initVectorStore } from "../storage/vector-store.js";
 import { configureChatEncryption } from "../chat/chat-history.js";
+import { initCollegeResearch } from "../colleges/college-research.js";
 import { bindStudentData, eraseStudent, erasureIdHash, purgeStudentAudit, sweepErasedStudents } from "../server/student-data.js";
 
 configureChatEncryption("ef".repeat(32));
@@ -25,11 +26,19 @@ function setup() {
   const authStore = initAuthStore(db, { sessionTtlMs: 60_000 });
   initUsageBudget(db);
   initRAGTables(db);
+  initCollegeResearch(db);
   db.exec(`CREATE TABLE audit_events (id TEXT PRIMARY KEY, timestamp TEXT NOT NULL, type TEXT NOT NULL, user_hint TEXT, details TEXT, ip_hash TEXT, created_at TEXT DEFAULT (datetime('now')));
            CREATE TABLE notification_queue (id TEXT PRIMARY KEY, recipient_email_hash TEXT, recipient_email_encrypted TEXT, student_hint TEXT, notification_type TEXT, message TEXT, status TEXT, created_at TEXT DEFAULT (datetime('now')));`);
   const piiVault = initPIIVault(dir, "ef".repeat(32), "test");
   const vectorStore = initVectorStore(dir, "test");
-  const deps = { DATA_DIR: dir, EC_ATTACHMENTS_DIR: path.join(dir, "ec-attachments"), authStore, db, piiVault, vectorStore };
+  // The simulation sidecar's databases are its own; erasure asks it to drop
+  // the student's scenarios.
+  const sidecarCalls = [];
+  const callSimulationSidecar = async (pathname, options = {}) => {
+    sidecarCalls.push(`${options.method || "GET"} ${pathname}`);
+    return { deleted: true };
+  };
+  const deps = { DATA_DIR: dir, EC_ATTACHMENTS_DIR: path.join(dir, "ec-attachments"), authStore, db, piiVault, vectorStore, callSimulationSidecar, sidecarCalls };
   bindStudentData(deps);
   // The sync starts an asynchronous strength recompute; let it finish first.
   const close = async () => {
@@ -40,13 +49,13 @@ function setup() {
   return { ...deps, dir, stmts: prepareRAGStatements(db), piiStmts: preparePIIStatements(piiVault), close };
 }
 
-function seedStudent(ctx, label) {
+function seedStudent(ctx, label, activity = "Peer Line") {
   const studentId = crypto.randomUUID();
   const emailHash = crypto.createHash("sha256").update(`email_salt_cc:${label}@example.test`).digest("hex");
   ctx.authStore.createStudentCredential(studentId, emailHash, "correct horse battery staple", { grade: 11 });
   ctx.authStore.issueStudentSession(emailHash, studentId);
   storeStudentPII(ctx.piiStmts, ctx.piiVault, studentId, { name: label, email: `${label}@example.test` });
-  syncStudentData(ctx.stmts, studentId, { gpa: { unweighted: 3.62 }, courses: [], testScores: [] }, [{ name: "Peer Line", role: "Founder" }], [], "Biology");
+  syncStudentData(ctx.stmts, studentId, { gpa: { unweighted: 3.62 }, courses: [], testScores: [] }, [{ name: activity, role: "Founder" }], [], "Biology");
   const audit = ctx.db.prepare("INSERT INTO audit_events (id, timestamp, type, user_hint, details, ip_hash) VALUES (?, ?, ?, ?, ?, ?)");
   // What the sync route wrote before 2026-11-03: content, under the email hash.
   audit.run(crypto.randomUUID(), new Date().toISOString(), "profile_ec_added", emailHash.slice(0, 12), "New activity: Peer Line (Founder)", "iphash");
@@ -124,6 +133,87 @@ test("a write that lands after the delete is swept, and a live account never is"
     assert.equal(fs.existsSync(path.join(ctx.EC_ATTACHMENTS_DIR, gone.studentId)), false);
     assert.ok(rowsFor(ctx, live.studentId, live.emailHash).length > 5);
     assert.equal((await sweepErasedStudents()).deleted, 0);
+  } finally {
+    await ctx.close();
+  }
+});
+
+// backend-2: erasure deleted only from tables with a student_id column, and
+// these carry the student some other way. The College Fit double-check is
+// cached under "fitverify:<student id>:<school>:<snapshot>:<version>" (one
+// row per profile snapshot, with the student's fit label and score for that
+// school) and nothing ever removed it. A notification names its recipient
+// by the full email hash. The EC caches are shared by content and keyed by
+// the student's own activity names and narrative hashes; the narrative-fit
+// rows hold a model-written reason about the student's narrative. The
+// simulation sidecar keeps a scenario's base profile (the minor's whole
+// profile and narrative) in databases of its own.
+test("erasure removes the rows keyed by the student's id, email hash, activity names and narrative", async () => {
+  const ctx = setup();
+  try {
+    const gone = seedStudent(ctx, "keyed", "Harbor Tide Tutors");
+    const kept = seedStudent(ctx, "neighbor", "Robotics Club");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const cache = ctx.db.prepare("INSERT INTO college_research_cache (cache_key, kind, slug, display_name, payload_json, fetched_at) VALUES (?, ?, ?, ?, ?, '2026-11-03T00:00:00.000Z')");
+    const fit = JSON.stringify({ verdict: "consistent", original: { label: "Reach", score: 41 } });
+    for (const snapshot of ["snap-1", "snap-2"]) cache.run(`fitverify:${gone.studentId}:example-university:${snapshot}:v9`, "fitverify", "example-university", "Example University", fit);
+    cache.run(`fitverify:${kept.studentId}:example-university:snap-3:v9`, "fitverify", "example-university", "Example University", fit);
+    // An id that only starts with the erased one is someone else's.
+    cache.run(`fitverify:${gone.studentId}0:example-university:snap-4:v9`, "fitverify", "example-university", "Example University", fit);
+    cache.run("values:example-university", "values", "example-university", "Example University", "{}");
+    ctx.db.prepare("INSERT INTO notification_queue (id, recipient_email_hash, message) VALUES (?, ?, 'x')").run(crypto.randomUUID(), gone.emailHash);
+    ctx.db.prepare("INSERT INTO student_narratives (id, student_id, narrative_text, narrative_hash) VALUES (?, ?, 'I tutor kids at the harbor.', 'narrative-hash-gone')").run(crypto.randomUUID(), gone.studentId);
+    const component = ctx.db.prepare("INSERT INTO ec_component_cache (cache_key, factor, score, reasoning_json, source, input_sig, created_at) VALUES (?, ?, 0.5, ?, 'llm', ?, datetime('now'))");
+    // A narrative-fit read of an activity the student has since removed:
+    // only the narrative hash leads back to them.
+    component.run("k-narrative", "narrative_fit", JSON.stringify({ reason: "The harbor tutoring carries the story." }), JSON.stringify({ ecName: "Old Club", ecHash: "e", narrativeHash: "narrative-hash-gone", themesHash: "t" }));
+    ctx.db.prepare("INSERT INTO ec_prestige_cache (cache_key, activity_name, score, rationale, source, created_at) VALUES ('p-gone', 'Harbor Tide Tutors', 0.2, 'r', 'catalog', datetime('now')), ('p-kept', 'Robotics Club', 0.4, 'r', 'catalog', datetime('now'))").run();
+    // The narrative-fit model cache, once its rows record the narrative's
+    // hash beside the hashed key.
+    ctx.db.exec("ALTER TABLE narrative_fit_cache ADD COLUMN narrative_hash TEXT");
+    ctx.db.prepare("INSERT INTO narrative_fit_cache (cache_key, score, reason, narrative_hash) VALUES ('nf-gone', 0.7, 'The tutoring fits the harbor story.', 'narrative-hash-gone'), ('nf-other', 0.3, 'x', 'narrative-hash-other')").run();
+    const componentRows = (name) => ctx.db.prepare("SELECT COUNT(*) AS n FROM ec_component_cache WHERE input_sig LIKE ?").get(`%${name}%`).n;
+    assert.ok(componentRows("Harbor Tide Tutors") > 0, "the sync's strength read cached the activity");
+    assert.ok(componentRows("Robotics Club") > 0);
+
+    await eraseStudent(gone);
+
+    const keys = ctx.db.prepare("SELECT cache_key FROM college_research_cache ORDER BY cache_key").all().map((row) => row.cache_key);
+    assert.deepEqual(keys.filter((key) => key.includes(gone.studentId + ":")), [], "the College Fit double-check rows go");
+    assert.ok(keys.includes(`fitverify:${kept.studentId}:example-university:snap-3:v9`));
+    assert.ok(keys.includes(`fitverify:${gone.studentId}0:example-university:snap-4:v9`));
+    assert.ok(keys.includes("values:example-university"));
+    assert.equal(ctx.db.prepare("SELECT COUNT(*) AS n FROM notification_queue WHERE recipient_email_hash = ?").get(gone.emailHash).n, 0);
+    assert.equal(componentRows("Harbor Tide Tutors"), 0);
+    assert.equal(componentRows("narrative-hash-gone"), 0);
+    assert.equal(ctx.db.prepare("SELECT COUNT(*) AS n FROM ec_prestige_cache WHERE activity_name = 'Harbor Tide Tutors'").get().n, 0);
+    assert.deepEqual(ctx.db.prepare("SELECT cache_key FROM narrative_fit_cache").all().map((row) => row.cache_key), ["nf-other"]);
+    // The other student's cached reads stay.
+    assert.ok(componentRows("Robotics Club") > 0);
+    assert.equal(ctx.db.prepare("SELECT COUNT(*) AS n FROM ec_prestige_cache WHERE activity_name = 'Robotics Club'").get().n, 1);
+    assert.deepEqual(ctx.sidecarCalls, [`DELETE /students/${encodeURIComponent(gone.studentId)}`]);
+  } finally {
+    await ctx.close();
+  }
+});
+
+// The daily sweep finds an erased id in a fitverify key too: a double-check
+// that finished after the delete, or a restored backup, wrote one back.
+test("the tombstone sweep finds an erased student's College Fit double-check rows", async () => {
+  const ctx = setup();
+  try {
+    const gone = seedStudent(ctx, "late-fit");
+    // The sync's strength read lands first, so the fitverify key is the
+    // only place the sweep can find the id.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await eraseStudent(gone);
+    ctx.sidecarCalls.length = 0;
+    ctx.db.prepare("INSERT INTO college_research_cache (cache_key, kind, slug, display_name, payload_json, fetched_at) VALUES (?, 'fitverify', 'example-university', 'Example University', '{}', '2026-11-03T00:00:00.000Z')")
+      .run(`fitverify:${gone.studentId}:example-university:snap-9:v9`);
+    const swept = await sweepErasedStudents();
+    assert.equal(swept.deleted, 1);
+    assert.equal(ctx.db.prepare("SELECT COUNT(*) AS n FROM college_research_cache WHERE kind = 'fitverify'").get().n, 0);
+    assert.deepEqual(ctx.sidecarCalls, [`DELETE /students/${encodeURIComponent(gone.studentId)}`]);
   } finally {
     await ctx.close();
   }
