@@ -29,6 +29,7 @@ import {
   SWEEP_CEILING,
   SWEEP_FRESH_MS,
   SWEEP_RULES_VERSION,
+  writePolicyFacts,
 } from "../scouts/admissions-policy-scout.js";
 
 const NOW = new Date("2026-09-03T12:00:00Z"); // cycle 2026-27 → entering fall 2027
@@ -369,6 +370,33 @@ test("diffing ignores fields that merely dropped out of the fetched pages", () =
   const changes = diffPolicies(before, after);
   assert.deepEqual(changes.map((c) => [c.field, c.previousValue, c.newValue, c.severity]), [
     ["test_policy", "test-optional", "test scores required", "high"],
+  ]);
+});
+
+// From Feb 1 a reading keeps the closing cycle's open dates (a February 15
+// Regular Decision) beside next fall's. The fact for such a date belongs to
+// its own cycle and expires with it, and a date that later rolls to the same
+// day of the next cycle once it has passed is not a policy change: the
+// students' change list would have called it one.
+test("a closing-cycle deadline is filed under its own cycle, and its roll to the next cycle is not a change", () => {
+  const feb3 = new Date("2027-02-03T12:00:00Z");
+  const stores = freshStores();
+  const pages = [{ url: "https://exampleu.edu/admission/first-year", text: "Early Action: November 1\nRegular Decision: February 15" }];
+  const policy = extractPolicyFromPages(pages, feb3);
+  assert.equal(policy.deadlines.regular_decision.date, "2027-02-15");
+  writePolicyFacts(stores.factStmts, { slug: "example-university", schoolName: "Example University", unitId: null, policy, checkedAt: feb3.toISOString() });
+  const byKey = Object.fromEntries(stores.factStmts.getFactsByEntity.all("university", "example-university").map((f) => [f.fact_key, f]));
+  assert.equal(byKey.deadline_regular_decision.academic_year, "2026-27");
+  assert.equal(byKey.deadline_regular_decision.expires_at, "2027-08-01T00:00:00.000Z");
+  assert.equal(byKey.deadline_early_action.academic_year, "2027-28");
+  assert.equal(byKey.deadline_early_action.expires_at, "2028-08-01T00:00:00.000Z");
+
+  const mar1 = extractPolicyFromPages(pages, new Date("2027-03-01T12:00:00Z"));
+  assert.equal(mar1.deadlines.regular_decision.date, "2028-02-15");
+  assert.deepEqual(diffPolicies(policy, mar1), [], "the same day a cycle on is not a new deadline");
+  const moved = extractPolicyFromPages([{ ...pages[0], text: "Early Action: November 1\nRegular Decision: February 1" }], new Date("2027-03-01T12:00:00Z"));
+  assert.deepEqual(diffPolicies(policy, moved).map((c) => [c.field, c.previousValue, c.newValue]), [
+    ["deadline_regular_decision", "2027-02-15", "2028-02-01"],
   ]);
 });
 

@@ -13,10 +13,19 @@
 //
 // The planning cycle is the one a student plans for. From Feb 1 of year Y
 // through Jan 31 of Y+1 it is "Y-(Y+1)": applications go in during fall Y
-// for entry in fall Y+1. January stays on the closing cycle because regular
-// decision deadlines are still running then; from February every date of
-// that cycle is past, so the next fall's are the ones to outline. Deadlines,
-// the scout's readings and the research cache all follow it.
+// for entry in fall Y+1. January stays on the closing cycle because most
+// regular decision deadlines are still running then, and from February the
+// next fall's dates are the ones to outline. Deadlines, the scout's
+// readings and the research cache all follow it.
+//
+// The closing cycle is the one the planning cycle replaced on Feb 1. It is
+// not over then: a Feb 15 or Mar 1 regular deadline, the spring aid-priority
+// dates and the May 1 deposit are still ahead, and a senior is still in it.
+// The first version of this rule assumed every date of that cycle was past
+// in February, so a page read on Feb 3 lost its "February 15, 2027" and a
+// yearless "February 15" became 2028-02-15, given to a senior as the
+// school's deadline. A date of the closing cycle is kept until it has ended
+// Anywhere on Earth (shared/calendar-date.js), and the cycle runs to Jul 31.
 //
 // The cycle in progress rolls over on Aug 1 (Feb 2027 is still "2026-27":
 // decisions and deposits of that cycle are under way). It is a label only,
@@ -25,6 +34,8 @@
 //
 // The frontend twin is frontend/src/profile/admissions-cycle.js, held equal
 // by tests/deadlines-admissions-cycle.test.js.
+
+import { anywhereOnEarthToday } from "./calendar-date.js";
 
 const FEB = 1; // 0-indexed months, as getUTCMonth returns them
 const AUG = 7;
@@ -87,27 +98,70 @@ function isRealDate(iso) {
   return Number.isFinite(ms) && new Date(ms).toISOString().slice(0, 10) === iso;
 }
 
-// A month/day read from a school's page, placed in the planning cycle. A
-// stated year is kept as stated; either way a date outside the planning
-// cycle is not this cycle's deadline and resolves to null ("November 1,
-// 2026" read in March 2027 is last cycle's).
+function inCycle(iso, startYear) {
+  const { from, to } = cycleWindow(startYear);
+  return iso >= from && iso <= to;
+}
+
+// The start year of the closing cycle while it still has a day left (Feb 1
+// to Jul 31, counted Anywhere on Earth), else null.
+export function closingCycleStartYear(now = new Date()) {
+  const start = planningCycleStartYear(now) - 1;
+  return anywhereOnEarthToday(now.getTime()) <= cycleWindow(start).to ? start : null;
+}
+
+// A month/day read from a school's page, placed in the planning cycle, or in
+// the closing cycle while that date is still ahead ("February 15" read on
+// Feb 3 is this month's deadline, not one a year away). A stated year is
+// kept as stated. A date of neither is not a deadline anyone can still meet
+// and resolves to null ("November 1, 2026" read in March 2027 is last
+// cycle's and past).
 export function resolveCycleDate(month, day, year, now = new Date()) {
   if (!(month >= 1 && month <= 12) || !(day >= 1 && day <= 31)) return null;
   const startYear = planningCycleStartYear(now);
-  const iso = year ? `${year}-${pad(month)}-${pad(day)}` : cycleDate(startYear, month, day);
-  if (!isRealDate(iso)) return null;
-  const { from, to } = cycleWindow(startYear);
-  return iso >= from && iso <= to ? iso : null;
+  const closing = closingCycleStartYear(now);
+  const today = anywhereOnEarthToday(now.getTime());
+  const stillOpen = (iso) => closing != null && isRealDate(iso) && inCycle(iso, closing) && iso >= today;
+  if (year) {
+    const iso = `${year}-${pad(month)}-${pad(day)}`;
+    if (!isRealDate(iso)) return null;
+    return inCycle(iso, startYear) || stillOpen(iso) ? iso : null;
+  }
+  if (closing != null) {
+    const iso = cycleDate(closing, month, day);
+    if (stillOpen(iso)) return iso;
+  }
+  const iso = cycleDate(startYear, month, day);
+  return isRealDate(iso) ? iso : null;
 }
 
 // The cycle a student applies in, from their high-school class year: the
-// class of 2028 applies in fall 2027 (cycle 2027-28). A student whose year
-// has passed (or is unknown) plans for the current planning cycle, so no
-// cycle is ever behind it.
+// class of 2028 applies in fall 2027 (cycle 2027-28). A senior stays in
+// their own cycle while it is closing (to Jul 31), so the deposit and any
+// late regular deadline are dated for the year they enter, not the next.
+// A student whose year has passed (or is unknown) plans for the current
+// planning cycle.
 export function applicationCycleStartYear(classOf, now = new Date()) {
   const planning = planningCycleStartYear(now);
   const own = Number(classOf);
-  return Number.isInteger(own) && own - 1 > planning ? own - 1 : planning;
+  if (!Number.isInteger(own)) return planning;
+  if (own - 1 > planning) return own - 1;
+  return own - 1 === closingCycleStartYear(now) ? own - 1 : planning;
+}
+
+// Where a school's published date lands in a student's own cycle: the date
+// itself when it is of that cycle, carried forward on the same month and day
+// (approximate) when it is of an earlier one, and nothing when it is of a
+// later one. A date names its own cycle (cycleOfDate). A reading taken in
+// February holds next fall's Early Action beside the closing cycle's
+// February 15 Regular Decision, and one cycle label for the whole reading
+// put one of them in the wrong year.
+export function dateForOwnCycle(iso, ownStartYear) {
+  const from = cycleStartYearOf(cycleOfDate(iso));
+  if (from == null || !Number.isInteger(ownStartYear) || from > ownStartYear || !isRealDate(String(iso).slice(0, 10))) return null;
+  if (from === ownStartYear) return { date: String(iso).slice(0, 10), kind: "school", fromStartYear: from };
+  const date = shiftDateToCycle(iso, from, ownStartYear);
+  return date ? { date, kind: "carried", fromStartYear: from } : null;
 }
 
 // The typical US dates of a cycle: a planning window, never a school's

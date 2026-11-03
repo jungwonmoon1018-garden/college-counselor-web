@@ -10,6 +10,7 @@
 // C7 grid matching is more reliable here than on PDFs.
 
 import { createRequire } from "node:module";
+import { runDocumentJob } from "../shared/file-extractors.js";
 import { extractSections, lineStringsFromGroups } from "./cds-sections.js";
 import {
   CDS_PARSER_VERSION,
@@ -81,9 +82,13 @@ export async function extractItemsFromXlsx(xlsxPath) {
   return items;
 }
 
-// Mirror parseCDSPositional's output shape for a workbook source.
+// Mirror parseCDSPositional's output shape for a workbook source. ExcelJS
+// loads the whole workbook into memory, so the read holds the document lane
+// (background) like a PDF's text layer does (cds-pdf-text.js): it used to
+// run in the CDS parse lane alone, beside a student's PDF or OCR job, and
+// the parser-version re-parses read about thirty workbooks each refresh.
 export async function parseCDSXlsxFile(xlsxPath) {
-  const items = await extractItemsFromXlsx(xlsxPath);
+  const items = await runDocumentJob(() => extractItemsFromXlsx(xlsxPath), { background: true });
   const allText = items.map((item) => item.str).join(" ");
   const result = { source: "cds", parserVersion: CDS_PARSER_VERSION, extractionMethod: "xlsx" };
 

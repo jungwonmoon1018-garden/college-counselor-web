@@ -10,8 +10,10 @@ import { planningCycle, planningCycleStartYear, resolveCycleDate as resolvePlann
 // (2026-11) reads every page for the planning cycle (shared/admissions-cycle.js):
 // a yearless date lands in the cycle students are planning for, not the
 // one that rolled over on Aug 1, and a snapshot of another cycle is no
-// longer current.
-export const SCOUT_VERSION = 5;
+// longer current. Version 6 (2026-11) keeps a date of the closing cycle
+// until it has passed: from Feb 1 version 5 dropped a stated "February 15"
+// and moved a yearless one a year later.
+export const SCOUT_VERSION = 6;
 
 // ─── Pure extraction ───────────────────────────────────────────────────
 export const TEST_POLICY_LABELS = Object.freeze({
@@ -66,10 +68,12 @@ function splitSentences(text) {
 
 // Turn a month/day (optionally with a year) into the ISO date for the
 // planning cycle: Aug–Dec dates belong to the cycle's first calendar year,
-// Jan–Jul to its second, and a date outside that cycle is dropped. It used
-// to place dates in the cycle that rolled over on Aug 1 and drop anything
-// older than 150 days, so from February a yearless "November 1" was last
-// fall's and from April it was nothing at all.
+// Jan–Jul to its second. A date of the closing cycle that has not passed
+// yet (a February 15 deadline read on Feb 3) keeps its own year; any other
+// date outside the planning cycle is dropped. It used to place dates in the
+// cycle that rolled over on Aug 1 and drop anything older than 150 days, so
+// from February a yearless "November 1" was last fall's and from April it
+// was nothing at all.
 export function resolveCycleDate(month, day, year, now = new Date()) {
   return resolvePlanningCycleDate(month, day, year, now);
 }
@@ -465,6 +469,12 @@ export function policyFields(policy) {
   return fields;
 }
 
+function sameDayNextCycle(a, b) {
+  const iso = /^(\d{4})(-\d{2}-\d{2})$/;
+  const [ma, mb] = [iso.exec(String(a ?? "")), iso.exec(String(b ?? ""))];
+  return Boolean(ma && mb) && ma[2] === mb[2] && Number(mb[1]) === Number(ma[1]) + 1;
+}
+
 export function diffPolicies(previous, next) {
   const before = policyFields(previous);
   const after = policyFields(next);
@@ -477,6 +487,10 @@ export function diffPolicies(previous, next) {
     // change — pages get restructured; only a stated → different stated
     // value counts.
     if (a != null && b == null) continue;
+    // Nor is a deadline read on the same day of the next cycle: a closing
+    // cycle's date is kept until it passes, and a yearless "February 15"
+    // read again in March is next year's February 15.
+    if (sameDayNextCycle(a, b)) continue;
     changes.push({
       field: key,
       previousValue: a,

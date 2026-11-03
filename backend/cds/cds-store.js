@@ -18,6 +18,7 @@ import { fileURLToPath } from "node:url";
 
 import { persistAndValidate, loadValidatedRecord, loadAllValidatedRecords, loadLatestValidation } from "./cds-validator.js";
 import { normalizeSchoolName } from "./cds-search.js";
+import { isOlderCycle } from "./cds-ingest-pipeline.js";
 import { cycleDate, cycleLabel, planningCycleStartYear } from "../shared/admissions-cycle.js";
 import { expandCollegeAlias } from "../colleges/college-research.js";
 
@@ -163,11 +164,41 @@ export function readCdsTestPolicy(record) {
 }
 
 // ─── Ingest: disk → cds_records ────────────────────────────────────────
+// Whether a stored record is ahead of a committed parsed file: a later
+// cycle, or the same cycle read by a newer parser. The committed files are
+// a floor, not the latest word: the June–December refresh stores the newer
+// documents, and every boot used to write the files back over its rows
+// (2024-25 read by parser 6, with the "test_required" that version 8 stopped
+// defaulting to, in place of 2025-26 read by parser 8), which the next
+// refresh then re-parsed, about 140 documents on the 512 MB instance. A
+// file without a cycle label never replaces a row that has one. `stored`
+// and `parsed` are record-shaped ({ yearLabel, parserVersion }); a file
+// without a parser version counts as 2, as persistAndValidate stores it.
+export function storedCdsIsAhead(stored, parsed) {
+  if (!stored) return false;
+  const storedLabel = stored.yearLabel || null;
+  const diskLabel = parsed?.yearLabel || null;
+  if (storedLabel && !diskLabel) return true;
+  if (isOlderCycle(diskLabel, storedLabel)) return true;
+  return storedLabel === diskLabel && (Number(stored.parserVersion) || 0) > (Number(parsed?.parserVersion ?? 2) || 0);
+}
+
+function storedCdsRow(ragStmts, slug) {
+  try {
+    const row = ragStmts.cds.getBySlug.get(slug);
+    return row ? { yearLabel: row.year_label, parserVersion: row.parser_version } : null;
+  } catch {
+    return null;
+  }
+}
+
 // Reads every parsed record file (skips _meta files) and upserts it via the
-// existing validated-persist path so corrections/overrides are reapplied.
-// Idempotent: safe to call on every boot.
-export async function ingestParsedCdsCache(ragStmts, { dir = DEFAULT_PARSED_CDS_DIR } = {}) {
-  const result = { dir, ingested: 0, skipped: 0, errors: [] };
+// existing validated-persist path so corrections/overrides are reapplied,
+// except over a stored record that is ahead of the file (storedCdsIsAhead);
+// `force` writes every file regardless. Idempotent: safe to call on every
+// boot.
+export async function ingestParsedCdsCache(ragStmts, { dir = DEFAULT_PARSED_CDS_DIR, force = false } = {}) {
+  const result = { dir, ingested: 0, skipped: 0, keptNewer: 0, errors: [] };
   let files;
   try {
     files = fs.readdirSync(dir);
@@ -183,6 +214,11 @@ export async function ingestParsedCdsCache(ragStmts, { dir = DEFAULT_PARSED_CDS_
       const parsed = JSON.parse(fs.readFileSync(full, "utf8"));
       if (!parsed?.slug && !parsed?.school) { result.skipped++; continue; }
       if (!parsed.slug) parsed.slug = slugifySchoolName(parsed.school);
+      if (!force && storedCdsIsAhead(storedCdsRow(ragStmts, parsed.slug), parsed)) {
+        result.skipped++;
+        result.keptNewer++;
+        continue;
+      }
       await persistAndValidate(ragStmts, parsed, { sourceKind: parsed.source || "cds_cache" });
       result.ingested++;
     } catch (err) {
@@ -223,8 +259,7 @@ export async function ensureCdsStoreSeeded(ragStmts, { dir = DEFAULT_PARSED_CDS_
       // the new sections.
       const stored = loadAllValidatedRecords(ragStmts);
       const storedWithExtras = stored.filter((record) => record.extras && Object.keys(record.extras).length).length;
-      const storedLabel = new Map(stored.map((record) => [record.slug, record.yearLabel || null]));
-      const storedVersion = new Map(stored.map((record) => [record.slug, Number(record.parserVersion) || 0]));
+      const storedBySlug = new Map(stored.map((record) => [record.slug, record]));
       let diskWithExtras = 0;
       // A parsed record replaced on disk by a newer document (Columbia's
       // General Studies CDS swapped for the Columbia College and Engineering
@@ -232,15 +267,20 @@ export async function ensureCdsStoreSeeded(ragStmts, { dir = DEFAULT_PARSED_CDS_
       // the old document's numbers on every deployment that was already
       // populated. A file re-parsed by a newer parser version (the ACT
       // sections, score-range and GPA distributions of version 4) is
-      // re-ingested for the same reason.
+      // re-ingested for the same reason. A label that differs because the
+      // refresh stored a newer cycle than the file is not a changed
+      // document (storedCdsIsAhead): it used to set off a full re-ingest on
+      // every boot.
       const relabeled = [];
       const reparsed = [];
       try {
         for (const slug of diskSlugs) {
           const parsed = JSON.parse(fs.readFileSync(path.join(dir, `${slug}.json`), "utf8"));
           if (parsed?.extras && Object.keys(parsed.extras).length) diskWithExtras++;
-          if (parsed?.yearLabel && storedLabel.has(slug) && storedLabel.get(slug) !== parsed.yearLabel) relabeled.push(slug);
-          if (storedVersion.has(slug) && (Number(parsed?.parserVersion) || 0) > storedVersion.get(slug)) reparsed.push(slug);
+          const row = storedBySlug.get(slug);
+          if (!row || storedCdsIsAhead(row, parsed)) continue;
+          if (parsed?.yearLabel && (row.yearLabel || null) !== parsed.yearLabel) relabeled.push(slug);
+          else if ((Number(parsed?.parserVersion) || 0) > (Number(row.parserVersion) || 0)) reparsed.push(slug);
         }
       } catch { /* unreadable file → treat as no extras */ }
       const extrasBehind = diskWithExtras > 0 && storedWithExtras === 0;
@@ -251,7 +291,8 @@ export async function ensureCdsStoreSeeded(ragStmts, { dir = DEFAULT_PARSED_CDS_
       if (reparsed.length) console.log(`[cds-store] re-ingesting ${reparsed.length} parsed CDS record(s) from a newer parser version: ${reparsed.slice(0, 8).join(", ")}${reparsed.length > 8 ? ", …" : ""}`);
     }
   }
-  const res = await ingestParsedCdsCache(ragStmts, { dir });
+  const res = await ingestParsedCdsCache(ragStmts, { dir, force });
+  if (res.keptNewer) console.log(`[cds-store] kept ${res.keptNewer} stored CDS record(s) newer than the committed files`);
   return { seeded: true, ...res };
 }
 

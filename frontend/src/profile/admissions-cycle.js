@@ -49,12 +49,41 @@ export function cycleOfDate(iso) {
   return cycleLabel(Number(m[2]) >= 8 ? year : year - 1);
 }
 
+// Today in the last zone on Earth (UTC-12), the date the server counts a
+// date-only deadline from (backend/shared/calendar-date.js).
+function anywhereOnEarthToday(now) {
+  return new Date(now.getTime() - 12 * 3_600_000).toISOString().slice(0, 10);
+}
+
+// The cycle the planning cycle replaced on Feb 1, while it still has a day
+// left (to Jul 31): its deposit and late regular deadlines are still ahead.
+export function closingCycleStartYear(now = new Date()) {
+  const start = planningCycleStartYear(now) - 1;
+  return anywhereOnEarthToday(now) <= `${start + 1}-07-31` ? start : null;
+}
+
 // The cycle a student applies in, from their class year: the class of 2028
-// applies in fall 2027. Never earlier than the planning cycle.
+// applies in fall 2027. A senior keeps their own cycle while it is closing;
+// anyone else plans for the planning cycle or a later one.
 export function applicationCycleStartYear(classOf, now = new Date()) {
   const planning = planningCycleStartYear(now);
   const own = Number(classOf);
-  return Number.isInteger(own) && own - 1 > planning ? own - 1 : planning;
+  if (!Number.isInteger(own)) return planning;
+  if (own - 1 > planning) return own - 1;
+  return own - 1 === closingCycleStartYear(now) ? own - 1 : planning;
+}
+
+// Where a school's published date lands in the student's own cycle: itself
+// when it is of that cycle, carried forward (approximate) from an earlier
+// one, nothing from a later one. Each date names its own cycle: a February
+// reading holds next fall's Early Action beside this winter's Regular
+// Decision.
+export function dateForOwnCycle(iso, ownStartYear) {
+  const from = cycleStartYearOf(cycleOfDate(iso));
+  if (from == null || !Number.isInteger(ownStartYear) || from > ownStartYear || !isRealDate(String(iso).slice(0, 10))) return null;
+  if (from === ownStartYear) return { date: String(iso).slice(0, 10), kind: "school", fromStartYear: from };
+  const date = shiftDateToCycle(iso, from, ownStartYear);
+  return date ? { date, kind: "carried", fromStartYear: from } : null;
 }
 
 export function typicalDeadlineDates(startYear) {

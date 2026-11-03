@@ -22,7 +22,7 @@
 import crypto from "node:crypto";
 import { assertSafeFetchTarget } from "../security/safe-fetch.js";
 import { expandCollegeAlias, slugifyCollege } from "../colleges/college-research.js";
-import { planningCycle } from "../shared/admissions-cycle.js";
+import { cycleOfDate, planningCycle } from "../shared/admissions-cycle.js";
 import { insertFact } from "./fact-store.js";
 import { failedStreak, scoutRunDue } from "./scout-cadence.js";
 import { policyFields, extractPolicyFromPages, diffPolicies, SCOUT_VERSION, PLAN_LABELS, TEST_POLICY_LABELS } from "./policy-scout-extract.js";
@@ -142,6 +142,10 @@ export function writePolicyFacts(factStmts, { slug, schoolName, unitId, policy, 
   for (const [key, field] of Object.entries(policyFields(policy))) {
     const domain = hostOf(field.sourceUrl);
     if (!domain) continue;
+    // A deadline belongs to the cycle its date falls in: from Feb 1 a
+    // reading holds the closing cycle's open February 15 beside next fall's
+    // dates, and that fact expires with its own cycle.
+    const factCycle = (field.type === "date" && cycleOfDate(field.value)) || cycle;
     try {
       insertFact(factStmts, {
         topic_type: "school_policies",
@@ -158,8 +162,8 @@ export function writePolicyFacts(factStmts, { slug, schoolName, unitId, policy, 
         verified_at: checkedAt,
         verified_by: "admissions-policy-scout (official site)",
         effective_at: checkedAt,
-        expires_at: cycleExpiry(cycle),
-        academic_year: cycle,
+        expires_at: cycleExpiry(factCycle),
+        academic_year: factCycle,
         provenance_type: "official_site_scout",
         seed_version: "policy_scout_v1",
         confidence: "verified",
@@ -461,8 +465,29 @@ export function snapshotAsDeadlineRecord(snapshot) {
     const gapDays = (Date.parse(record.deadlines.edII) - Date.parse(record.deadlines.ed)) / 86_400_000;
     if (!Number.isFinite(gapDays) || gapDays < 30) record.deadlines.edII = null;
   }
-  return Object.values(record.deadlines).some(Boolean) ? record : null;
+  const dated = Object.entries(record.deadlines).filter(([, date]) => date);
+  if (!dated.length) return null;
+  // Each date names its own cycle. From Feb 1 a reading is for next fall but
+  // keeps the closing cycle's dates that are still ahead (a February 15
+  // Regular Decision), so the record says which cycle those are: as its
+  // cycle when every date is of one, otherwise beside each date that is not
+  // of the record's. The deadline answer prints the label with the date,
+  // and the client dates a reminder by the date's own cycle.
+  const cycles = new Set(dated.map(([, date]) => cycleOfDate(date)).filter(Boolean));
+  if (cycles.size === 1) record.cycle = [...cycles][0];
+  for (const [slot, date] of dated) {
+    const own = cycleOfDate(date);
+    if (own && own !== record.cycle) record.labels[slot] = `${record.labels[slot] || SLOT_LABELS[slot]} (${own} cycle)`;
+  }
+  return record;
 }
+
+const SLOT_LABELS = {
+  ea: PLAN_LABELS.early_action,
+  ed: PLAN_LABELS.early_decision,
+  edII: PLAN_LABELS.early_decision_2,
+  rd: PLAN_LABELS.regular_decision,
+};
 
 export function formatPolicyLine(snapshot) {
   if (!snapshot?.policy) return null;
@@ -471,7 +496,10 @@ export function formatPolicyLine(snapshot) {
   if (tp?.value) parts.push(`test policy — ${TEST_POLICY_LABELS[tp.value] || tp.value}${tp.through ? ` (through ${tp.through})` : ""}`);
   for (const plan of Object.keys(PLAN_LABELS)) {
     const entry = snapshot.policy.deadlines?.[plan];
-    if (entry?.date) parts.push(`${PLAN_LABELS[plan]} deadline ${entry.date}`);
+    if (!entry?.date) continue;
+    // A closing-cycle date kept after Feb 1 says whose it is.
+    const own = cycleOfDate(entry.date);
+    parts.push(`${PLAN_LABELS[plan]} deadline ${entry.date}${own && snapshot.policy.cycle && own !== snapshot.policy.cycle ? ` (${own} cycle)` : ""}`);
   }
   const fee = snapshot.policy.applicationFee;
   if (fee && Number.isFinite(fee.amount)) parts.push(`application fee ${fee.amount === 0 ? "none" : `${fee.amount} USD`}`);

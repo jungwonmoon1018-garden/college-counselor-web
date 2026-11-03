@@ -18,8 +18,10 @@ import {
   cdsVerification,
   strictSchoolKey,
   schoolNamesCompatible,
+  storedCdsIsAhead,
 } from "../cds/cds-store.js";
 import { resolveDownloadURL, unwrapGoogleRedirect, isBlockedIp, assertSafeFetchTarget } from "../cds/cds-ingest-pipeline.js";
+import { persistAndValidate } from "../cds/cds-validator.js";
 
 function freshStmts() {
   const db = new Database(":memory:");
@@ -232,6 +234,70 @@ test("a parsed file re-parsed by a newer parser version is re-ingested on boot",
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// The refresh stores a newer cycle (or the same cycle read by a newer
+// parser) than the committed seed carries. Every boot used to see the
+// differing label as a changed document, re-persist all the committed files
+// over the refreshed rows (2024-25 at parser 6 with its defaulted
+// "test_required" back in place of 2025-26 at parser 8) and leave the next
+// refresh to re-parse every one of them on the 512 MB instance.
+test("a boot never writes the committed seed over a newer refreshed record", async () => {
+  const stmts = freshStmts();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cds-store-newer-"));
+  const seed = (slug, overrides) => ({
+    school: slug.split("-").map((w) => w[0].toUpperCase() + w.slice(1)).join(" "), slug, year: 2025, yearLabel: "2024-25", parserVersion: 6,
+    overallAdmitRate: 0.4, enrolledSAT: { p25: 1200, p75: 1400 }, testPolicy: "test_required", c7: { gpa: "very_important" },
+    ...overrides,
+  });
+  const write = (record) => fs.writeFileSync(path.join(dir, `${record.slug}.json`), JSON.stringify(record));
+  try {
+    write(seed("elm-college"));
+    write(seed("oak-college", { year: 2026, yearLabel: "2025-26" }));
+    assert.equal((await ensureCdsStoreSeeded(stmts, { dir })).seeded, true);
+    // The refresh reads the newer documents.
+    await persistAndValidate(stmts, { ...seed("elm-college"), year: 2026, yearLabel: "2025-26", parserVersion: 8, testPolicy: null, overallAdmitRate: 0.38 });
+    await persistAndValidate(stmts, { ...seed("oak-college"), year: 2026, yearLabel: "2025-26", parserVersion: 8, testPolicy: "test_optional" });
+
+    const next = await ensureCdsStoreSeeded(stmts, { dir });
+    assert.equal(next.seeded, false, "an older committed label is not a changed document");
+    const kept = () => [resolveStoredCdsRecord(stmts, { slug: "elm-college" }), resolveStoredCdsRecord(stmts, { slug: "oak-college" })];
+    let [elm, oak] = kept();
+    assert.deepEqual([elm.yearLabel, elm.parserVersion, elm.testPolicy ?? null, elm.overallAdmitRate], ["2025-26", 8, null, 0.38]);
+    assert.deepEqual([oak.yearLabel, oak.parserVersion, oak.testPolicy], ["2025-26", 8, "test_optional"]);
+
+    // A new school on disk re-ingests the whole directory; the refreshed
+    // rows still stand.
+    write(seed("pine-college"));
+    const topUp = await ensureCdsStoreSeeded(stmts, { dir });
+    assert.equal(topUp.seeded, true);
+    assert.equal(topUp.ingested, 1);
+    assert.equal(resolveStoredCdsRecord(stmts, { slug: "pine-college" }).yearLabel, "2024-25");
+    [elm, oak] = kept();
+    assert.deepEqual([elm.yearLabel, elm.parserVersion], ["2025-26", 8]);
+    assert.deepEqual([oak.yearLabel, oak.parserVersion], ["2025-26", 8]);
+
+    // A committed file of a newer cycle still replaces the stored row.
+    write(seed("elm-college", { year: 2027, yearLabel: "2026-27", parserVersion: 8, overallAdmitRate: 0.36 }));
+    assert.equal((await ensureCdsStoreSeeded(stmts, { dir })).seeded, true);
+    assert.deepEqual([kept()[0].yearLabel, kept()[0].overallAdmitRate], ["2026-27", 0.36]);
+
+    // `force` re-ingests everything, as it always has.
+    const forced = await ensureCdsStoreSeeded(stmts, { dir, force: true });
+    assert.equal(forced.seeded, true);
+    assert.equal(kept()[1].parserVersion, 6);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+  const ahead = (stored, parsed) => storedCdsIsAhead(stored, parsed);
+  assert.equal(ahead({ yearLabel: "2025-26", parserVersion: 8 }, { yearLabel: "2024-25", parserVersion: 8 }), true, "later cycle");
+  assert.equal(ahead({ yearLabel: "2025-26", parserVersion: 8 }, { yearLabel: "2025-26", parserVersion: 6 }), true, "newer parser");
+  assert.equal(ahead({ yearLabel: "2025-26", parserVersion: 6 }, { yearLabel: "2025-26", parserVersion: 6 }), false, "the same reading");
+  assert.equal(ahead({ yearLabel: "2025-26", parserVersion: 8 }, { yearLabel: "2026-27", parserVersion: 6 }), false, "the file's cycle is newer");
+  assert.equal(ahead({ yearLabel: "2025-26", parserVersion: 3 }, { parserVersion: 8 }), true, "an unlabeled file never replaces a labeled row");
+  assert.equal(ahead({ yearLabel: null, parserVersion: 3 }, { yearLabel: "2024-25", parserVersion: 3 }), false);
+  assert.equal(ahead({ yearLabel: "2024-25", parserVersion: 2 }, { yearLabel: "2024-25" }), false, "no version is version 2");
+  assert.equal(ahead(null, { yearLabel: "2024-25" }), false);
 });
 
 test("a consistency-checked record is usable but not verified; an inconsistent one is neither", () => {
