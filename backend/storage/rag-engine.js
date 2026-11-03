@@ -18,7 +18,7 @@ import { getCollegeHistory, summarizeCollegeHistory } from "../colleges/college-
 import { recomputeStudentDirectionality } from "../activities/ec-vectorizer.js";
 import { recomputeStudentECStrengthVectors, buildDefaultLLMClient, toPublicShape as toStrengthPublicShape } from "../activities/ec-strength-vectorizer.js";
 import { getActiveNarrative } from "../activities/narrative-store.js";
-export { initRAGTables, seedBaselines, hydrateBaselineWebsites, prepareRAGStatements } from "./rag-schema.js";
+export { initRAGTables, seedBaselines, hydrateBaselineWebsites, prepareRAGStatements, compactProfileHistory, PROFILE_HISTORY_LIMITS } from "./rag-schema.js";
 
 
 // ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// COLLEGE SCORECARD ??historical data helpers
@@ -161,35 +161,98 @@ export function extractGoalUnitIds(goals) {
 
 // ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// STUDENT SYNC + CHANGE DETECTION
 // ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??
+// The profile's revision: an opaque token that changes only when a new
+// snapshot is stored. The latest snapshot's id is exactly that, because an
+// unchanged sync stores nothing and compaction never removes the newest
+// snapshot. The client sends it back as `baseRevision`, so a device holding
+// an older copy cannot overwrite a newer save from another device.
+export function profileRevision(snapshot) {
+  return snapshot?.id ? String(snapshot.id) : null;
+}
+
+// What a sync would store, column by column, in the form insertSnapshot
+// writes it.
+function storedSnapshotColumns(profile, activities, goals, majorInterest) {
+  const classRank = normalizeClassRank(profile?.classRank);
+  return {
+    gpa_unweighted: profile?.gpa?.unweighted ?? null,
+    gpa_weighted: profile?.gpa?.weighted ?? null,
+    courses_json: JSON.stringify(profile?.courses || []),
+    ap_scores_json: JSON.stringify(profile?.apScores || []),
+    test_scores_json: JSON.stringify(profile?.testScores || []),
+    activities_json: JSON.stringify(activities || []),
+    major_interest: majorInterest || null,
+    goals_json: JSON.stringify(goals || []),
+    class_rank_json: classRank ? JSON.stringify(classRank) : null,
+  };
+}
+
+// Whether the latest snapshot already holds exactly these columns. Every
+// stored column is compared, removals and goals included, which
+// detectChanges (additions and promotions only) does not see.
+function sameAsSnapshot(prev, columns) {
+  if (!prev) return false;
+  const numeric = (value) => (value == null || value === "" ? null : Number(value));
+  return Object.entries(columns).every(([key, value]) => (key.startsWith("gpa_")
+    ? numeric(prev[key]) === numeric(value)
+    : (prev[key] ?? null) === value));
+}
+
 export function syncStudentData(stmts, studentId, profile, activities, goals, majorInterest, trigger = "user_update") {
   const prev = stmts.getLatestSnapshot.get(studentId);
+  const columns = storedSnapshotColumns(profile, activities, goals, majorInterest);
+
+  // An unchanged sync stores nothing. The client syncs a second after any
+  // change to its state, a chat answer included, and each of those used to
+  // append a full snapshot and five capability rows (about 6 KB a turn, never
+  // pruned) and rerun the activity-strength and trajectory reads; the no-op
+  // snapshot also became the "prior" one, so one chat turn erased an
+  // improving-GPA trend. The revision stays where it was.
+  if (sameAsSnapshot(prev, columns)) {
+    return {
+      synced: true,
+      unchanged: true,
+      changesDetected: 0,
+      changes: [],
+      revision: profileRevision(prev),
+      ecVectors: null,
+      directionality: null,
+    };
+  }
+
   const changes = detectChanges(prev, profile, activities, majorInterest);
   const academicYear = getAcademicYear();
 
   const snapshotId = crypto.randomUUID();
-  stmts.insertSnapshot.run(
-    snapshotId, studentId, changes.length > 0 ? "update" : "sync",
-    profile?.gpa?.unweighted ?? null,
-    profile?.gpa?.weighted ?? null,
-    JSON.stringify(profile?.courses || []),
-    JSON.stringify(profile?.apScores || []),
-    JSON.stringify(profile?.testScores || []),
-    JSON.stringify(activities || []),
-    majorInterest || null,
-    JSON.stringify(goals || []),
-    trigger
-  );
-  const classRank = normalizeClassRank(profile?.classRank);
-  if (stmts.setSnapshotClassRank) stmts.setSnapshotClassRank.run(classRank ? JSON.stringify(classRank) : null, snapshotId);
-
-  for (const change of changes) {
-    stmts.insertMilestone.run(
-      crypto.randomUUID(), studentId, change.type, change.title,
-      JSON.stringify(change.data), academicYear
+  // The snapshot, its class rank, the milestones and the capability rows
+  // land in one transaction: a failure part-way used to leave a snapshot
+  // without its class rank or its percentiles.
+  const write = () => {
+    stmts.insertSnapshot.run(
+      snapshotId, studentId, changes.length > 0 ? "update" : "sync",
+      columns.gpa_unweighted,
+      columns.gpa_weighted,
+      columns.courses_json,
+      columns.ap_scores_json,
+      columns.test_scores_json,
+      columns.activities_json,
+      columns.major_interest,
+      columns.goals_json,
+      trigger
     );
-  }
+    if (stmts.setSnapshotClassRank) stmts.setSnapshotClassRank.run(columns.class_rank_json, snapshotId);
 
-  recomputeCapabilities(stmts, studentId, profile, activities);
+    for (const change of changes) {
+      stmts.insertMilestone.run(
+        crypto.randomUUID(), studentId, change.type, change.title,
+        JSON.stringify(change.data), academicYear
+      );
+    }
+
+    recomputeCapabilities(stmts, studentId, profile, activities, snapshotId);
+  };
+  if (typeof stmts.inTransaction === "function") stmts.inTransaction(write);
+  else write();
 
   // Recompute EC strength vectors on every profile update.
   // Per policy: whenever a student edits any EC, the unified strength
@@ -254,8 +317,10 @@ export function syncStudentData(stmts, studentId, profile, activities, goals, ma
 
   return {
     synced: true,
+    unchanged: false,
     changesDetected: changes.length,
     changes,
+    revision: snapshotId,
     ecVectors: {
       count: Array.isArray(activities) ? activities.filter((a) => a?.name).length : 0,
       recomputedAt: new Date().toISOString(),
@@ -390,7 +455,54 @@ function detectChanges(prevSnapshot, profile, activities, majorInterest) {
 
 // ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// CAPABILITY COMPUTATION ??delegates to rules-engine.js
 // ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??
-function recomputeCapabilities(stmts, studentId, profile, activities) {
+function recomputeCapabilities(stmts, studentId, profile, activities, snapshotId = null) {
+  const metrics = capabilityMetrics(stmts, profile, activities);
+  for (const m of metrics) {
+    stmts.insertCapability.run(crypto.randomUUID(), studentId, m.metric, m.value, m.pNat, m.pCoh, snapshotId);
+  }
+  return metrics.length;
+}
+
+function snapshotProfile(snapshot) {
+  return {
+    profile: {
+      gpa: { unweighted: snapshot.gpa_unweighted, weighted: snapshot.gpa_weighted },
+      courses: safeParseJSON(snapshot.courses_json, []),
+      testScores: safeParseJSON(snapshot.test_scores_json, []),
+    },
+    activities: safeParseJSON(snapshot.activities_json, []),
+  };
+}
+
+// A snapshot that has no capability rows of its own (one stored before
+// snapshot_id existed) gets them computed from what it holds. The
+// percentiles are deterministic from the seeded baselines, so this is the
+// value the sync would have written.
+function ensureSnapshotCapabilities(stmts, snapshot) {
+  if (!snapshot?.id || !stmts.countCapabilitiesForSnapshot) return 0;
+  if ((stmts.countCapabilitiesForSnapshot.get(snapshot.id)?.n || 0) > 0) return 0;
+  const { profile, activities } = snapshotProfile(snapshot);
+  return recomputeCapabilities(stmts, snapshot.student_id, profile, activities, snapshot.id);
+}
+
+// Once at boot: link every student's latest snapshot to capability rows of
+// its own, for students whose rows predate snapshot_id. Without it their
+// latest metrics would read as empty until their next changed save.
+export function backfillLatestCapabilities(stmts) {
+  if (!stmts.latestSnapshotsWithoutCapabilities) return { students: 0 };
+  const pending = stmts.latestSnapshotsWithoutCapabilities.all();
+  let students = 0;
+  const run = () => {
+    for (const snapshot of pending) {
+      if (ensureSnapshotCapabilities(stmts, snapshot) > 0) students += 1;
+    }
+  };
+  if (typeof stmts.inTransaction === "function") stmts.inTransaction(run);
+  else run();
+  return { students };
+}
+
+function capabilityMetrics(stmts, profile, activities) {
   const metrics = [];
 
   // GPA percentile (delegated to rules-engine.js computePercentile)
@@ -431,9 +543,7 @@ function recomputeCapabilities(stmts, studentId, profile, activities) {
     metrics.push({ metric: "ap_rigor_index", value: apResult.index, pNat: null, pCoh: null });
   }
 
-  for (const m of metrics) {
-    stmts.insertCapability.run(crypto.randomUUID(), studentId, m.metric, m.value, m.pNat, m.pCoh);
-  }
+  return metrics;
 }
 
 

@@ -3,8 +3,7 @@
 // network checks in front of the admin surface. Moved out of server.js on 2026-09-20.
 // `deps` is server.js's routeDeps object: live getters onto the bindings
 // these functions read there (ADMIN_COOKIE, ALLOWED_ORIGINS, ENCRYPTION_KEY,
-// LOCALHOST_ORIGIN_RE, NODE_ENV, TOKEN_TTL_MS, WEB_CONFIG_KEY,
-// WEB_DEPLOYMENT, authStore, sessionStmts, sessionTokens).
+// LOCALHOST_ORIGIN_RE, NODE_ENV, WEB_CONFIG_KEY, WEB_DEPLOYMENT, authStore).
 import crypto from "node:crypto";
 import { shouldUseSecureAdminCookie } from "../security/security-hardening.js";
 import { isLoopbackAddress } from "../security/security-auth.js";
@@ -20,34 +19,11 @@ export function createSessionToken(emailHash, studentId) {
   return deps.authStore.issueStudentSession(emailHash, studentId);
 }
 
-export function validateTokenLegacy(token) {
-  if (!token) return null;
-  const now = Date.now();
-  // 1) Fast path — in-memory hot cache.
-  let session = deps.sessionTokens.get(token);
-  if (session) {
-    if (now > session.expiresAt) { deps.sessionTokens.delete(token); try { deps.sessionStmts.del.run(hashToken(token)); } catch {} return null; }
-    session.expiresAt = now + deps.TOKEN_TTL_MS;
-    try { deps.sessionStmts.touch.run(session.expiresAt, hashToken(token)); } catch {}
-    return session;
-  }
-  // 2) Cold path — survived a restart, look it up in SQLite and
-  //    re-hydrate the Map. This is what fixes "Invalid or expired
-  //    session token" after a backend restart.
-  try {
-    const row = deps.sessionStmts.get.get(hashToken(token));
-    if (!row) return null;
-    if (now > row.expires_at) { deps.sessionStmts.del.run(hashToken(token)); return null; }
-    const rehydrated = { emailHash: row.email_hash, studentId: row.student_id, expiresAt: now + deps.TOKEN_TTL_MS };
-    deps.sessionTokens.set(token, rehydrated);
-    deps.sessionStmts.touch.run(rehydrated.expiresAt, hashToken(token));
-    return rehydrated;
-  } catch (e) {
-    console.warn("[SESSION] DB lookup failed:", e.message);
-    return null;
-  }
-}
-
+// Sessions live in the auth store (security/security-auth.js), which hashes
+// each token, reads the database on every request so a restart loses
+// nothing, and is swept by the hourly session_cleanup job. The in-memory
+// token cache that sat in front of it until 2026-11-03 had been dead code
+// since validateToken moved to the store.
 export function validateToken(token) {
   return deps.authStore.validateStudentSession(token);
 }

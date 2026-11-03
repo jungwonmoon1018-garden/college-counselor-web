@@ -1,16 +1,17 @@
 // routes/students.js — the /api/students routes, moved out of server.js on
 // 2026-09-16 so the server file holds setup and helpers only. `deps` is
 // the server's routeDeps object: live getters onto the module bindings
-// these handlers use (CHAT_EXTRACT_MAX_BYTES, SCORECARD_API_KEY, assembleProfileForGeneration, authLimiter, authStore, baselineCollegeNames, bearerToken, buildStudentCallLLM, chatGraphStmts, collectStudentRows, createSessionToken, db, deleteStudentRows, hashEmail, hashIP, maybeAutoRegenerateNarrative, piiStmts, piiVault, queueChatEvidence, ragStmts, removeStudentFiles, requireStudentAuth, safeJSON, shapeDeadline, shouldCullOverdue, stmts, studentLimiter, vectorStore).
+// these handlers use (CHAT_EXTRACT_MAX_BYTES, SCORECARD_API_KEY, assembleProfileForGeneration, authLimiter, authStore, baselineCollegeNames, bearerToken, buildStudentCallLLM, chatGraphStmts, collectStudentRows, createSessionToken, db, eraseStudent, hashEmail, hashIP, maybeAutoRegenerateNarrative, piiStmts, piiVault, queueChatEvidence, ragStmts, requireStudentAuth, safeJSON, shapeDeadline, shouldCullOverdue, stmts, studentLimiter, vectorStore).
 import { normalizeEmail } from "../security/security-auth.js";
 import { deleteAllStudentPII, hashEmail as hashPIIEmail, retrieveStudentPII, storeStudentPII } from "../storage/pii-vault.js";
 import crypto from "node:crypto";
 import { getOnboardingConsentRequirements, validateRequiredConsents } from "../security/consent.js";
 import { getBudgetStatus } from "../security/usage-budget.js";
-import { extractGoalUnitIds, fetchAndPersistCollegeHistory, getDirectStructuredStudentData, getStudentTrends, syncStudentData } from "../storage/rag-engine.js";
+import { extractGoalUnitIds, fetchAndPersistCollegeHistory, getDirectStructuredStudentData, getStudentTrends, profileRevision, syncStudentData } from "../storage/rag-engine.js";
 import * as chatHistory from "../chat/chat-history.js";
 import { redactProviderText, screenInput, screenOutput } from "../chat/content-moderation.js";
 import { isCrisisText } from "../chat/policy-router.js";
+import { renderCrisisText } from "../chat/rules-engine.js";
 import { parseAttachedFilesPreface } from "../activities/ec-chat-evidence.js";
 import * as chatGraph from "../chat/chat-graph.js";
 import { buildTranscriptParseMessages, parseTranscriptModelReply } from "../academics/transcript-import.js";
@@ -35,6 +36,23 @@ function deadlineDateOutside(ms, now = Date.now()) {
   latest.setUTCFullYear(latest.getUTCFullYear() + DEADLINE_YEARS_AHEAD);
   if (ms >= DEADLINE_EARLIEST_MS && ms <= latest.getTime()) return null;
   return { from: new Date(DEADLINE_EARLIEST_MS).toISOString().slice(0, 10), to: latest.toISOString().slice(0, 10) };
+}
+
+// The stored profile as GET /api/students/profile returns it; a sync refused
+// for a stale base revision returns the same shape, so the client can merge
+// against what the server holds.
+function storedProfile(deps, snap) {
+  return {
+    gpa: { unweighted: snap.gpa_unweighted, weighted: snap.gpa_weighted },
+    classRank: deps.safeJSON(snap.class_rank_json, null),
+    courses: deps.safeJSON(snap.courses_json, []),
+    apScores: deps.safeJSON(snap.ap_scores_json, []),
+    testScores: deps.safeJSON(snap.test_scores_json, []),
+    activities: deps.safeJSON(snap.activities_json, []),
+    majorInterest: snap.major_interest,
+    goals: deps.safeJSON(snap.goals_json, []),
+    lastUpdated: snap.created_at,
+  };
 }
 
 export function registerStudentsRoutes(app, deps) {
@@ -144,19 +162,42 @@ export function registerStudentsRoutes(app, deps) {
 
   app.post("/api/students/sync", deps.studentLimiter, deps.requireStudentAuth, (req, res) => {
     try {
+      const latest = deps.ragStmts.getLatestSnapshot.get(req.studentId);
+      const currentRevision = profileRevision(latest);
+      // A save made against an older copy of the profile is refused, and the
+      // stored profile comes back so the client can merge. Without this a
+      // stale device's vault overwrote a newer save from another device on
+      // login: the old SAT, the old GPA, deleted activities back. A body
+      // with no baseRevision (API clients, the in-product skill) is accepted
+      // as before. Nothing awaits between this read and the write below, so
+      // no other save can land in between.
+      const baseRevision = req.body?.baseRevision;
+      if (baseRevision != null && baseRevision !== "" && String(baseRevision) !== currentRevision) {
+        return res.status(409).json({
+          error: "Your profile was changed on another device since this copy was loaded.",
+          code: "profile_revision_conflict",
+          revision: currentRevision,
+          profile: latest ? storedProfile(deps, latest) : null,
+        });
+      }
       // Each field is checked before it is stored (academics/profile-input.js):
       // what cannot be stored is set aside and named in the response, and the
       // rest of the save lands. Only field names reach the log, never values.
-      const input = normalizeSyncInput(req.body || {}, previousFromSnapshot(deps.ragStmts.getLatestSnapshot.get(req.studentId)));
+      const input = normalizeSyncInput(req.body || {}, previousFromSnapshot(latest));
       const { profile, activities, goals, majorInterest, setAside } = input;
       const trigger = typeof req.body?.trigger === "string" && req.body.trigger ? req.body.trigger.slice(0, 40) : "user_update";
       if (setAside.length) console.warn(`[SYNC] set aside: ${setAside.map((s) => (s.count ? `${s.field} (${s.count})` : s.field)).join(", ")}`);
       if (profile?.grade != null) deps.authStore.setStudentGrade(req.studentId, profile.grade);
       const result = syncStudentData(deps.ragStmts, req.studentId, profile, activities, goals, majorInterest, trigger);
 
+      // The audit row names the kind of change and nothing else. It used to
+      // carry the change's title ("New activity: <name> (<role>)", "GPA
+      // recorded: 3.62") under a prefix of the email hash, which anyone with
+      // the email could recompute, and it outlived account deletion. The
+      // hint is the id prefix every other audit writer uses.
       for (const change of result.changes || []) {
         if (change.significant) {
-          deps.stmts.insertAudit.run(crypto.randomUUID(), new Date().toISOString(), `profile_${change.type}`, (req.studentEmailHash || "").slice(0, 12), change.title.slice(0, 200), deps.hashIP(req.ip));
+          deps.stmts.insertAudit.run(crypto.randomUUID(), new Date().toISOString(), `profile_${change.type}`, req.studentId.slice(0, 12), change.type, deps.hashIP(req.ip));
         }
       }
 
@@ -192,7 +233,7 @@ export function registerStudentsRoutes(app, deps) {
       const snap = deps.ragStmts.getLatestSnapshot.get(req.studentId);
       const capabilities = deps.ragStmts.getLatestCapabilities.all(req.studentId);
       const milestoneCount = deps.ragStmts.getMilestones.all(req.studentId, 100).length;
-      if (!snap) return res.json({ profile: null, metrics: [], milestoneCount: 0 });
+      if (!snap) return res.json({ profile: null, revision: null, metrics: [], milestoneCount: 0 });
       const structuredMetrics = getDirectStructuredStudentData(deps.ragStmts, req.studentId, {
         snapshot: snap,
         capabilities,
@@ -200,17 +241,9 @@ export function registerStudentsRoutes(app, deps) {
 
       res.json({
         retrieval: "direct_db",
-        profile: {
-          gpa: { unweighted: snap.gpa_unweighted, weighted: snap.gpa_weighted },
-          classRank: deps.safeJSON(snap.class_rank_json, null),
-          courses: deps.safeJSON(snap.courses_json, []),
-          apScores: deps.safeJSON(snap.ap_scores_json, []),
-          testScores: deps.safeJSON(snap.test_scores_json, []),
-          activities: deps.safeJSON(snap.activities_json, []),
-          majorInterest: snap.major_interest,
-          goals: deps.safeJSON(snap.goals_json, []),
-          lastUpdated: snap.created_at,
-        },
+        profile: storedProfile(deps, snap),
+        // Sent back as the sync's baseRevision (see POST /api/students/sync).
+        revision: profileRevision(snap),
         metrics: capabilities.map(c => ({ metric: c.metric, value: c.value, percentileNational: c.percentile_national, percentileCohort: c.percentile_cohort })),
         structuredMetrics,
         milestoneCount,
@@ -359,7 +392,13 @@ export function registerStudentsRoutes(app, deps) {
       // thread graph (entities + a short advice excerpt, no model call) so
       // later turns can recall it without replaying the transcript.
       let threadGraph = null;
-      if (role === "assistant") {
+      // A crisis turn persists only the deterministic reply, never the
+      // student's words, so the "prior" user turn is an unrelated earlier
+      // question; indexing would file the hotline text as its advice. The
+      // client's text is pinned byte-identical to renderCrisisText, and the
+      // raw copy is compared because the output screen may mask a number.
+      const isCrisisReply = ["en-US", "ko"].some((locale) => originalContent.trim() === renderCrisisText(locale).trim());
+      if (role === "assistant" && !isCrisisReply) {
         try {
           const prior = chatGraph.latestUserTurn(deps.chatGraphStmts, req.params.id);
           if (prior?.content) {
@@ -488,12 +527,11 @@ export function registerStudentsRoutes(app, deps) {
 
   app.delete("/api/students", deps.studentLimiter, deps.requireStudentAuth, async (req, res) => {
     try {
-      const sid = req.studentId;
-      deps.deleteStudentRows(deps.piiVault.db, sid);
-      deps.deleteStudentRows(deps.db, sid);
-      deps.vectorStore.db.prepare("DELETE FROM embeddings WHERE source_id = ? AND source_type LIKE 'student%'").run(sid);
-      deps.authStore.deleteStudentCredential(sid);
-      await deps.removeStudentFiles(sid);
+      // server/student-data.js eraseStudent: the credential and sessions go
+      // first, then every row in the three databases, the audit rows that
+      // could lead back to the student, and the files; a follow-up sweep
+      // catches a background write that lands after this.
+      await deps.eraseStudent({ studentId: req.studentId, emailHash: req.studentEmailHash });
       deps.stmts.insertAudit.run(crypto.randomUUID(), new Date().toISOString(), "student_data_deleted", "", "account_erasure_completed", deps.hashIP(req.ip));
       return res.json({ deleted: true });
     } catch (err) {
@@ -505,10 +543,14 @@ export function registerStudentsRoutes(app, deps) {
   app.get("/api/students/export", deps.studentLimiter, deps.requireStudentAuth, (req, res) => {
     try {
       const sid = req.studentId;
-      const operational = deps.collectStudentRows(deps.db, sid, { exclude: ["student_credentials", "session_tokens"] });
+      // Sealed columns (chat-history.js SEALED_COLUMNS) are opened: the export
+      // used to hand over every conversation, thread title and thread-memory
+      // fact as ciphertext only the server could read.
+      const operational = deps.collectStudentRows(deps.db, sid, { exclude: ["student_credentials", "session_tokens"], open: chatHistory.openText });
       if (deps.db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='chat_messages'").get()) {
         operational.chat_messages = deps.db.prepare(`SELECT m.* FROM chat_messages m
-          JOIN chat_threads t ON t.id = m.thread_id WHERE t.student_id = ? ORDER BY m.created_at`).all(sid);
+          JOIN chat_threads t ON t.id = m.thread_id WHERE t.student_id = ? ORDER BY m.created_at, m.id`).all(sid)
+          .map((row) => chatHistory.openSealedRow("chat_messages", row, chatHistory.openText));
       }
       if (deps.db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='evidence_items'").get()) {
         operational.evidence_items = deps.db.prepare("SELECT * FROM evidence_items WHERE entity_type = 'student' AND entity_id = ?").all(sid);

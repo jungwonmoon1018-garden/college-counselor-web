@@ -166,5 +166,20 @@ export function prepareECStrengthStatements(db) {
     linkAttachmentToEC: db.prepare(`
       UPDATE ec_attachments SET ec_name = ? WHERE id = ? AND student_id = ?
     `),
+    // Removing evidence (DELETE /api/ec/attachments/:id). There was no delete
+    // at all: a wrong upload (a parent's tax return instead of a certificate)
+    // kept feeding the strength read until the whole account was deleted.
+    getAttachmentForStudent: db.prepare(`SELECT * FROM ec_attachments WHERE id = ? AND student_id = ?`),
+    deleteAttachment: db.prepare(`DELETE FROM ec_attachments WHERE id = ? AND student_id = ?`),
+    // A file attached in chat is removed as a content-free marker instead:
+    // the text, name and activity go, the hash of the text stays, so reading
+    // the chat uploads into activities again does not bring it back.
+    markAttachmentRemoved: db.prepare(`
+      UPDATE ec_attachments
+      SET extracted_text = NULL, filename = NULL, ec_name = NULL, mime_type = NULL,
+          extracted_chars = 0, extraction_status = 'removed', extraction_error = NULL
+      WHERE id = ? AND student_id = ?
+    `),
+    countAttachmentsAtPath: db.prepare(`SELECT COUNT(*) AS n FROM ec_attachments WHERE student_id = ? AND storage_path = ?`),
   };
 }

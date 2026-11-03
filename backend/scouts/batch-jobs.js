@@ -8,11 +8,24 @@
 //   - Hourly stale fact expiration
 //   - Daily retention cleanup
 //   - Document auto-deletion (72h)
+//   - Daily profile history compaction
+//   - Hourly release of budget reservations a restart orphaned
 // ═══════════════════════════════════════════════════════════════════════
 
 import { expireOldFacts } from "./fact-store.js";
 import { runRetentionCleanup } from "../storage/retention.js";
 import { cleanExpiredDocuments } from "../storage/pii-vault.js";
+import { compactProfileHistory } from "../storage/rag-schema.js";
+import { releaseStaleReservations } from "../security/usage-budget.js";
+
+// A reservation still 'reserved' after this long belongs to no live call.
+// The adapter caps one call at LLM_CALL_TIMEOUT_MS (105 s by default), and a
+// council reserves its four stages up front and runs them in turn, so the
+// cutoff is six calls' worth with a 30-minute floor.
+export function staleReservationAgeMs(env = process.env) {
+  const callMs = Number(env.LLM_CALL_TIMEOUT_MS) > 0 ? Number(env.LLM_CALL_TIMEOUT_MS) : 105_000;
+  return Math.max(30 * 60 * 1000, 6 * callMs);
+}
 
 // ─── Job registry ───
 const jobs = new Map();
@@ -101,12 +114,38 @@ export function registerStandardJobs({ db, piiVault, factStmts, piiStmts, monito
     }, 24 * 60 * 60 * 1000, { runOnStartup: true });
   }
 
+  // Daily and at boot: keep each student's newest profile snapshots and the
+  // rows computed from them (storage/rag-schema.js compactProfileHistory).
+  // Nothing pruned them before, and the history plus seven daily backups
+  // was on course to fill the 1 GB disk.
+  if (db && hasTable(db, "profile_snapshots")) {
+    registerJob("profile_compaction", () => compactProfileHistory(db), 24 * 60 * 60 * 1000, { runOnStartup: true });
+  }
+
+  // Hourly: release budget reservations no live call holds. The boot sweep
+  // (server.js) releases everything from before this process started; this
+  // one catches a reservation whose release was lost while the process ran.
+  if (db && hasTable(db, "usage_budget_reservations")) {
+    registerJob("release_stale_reservations", () => {
+      const { released } = releaseStaleReservations(db, { createdBefore: new Date(Date.now() - staleReservationAgeMs()) });
+      return { released, changed: released > 0 };
+    }, 60 * 60 * 1000, { runOnStartup: false });
+  }
+
   // Daily: domain monitoring (02:00 UTC is handled by caller scheduling)
   if (monitorStmts) {
     registerJob("domain_monitor", async () => {
       const { runDailyMonitor } = await import("../colleges/domain-monitor.js");
       return runDailyMonitor(monitorStmts, { batchSize: 200, delayMs: 1000 });
     }, 24 * 60 * 60 * 1000, { enabled: false }); // Disabled by default; enable via config
+  }
+}
+
+function hasTable(db, name) {
+  try {
+    return !!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name);
+  } catch {
+    return false;
   }
 }
 

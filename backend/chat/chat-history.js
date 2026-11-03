@@ -44,6 +44,31 @@ function open(value, fallback = "") {
 export const sealText = seal;
 export const openText = open;
 
+// Every column written through seal(), by table. The data export opens these
+// (server/student-data.js collectStudentRows), and before this map it handed
+// the student every conversation, thread title and thread-memory fact as
+// "enc:v1:" ciphertext only the server could read. A newly sealed column is
+// added here and nowhere else. openText passes unsealed text through, so a
+// column that holds both (attachment text before direct uploads were sealed)
+// reads correctly either way.
+export const SEALED_COLUMNS = Object.freeze({
+  chat_threads: Object.freeze(["title"]),
+  chat_messages: Object.freeze(["content", "attachment_name", "model_content"]),
+  chat_graph_facts: Object.freeze(["question", "advice"]),
+  ec_attachments: Object.freeze(["extracted_text"]),
+});
+
+// A row with its sealed columns opened, for a table in SEALED_COLUMNS.
+export function openSealedRow(table, row, openFn = open) {
+  const columns = SEALED_COLUMNS[table];
+  if (!columns || !row) return row;
+  const out = { ...row };
+  for (const column of columns) {
+    if (out[column] != null) out[column] = openFn(out[column], null);
+  }
+  return out;
+}
+
 function publicThread(row) {
   if (!row) return row;
   return { ...row, title: open(row.title, "Conversation unavailable") };
@@ -72,13 +97,26 @@ export function listThreads(stmts, studentId, limit = MAX_THREADS_PER_LIST) {
     .map(publicThread);
 }
 
+// A thread reopens at its newest MAX_MESSAGES_PER_THREAD messages, oldest
+// first. It used to reopen at its oldest 500, so in a long thread every
+// newer answer disappeared on reload. One row past the cap is read to know
+// whether earlier messages are hidden; `truncated` says so and `olderCount`
+// says how many, so the client can tell the student instead of the history
+// silently starting part-way.
 export function getThreadWithMessages(stmts, studentId, threadId) {
   const storedThread = stmts.getThread.get(threadId, studentId);
   if (!storedThread || storedThread.archived_at) return null;
-  const messages = stmts.listMessages
-    .all(threadId, MAX_MESSAGES_PER_THREAD)
-    .map(publicMessage);
-  return { thread: publicThread(storedThread), messages };
+  let rows = stmts.listMessages.all(threadId, MAX_MESSAGES_PER_THREAD + 1)
+    .slice()
+    .sort((a, b) => Number(a.id) - Number(b.id));
+  const truncated = rows.length > MAX_MESSAGES_PER_THREAD;
+  if (truncated) rows = rows.slice(-MAX_MESSAGES_PER_THREAD);
+  let olderCount = 0;
+  if (truncated) {
+    const total = Number(stmts.countMessages?.get(threadId)?.n);
+    olderCount = Number.isFinite(total) ? Math.max(0, total - rows.length) : 1;
+  }
+  return { thread: publicThread(storedThread), messages: rows.map(publicMessage), truncated, olderCount };
 }
 
 export function appendMessage(stmts, studentId, threadId, role, content, attachmentName = null, modelContent = null) {

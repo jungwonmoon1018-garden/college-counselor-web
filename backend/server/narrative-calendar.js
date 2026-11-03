@@ -3,7 +3,7 @@
 // admissions calendar. Moved out of server.js on 2026-09-20.
 // `deps` is server.js's routeDeps object: live getters onto the bindings
 // these functions read there (AUTO_NARRATIVE_TRIGGERS, C7_PRIORITY_WEIGHTS,
-// db, profileSummaryForPrompt, ragStmts).
+// authStore, db, profileSummaryForPrompt, ragStmts).
 import { NARRATIVE_MAX_CHARS, NARRATIVE_MIN_CHARS, computeProfileFingerprint, getActiveNarrative, saveNarrative } from "../activities/narrative-store.js";
 import { assembleProfileForGeneration } from "./verified-data.js";
 import { buildStudentCallLLM, safeParseJSON } from "./model-calls.js";
@@ -79,6 +79,9 @@ export async function maybeAutoRegenerateNarrative(studentId, changes) {
       schoolBlock = schoolPrioritiesPromptBlock(priorities);
     } catch { /* non-fatal */ }
     const draft = await generateNarrativeDraftText({ profile, existing, callLLM, modelConfig, schoolBlock });
+    // The model call can outlive an account deletion; a draft saved then
+    // would be an orphan row of an erased student.
+    if (deps.authStore?.studentExists && !deps.authStore.studentExists(studentId)) return { skipped: "account_deleted" };
     try {
       const saved = saveNarrative(deps.ragStmts.narrative, studentId, draft, { source: "auto", profileFingerprint: fp });
       console.log(`[AUTO-NARRATIVE] regenerated for ${String(studentId).slice(0, 8)} (${saved.id.slice(0, 8)})`);
@@ -90,6 +93,9 @@ export async function maybeAutoRegenerateNarrative(studentId, changes) {
     }
   } catch (err) {
     if (err?.budget) return { skipped: "budget", code: err.code || "budget_denied" };
+    // buildStudentCallLLM refuses a student without the AI consents; that is
+    // a decision, not a failure worth a warning line.
+    if (err?.code === "consent_required") return { skipped: "consent_required" };
     console.warn("[AUTO-NARRATIVE] failed:", err.message);
     return { skipped: "error" };
   }

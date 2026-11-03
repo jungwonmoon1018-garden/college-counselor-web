@@ -35,7 +35,51 @@ describe("EcEvidence", () => {
     } }]);
     render(<EcEvidence ecName="Robotics Club" />);
     const block = await screen.findByTestId("ec-evidence");
-    expect(block).toHaveTextContent("Evidence: 📎 frc-award.pdf (from chat) · 2026-09-09 📎 letter.docx · 2026-08-01");
+    expect(block).toHaveTextContent("Evidence: 📎 frc-award.pdf (from chat) · 2026-09-09remove 📎 letter.docx · 2026-08-01remove");
+  });
+
+  it("removes a file after the student confirms, and leaves it when they do not", async () => {
+    stubFetch([
+      { method: "GET", path: "/api/ec/strength/Robotics%20Club", body: {
+        ok: true,
+        vector: { ecName: "Robotics Club" },
+        attachments: [
+          { id: "a1", filename: "frc-award.pdf", origin: "chat", uploaded_at: "2026-09-09 10:00:00", status: "ok" },
+          { id: "a2", filename: "tax-return.pdf", origin: "upload", uploaded_at: "2026-08-01 09:00:00", status: "ok" },
+        ],
+      } },
+      { method: "DELETE", path: "/api/ec/attachments/a2", body: { deleted: true, id: "a2", origin: "upload", fileRemoved: true } },
+    ]);
+    const onRemoved = vi.fn();
+    const confirm = vi.fn(() => false);
+    vi.stubGlobal("confirm", confirm);
+    render(<EcEvidence ecName="Robotics Club" onRemoved={onRemoved} />);
+    const button = await screen.findByRole("button", { name: "Remove tax-return.pdf" });
+
+    fireEvent.click(button);
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(fetch.mock.calls.filter(([, o]) => String(o?.method).toUpperCase() === "DELETE")).toHaveLength(0);
+    expect(screen.getByTestId("ec-evidence")).toHaveTextContent("tax-return.pdf");
+
+    confirm.mockReturnValue(true);
+    fireEvent.click(screen.getByRole("button", { name: "Remove tax-return.pdf" }));
+    await waitFor(() => expect(screen.getByTestId("ec-evidence")).not.toHaveTextContent("tax-return.pdf"));
+    const deletes = fetch.mock.calls.filter(([, o]) => String(o?.method).toUpperCase() === "DELETE");
+    expect(deletes).toHaveLength(1);
+    expect(String(deletes[0][0])).toContain("/api/ec/attachments/a2");
+    expect(screen.getByTestId("ec-evidence")).toHaveTextContent("frc-award.pdf");
+    expect(onRemoved).toHaveBeenCalledWith(expect.objectContaining({ id: "a2" }));
+  });
+
+  it("says so when a removal fails and keeps the file listed", async () => {
+    stubFetch([{ method: "GET", path: "/api/ec/strength/Debate", body: {
+      ok: true, vector: {}, attachments: [{ id: "gone", filename: "old.pdf", origin: "upload" }],
+    } }]);
+    vi.stubGlobal("confirm", vi.fn(() => true));
+    render(<EcEvidence ecName="Debate" />);
+    fireEvent.click(await screen.findByRole("button", { name: "Remove old.pdf" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("unexpected DELETE");
+    expect(screen.getByTestId("ec-evidence")).toHaveTextContent("old.pdf");
   });
 
   it("says how to link a file when none is linked yet", async () => {
@@ -66,5 +110,10 @@ describe("EcEvidence", () => {
 
   it("describes an empty read plainly", () => {
     expect(describeHarvest({ linked: [], unmatched: [], skipped: [], nameOnly: [] })).toBe("No new files to link.");
+  });
+
+  it("says a file the student removed stayed removed rather than calling it linked", () => {
+    expect(describeHarvest({ linked: [], unmatched: [], skipped: [{ name: "old-cert.pdf", reason: "removed" }, { name: "usaco.txt", reason: "already_stored" }], nameOnly: [] }))
+      .toBe("No new files to link. 1 already linked. 1 you removed earlier stayed removed (old-cert.pdf).");
   });
 });

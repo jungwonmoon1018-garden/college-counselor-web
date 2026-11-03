@@ -5,7 +5,7 @@
 // live getters.
 import { mountPillarRoutes } from "../routes/server-routes-pillars.js";
 import { requireSelf, requireStudentAuth } from "./auth.js";
-import { currentOperatorKeyConfig, reconcileStudentModelCall, releaseStudentModelCall } from "./model-calls.js";
+import { assertStudentAIConsent, currentOperatorKeyConfig, reconcileStudentModelCall, releaseStudentModelCall } from "./model-calls.js";
 import { OPENROUTER_TARGETS } from "../scouts/openrouter-model-refresh.js";
 import { reserveBudget } from "../security/usage-budget.js";
 import { validateRequiredConsents } from "../security/consent.js";
@@ -35,6 +35,10 @@ export function mountPillars(deps) {
     ]);
 
     function beginCouncilBudget({ studentId, operationId }) {
+      // The council reserves its paid stages here rather than through
+      // buildStudentCallLLM, so it checks consent here too: no reservation,
+      // and no stage call, for a student without the AI consents.
+      assertStudentAIConsent(studentId);
       const grade = deps.authStore.getStudentGrade(studentId);
       const session = {
         studentId,

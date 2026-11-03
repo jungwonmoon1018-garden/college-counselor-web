@@ -177,6 +177,11 @@ export const ec = {
   async evidence(ecName) {
     return ccFetch(`/api/ec/strength/${encodeURIComponent(ecName)}`, { method: "GET" });
   },
+  // Remove one evidence file the student attached or uploaded. The server
+  // re-scores the activity without it.
+  async removeAttachment(id) {
+    return ccFetch(`/api/ec/attachments/${encodeURIComponent(id)}`, { method: "DELETE" });
+  },
   // Read every file attached in past chat turns into the activity it names.
   async readChatUploads() {
     return ccFetch("/api/ec/evidence/from-chat", { method: "POST", body: {}, timeoutMs: 120_000 });

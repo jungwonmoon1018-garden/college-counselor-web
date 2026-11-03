@@ -3,12 +3,13 @@
 // the per-student callLLM, JSON parsing of a reply and the error response. Moved out of server.js on 2026-09-20.
 // `deps` is server.js's routeDeps object: live getters onto the bindings
 // these functions read there (MAX_TOKENS_LIMIT, OPERATOR_LLM,
-// SIM_INTERNAL_TOKEN, SIM_URL, authStore, db, ragStmts).
+// SIM_INTERNAL_TOKEN, SIM_URL, authStore, db, piiStmts, ragStmts).
 import { safeJSON } from "./auth.js";
 import { reconcileBudget, releaseBudget, reserveBudget } from "../security/usage-budget.js";
 import crypto from "node:crypto";
 import { OPENROUTER_TARGETS } from "../scouts/openrouter-model-refresh.js";
 import { callLLM as adapterCallLLM } from "../llm-adapters/index.js";
+import { validateRequiredConsents } from "../security/consent.js";
 
 let deps;
 export function bindModelCalls(serverDeps) { deps = serverDeps; }
@@ -112,11 +113,33 @@ export function currentOperatorKeyConfig() {
   } : null;
 }
 
+// Every paid call for a student needs the AI consents (data processing, AI
+// interaction, cross-border transfer). Consent was checked route by route,
+// and five paths never checked it: the candidate and spike re-ranks, the EC
+// ideas, the narrative draft, and the auto-narrative that runs in the
+// background after a sync. Checking here, at the one place every paid call
+// passes, means a new route cannot forget, and a withdrawn consent
+// (POST /api/consent/revoke) stops every AI feature at once. The per-route
+// checks stay; they answer before any work is done.
+export function consentRequiredError(missing) {
+  const error = new Error("AI consent is required before this request.");
+  error.status = 403;
+  error.code = "consent_required";
+  error.missing = Array.isArray(missing) ? missing : [];
+  return error;
+}
+
+export function assertStudentAIConsent(studentId) {
+  const consents = validateRequiredConsents(deps.piiStmts, studentId, "ai_interaction");
+  if (!consents.allowed) throw consentRequiredError(consents.missing);
+}
+
 export function buildStudentCallLLM(studentId, { requestIdPrefix = null } = {}) {
   const operator = currentOperatorKeyConfig();
   if (!operator) return { modelConfig: null, callLLM: null };
   let callIndex = 0;
   const callLLM = async (args = {}) => {
+    assertStudentAIConsent(studentId);
     const model = args.model || operator.models.medium;
     const maxTokens = Math.max(1, Math.min(Number(args.max_tokens ?? args.maxTokens) || 1024, deps.MAX_TOKENS_LIMIT));
     const requestId = String(args.requestId || (requestIdPrefix
@@ -140,6 +163,11 @@ export function buildStudentCallLLM(studentId, { requestIdPrefix = null } = {}) 
         signal: args.signal,
       });
       const budget = reconcileStudentModelCall(reservation, result?.usage);
+      // The call can outlast the account: a student who deletes it while an
+      // answer is on the way must not get a usage row back for an id that no
+      // longer exists (the erasure sweep would find it, but nothing else
+      // ever would).
+      if (deps.authStore?.studentExists && !deps.authStore.studentExists(studentId)) return { ...result, _budget: budget };
       try {
         deps.ragStmts.insertUsage.run(
           studentId,
@@ -174,6 +202,16 @@ export function parseLLMJson(text) {
 // of an opaque 500. Secret remediation belongs to the local administrator;
 // students never manage provider keys or model selection.
 export function respondLLMError(res, err, label) {
+  // A missing or withdrawn consent is the student's to resolve, not a
+  // provider failure; without this branch its 403 read as "the OpenRouter
+  // credential was rejected".
+  if (err?.code === "consent_required") {
+    return res.status(403).json({
+      error: "AI consent is required before this request.",
+      code: "consent_required",
+      missing: Array.isArray(err.missing) ? err.missing : [],
+    });
+  }
   const up = Number.isInteger(err?.status) ? err.status : null;
   const httpStatus = up === 499 ? 504 : (up && up >= 400 && up < 600 ? up : 502);
   console.error(`[${label}] LLM error${up ? ` (upstream ${up})` : ""}:`, err?.message);

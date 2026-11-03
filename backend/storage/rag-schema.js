@@ -369,6 +369,23 @@ export function initRAGTables(db) {
   } catch (err) {
     console.warn("[RAG] profile_snapshots migration warning:", err.message);
   }
+  // capability_timeline.snapshot_id — the snapshot each percentile row was
+  // computed from. The latest metrics used to be "the newest row per
+  // metric", so a score the student cleared kept its last row as the newest
+  // one: a deleted SAT 1600 still read "sat_total percentile: 99th" in the
+  // context bundle, and two syncs in one second gave two rows for a metric.
+  // Reading only the rows of the latest snapshot fixes both; older rows,
+  // which carry no snapshot, are history (getCapabilityTrend) and are linked
+  // to the latest snapshot once by backfillLatestCapabilities.
+  try {
+    const capCols = db.prepare(`PRAGMA table_info(capability_timeline)`).all().map((r) => r.name);
+    if (!capCols.includes("snapshot_id")) {
+      db.exec(`ALTER TABLE capability_timeline ADD COLUMN snapshot_id TEXT`);
+    }
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_cap_snapshot ON capability_timeline(student_id, snapshot_id)`);
+  } catch (err) {
+    console.warn("[RAG] capability_timeline migration warning:", err.message);
+  }
   try {
     const cdsCols = db.prepare(`PRAGMA table_info(cds_records)`).all().map((r) => r.name);
     if (!cdsCols.includes("enrolled_gpa_avg")) {
@@ -497,6 +514,56 @@ export function hydrateBaselineWebsites(db) {
   return updated;
 }
 
+// Profile history compaction. Every auto-sync used to append a snapshot and
+// five capability rows, unchanged or not, and nothing ever deleted one: with
+// a sync after each chat answer and seven daily backups of counselor.db,
+// that runs a 1 GB disk out within an application season, and a full disk
+// fails every write for every student. A sync that changes nothing no longer
+// writes (syncStudentData); this keeps each student's newest snapshots, the
+// capability rows computed from them, a bounded window of the older rows that
+// carry no snapshot, and a bounded window of milestones (events, which outlive
+// the snapshot they came from; the route shows at most 100). Run daily and at
+// boot from the batch jobs.
+export const PROFILE_HISTORY_LIMITS = Object.freeze({
+  snapshotsPerStudent: 50,
+  unlinkedCapabilitiesPerMetric: 50,
+  milestonesPerStudent: 200,
+});
+
+export function compactProfileHistory(db, limits = PROFILE_HISTORY_LIMITS) {
+  const keep = { ...PROFILE_HISTORY_LIMITS, ...(limits || {}) };
+  const tx = db.transaction(() => {
+    const snapshots = db.prepare(`
+      DELETE FROM profile_snapshots WHERE id IN (
+        SELECT id FROM (
+          SELECT id, ROW_NUMBER() OVER (PARTITION BY student_id ORDER BY datetime(created_at) DESC, rowid DESC) AS rn
+          FROM profile_snapshots
+        ) WHERE rn > ?
+      )`).run(keep.snapshotsPerStudent).changes;
+    const linkedCapabilities = db.prepare(`
+      DELETE FROM capability_timeline
+      WHERE snapshot_id IS NOT NULL AND snapshot_id NOT IN (SELECT id FROM profile_snapshots)`).run().changes;
+    const unlinkedCapabilities = db.prepare(`
+      DELETE FROM capability_timeline WHERE id IN (
+        SELECT id FROM (
+          SELECT id, ROW_NUMBER() OVER (PARTITION BY student_id, metric ORDER BY datetime(computed_at) DESC, rowid DESC) AS rn
+          FROM capability_timeline WHERE snapshot_id IS NULL
+        ) WHERE rn > ?
+      )`).run(keep.unlinkedCapabilitiesPerMetric).changes;
+    const milestones = db.prepare(`
+      DELETE FROM milestones WHERE id IN (
+        SELECT id FROM (
+          SELECT id, ROW_NUMBER() OVER (PARTITION BY student_id ORDER BY datetime(created_at) DESC, rowid DESC) AS rn
+          FROM milestones
+        ) WHERE rn > ?
+      )`).run(keep.milestonesPerStudent).changes;
+    return { snapshots, linkedCapabilities, unlinkedCapabilities, milestones };
+  });
+  const counts = tx();
+  // `deleted` is the total, so the batch runner logs a run that removed rows.
+  return { deleted: counts.snapshots + counts.linkedCapabilities + counts.unlinkedCapabilities + counts.milestones, ...counts };
+}
+
 // ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// PREPARED STATEMENTS
 export function prepareRAGStatements(db) {
   // Migration: chat_messages.model_content — the model-facing copy of a user
@@ -509,6 +576,10 @@ export function prepareRAGStatements(db) {
     }
   } catch { /* table created fresh below with the column present */ }
   return {
+    // Runs fn in one transaction on this database: a sync's snapshot, class
+    // rank, milestones and capability rows land together or not at all.
+    inTransaction: (fn) => db.transaction(fn)(),
+
     // Snapshots
     insertSnapshot: db.prepare(`INSERT INTO profile_snapshots (id, student_id, snapshot_type, gpa_unweighted, gpa_weighted, courses_json, ap_scores_json, test_scores_json, activities_json, major_interest, goals_json, trigger) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`),
     // Class rank rides in its own column, set right after the insert so the
@@ -522,10 +593,27 @@ export function prepareRAGStatements(db) {
     getMilestones: db.prepare(`SELECT * FROM milestones WHERE student_id = ? ORDER BY created_at DESC LIMIT ?`),
     getMilestonesByType: db.prepare(`SELECT * FROM milestones WHERE student_id = ? AND type = ? ORDER BY created_at DESC LIMIT ?`),
 
-    // Capability timeline
-    insertCapability: db.prepare(`INSERT INTO capability_timeline (id, student_id, metric, value, percentile_national, percentile_cohort) VALUES (?,?,?,?,?,?)`),
-    getLatestCapabilities: db.prepare(`SELECT DISTINCT metric, value, percentile_national, percentile_cohort, computed_at FROM capability_timeline WHERE student_id = ? AND computed_at = (SELECT MAX(computed_at) FROM capability_timeline c2 WHERE c2.student_id = capability_timeline.student_id AND c2.metric = capability_timeline.metric)`),
-    getCapabilityTrend: db.prepare(`SELECT metric, value, percentile_national, computed_at FROM capability_timeline WHERE student_id = ? AND metric = ? ORDER BY computed_at ASC`),
+    // Capability timeline. A row carries the snapshot it was computed from
+    // (the seventh value); the latest metrics are that snapshot's rows only,
+    // so a metric the latest snapshot does not have is not reported.
+    insertCapability: db.prepare(`INSERT INTO capability_timeline (id, student_id, metric, value, percentile_national, percentile_cohort, snapshot_id) VALUES (?,?,?,?,?,?,?)`),
+    getLatestCapabilities: db.prepare(`
+      SELECT c.metric, c.value, c.percentile_national, c.percentile_cohort, c.computed_at
+      FROM capability_timeline c
+      WHERE c.student_id = ? AND c.snapshot_id = (
+        SELECT s.id FROM profile_snapshots s WHERE s.student_id = c.student_id
+        ORDER BY datetime(s.created_at) DESC, s.rowid DESC LIMIT 1)
+      ORDER BY c.rowid ASC`),
+    countCapabilitiesForSnapshot: db.prepare(`SELECT COUNT(*) AS n FROM capability_timeline WHERE snapshot_id = ?`),
+    // Students with percentile rows from before snapshot_id existed whose
+    // latest snapshot has none linked yet: the one-time backfill's work list.
+    latestSnapshotsWithoutCapabilities: db.prepare(`
+      SELECT s.* FROM profile_snapshots s
+      WHERE s.rowid = (SELECT s2.rowid FROM profile_snapshots s2 WHERE s2.student_id = s.student_id
+                       ORDER BY datetime(s2.created_at) DESC, s2.rowid DESC LIMIT 1)
+        AND NOT EXISTS (SELECT 1 FROM capability_timeline c WHERE c.snapshot_id = s.id)
+        AND EXISTS (SELECT 1 FROM capability_timeline c WHERE c.student_id = s.student_id)`),
+    getCapabilityTrend: db.prepare(`SELECT metric, value, percentile_national, computed_at FROM capability_timeline WHERE student_id = ? AND metric = ? ORDER BY computed_at ASC, rowid ASC`),
 
     // Baselines
     getGPABaseline: db.prepare(`SELECT * FROM baseline_gpa WHERE scope = ? ORDER BY percentile ASC`),
@@ -554,7 +642,15 @@ export function prepareRAGStatements(db) {
     deleteThreadHard: db.prepare(`DELETE FROM chat_threads WHERE id = ? AND student_id = ?`),
     deleteThreadMessages: db.prepare(`DELETE FROM chat_messages WHERE thread_id IN (SELECT id FROM chat_threads WHERE id = ? AND student_id = ?)`),
     insertMessage: db.prepare(`INSERT INTO chat_messages (thread_id, role, content, attachment_name, model_content) VALUES (?, ?, ?, ?, ?)`),
-    listMessages: db.prepare(`SELECT id, role, content, attachment_name, model_content, created_at FROM chat_messages WHERE thread_id = ? ORDER BY id ASC LIMIT ?`),
+    // The NEWEST n messages, oldest first. This read was "ORDER BY id ASC
+    // LIMIT 500": a thread past 500 rows reopened at its oldest 500, and
+    // every newer answer vanished on reload.
+    listMessages: db.prepare(`
+      SELECT id, role, content, attachment_name, model_content, created_at FROM (
+        SELECT id, role, content, attachment_name, model_content, created_at
+        FROM chat_messages WHERE thread_id = ? ORDER BY id DESC LIMIT ?
+      ) ORDER BY id ASC`),
+    countMessages: db.prepare(`SELECT COUNT(*) AS n FROM chat_messages WHERE thread_id = ?`),
     // Message bodies are encrypted. Fetch a bounded set of candidates and
     // decrypt/filter inside chat-history.js instead of applying SQL LIKE.
     searchMessages: db.prepare(`

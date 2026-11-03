@@ -262,6 +262,25 @@ export function releaseBudget(db, { reservationId, now = new Date() } = {}) {
   return { ok: result.changes === 1, reservationId };
 }
 
+// A reservation is released by the same process that made it, in the catch
+// around the model call. A call cut off by a restart (a deploy, a counselor
+// saving a secret, the launcher's memory cap) left its row 'reserved', and
+// getBudgetStatus charged it at the full estimate until the month ended:
+// money the student never spent. The boot sweep passes the process start
+// time, which is exact because no call outlives its process; the periodic
+// sweep passes a cutoff older than the longest operation can hold a
+// reservation (a council reserves its four stages up front and runs them
+// one after another).
+export function releaseStaleReservations(db, { createdBefore, now = new Date() } = {}) {
+  const cutoff = createdBefore instanceof Date ? createdBefore : new Date(createdBefore);
+  if (Number.isNaN(cutoff.getTime())) return { released: 0 };
+  const result = db.prepare([
+    "UPDATE usage_budget_reservations SET status = 'released', reconciled_at = ?",
+    "WHERE status = 'reserved' AND created_at < ?",
+  ].join("\n")).run(now.toISOString(), cutoff.toISOString());
+  return { released: result.changes };
+}
+
 // Compatibility helpers retained while server routes migrate to the ledger.
 export function ensureBudgetColumn(piiVault) {
   if (!piiVault?.db) return;

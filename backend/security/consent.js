@@ -38,6 +38,30 @@ export function revokeConsent(stmts, consentId, revokedBy = "student") {
   return { id: consentId, revoked: true, revokedBy };
 }
 
+// Withdrawing a consent. Korea PIPA (Art. 37) and the consent copy promise
+// that redacted content reaches the overseas AI provider only with consent,
+// and until this existed the only way to withdraw it was deleting the whole
+// account. Every active row of the type is revoked; a later grant is a new
+// row, so the student can turn a feature back on.
+export function revokeConsentType(stmts, studentId, consentType, revokedBy = "student") {
+  if (!isValidConsentType(consentType)) throw new Error("Unsupported consent type.");
+  if (!VALID_GRANTORS.has(revokedBy)) throw new Error("Unsupported consent revoker.");
+  const result = stmts.revokeConsentByType.run(revokedBy, studentId, consentType);
+  return { studentId, consentType, revoked: true, revokedBy, count: result.changes };
+}
+
+// The consent types whose newest record is a revocation: withdrawn, as
+// opposed to never recorded. The client re-grants missing onboarding rows
+// for accounts made by older signup builds; a withdrawn type must never be
+// re-granted that way.
+export function revokedConsentTypes(stmts, studentId, types = Object.values(CONSENT_TYPES)) {
+  if (!stmts.getLatestConsentOfType) return [];
+  return types.filter((type) => {
+    const latest = stmts.getLatestConsentOfType.get(studentId, type);
+    return !!latest?.revoked_at;
+  });
+}
+
 export function hasActiveConsent(stmts, studentId, consentType) {
   if (!isValidConsentType(consentType)) return { hasConsent: false, record: null };
   const record = stmts.getActiveConsent.get(studentId, consentType);

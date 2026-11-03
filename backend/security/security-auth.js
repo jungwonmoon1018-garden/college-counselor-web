@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { classOfForGrade, gradeForClassOf } from "../shared/school-year.js";
 
 const PASSWORD_MIN_LENGTH = 12;
 const PASSWORD_MAX_LENGTH = 256;
@@ -119,6 +120,25 @@ export function initAuthStore(db, { sessionTtlMs = SESSION_TTL_MS } = {}) {
   if (!credentialColumns.some((column) => column.name === "grade")) {
     db.exec("ALTER TABLE student_credentials ADD COLUMN grade INTEGER CHECK (grade BETWEEN 9 AND 12)");
   }
+  // The class (graduation year) the student belongs to. The stored grade was
+  // the grade on the day of registration and never advanced, so a junior
+  // stayed a junior — and on the junior budget cap — through senior year.
+  // Rows from before this column read their class from the grade they
+  // registered with and the day they registered (shared/school-year.js).
+  if (!credentialColumns.some((column) => column.name === "class_of")) {
+    db.exec("ALTER TABLE student_credentials ADD COLUMN class_of INTEGER");
+  }
+  const unclassed = db.prepare("SELECT student_id, grade, created_at FROM student_credentials WHERE class_of IS NULL").all();
+  if (unclassed.length) {
+    const setClassOf = db.prepare("UPDATE student_credentials SET class_of = ? WHERE student_id = ? AND class_of IS NULL");
+    db.transaction(() => {
+      for (const row of unclassed) {
+        const createdMs = Number(row.created_at) > 0 && Number(row.created_at) < 1e11 ? Number(row.created_at) * 1000 : Number(row.created_at);
+        const classOf = classOfForGrade(row.grade, Number.isFinite(createdMs) && createdMs > 0 ? new Date(createdMs) : new Date());
+        if (classOf != null) setClassOf.run(classOf, row.student_id);
+      }
+    })();
+  }
   const adminColumns = db.prepare("PRAGMA table_info(admin_account)").all();
   if (!adminColumns.some((column) => column.name === "password_kdf")) {
     db.exec("ALTER TABLE admin_account ADD COLUMN password_kdf TEXT NOT NULL DEFAULT 'scrypt-v1'");
@@ -128,9 +148,10 @@ export function initAuthStore(db, { sessionTtlMs = SESSION_TTL_MS } = {}) {
     credentialByStudent: db.prepare("SELECT * FROM student_credentials WHERE student_id = ?"),
     credentialByEmail: db.prepare("SELECT * FROM student_credentials WHERE email_hash = ?"),
     insertCredential: db.prepare(`INSERT INTO student_credentials
-      (student_id, email_hash, password_salt, password_hash, password_kdf, recovery_hash, grade, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`),
-    updateGrade: db.prepare("UPDATE student_credentials SET grade = ?, updated_at = ? WHERE student_id = ?"),
+      (student_id, email_hash, password_salt, password_hash, password_kdf, recovery_hash, grade, class_of, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`),
+    updateGrade: db.prepare("UPDATE student_credentials SET grade = ?, class_of = ?, updated_at = ? WHERE student_id = ?"),
+    credentialExists: db.prepare("SELECT 1 FROM student_credentials WHERE student_id = ?"),
     updateCredential: db.prepare(`UPDATE student_credentials
       SET password_salt = ?, password_hash = ?, password_kdf = ?, recovery_hash = ?, updated_at = ?
       WHERE student_id = ?`),
@@ -186,17 +207,33 @@ export function initAuthStore(db, { sessionTtlMs = SESSION_TTL_MS } = {}) {
         err.code = "invalid_grade";
         throw err;
       }
-      stmts.insertCredential.run(studentId, emailHash, pw.salt, pw.hash, pw.kdf, recovery.hash, gradeNumber, timestamp, timestamp);
+      stmts.insertCredential.run(studentId, emailHash, pw.salt, pw.hash, pw.kdf, recovery.hash, gradeNumber, classOfForGrade(gradeNumber, new Date(timestamp)), timestamp, timestamp);
       return { recoveryCode: recovery.code };
     },
-    getStudentGrade(studentId) {
-      const grade = Number(stmts.credentialByStudent.get(studentId)?.grade);
-      return [9, 10, 11, 12].includes(grade) ? grade : null;
+    // The grade the student is in today, read from their class; a row with
+    // no class (none should remain after the migration above) falls back to
+    // the grade it stores. `at` exists for tests and is today by default.
+    getStudentGrade(studentId, at = new Date()) {
+      const row = stmts.credentialByStudent.get(studentId);
+      if (!row) return null;
+      const computed = row.class_of != null ? gradeForClassOf(row.class_of, at) : Number(row.grade);
+      return [9, 10, 11, 12].includes(computed) ? computed : null;
+    },
+    getStudentClassOf(studentId) {
+      const classOf = Number(stmts.credentialByStudent.get(studentId)?.class_of);
+      return Number.isInteger(classOf) ? classOf : null;
     },
     setStudentGrade(studentId, grade) {
       const gradeNumber = Number(grade);
       if (![9, 10, 11, 12].includes(gradeNumber)) return false;
-      return stmts.updateGrade.run(gradeNumber, now(), studentId).changes === 1;
+      const timestamp = now();
+      return stmts.updateGrade.run(gradeNumber, classOfForGrade(gradeNumber, new Date(timestamp)), timestamp, studentId).changes === 1;
+    },
+    // Whether the account still exists. A write that finishes after the
+    // student deleted the account (a model call in flight, say) checks this
+    // first, so it does not leave a row behind for an id nobody can reach.
+    studentExists(studentId) {
+      return !!(studentId && stmts.credentialExists.get(studentId));
     },
     authenticateStudent(emailHash, password) {
       const row = stmts.credentialByEmail.get(emailHash);

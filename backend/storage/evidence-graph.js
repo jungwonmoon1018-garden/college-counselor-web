@@ -159,7 +159,7 @@ export function prepareEvidenceStatements(db) {
       SELECT * FROM evidence_items
       WHERE entity_type = ? AND entity_id = ?
         AND trust_level NOT IN ('expired', 'stale', 'superseded')
-        AND (expires_at IS NULL OR expires_at > datetime('now'))
+        AND (expires_at IS NULL OR julianday(expires_at) > julianday('now'))
       ORDER BY evidence_type ASC, claim_category ASC
     `),
 
@@ -167,7 +167,7 @@ export function prepareEvidenceStatements(db) {
       SELECT * FROM evidence_items
       WHERE entity_type = ? AND entity_id = ? AND evidence_type = ?
         AND trust_level NOT IN ('expired', 'stale', 'superseded')
-        AND (expires_at IS NULL OR expires_at > datetime('now'))
+        AND (expires_at IS NULL OR julianday(expires_at) > julianday('now'))
       ORDER BY claim_category ASC
     `),
 
@@ -175,7 +175,7 @@ export function prepareEvidenceStatements(db) {
       SELECT * FROM evidence_items
       WHERE dimension = ? AND entity_id = ?
         AND trust_level NOT IN ('expired', 'stale', 'superseded')
-        AND (expires_at IS NULL OR expires_at > datetime('now'))
+        AND (expires_at IS NULL OR julianday(expires_at) > julianday('now'))
       ORDER BY evidence_type ASC
     `),
 
@@ -184,7 +184,7 @@ export function prepareEvidenceStatements(db) {
       WHERE evidence_type = 1 AND entity_id = ?
         AND trust_level IN ('official', 'verified')
         AND verified_at IS NOT NULL
-        AND (expires_at IS NULL OR expires_at > datetime('now'))
+        AND (expires_at IS NULL OR julianday(expires_at) > julianday('now'))
       ORDER BY claim_category ASC
     `),
 
@@ -192,7 +192,7 @@ export function prepareEvidenceStatements(db) {
       SELECT * FROM evidence_items
       WHERE (instr(lower(COALESCE(entity_name, '')), ?) > 0 OR instr(lower(claim), ?) > 0)
         AND trust_level NOT IN ('expired', 'stale', 'superseded')
-        AND (expires_at IS NULL OR expires_at > datetime('now'))
+        AND (expires_at IS NULL OR julianday(expires_at) > julianday('now'))
       ORDER BY evidence_type ASC, confidence DESC
       LIMIT ?
     `),

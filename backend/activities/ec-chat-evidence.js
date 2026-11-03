@@ -189,7 +189,12 @@ export function harvestEvidence(stmts, studentId, files, {
 } = {}) {
   const result = { linked: [], unmatched: [], skipped: [] };
   if (!stmts?.insertAttachment || !studentId) return result;
-  const known = new Set((stmts.getAttachmentsForStudent?.all(studentId) || []).map((r) => r.extracted_text_hash).filter(Boolean));
+  // A removed file keeps its row and hash on purpose, so a re-read of the
+  // same chat turn does not bring it back; it is reported as removed rather
+  // than "already linked", which it no longer is.
+  const known = new Map((stmts.getAttachmentsForStudent?.all(studentId) || [])
+    .filter((r) => r.extracted_text_hash)
+    .map((r) => [r.extracted_text_hash, r.extraction_status]));
   const list = (Array.isArray(files) ? files : []).filter((f) => String(f?.text || "").trim());
   const soloFile = list.length === 1;
   for (const file of list) {
@@ -197,7 +202,7 @@ export function harvestEvidence(stmts, studentId, files, {
     if (!text) continue;
     const name = String(file?.name || "attachment").slice(0, 240);
     const hash = sha256(text);
-    if (known.has(hash)) { result.skipped.push({ name, reason: "already_stored" }); continue; }
+    if (known.has(hash)) { result.skipped.push({ name, reason: known.get(hash) === "removed" ? "removed" : "already_stored" }); continue; }
     const match = matchActivity({ name, text, messageText }, activities, { soloFile });
     if (!match) { result.unmatched.push({ name }); continue; }
     const id = crypto.randomUUID();
@@ -208,7 +213,7 @@ export function harvestEvidence(stmts, studentId, files, {
       storagePath, seal(text), hash, text.length,
       "ok", null,
     );
-    known.add(hash);
+    known.set(hash, "stored");
     result.linked.push({ id, name, ecName: match.name, score: match.score });
   }
   return result;

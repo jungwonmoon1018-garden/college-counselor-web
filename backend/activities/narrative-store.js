@@ -80,6 +80,8 @@ export function prepareNarrativeStatements(db) {
       WHERE student_id = ?
       ORDER BY created_at DESC LIMIT 20
     `),
+    // saveNarrative's deactivate-then-insert runs in one transaction.
+    inTransaction: (fn) => db.transaction(fn)(),
   };
 }
 
@@ -205,18 +207,25 @@ export function saveNarrative(stmts, studentId, narrativeText, opts = {}) {
   const hash = crypto.createHash("sha256").update(text).digest("hex");
   const id = crypto.randomUUID();
 
-  // Transactionally: deactivate prior active → insert new as active
-  stmts.deactivatePrior.run(studentId);
-  stmts.insert.run(
-    id,
-    studentId,
-    text,
-    JSON.stringify(themes),
-    JSON.stringify(majorBuckets),
-    hash,
-    source,
-    profileFingerprint,
-  );
+  // Deactivate the prior active narrative, then insert the new one as
+  // active, in one transaction. The comment here said "transactionally"
+  // over two bare statements: an insert that failed left the student with
+  // no active narrative at all.
+  const write = () => {
+    stmts.deactivatePrior.run(studentId);
+    stmts.insert.run(
+      id,
+      studentId,
+      text,
+      JSON.stringify(themes),
+      JSON.stringify(majorBuckets),
+      hash,
+      source,
+      profileFingerprint,
+    );
+  };
+  if (typeof stmts.inTransaction === "function") stmts.inTransaction(write);
+  else write();
 
   return { id, hash, themes, majorBuckets, source, profileFingerprint };
 }
