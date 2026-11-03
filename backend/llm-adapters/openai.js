@@ -149,6 +149,14 @@ function translateOpenAIResponseToAnthropic(data, { fallbackModel }) {
   // content with finish_reason "length" (and its reasoning in a separate
   // field); the caller retries with a larger budget on that signal.
   const reasoning = message.reasoning ?? message.reasoning_content ?? null;
+  // OpenRouter answers HTTP 200 with an `error` object (and no choices, or a
+  // choice whose finish_reason is "error") when the provider behind a route
+  // fails mid-generation. That used to translate to an empty answer with no
+  // trace of the failure; the stop reason now says "error" and the message
+  // rides along, so the chat route can retry it as an unusable reply.
+  const bodyError = data?.error
+    ? String(data.error?.message || data.error || 'provider error')
+    : (choice?.error ? String(choice.error?.message || choice.error) : null);
   return {
     content: [{ type: 'text', text }],
     usage: {
@@ -157,8 +165,9 @@ function translateOpenAIResponseToAnthropic(data, { fallbackModel }) {
       reasoning_tokens: Number(data?.usage?.completion_tokens_details?.reasoning_tokens) || 0,
     },
     model: data?.model || fallbackModel,
-    stop_reason: choice?.finish_reason || null,
+    stop_reason: bodyError ? 'error' : (choice?.finish_reason || null),
     had_reasoning: Boolean(reasoning && String(reasoning).trim()),
+    ...(bodyError ? { provider_error: bodyError.slice(0, 300) } : {}),
   };
 }
 

@@ -53,10 +53,38 @@ globalThis.fetch = async (input, init = {}) => {
     // A test can script the reply by embedding base64 markers in its message:
     // MOCKREPLY:<base64>: is the first answer, MOCKRETRY:<base64>: the answer
     // to the chat route's fidelity-correction retry (identified by the
-    // correction text in the wire).
+    // correction text in the wire) and to its empty-reply retry (identified
+    // by "EMPTY REPLY RETRY" in the system prompt).
+    // Three more markers script failures: MOCKDELAY:<ms>: holds the reply
+    // that long and honours the caller's abort signal, MOCKSTATUS:<code>:
+    // answers with that HTTP status and an error body, and MOCKBODYERROR:
+    // answers 200 with an error body and no choices, as OpenRouter does when
+    // a provider fails mid-route.
     const wire = JSON.stringify(body.messages || []);
+    const delayMarker = wire.match(/MOCKDELAY:(\d{1,6}):/);
+    if (delayMarker) {
+      await new Promise((resolve, reject) => {
+        const onAbort = () => {
+          clearTimeout(timer);
+          reject(Object.assign(new Error("The operation was aborted."), { name: "AbortError" }));
+        };
+        const timer = setTimeout(() => {
+          init.signal?.removeEventListener?.("abort", onAbort);
+          resolve();
+        }, Number(delayMarker[1]));
+        if (init.signal?.aborted) onAbort();
+        else init.signal?.addEventListener?.("abort", onAbort, { once: true });
+      });
+    }
+    const statusMarker = wire.match(/MOCKSTATUS:(\d{3}):/);
+    if (statusMarker) {
+      return Response.json({ error: { message: `mock upstream ${statusMarker[1]}`, code: Number(statusMarker[1]) } }, { status: Number(statusMarker[1]) });
+    }
+    if (wire.includes("MOCKBODYERROR:")) {
+      return Response.json({ error: { message: "mock provider error in a 200 body", code: 502 } });
+    }
     const isTranscriptParse = wire.includes("Transcript text:");
-    const scripted = wire.includes("FIDELITY CORRECTION")
+    const scripted = wire.includes("FIDELITY CORRECTION") || wire.includes("EMPTY REPLY RETRY")
       ? (wire.match(/MOCKRETRY:([A-Za-z0-9+/=]+):/) || wire.match(/MOCKREPLY:([A-Za-z0-9+/=]+):/))
       : wire.match(/MOCKREPLY:([A-Za-z0-9+/=]+):/);
     const content = isTranscriptParse

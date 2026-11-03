@@ -214,3 +214,50 @@ describe("the monthly cap follows the grade read from the class", () => {
     db.close();
   });
 });
+
+describe("refusals the client can word", () => {
+  // A failed call's id resent after a re-authentication used to come back
+  // as a budget refusal with no code, and the student was told their
+  // monthly budget was used up.
+  it("a released request_id is refused with request_id_released, never as a budget denial", () => {
+    const db = ledger();
+    const input = {
+      studentId: "student",
+      grade: 10,
+      requestId: "failed-call",
+      model: "priced/model",
+      maxInputTokens: 1000,
+      maxOutputTokens: 1000,
+      pricingLookup: pricing,
+    };
+    const first = reserveBudget(db, input);
+    releaseBudget(db, { reservationId: first.reservationId });
+    const again = reserveBudget(db, input);
+    assert.equal(again.allowed, false);
+    assert.equal(again.code, "request_id_released");
+    db.close();
+  });
+
+  it("the cap refusal says why and when the month resets, computed from the clock it was given", async () => {
+    const { budgetPeriodResetsAt } = await import("../security/usage-budget.js");
+    const db = ledger();
+    const now = new Date(2026, 9, 30, 15, 0);
+    const refused = reserveBudget(db, {
+      studentId: "student",
+      grade: 11,
+      requestId: "too-big",
+      model: "priced/model",
+      maxInputTokens: 11_000_000,
+      maxOutputTokens: 1,
+      pricingLookup: pricing,
+      now,
+    });
+    assert.equal(refused.allowed, false);
+    assert.equal(refused.code, "monthly_cap_exceeded");
+    assert.ok(refused.reason);
+    assert.equal(refused.resetsAt, new Date(2026, 10, 1).toISOString());
+    assert.equal(refused.resetsAt, budgetPeriodResetsAt(now));
+    assert.equal(getBudgetStatus(db, { studentId: "student", grade: 11, now }).resetsAt, refused.resetsAt);
+    db.close();
+  });
+});

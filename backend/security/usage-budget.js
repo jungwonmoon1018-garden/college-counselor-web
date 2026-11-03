@@ -27,6 +27,14 @@ export function calendarMonthKey(now = new Date()) {
   return year + "-" + month;
 }
 
+// When the period calendarMonthKey names for `now` ends: midnight starting
+// the next month, in the same process-local calendar. The 402 at the cap
+// carries it so the student is told when the budget comes back, instead of
+// retrying for the rest of the month.
+export function budgetPeriodResetsAt(now = new Date()) {
+  return new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
+}
+
 function modelIdForPricing(model) {
   return String(model || "").replace(/^openrouter:/, "");
 }
@@ -125,6 +133,7 @@ export function getBudgetStatus(db, { studentId, grade, now = new Date() } = {})
     capUsd: cap,
     committedUsd,
     remainingUsd: Math.max(0, Math.round((cap - committedUsd) * 1_000_000) / 1_000_000),
+    resetsAt: budgetPeriodResetsAt(now),
   };
 }
 
@@ -159,6 +168,11 @@ export function reserveBudget(db, {
       }
       return {
         allowed: existing.status !== "released",
+        // A released row is a failed call's id being sent again (the client
+        // resent the same body after re-authenticating). Without a code the
+        // caller read the refusal as a budget denial and told the student
+        // their monthly budget was used up.
+        ...(existing.status === "released" ? { code: "request_id_released" } : {}),
         idempotent: true,
         reservationId: existing.id,
         reservedUsd: Number(existing.reserved_usd),
@@ -173,11 +187,13 @@ export function reserveBudget(db, {
       return {
         allowed: false,
         code: "monthly_cap_exceeded",
+        reason: "This request does not fit the remaining monthly AI budget.",
         capUsd: cap,
         committedUsd: status.committedUsd,
         requestedUsd: estimate.estimatedCostUsd,
         remainingUsd: status.remainingUsd,
         period,
+        resetsAt: budgetPeriodResetsAt(now),
       };
     }
 

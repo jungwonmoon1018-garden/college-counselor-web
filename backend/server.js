@@ -46,6 +46,7 @@ import {
 } from "./storage/evidence-graph.js";
 import { initPIIVault, preparePIIStatements } from "./storage/pii-vault.js";
 import { initUsageBudget, releaseStaleReservations } from "./security/usage-budget.js";
+import * as rulesEngine from "./chat/rules-engine.js";
 import { OPENROUTER_TARGETS, OPENROUTER_CATALOG } from "./scouts/openrouter-model-refresh.js";
 import * as chatHistory from "./chat/chat-history.js";
 import { registerDynamicOpenRouterModels as adapterRegisterDynamicModels } from "./llm-adapters/index.js";
@@ -68,7 +69,7 @@ import { initAdmissionsIntelligenceTables, prepareAdmissionsIntelStatements, see
 import "./colleges/admissions-intelligence-loader.js";
 import { loadOrchestrationCatalog } from "./chat/orchestration-engine.js";
 import { initAuthStore } from "./security/security-auth.js";
-import { ADMIN_AUTH_RATE_LIMIT, AUTH_RATE_LIMIT, buildHealthResponse, resolveAllowedOrigins, securityResponseMiddleware } from "./security/security-hardening.js";
+import { ADMIN_AUTH_RATE_LIMIT, AUTH_RATE_LIMIT, buildHealthResponse, createChatRateLimiters, rateLimitedHandler, resolveAllowedOrigins, securityResponseMiddleware } from "./security/security-hardening.js";
 import { OPENROUTER_MODEL_OPTIONS } from "./llm-adapters/tier-defaults.js";
 import {
   initModelCatalogScout,
@@ -204,6 +205,8 @@ const routeDeps = {
   get adminSessionResponse() { return adminSessionResponse; },
   get admissionsIntelStmts() { return admissionsIntelStmts; },
   get apiLimiter() { return apiLimiter; },
+  get chatIpLimiter() { return chatIpLimiter; },
+  get chatStudentLimiter() { return chatStudentLimiter; },
   get app() { return app; },
   get assembleProfileForGeneration() { return assembleProfileForGeneration; },
   get authLimiter() { return authLimiter; },
@@ -422,6 +425,16 @@ console.log(`[BOOT] Environment: ${NODE_ENV}`);
 console.log(`[BOOT] Allowed origins: ${ALLOWED_ORIGINS.join(", ")}`);
 console.log(`[BOOT] Retention mode: ${RETENTION_MODE}`);
 console.log(`[BOOT] College Scorecard API: ${SCORECARD_API_KEY ? "CONFIGURED" : "NOT CONFIGURED (offline mode)"}`);
+// The FAFSA eligibility rules are tied to an award year's FSA Handbook and
+// stop applying when it expires; the deterministic answer then steps aside
+// for labeled general guidance. Said at every boot from 60 days ahead, so
+// the counselor hears it in the log before a student meets it.
+try {
+  const fafsa = typeof rulesEngine.fafsaRulesetStatus === "function" ? rulesEngine.fafsaRulesetStatus(new Date()) : null;
+  if (fafsa?.warning) console.warn(`[BOOT] FAFSA rules: ${fafsa.warning}`);
+} catch (err) {
+  console.warn("[BOOT] FAFSA ruleset status failed:", err.message);
+}
 // DATABASE INITIALIZATION — 3 physically separate databases
 // ═══════════════════════════════════════════════════════════
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "data");
@@ -739,8 +752,14 @@ app.use((req, res, next) => {
 const RATE_LIMIT_RELAXED = process.env.RATE_LIMIT_RELAXED === "1" && NODE_ENV === "test";
 if (process.env.RATE_LIMIT_RELAXED === "1" && !RATE_LIMIT_RELAXED) console.warn("[BOOT] RATE_LIMIT_RELAXED is set, but only the test runner may relax the rate limits; ignored.");
 const relaxedMax = (max) => RATE_LIMIT_RELAXED ? max * 100 : max;
-const apiLimiter = rateLimit({ windowMs: 60_000, max: relaxedMax(30), keyGenerator: (req) => hashIP(req.ip), message: { error: "Too many requests." } });
-const studentLimiter = rateLimit({ windowMs: 60_000, max: relaxedMax(30), keyGenerator: (req) => hashIP(req.ip) });
+// Every 429 below carries code "rate_limited" and retryAfterSeconds, so the
+// client can tell the student how long to wait instead of "Something went
+// wrong"; the student limiter used to answer in plain text.
+const apiLimiter = rateLimit({ windowMs: 60_000, max: relaxedMax(30), keyGenerator: (req) => hashIP(req.ip), handler: rateLimitedHandler("Too many requests.") });
+const studentLimiter = rateLimit({ windowMs: 60_000, max: relaxedMax(30), keyGenerator: (req) => hashIP(req.ip), handler: rateLimitedHandler("Too many requests. Wait a moment and try again.") });
+// /api/chat: per student after sign-in (60 a minute), with a 300-a-minute
+// per-IP ceiling ahead of it (security/security-hardening.js).
+const { chatIpLimiter, chatStudentLimiter } = createChatRateLimiters({ hashIP, relax: relaxedMax });
 const scorecardLimiter = rateLimit({ windowMs: 60_000, max: relaxedMax(40), keyGenerator: (req) => hashIP(req.ip), message: { error: "Too many college search requests." } });
 const authLimiter = rateLimit({
   ...AUTH_RATE_LIMIT,

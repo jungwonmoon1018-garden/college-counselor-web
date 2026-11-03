@@ -20,6 +20,7 @@ import {
 import { isCrisisText as defaultIsCrisisText, isCrisisTopicMention } from "../chat/policy-router.js";
 import { buildCrisisChatReply as defaultBuildCrisisChatReply, crisisResourceFooter } from "../chat/rules-engine.js";
 import { resolveLocale } from "../shared/i18n.js";
+import { isProviderError, modelErrorResponse } from "../shared/model-errors.js";
 
 const VALID_DECISION_TYPES = new Set(Object.values(DECISION_TYPES));
 
@@ -85,7 +86,7 @@ export function mountPillarRoutes(app, deps) {
 
   app.post("/api/council/convene", studentLimiter, requireAuth, async (req, res) => {
     const studentId = req.user?.studentId;
-    if (!studentId) return res.status(401).json({ error: "Authentication required." });
+    if (!studentId) return res.status(401).json({ error: "Authentication required.", code: "session_invalid" });
     const questionValue = req.body?.question;
     if (questionValue != null && typeof questionValue !== "string") {
       return res.status(400).json({
@@ -95,7 +96,7 @@ export function mountPillarRoutes(app, deps) {
     }
     const rawQuestion = questionValue || "";
     const question = rawQuestion.trim();
-    if (!question) return res.status(400).json({ error: "missing question" });
+    if (!question) return res.status(400).json({ error: "missing question", code: "COUNCIL_QUESTION_MISSING" });
     if (rawQuestion.length > 2000) {
       return res.status(400).json({
         error: "question must be 2,000 characters or fewer",
@@ -145,6 +146,7 @@ export function mountPillarRoutes(app, deps) {
     if (!screenedQuestion) {
       return res.status(400).json({
         error: "The Council question is empty after safety screening.",
+        code: "COUNCIL_INPUT_BLOCKED",
         blocked: true,
       });
     }
@@ -153,6 +155,8 @@ export function mountPillarRoutes(app, deps) {
     if (!consent.allowed) {
       return res.status(403).json({
         error: "Required AI and cross-border transfer consent has not been granted.",
+        code: "consent_required",
+        missing: consent.missing || [],
         missingConsents: consent.missing || [],
       });
     }
@@ -171,10 +175,20 @@ export function mountPillarRoutes(app, deps) {
     if (!llm?.apiKey) {
       return res.status(503).json({
         error: "The administrator must configure OpenRouter first.",
-        code: "OPENROUTER_NOT_CONFIGURED",
+        code: "openrouter_not_configured",
       });
     }
 
+    // Aborted when the student goes away before the answer is sent. convene
+    // checks it between seats and every seat's model call carries it, so a
+    // closed tab stops the run and its unreconciled stages are released,
+    // instead of four seats finishing and billing a review nobody reads.
+    // `res` 'close' with writableEnded unset: since Node 16 `req` emits
+    // 'close' as soon as its body has been read.
+    const councilAbort = new AbortController();
+    res.on("close", () => {
+      if (!res.writableEnded) councilAbort.abort(new Error("The client closed the Council request."));
+    });
     let budgetSession = null;
     let budgetReleased = false;
     const releaseBudgetOnce = () => {
@@ -202,6 +216,7 @@ export function mountPillarRoutes(app, deps) {
         beforeStage: (stage) => beforeCouncilStage({ ...stage, studentId, operationId, budgetSession }),
         afterStage: (stage) => afterCouncilStage({ ...stage, studentId, operationId, budgetSession }),
         triggerSource: "manual",
+        signal: councilAbort.signal,
       });
       const sanitizeText = (value) => {
         if (value == null) return value;
@@ -233,10 +248,29 @@ export function mountPillarRoutes(app, deps) {
       res.json({ ...safeResult, usage: summarizeCouncilBudget(budgetSession) });
     } catch (error) {
       releaseBudgetOnce();
+      if (councilAbort.signal.aborted || res.headersSent) return;
+      // A provider failure (the Strategist's, see council/index.js) goes
+      // through the same translation as /api/chat, so an upstream 401 is a
+      // 502 provider_auth_failed and a stall a 504 provider_timeout, never
+      // our own 401 or a 0 USD "no recommendation". The Council's own codes
+      // keep their statuses; anything else without a code is a coded 500.
+      if (isProviderError(error)) {
+        const mapped = modelErrorResponse(error);
+        return res.status(mapped.status).json({
+          ...mapped.body,
+          councilCode: error.councilCode || "COUNCIL_PROVIDER_UNAVAILABLE",
+          stage: error.stage || null,
+        });
+      }
       const status = error.status || (error.code === "COUNCIL_DUPLICATE_REQUEST" ? 409
         : error.code === "BUDGET_EXCEEDED" || error.code === "COUNCIL_BUDGET_DENIED" ? 402
           : 500);
-      res.status(status).json({ error: error.message, code: error.code });
+      const body = { error: error.message, code: error.code || (status >= 500 ? "internal_error" : "request_failed") };
+      if (error.code === "consent_required") {
+        body.missing = Array.isArray(error.missing) ? error.missing : [];
+        body.missingConsents = body.missing;
+      }
+      res.status(status).json(body);
     }
   });
 

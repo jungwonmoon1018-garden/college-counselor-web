@@ -4,10 +4,11 @@ import express from "express";
 import Database from "better-sqlite3";
 import { mountPillarRoutes } from "../routes/server-routes-pillars.js";
 import { initCouncilTables } from "../council/audit-trail.js";
+import { convene } from "../council/index.js";
 
 const API_KEY = "sk-proj-abcdefghijklmnopqrstuvwxyz012345";
 
-async function startHarness(t) {
+async function startHarness(t, overrides = {}) {
   const db = new Database(":memory:");
   const app = express();
   app.use(express.json());
@@ -66,6 +67,7 @@ async function startHarness(t) {
         sequential: true,
       };
     },
+    ...overrides,
   });
 
   const server = await new Promise((resolve) => {
@@ -222,4 +224,57 @@ test("new Council audit tables do not require request IDs", () => {
   } finally {
     db.close();
   }
+});
+
+// A provider outage used to run every seat (each up to two tries of the
+// adapter's 105 s budget) and then answer 200 "could not produce a primary
+// recommendation from the available context" at Confidence 0% and 0 USD.
+// The Strategist's provider failure now stops the run with a coded error.
+test("a Council run whose provider fails answers a coded error, not a 0 USD no-recommendation", async (t) => {
+  for (const [upstreamStatus, upstreamCode, expectedStatus, expectedCode] of [
+    [401, "auth_rejected", 502, "provider_auth_failed"],
+    [504, "provider_timeout", 504, "provider_timeout"],
+  ]) {
+    const providerCalls = [];
+    const harness = await startHarness(t, {
+      conveneCouncil: (args) => convene({
+        ...args,
+        contextOverride: "Student context for the test.",
+        callModel: async (request) => {
+          providerCalls.push(request.model);
+          throw Object.assign(new Error("mock upstream " + upstreamStatus), { status: upstreamStatus, code: upstreamCode, provider: "openrouter" });
+        },
+      }),
+    });
+    const response = await postCouncil(harness, explicitRequest());
+    assert.equal(response.status, expectedStatus, JSON.stringify(response.body));
+    assert.equal(response.body.code, expectedCode);
+    assert.equal(response.body.councilCode, "COUNCIL_PROVIDER_UNAVAILABLE");
+    assert.equal(response.body.stage, "Strategist");
+    assert.notEqual(response.status, 401, "an upstream 401 is never our own");
+    assert.equal(providerCalls.length, 1, "no further seats or tries into the same outage");
+    assert.equal(harness.calls.release.length, 1, "the reserved stages are released");
+  }
+});
+
+test("a Strategist whose reply cannot be parsed still yields the moderator's answer, without blaming the context", async (t) => {
+  let calls = 0;
+  const harness = await startHarness(t, {
+    conveneCouncil: (args) => convene({
+      ...args,
+      contextOverride: "Student context for the test.",
+      callModel: async () => {
+        calls += 1;
+        return { content: [{ type: "text", text: "not json at all" }], usage: { input_tokens: 10, output_tokens: 5 } };
+      },
+    }),
+  });
+  const response = await postCouncil(harness, explicitRequest());
+  assert.equal(response.status, 200, JSON.stringify(response.body));
+  assert.equal(response.body.moderator_rule, "no_primary_recommendation");
+  assert.doesNotMatch(response.body.recommendation, /available context/);
+  // Every seat tried twice; each try's usage is reported, not dropped.
+  assert.equal(calls, 8);
+  const strategist = response.body.council_breakdown.find((seat) => seat.role === "Strategist");
+  assert.equal(strategist.abstained, true);
 });

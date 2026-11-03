@@ -51,6 +51,28 @@ export function detectProvider({ apiKey = '', provider = '', baseUrl = '' } = {}
   return key.startsWith('sk-or-') ? PROVIDERS.OPENROUTER : null;
 }
 
+// Token counts of two provider calls added field by field. Exported for the
+// council, whose seats retry an unparseable reply and must bill both tries.
+export function sumUsage(a, b) {
+  const out = {};
+  for (const key of new Set([...Object.keys(a || {}), ...Object.keys(b || {})])) {
+    out[key] = (Number(a?.[key]) || 0) + (Number(b?.[key]) || 0);
+  }
+  return out;
+}
+
+// The output budget the adapter will actually ask the provider for, given
+// what the caller requested: reasoning models are floored at 8,192 and a model
+// that once answered empty starts at 4,096. Reservations use it so the
+// pre-call budget check covers what the call can really generate; a council
+// seat reserved 600 tokens for a reasoning model that may write 8,192.
+export function effectiveMaxTokens(model, requested) {
+  const asked = Number.isFinite(Number(requested)) ? Math.trunc(Number(requested)) : 1024;
+  const reasoningFloor = isReasoningModel(model) ? 8192 : 1;
+  const learnedFloor = BUDGET_RETRY_MODELS.has(model) ? 4096 : 1;
+  return Math.min(16384, Math.max(reasoningFloor, learnedFloor, asked));
+}
+
 function configurationError(message, code) {
   const error = new Error(message);
   error.status = 400;
@@ -77,14 +99,10 @@ export async function callLLM(options = {}) {
     messages: options.messages,
     metadata: options.metadata,
   }, { boundary: 'llm-adapter:openrouter' });
-  const requested = Number.isFinite(Number(options.maxTokens))
-    ? Math.trunc(Number(options.maxTokens))
-    : 1024;
-  const reasoningFloor = isReasoningModel(model) ? 8192 : 1;
   // A model that once answered empty at a small budget (see the follow-up
-  // below) starts at 4,096 for the rest of the process.
-  const learnedFloor = BUDGET_RETRY_MODELS.has(model) ? 4096 : 1;
-  const maxTokens = Math.min(16384, Math.max(reasoningFloor, learnedFloor, requested));
+  // below) starts at 4,096 for the rest of the process; reasoning models
+  // start at 8,192 (effectiveMaxTokens).
+  const maxTokens = effectiveMaxTokens(model, options.maxTokens);
   // Hard cap on the upstream call, split across two attempts. Node's fetch
   // has no default timeout, so a stalled provider socket used to hang the
   // whole request (and the student's UI) indefinitely. Observed stalls
@@ -141,6 +159,10 @@ export async function callLLM(options = {}) {
         BUDGET_RETRY_MODELS.add(model);
         const again = await call(4096);
         again.budget_retry = true;
+        // Both calls were billed upstream. Returning only the follow-up's
+        // usage reconciled the student's reservation to half the real spend,
+        // so the monthly cap stopped bounding what the operator paid.
+        again.usage = sumUsage(result?.usage, again?.usage);
         return again;
       }
       return result;

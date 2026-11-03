@@ -48,6 +48,21 @@ function buildCouncilors(callModel) {
   ];
 }
 
+// The Strategist's provider failure as the error the route maps to a status:
+// it keeps the adapter's status and code (a 401 becomes 502
+// provider_auth_failed, a stall 504 provider_timeout in
+// shared/model-errors.js) and names the Council's own reason.
+export function councilProviderError(output) {
+  const failure = output?.provider_error || {};
+  const error = new Error("The AI provider could not answer for the Strategy Council: " + (failure.message || "provider error"));
+  error.status = Number.isInteger(failure.status) ? failure.status : 502;
+  error.code = failure.code || "http_error";
+  error.provider = "openrouter";
+  error.councilCode = "COUNCIL_PROVIDER_UNAVAILABLE";
+  error.stage = output?.role || null;
+  return error;
+}
+
 function normalizeContext(value) {
   if (!value) return null;
   if (typeof value === "string") return { text: value, evidenceIndex: {}, immutable: true };
@@ -120,6 +135,17 @@ export async function convene(opts = {}) {
       llm,
       signal,
     });
+    // Without the Strategist there is no recommendation to review, and when
+    // it abstained because the provider failed, the other seats would only
+    // wait on the same outage (up to 105 s each) before the moderator
+    // answered "could not produce a primary recommendation from the
+    // available context" with Confidence 0% and a 0 USD cost, which reads as
+    // the student's profile being too thin. The run stops with the
+    // provider's error instead; the route answers it with a coded status and
+    // releases every stage it reserved, this one included.
+    if (index === 0 && output?.abstained && output.abstain_reason === "provider") {
+      throw councilProviderError(output);
+    }
     outputs.push(output);
     if (afterStage) await afterStage({ ...stageInfo, output, approval });
   }

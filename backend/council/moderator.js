@@ -105,8 +105,13 @@ export function moderate(councilorEnvelopes) {
   }
 
   if (!strategist || strategist.abstained || !strategist.recommendation) {
+    // An abstaining Strategist is a model that failed to answer usably, not
+    // a profile with too little in it; the old sentence blamed "the available
+    // context" either way, and students read it as their record being thin.
     return {
-      recommendation: "The Council could not produce a primary recommendation from the available context.",
+      recommendation: strategist?.abstained
+        ? "The Council could not produce a primary recommendation this time because the Strategist's answer could not be used. Please try again."
+        : "The Council could not produce a primary recommendation from the available context.",
       confidence: 0,
       dissent: null,
       dissents: active.filter((seat) => seat.stance !== "support").map(dissentFrom),
