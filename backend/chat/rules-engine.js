@@ -7,15 +7,76 @@
 
 import crypto from "node:crypto";
 
-export const FAFSA_RULESET = Object.freeze({
-  id: "federal_student_aid_eligibility",
-  academicYear: "2026-2027",
-  effectiveAt: "2026-07-01T00:00:00.000Z",
-  expiresAt: "2027-06-30T23:59:59.999Z",
-  sourceUrl: "https://fsapartners.ed.gov/knowledge-center/fsa-handbook/2026-2027/vol1/ch1-school-determined-requirements",
-  sourceTitle: "2026-2027 Federal Student Aid Handbook, Volume 1, Chapter 1",
-  sourceDomain: "fsapartners.ed.gov",
-});
+// The federal eligibility rules, one entry per award year, each reviewed
+// against that year's FSA Handbook before it is added. There used to be a
+// single hard-coded 2026-27 record: on 2027-07-01 every rule would have
+// dropped out of the verified lane with no warning, and nothing said that
+// this cycle's seniors file the 2027-28 form (time-4, debt-4). Add the next
+// year only from its published handbook (2027-28 Volume 1 was not out on
+// 2026-11-03); until then fafsaRulesetStatus warns the counselor from 60
+// days before the newest entry expires, and once none covers the date the
+// chat sends FAFSA eligibility questions to the model as labeled general
+// guidance with the StudentAid.gov pointer.
+export const FAFSA_RULESETS = Object.freeze([
+  Object.freeze({
+    id: "fafsa_eligibility_2026_2027",
+    academicYear: "2026-2027",
+    effectiveAt: "2026-07-01T00:00:00.000Z",
+    expiresAt: "2027-06-30T23:59:59.999Z",
+    sourceUrl: "https://fsapartners.ed.gov/knowledge-center/fsa-handbook/2026-2027/vol1/ch1-school-determined-requirements",
+    sourceTitle: "2026-2027 Federal Student Aid Handbook, Volume 1, Chapter 1",
+    sourceDomain: "fsapartners.ed.gov",
+  }),
+]);
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+export const FAFSA_RULESET_WARNING_DAYS = 60;
+
+// The FAFSA for an award year opens on October 1 before it begins (the
+// 2027-28 form on 2026-10-01), and a senior files the form for the year
+// they enroll, so a ruleset is usable from its form's opening day.
+function formOpensAt(ruleset) {
+  const effective = new Date(ruleset.effectiveAt);
+  return ruleset.formOpensAt ? Date.parse(ruleset.formOpensAt) : Date.UTC(effective.getUTCFullYear() - 1, 9, 1);
+}
+
+// The award year of the newest FAFSA form open on `now`.
+function newestOpenAwardYear(now) {
+  const start = now.getUTCMonth() >= 9 ? now.getUTCFullYear() + 1 : now.getUTCFullYear();
+  return `${start}-${start + 1}`;
+}
+
+// Prefers the award year whose FAFSA opened most recently, otherwise the
+// one in effect; null when no reviewed ruleset covers `now`.
+export function selectFafsaRuleset(now = new Date(), rulesets = FAFSA_RULESETS) {
+  const t = now.getTime();
+  return [...rulesets]
+    .filter((r) => formOpensAt(r) <= t && t <= Date.parse(r.expiresAt))
+    .sort((a, b) => Date.parse(b.effectiveAt) - Date.parse(a.effectiveAt))[0] || null;
+}
+
+// For the admin status payload and the boot log line: each ruleset with the
+// days left before it expires (negative once it has), and a warning from
+// FAFSA_RULESET_WARNING_DAYS before the newest one lapses or once none
+// covers the date.
+export function fafsaRulesetStatus(now = new Date(), rulesets = FAFSA_RULESETS) {
+  const t = now.getTime();
+  const rows = rulesets.map((r) => ({
+    id: r.id,
+    academicYear: r.academicYear,
+    expiresAt: r.expiresAt,
+    daysLeft: Math.ceil((Date.parse(r.expiresAt) - t) / DAY_MS),
+  }));
+  const current = selectFafsaRuleset(now, rulesets);
+  const newest = rows.reduce((best, row) => (!best || Date.parse(row.expiresAt) > Date.parse(best.expiresAt) ? row : best), null);
+  let warning = null;
+  if (!current) {
+    warning = `No FAFSA eligibility ruleset covers ${now.toISOString().slice(0, 10)}: FAFSA eligibility questions get labeled general guidance until the ${newestOpenAwardYear(now)} FSA Handbook rules are reviewed and added to FAFSA_RULESETS in backend/chat/rules-engine.js.`;
+  } else if (newest && newest.daysLeft <= FAFSA_RULESET_WARNING_DAYS) {
+    warning = `The ${newest.academicYear} FAFSA eligibility ruleset expires in ${newest.daysLeft} day(s) (${newest.expiresAt.slice(0, 10)}); review the next award year's FSA Handbook and add it to FAFSA_RULESETS in backend/chat/rules-engine.js.`;
+  }
+  return { rulesets: rows, current: current?.id || null, warning };
+}
 
 // ═══════════════════════════════════════════════════════════
 // FAFSA ELIGIBILITY PRE-CHECK
@@ -76,9 +137,24 @@ const FAFSA_ELIGIBILITY_RULES = [
   },
 ];
 
-export function runFAFSAEligibilityCheck(studentData = {}) {
+export function runFAFSAEligibilityCheck(studentData = {}, { now = new Date(), rulesets = FAFSA_RULESETS } = {}) {
+  const ruleset = selectFafsaRuleset(now, rulesets);
+  if (!ruleset) {
+    // The route reads this message as "not answerable here" and sends the
+    // question to the model under the regulated advisory prefix.
+    return {
+      available: false,
+      eligible: null,
+      results: [],
+      message: "No deterministic rule is available for this FAFSA question: no reviewed FAFSA eligibility ruleset covers this date.",
+      advisory: "Check the current requirements at https://studentaid.gov/apply-for-aid/fafsa/eligibility.",
+      source: "https://studentaid.gov/apply-for-aid/fafsa/eligibility",
+      removedRequirements: [],
+    };
+  }
+  const supplied = studentData && typeof studentData === "object" ? studentData : {};
   const results = FAFSA_ELIGIBILITY_RULES.map((rule) => {
-    const fieldValue = studentData[rule.id];
+    const fieldValue = supplied[rule.id];
     let status = "unknown"; // unknown, pass, fail, not_applicable
 
     if (!rule.required) {
@@ -97,11 +173,11 @@ export function runFAFSAEligibilityCheck(studentData = {}) {
       status,
       source: rule.source,
       note: rule.note || null,
-      academicYear: FAFSA_RULESET.academicYear,
-      effectiveAt: FAFSA_RULESET.effectiveAt,
-      expiresAt: FAFSA_RULESET.expiresAt,
-      sourceTitle: FAFSA_RULESET.sourceTitle,
-      sourceDomain: FAFSA_RULESET.sourceDomain,
+      academicYear: ruleset.academicYear,
+      effectiveAt: ruleset.effectiveAt,
+      expiresAt: ruleset.expiresAt,
+      sourceTitle: ruleset.sourceTitle,
+      sourceDomain: ruleset.sourceDomain,
     };
   });
 
@@ -111,26 +187,42 @@ export function runFAFSAEligibilityCheck(studentData = {}) {
 
   const anyFailed = results.some((r) => r.status === "fail" && r.required);
   const unknownCount = results.filter((r) => r.status === "unknown" && r.required).length;
+  const requiredCount = results.filter((r) => r.required).length;
 
+  // The chat supplies no answers, so a checklist question used to get
+  // "6 eligibility item(s) have not been confirmed yet" and nothing else.
+  // With nothing supplied the summary introduces the requirements instead,
+  // and names the handbook they come from: from October seniors file the
+  // next award year's form, whose handbook may not be out yet.
+  const openYear = newestOpenAwardYear(now);
+  const handbook = `the ${ruleset.academicYear} Federal Student Aid Handbook`;
+  const yearNote = openYear !== ruleset.academicYear
+    ? ` The ${openYear} FAFSA (the form seniors file this cycle) follows the ${openYear} handbook, which is not reflected here yet; the basic requirements rarely change, but confirm them on StudentAid.gov.`
+    : "";
   return {
+    available: true,
     eligible: anyFailed ? false : unknownCount === 0 ? true : null,
-    summary: anyFailed
+    summary: (anyFailed
       ? "Based on the information provided, you may not meet one or more FAFSA eligibility requirements. Please review the items below and consult StudentAid.gov for official guidance."
-      : unknownCount > 0
-        ? `${unknownCount} eligibility item(s) have not been confirmed yet. Complete all items for a full eligibility assessment.`
-        : "Based on the information provided, you appear to meet the basic FAFSA eligibility requirements. This is an informal assessment only — submit your FAFSA at StudentAid.gov for an official determination.",
+      : unknownCount === requiredCount
+        ? `These are the basic requirements for federal student aid in ${handbook}. Check each one against your own situation; StudentAid.gov explains the special cases, such as noncitizen status or a parent without a Social Security number.`
+        : unknownCount > 0
+          ? `${unknownCount} eligibility item(s) have not been confirmed yet. Complete all items for a full eligibility assessment.`
+          : "Based on the information provided, you appear to meet the basic FAFSA eligibility requirements. This is an informal assessment only — submit your FAFSA at StudentAid.gov for an official determination.") + yearNote,
+    // The same note on its own, for the model's copy of the rules.
+    filingYearNote: yearNote.trim() || null,
     results,
     advisory: "This is NOT an official eligibility determination. Only the U.S. Department of Education can make official FAFSA eligibility decisions. Submit your FAFSA at https://studentaid.gov.",
-    academicYear: FAFSA_RULESET.academicYear,
-    effectiveAt: FAFSA_RULESET.effectiveAt,
-    expiresAt: FAFSA_RULESET.expiresAt,
-    source: FAFSA_RULESET.sourceUrl,
-    sourceTitle: FAFSA_RULESET.sourceTitle,
+    academicYear: ruleset.academicYear,
+    effectiveAt: ruleset.effectiveAt,
+    expiresAt: ruleset.expiresAt,
+    source: ruleset.sourceUrl,
+    sourceTitle: ruleset.sourceTitle,
     removedRequirements: [
       {
         id: "selective_service",
         note: "Selective Service registration is not a Title IV federal student aid eligibility requirement.",
-        source: FAFSA_RULESET.sourceUrl,
+        source: ruleset.sourceUrl,
       },
     ],
   };

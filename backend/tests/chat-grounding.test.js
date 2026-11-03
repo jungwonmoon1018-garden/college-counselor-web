@@ -228,7 +228,7 @@ test("verified data block formats baseline, CDS, and research facts and is empty
       policyLine: "Admissions policy (official site, checked 2026-09-03): test policy — test scores required; Regular Decision deadline 2027-01-05 [Source: https://admission.stanford.edu/apply/deadlines]",
     }],
   });
-  assert.match(drive, /- Stanford University: admit rate 3\.6% \[Source: Stanford University Common Data Set 2025-26 \(validated against ground truth\), official PDF on file\]/);
+  assert.match(drive, /- Stanford University: admit rate 3\.6%; test policy: not read from the document \[Source: Stanford University Common Data Set 2025-26 \(validated against ground truth\), official PDF on file\]/);
   assert.doesNotMatch(drive, /drive\.google\.com/);
   assert.match(drive, /\n  Admissions policy \(official site, checked 2026-09-03\): test policy — test scores required/);
   // A school with only a scouted policy line still gets an entry.
@@ -668,4 +668,105 @@ test("a named school with nothing held gets a line that says so", () => {
   assert.deepEqual(unresolvedSchoolNames("What is Elm Valley College's acceptance rate? And Stanford?"), ["Elm Valley College"]);
   assert.deepEqual(unresolvedSchoolNames("Which College should I pick, Boston College or the University of Nowhere?", { knownNames: ["Boston College"] }), ["University of Nowhere"]);
   assert.deepEqual(unresolvedSchoolNames("Is a Liberal Arts College right for me, or Carnegie Mellon University?", { knownNames: ["Carnegie Mellon University"] }), []);
+});
+
+// fid-5: the grade the student is in (computed on the server from their
+// class) never reached the model, so a senior with no courses entered in
+// November got a junior-year plan.
+test("the profile block states the grade level, and a reply that misstates it is caught", () => {
+  assert.match(formatProfileForModel({ gradeLevel: 12 }), /^STUDENT PROFILE[^\n]*\nGrade level: 12th grade \(senior\)\n/);
+  assert.match(formatProfileForModel({ gradeLevel: 9 }), /\nGrade level: 9th grade \(freshman\)\n/);
+  assert.doesNotMatch(formatProfileForModel({}), /Grade level/);
+  assert.doesNotMatch(formatProfileForModel({ gradeLevel: 7 }), /Grade level/);
+
+  const senior = { ...profile, gradeLevel: 12 };
+  for (const reply of [
+    "Since you're a junior, the SAT next spring is your best window.",
+    "As an 11th grader, you should start your list now.",
+    "You are in 11th grade, so focus on your junior-year courses.",
+    "학생은 11학년이므로 내년 봄에 SAT를 보세요.",
+  ]) {
+    const found = checkProfileFidelity(reply, senior).contradictions.filter((c) => c.kind === "grade_level");
+    assert.equal(found.length, 1, reply);
+    assert.equal(found[0].actual, "12th grade (senior)");
+  }
+  // Hedged, general or about a past year: never a contradiction.
+  for (const reply of [
+    "Juniors usually take the SAT in the spring.",
+    "If you're a junior, the PSAT counts for National Merit.",
+    "The grades you earned as a junior matter most.",
+    "You're a senior, so the November 1 deadlines are close.",
+    "You're a junior varsity captain, which shows commitment.",
+    "11학년이라면 SAT를 봄에 보세요.",
+  ]) {
+    assert.equal(checkProfileFidelity(reply, senior).contradictions.filter((c) => c.kind === "grade_level").length, 0, reply);
+  }
+  // No recorded grade: nothing to check against.
+  assert.equal(checkProfileFidelity("Since you're a junior, start now.", profile).contradictions.filter((c) => c.kind === "grade_level").length, 0);
+
+  const [contradiction] = checkProfileFidelity("As a junior, you have time.", senior).contradictions.filter((c) => c.kind === "grade_level");
+  assert.match(buildFidelityCorrection([contradiction]), /- Grade level: the student is in 12th grade \(senior\) \(the reply said 11th grade \(junior\)\)/);
+  assert.match(buildFidelityFootnote([contradiction], "ko"), /학년: 기록상 12학년 \(답변에서는 11학년\)/);
+});
+
+// Wave 1 follow-up: "$15/hr" and "Budget: $2,000" in an activity reached the
+// provider as [ANNUAL_INCOME_nn]. Only the activity's own text is rewritten;
+// goals and the major keep their "$" for the redactor's income rules.
+test("dollar amounts in an activity reach the model as USD, past the provider redactor", async () => {
+  const { redactProviderText } = await import("../chat/content-moderation.js");
+  const block = formatProfileForModel({
+    activities: [{ name: "Tutoring ($15/hr)", role: "Founder", description: "Raised $4,500 for the food bank and earned $15/hr tutoring." }],
+    goals: ["family income $85,000"],
+  });
+  assert.match(block, /Tutoring \(15 USD\/hr\)/);
+  assert.match(block, /Raised 4,500 USD for the food bank and earned 15 USD\/hr tutoring/);
+  assert.match(block, /family income \$85,000/);
+  const masked = redactProviderText(block).text;
+  assert.match(masked, /4,500 USD/);
+  assert.match(masked, /15 USD\/hr/);
+});
+
+// Wave 1 follow-ups to the VERIFIED DATA block: a withheld or stale College
+// Fit read said nothing at all, and a CDS "test required" the store knows to
+// be a parser default reached the model as the school's policy.
+test("the fit line says when there is no label yet or the read is old, and the CDS policy line reads the store's verdict", () => {
+  const withheld = formatVerifiedDataBlock({ schools: [{ name: "Columbia University", baseline: null, cds: null, fitRead: {
+    school: "Columbia University", label: null, labelKey: null, computedAt: "2026-10-01T00:00:00Z",
+    provenance: { kind: "baseline_only", labelKey: "insufficient_student_data", studentDataNeeded: ["gpa", "sat_or_act"] },
+  } }] });
+  assert.match(withheld, /College Fit for THIS student at Columbia University: no label yet; add a GPA \(unweighted or weighted\) and an SAT or ACT score to get one\./);
+  assert.doesNotMatch(withheld, /Use this exact label|Not enough data yet|College Fit read for THIS student/);
+
+  const stale = formatVerifiedDataBlock({ schools: [{ name: "Stanford University", baseline: null, cds: null, fitRead: {
+    school: "Stanford University", label: null, stale: true, staleLabel: "Reach", computedAt: "2026-09-12T08:00:00Z",
+    provenance: { kind: "cds_store" }, verification: null,
+  } }] });
+  assert.match(stale, /College Fit for THIS student at Stanford University: an older read \(computed 2026-09-12\); the profile or the engine changed since, so reopen College Fit for a current label/);
+  assert.doesNotMatch(stale, /Reach|Use this exact label|College Fit read for THIS student/);
+
+  const none = formatVerifiedDataBlock({ schools: [{ name: "Elm College", baseline: null, cds: null, fitRead: {
+    school: "Elm College", label: "High reach", computedAt: "2026-10-01T00:00:00Z",
+    provenance: { kind: "none", admitRate: { used: null, basis: "unknown", assumedForLikelihood: 0.5 } },
+  } }] });
+  assert.match(none, /computed 2026-10-01 from no stored school data\): High reach/);
+  assert.match(none, /; no admit rate is on file, so this likelihood assumes 50%\. Use this exact label/);
+
+  const cds = (record) => formatVerifiedDataBlock({ schools: [{ name: "University of California-Los Angeles", baseline: null, cds: { school: "University of California-Los Angeles", yearLabel: "2024-25", overallAdmitRate: 0.09, ...record } }] });
+  // An old parser's "required" default with no section C evidence is not a policy.
+  assert.match(cds({ testPolicy: "test_required", parserVersion: 1, c7: { gpa: "very_important", rigor: "very_important", test_scores: "not_considered" } }), /test policy: test blind/);
+  assert.match(cds({ testPolicy: "test_required", parserVersion: 1 }), /test policy: not read from the document/);
+  assert.match(cds({}), /test policy: not read from the document/);
+  assert.match(cds({ testPolicy: "test_optional" }), /test policy: test optional/);
+});
+
+// With unheld lines the block is never empty, so "held data was sent"
+// (the chat's _meta.verifiedData) reads the lines, not the block's presence.
+test("a block of only unheld schools holds no verified data", async () => {
+  const { blockHoldsVerifiedData } = await import("../chat/chat-grounding.js");
+  assert.equal(blockHoldsVerifiedData(formatVerifiedDataBlock({ unheld: ["Rice University", "Elm Valley College"] })), false);
+  assert.equal(blockHoldsVerifiedData(""), false);
+  assert.equal(blockHoldsVerifiedData(formatVerifiedDataBlock({
+    schools: [{ name: "Elm College", baseline: null, cds: null, policyLine: "Admissions policy (official site, checked 2026-09-03): application fee none [Source: https://elm.edu/apply]" }],
+    unheld: ["Oak University"],
+  })), true);
 });

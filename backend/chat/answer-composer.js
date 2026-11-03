@@ -99,12 +99,12 @@ function dedupeClaims(claims) {
   });
 }
 
-function buildEvidenceClaims(evidence, subIntent) {
+function buildEvidenceClaims(evidence, subIntent, now = new Date()) {
   const claims = [];
   for (const item of evidence) {
     const statement = evidenceStatement(item);
     if (!statement) continue;
-    if (isVerifiedEvidenceForTopic(item, subIntent)) {
+    if (isVerifiedEvidenceForTopic(item, subIntent, { now })) {
       claims.push(makeClaim({
         lane: CLAIM_LANES.VERIFIED,
         statement,
@@ -153,7 +153,7 @@ function buildModelClaims(modelOutput, evidenceClaims) {
   return claims;
 }
 
-function deterministicClaims(classification, result) {
+function deterministicClaims(classification, result, now = new Date()) {
   if (!result) return [];
   const intent = normalizeSubIntent(classification?.subIntent);
   const claims = [];
@@ -177,7 +177,7 @@ function deterministicClaims(classification, result) {
         trust_level: "official",
       };
       const statement = evidenceStatement(officialEvidence);
-      if (statement && isVerifiedEvidenceForTopic(officialEvidence, "fafsa")) {
+      if (statement && isVerifiedEvidenceForTopic(officialEvidence, "fafsa", { now })) {
         claims.push(makeClaim({
           lane: CLAIM_LANES.VERIFIED,
           statement,
@@ -185,7 +185,10 @@ function deterministicClaims(classification, result) {
           origin: "rules_engine",
         }));
       }
-      if (rule.status && rule.status !== "not_applicable") {
+      // Only what the student actually supplied: "Citizenship: unknown" was
+      // filed as a fact "calculated from information supplied by the
+      // student" on every chat question, where nothing had been supplied.
+      if (rule.status && rule.status !== "not_applicable" && rule.status !== "unknown") {
         claims.push(makeClaim({
           lane: CLAIM_LANES.STUDENT,
           statement: (rule.label || rule.ruleId || rule.id || "Eligibility item") + ": " + rule.status,
@@ -215,7 +218,7 @@ function deterministicClaims(classification, result) {
       trust_level: result.trust_level || (sourceUrl ? "official" : "student_provided"),
     };
     claims.push(makeClaim({
-      lane: isVerifiedEvidenceForTopic(deadlineEvidence, "deadlines")
+      lane: isVerifiedEvidenceForTopic(deadlineEvidence, "deadlines", { now })
         ? CLAIM_LANES.VERIFIED
         : CLAIM_LANES.STUDENT,
       statement,
@@ -294,6 +297,9 @@ const SUB_INTENT_TOPIC_RE = {
   financial_amounts: /\b(cost|tuition|price|afford|expensive|how much|net price|room and board|fees?)\b/i,
   school_policies: /\b(polic\w*|require\w*|test[- ]optional|superscore|rule|allowed|accept)\b/i,
   official_stats: /\b(acceptance rate|admit rate|admission rate|average (?:sat|act|gpa)|middle 50|statistic|percent|yield|enrollment)\b/i,
+  // Without an entry every legal_compliance answer kept "The relevant
+  // official source", an internship at a law firm included (gate-11).
+  legal_compliance: /\b(legal\s+(?:rights?|requirements?|obligations?|status|issues?)|(?:federal|state)\s+law|title\s+ix|ada|complian\w*|regulations?|discriminat\w*|accommodations?)\b/i,
 };
 
 export function questionConcernsSubIntent(subIntent, questionText) {
@@ -309,6 +315,8 @@ export function composeAnswer({
   deterministicResult = null,
   locale = "en-US",
   questionText = null,
+  // The clock the expiry checks read; tests pass a fixed one.
+  now = new Date(),
 }) {
   const topicType = normalizeTopicType(classification.topicType);
   const subIntent = normalizeSubIntent(classification.subIntent);
@@ -321,8 +329,8 @@ export function composeAnswer({
   const followUpRelevant = !modelOutput?.text || questionText == null || questionConcernsSubIntent(subIntent, questionText);
 
   const claims = dedupeClaims([
-    ...buildEvidenceClaims(evidence, subIntent),
-    ...deterministicClaims(classification, deterministicResult),
+    ...buildEvidenceClaims(evidence, subIntent, now),
+    ...deterministicClaims(classification, deterministicResult, now),
   ]);
   claims.push(...buildModelClaims(modelOutput, claims));
   const finalClaims = dedupeClaims(claims);
@@ -415,6 +423,7 @@ export function composeDeterministicAnswer({
   result,
   evidence = [],
   locale = "en-US",
+  now = new Date(),
 }) {
   return composeAnswer({
     classification,
@@ -422,6 +431,7 @@ export function composeDeterministicAnswer({
     deterministicResult: result,
     modelOutput: null,
     locale,
+    now,
   });
 }
 

@@ -13,6 +13,7 @@ import { currentModelTierStatus } from "../server/schedulers.js";
 import fs from "node:fs";
 import path from "node:path";
 import { BACKUP_FILE_RE, listBackupFiles } from "../storage/db-backup.js";
+import { fafsaRulesetStatus } from "../chat/rules-engine.js";
 
 // The store, or a fresh one when the store on the disk was written under
 // another WEB_CONFIG_KEY (a rotation without WEB_CONFIG_KEY_PREVIOUS): the
@@ -111,11 +112,16 @@ export function registerAdminRoutes(app, deps) {
     }
   });
 
+  // `fafsaRulesets` lists the reviewed FAFSA eligibility rulesets with the
+  // days each has left and a warning from 60 days before the newest lapses:
+  // the single 2026-27 record would have dropped every verified rule on
+  // 2027-07-01 without a word to the counselor (time-4).
   app.get("/api/admin/status", deps.studentLimiter, deps.requireAdminNetwork, (_req, res) => {
     res.json({
       bootstrapped: deps.authStore.adminBootstrapped(),
       webDeployment: deps.WEB_DEPLOYMENT,
       installationReady: deps.WEB_SECRETS_READY,
+      fafsaRulesets: fafsaRulesetStatus(),
     });
   });
 

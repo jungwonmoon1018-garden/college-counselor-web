@@ -225,6 +225,34 @@ describe("canHandleDeterministically", () => {
   it("returns false for essay coaching", () => {
     assert.equal(canHandleDeterministically(TOPIC_TYPES.COACHING, "essay"), false);
   });
+
+  // gate-9: the checklist cannot answer a student's own situation. "Am I
+  // eligible for FAFSA as a permanent resident?" got "6 eligibility item(s)
+  // have not been confirmed yet" and nothing about permanent residents.
+  it("answers only a plain eligibility-checklist question from the rules engine", () => {
+    for (const question of [
+      "Am I eligible for FAFSA?",
+      "Am I eligible for FAFSA federal student aid?",
+      "Am I eligible for federal financial aid through the FAFSA?",
+      "What are the FAFSA eligibility requirements?",
+      "Do I qualify for a Pell Grant?",
+    ]) {
+      const { topicType, subIntent } = classifyTopic(question);
+      assert.equal(canHandleDeterministically(topicType, subIntent, question), true, question);
+    }
+    for (const question of [
+      "Am I eligible for FAFSA as a permanent resident?",
+      "Do I qualify for federal aid if my parents are undocumented?",
+      "Am I eligible for a Pell Grant with DACA status?",
+      "Why am I not eligible for federal student aid?",
+      "Can I qualify for FAFSA since my parents are divorced?",
+      "How does the FAFSA work?",
+    ]) {
+      const { topicType, subIntent } = classifyTopic(question);
+      assert.equal(topicType, TOPIC_TYPES.REGULATED, question);
+      assert.equal(canHandleDeterministically(topicType, subIntent, question), false, question);
+    }
+  });
 });
 
 describe("routeRequest", () => {
@@ -323,6 +351,89 @@ describe("routeRequest", () => {
       assert.equal(isLookupQuestion(q, "deadlines"), false, q);
     }
     assert.equal(isLookupQuestion("When is MIT's deadline?", "financial_amounts"), false);
+  });
+
+  // gate-11: activity and course wording that happens to contain a topic
+  // word ("afford", "pay attention", "$500", "regulations", "student
+  // privacy", "deadlines for school projects") got the regulated advisory
+  // prefix and a financial-aid-office footer on an EC answer.
+  it("keeps ordinary EC and academic wording out of the regulated and high-stakes gates", () => {
+    for (const question of [
+      "I can't afford to waste time on a fifth AP",
+      "How much should I pay attention to rankings",
+      "I earned $500 from my tutoring business",
+      "I interned on EPA regulations at a law firm",
+      "In Model UN I chaired a committee on compliance with climate treaties",
+      "AP Gov has a unit on regulations, is it a good class?",
+      "My app project is about student privacy online",
+      "How do I manage deadlines for school projects and robotics?",
+      "I want to write about my rolling admissions experience at the summer program",
+      "I won a $500 scholarship from Rotary, should I put it in the activities list?",
+    ]) {
+      const { topicType } = classifyTopic(question);
+      assert.notEqual(topicType, TOPIC_TYPES.REGULATED, question);
+      assert.notEqual(topicType, TOPIC_TYPES.HIGH_STAKES, question);
+    }
+  });
+
+  it("still gates the money, law, privacy and deadline questions beside that wording", () => {
+    const cases = [
+      ["Can my family afford Northwestern?", "financial_amounts"],
+      ["How much will I have to pay at USC?", "financial_amounts"],
+      ["Is $80,000 a year too much for tuition?", "financial_amounts"],
+      ["Is NYU affordable for a middle-income family?", "financial_amounts"],
+      ["Is my school in compliance with Title IX?", "legal_compliance"],
+      ["My school keeps violating its own regulations on grade appeals", "legal_compliance"],
+      ["What are my student privacy rights?", "ferpa"],
+      ["When is the Common App deadline for Michigan?", "deadlines"],
+      ["What are the college application deadlines this month?", "deadlines"],
+      ["Does Penn State have rolling admissions?", "deadlines"],
+    ];
+    for (const [question, subIntent] of cases) {
+      assert.equal(classifyTopic(question).subIntent, subIntent, question);
+    }
+  });
+
+  // gate-12: every topic pattern was English, so a Korean deadline, statistics,
+  // cost or aid question was ordinary coaching: no advisory prefix, no
+  // on-demand read of the school's pages, no no-source reply.
+  it("sends Korean deadline, statistics, cost and aid questions through the same gates", () => {
+    const cases = [
+      ["스탠퍼드 조기 지원 마감일이 언제예요?", TOPIC_TYPES.HIGH_STAKES, "deadlines", true],
+      ["코넬 얼리 디시전 마감 언제야?", TOPIC_TYPES.HIGH_STAKES, "deadlines", true],
+      ["MIT 원서 접수는 언제까지예요?", TOPIC_TYPES.HIGH_STAKES, "deadlines", true],
+      ["MIT 합격률이 몇 퍼센트예요?", TOPIC_TYPES.HIGH_STAKES, "official_stats", true],
+      ["UCLA 평균 SAT 점수가 몇 점이에요?", TOPIC_TYPES.HIGH_STAKES, "official_stats", true],
+      ["하버드 등록금이 얼마예요?", TOPIC_TYPES.HIGH_STAKES, "financial_amounts", false],
+      ["재정 지원 신청은 어떻게 해요?", TOPIC_TYPES.HIGH_STAKES, "financial_amounts", false],
+      ["국제학생도 니드 블라인드인가요?", TOPIC_TYPES.REGULATED, "financial_aid_policy", false],
+      ["영주권자도 연방 재정 지원을 받을 수 있나요?", TOPIC_TYPES.REGULATED, "fafsa", false],
+    ];
+    for (const [question, topicType, subIntent, lookup] of cases) {
+      const result = classifyTopic(question);
+      assert.equal(result.topicType, topicType, question);
+      assert.equal(result.subIntent, subIntent, question);
+      assert.equal(isLookupQuestion(question, result.subIntent), lookup, question);
+    }
+  });
+
+  it("keeps Korean strategy questions and ordinary Korean counseling words out of the lookup gate", () => {
+    // Guidance, not a lookup: answered with what is held, never refused.
+    assert.equal(isLookupQuestion("얼리 디시전 지원해야 할까요?", "deadlines"), false);
+    assert.equal(isLookupQuestion("합격률이 중요한가요?", "official_stats"), false);
+    assert.equal(isLookupQuestion("마감 전에 에세이를 어떻게 준비할까요?", "deadlines"), false);
+    for (const question of [
+      "얼리 디시전 지원해야 할까요?",
+      "에세이 주제 추천해 주세요",
+      "숙제 마감일이 내일이라 너무 바빠요",
+      "동아리 프로젝트 마감이 언제인지 몰라요",
+      "AP 하나 더 듣는 기회비용이 클까요?",
+      "SAT 공부를 얼마나 해야 할까요?",
+    ]) {
+      const { topicType } = classifyTopic(question);
+      assert.notEqual(topicType, TOPIC_TYPES.HIGH_STAKES, question);
+      assert.notEqual(topicType, TOPIC_TYPES.REGULATED, question);
+    }
   });
 
   it("allows general cost/aid-amount questions as labeled guidance while deadlines stay gated", () => {

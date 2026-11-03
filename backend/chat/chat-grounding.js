@@ -23,6 +23,8 @@ import { formatVerificationLine } from "../colleges/fit-verifier.js";
 import { TEST_CATALOG, testKey, testLabel, sectionEntries, formatSections, formatClassRank, normalizeClassRank, deriveTotal } from "../academics/test-catalog.js";
 import { AP_EXAMS, apExamAliases, apExamKey, apExamOnlyAliases } from "../academics/ap-exams.js";
 import { t } from "../shared/i18n.js";
+import { writeMoneyAsUsd } from "./content-moderation.js";
+import { readCdsTestPolicy } from "../cds/cds-store.js";
 
 export const CHAT_PROFILE_LIMITS = Object.freeze({ maxCourses: 40, maxActivities: 20 });
 
@@ -88,6 +90,14 @@ function formatNumber(value) {
   return Number(value).toLocaleString("en-US");
 }
 
+// "12th grade (senior)" for a recorded grade 9-12, else null.
+const GRADE_LEVEL_NAMES = { 9: "freshman", 10: "sophomore", 11: "junior", 12: "senior" };
+function gradeLevelLabel(grade, locale = "en-US") {
+  const n = Number(grade);
+  if (!GRADE_LEVEL_NAMES[n]) return null;
+  return String(locale).toLowerCase().startsWith("ko") ? `${n}학년` : `${n}th grade (${GRADE_LEVEL_NAMES[n]})`;
+}
+
 // ─── STUDENT PROFILE block ────────────────────────────────────────────
 // Every field the survey collects is rendered, one item per line, with the
 // grade legend spelled out. The old single-line dump ("English 9 A; Algebra
@@ -104,6 +114,13 @@ export function formatProfileForModel(profile, limits = {}) {
   const maxCourses = limits.maxCourses || CHAT_PROFILE_LIMITS.maxCourses;
   const maxActivities = limits.maxActivities || CHAT_PROFILE_LIMITS.maxActivities;
   const lines = [];
+
+  // The grade the student is in today, which the server computes from their
+  // class (getStudentGrade). Without it the model could not tell a freshman
+  // from a senior, and a senior with no courses entered got a junior-year
+  // plan in November of senior year (fid-5).
+  const gradeLevel = gradeLevelLabel(profile.gradeLevel);
+  if (gradeLevel) lines.push(`Grade level: ${gradeLevel}`);
 
   const gpaUnweighted = finiteNumber(profile.gpaUnweighted ?? profile.gpa?.unweighted);
   const gpaWeighted = finiteNumber(profile.gpaWeighted ?? profile.gpa?.weighted);
@@ -175,9 +192,13 @@ export function formatProfileForModel(profile, limits = {}) {
   const activities = Array.isArray(profile.activities) ? profile.activities.filter((a) => a && presentText(a.name)) : [];
   if (activities.length) {
     lines.push(`Activities (${activities.length} recorded — hours, years, and descriptions are exactly what the student entered; do not assume more depth than is written):`);
+    // The activity's own text writes money as "4,500 USD": the provider
+    // redactor masks a "$" figure as an income token, so "earned $15/hr" and
+    // "raised $4,500" reached the model as [ANNUAL_INCOME_nn]. Goals and the
+    // major are left alone, since a family income could appear there.
     for (const activity of activities.slice(0, maxActivities)) {
-      const parts = [presentText(activity.name)];
-      if (presentText(activity.role)) parts[0] += ` — ${presentText(activity.role)}`;
+      const parts = [writeMoneyAsUsd(presentText(activity.name))];
+      if (presentText(activity.role)) parts[0] += ` — ${writeMoneyAsUsd(presentText(activity.role))}`;
       if (presentText(activity.category)) parts[0] += ` (${presentText(activity.category).replace(/_/g, " ")})`;
       const hours = Number(activity.hoursPerWeek);
       const weeks = Number(activity.weeksPerYear);
@@ -186,7 +207,7 @@ export function formatProfileForModel(profile, limits = {}) {
       const years = Array.isArray(activity.grades) ? activity.grades.map(presentText).filter(Boolean) : [];
       if (years.length) parts.push(`years: ${years.join(", ")}`);
       if (presentText(activity.timing) && activity.timing !== "school_year") parts.push(`timing: ${presentText(activity.timing).replace(/_/g, " ")}`);
-      const description = presentText(activity.description).replace(/\s+/g, " ").trim();
+      const description = writeMoneyAsUsd(presentText(activity.description)).replace(/\s+/g, " ").trim();
       if (description) parts.push(`"${description.length > 160 ? `${description.slice(0, 157)}…` : description}"`);
       lines.push(`  - ${parts.join("; ")}`);
     }
@@ -687,6 +708,31 @@ const RANK_BINDINGS = [
   /\b[Yy]ou(?:['’]re|\s+are)\s+(?:in\s+)?(?:the\s+)?top\s+(\d{1,2}(?:\.\d)?)\s*%\s+of\s+your\s+(?:class|grade)/g,
 ];
 
+// ─── Grade level ──────────────────────────────────────────────────────
+// "Since you're a junior", "as an 11th grader, you…", "학생은 11학년이므로":
+// the grade the reply puts the student in. Precision-first like the rest:
+// only a statement about the student now ("you're a junior", never "the
+// grades you earned as a junior" or "juniors usually"), with the level word
+// ending the phrase so "you're a junior varsity captain" and "a senior
+// editor" are not grades, and the usual hedges ("if you're a junior").
+const LEVEL_WORDS = { freshman: 9, sophomore: 10, junior: 11, senior: 12, ninth: 9, tenth: 10, eleventh: 11, twelfth: 12 };
+const LEVEL_SOURCE = String.raw`(?:freshman|sophomore|junior|senior|(?:9|10|11|12)th[\s-]grader|(?:ninth|tenth|eleventh|twelfth)[\s-]grader)`;
+const LEVEL_END = String.raw`(?=\s*(?:[,.;:!?)]|$)|\s+(?:in\s+high\s+school|this\s+(?:year|fall|spring|semester)|now|right\s+now|and|so|who|with|applying|taking|planning|looking|heading|preparing)\b)`;
+const GRADE_LEVEL_BINDINGS = [
+  new RegExp(String.raw`\b[Yy]ou(?:['’]re|\s+are)\s+(?:(?:currently|now|still|already|only|just|officially)\s+)?an?\s+(${LEVEL_SOURCE})${LEVEL_END}`, "g"),
+  new RegExp(String.raw`\b[Yy]ou(?:['’]re|\s+are)\s+(?:(?:currently|now|still|already|only|just)\s+)?in\s+(?:the\s+|your\s+)?((?:9|10|11|12)th|ninth|tenth|eleventh|twelfth|freshman|sophomore|junior|senior)\s+(?:grade|year)\b`, "g"),
+  new RegExp(String.raw`(?<=^|[.!?]\s+|\n\s*)[Aa]s\s+an?\s+(${LEVEL_SOURCE})\s*,\s+you\b`, "g"),
+  /(?<![가-힣])(?:학생|당신|본인|귀하)(?:님)?(?:은|는|이|가|께서)?\s*(?:현재\s*|지금\s*)?(9|10|11|12)\s*학년(?=\s*(?:이|인|입니다|이에요|이므로|이니|이라서|이기))/g,
+  /(?<!\d)(9|10|11|12)\s*학년\s*(?:학생\s*)?(?:으로서|으로써)/g,
+];
+
+function statedGradeLevel(word) {
+  const w = String(word || "").toLowerCase();
+  const n = w.match(/^(9|10|11|12)/);
+  if (n) return Number(n[1]);
+  return LEVEL_WORDS[w.split(/[\s-]/)[0]] ?? null;
+}
+
 // ─── AP exam scores ───────────────────────────────────────────────────
 const AP_SCORE_BEFORE_RE = /(?<pre>(?:^|[\s(,;:—–-])(?:scored?|score of|got|gotten|earned|received|with|an?|your)\s+)(?<score>[1-5])\s+(?:on|in|for)\s+(?:(?:the|your)\s+)?(?:AP\s+)?(?:exam\s+(?:in|for)\s+)?$/i;
 const AP_POSSESSED_BEFORE_RE = /(?:\b[Yy]our\s+|\b[Yy]ou(?:['’]ve|\s+have|\s+had|\s+already|\s+also)?\s+(?:scored|got|gotten|earned|received|made|pulled|have|had)\s+(?:an?\s+)?)$/;
@@ -871,6 +917,28 @@ export function checkProfileFidelity(answerText, profile) {
     }
   }
 
+  // The grade level against the one the server computed from the student's
+  // class. With none recorded there is nothing to contradict.
+  const gradeLevel = GRADE_LEVEL_NAMES[Number(profile.gradeLevel)] ? Number(profile.gradeLevel) : null;
+  if (gradeLevel != null) {
+    for (const re of GRADE_LEVEL_BINDINGS) {
+      for (const m of text.matchAll(re)) {
+        const stated = statedGradeLevel(m[1]);
+        if (stated == null || stated === gradeLevel) continue;
+        if (!attributed(text, m.index, m.index + m[0].length, true)) continue;
+        add({
+          kind: "grade_level",
+          item: "Grade level",
+          stated: gradeLevelLabel(stated),
+          actual: gradeLevelLabel(gradeLevel),
+          state: "recorded",
+          statedGrade: stated,
+          recordedGrade: gradeLevel,
+        });
+      }
+    }
+  }
+
   // One check per exam, under every name the AP catalog knows for it
   // ("APUSH", "AP Calc BC", the College Board's full name). An exam taken
   // twice has two true scores: a 4 stated for a Calculus AB recorded as 3
@@ -994,6 +1062,13 @@ function contradictionItem(entry, locale) {
 }
 
 export function describeContradiction(entry, locale = "en-US") {
+  // The grade level carries its own two sentences; the shared fidelity
+  // strings have no grade-level key.
+  if (entry.kind === "grade_level" && entry.recordedGrade && entry.statedGrade) {
+    return isKoreanLocale(locale)
+      ? `학년: 기록상 ${gradeLevelLabel(entry.recordedGrade, "ko")} (답변에서는 ${gradeLevelLabel(entry.statedGrade, "ko")})`
+      : `Grade level: the student is in ${gradeLevelLabel(entry.recordedGrade)} (the reply said ${gradeLevelLabel(entry.statedGrade)})`;
+  }
   const key = contradictionTemplate(entry);
   if (!key) {
     // An entry built elsewhere (or before states existed) keeps the old
@@ -1419,7 +1494,14 @@ function cdsLine(record, validated) {
   const gpaBand = range(record.enrolledGPA?.p25, record.enrolledGPA?.p75);
   if (gpaBand && record.enrolledGPA?.p25 !== record.enrolledGPA?.p75) parts.push(`enrolled GPA middle 50% ${gpaBand}`);
   else if (gpaBand) parts.push(`enrolled GPA 25th and 75th percentile both in the ${gpaBand} band`);
-  if (record.testPolicy) parts.push(`test policy: ${String(record.testPolicy).replace(/_/g, " ")}`);
+  // The policy the store reads from the document, not the raw field: an old
+  // parser wrote "test_required" by default, and UCLA's block still told the
+  // model its Common Data Set said "test required". When the store has no
+  // reading, the block says so rather than leave the model to fill one in
+  // (on a record that holds anything else; an empty one stays no line).
+  const testPolicy = readCdsTestPolicy(record).value;
+  const policyAt = parts.length;
+  if (testPolicy) parts.push(`test policy: ${String(testPolicy).replace(/_/g, " ")}`);
   const c7 = record.c7 && typeof record.c7 === "object" ? record.c7 : {};
   const veryImportant = Object.entries(c7).filter(([, v]) => v === "very_important").map(([k]) => C7_LABELS[k] || k.replace(/_/g, " "));
   const important = Object.entries(c7).filter(([, v]) => v === "important").map(([k]) => C7_LABELS[k] || k.replace(/_/g, " "));
@@ -1427,6 +1509,7 @@ function cdsLine(record, validated) {
   if (important.length) parts.push(`rated important: ${important.join(", ")}`);
   parts.push(...cdsExtrasParts(record.extras));
   if (!parts.length) return null;
+  if (!testPolicy) parts.splice(policyAt, 0, "test policy: not read from the document");
   const cycle = record.yearLabel || (record.year != null ? String(record.year) : "");
   const label = `${record.school || "the school"} Common Data Set${cycle ? ` ${cycle}` : ""}${validated ? " (validated against ground truth)" : " (unverified parse)"}`;
   // Only an official host is worth showing the student as a link; a Drive
@@ -1451,11 +1534,30 @@ function factLine(fact) {
 
 // The student's own College Fit read for a school, so the counselor quotes
 // the same label the card shows — plus the web double-check's verdict.
+//
+// A read with no label used to give no line at all, and the model answered
+// "how do I stand at Columbia?" from memory. A withheld read (the record has
+// no GPA and no SAT/ACT) says what to add; a stale read (an older profile
+// snapshot or engine version) says to reopen College Fit. Neither carries a
+// label or a double-check.
+const STUDENT_DATA_NEEDED = { gpa: "a GPA (unweighted or weighted)", sat_or_act: "an SAT or ACT score" };
+
 function fitReadLine(read) {
-  if (!read || !read.label) return null;
+  if (!read) return null;
   const date = String(read.computedAt || "").slice(0, 10);
+  const school = presentText(read.school) || "this school";
+  // Stale first: a student who has since added a GPA must not be told to add one.
+  if (read.stale === true) {
+    return `College Fit for THIS student at ${school}: an older read (computed ${date}); the profile or the engine changed since, so reopen College Fit for a current label, and quote no label for this school.`;
+  }
+  if ((read.labelKey || read.provenance?.labelKey) === "insufficient_student_data") {
+    const needed = (Array.isArray(read.provenance?.studentDataNeeded) ? read.provenance.studentDataNeeded : [])
+      .map((key) => STUDENT_DATA_NEEDED[key]).filter(Boolean);
+    return `College Fit for THIS student at ${school}: no label yet; add ${needed.length ? needed.join(" and ") : "a GPA or an SAT or ACT score"} to get one.`;
+  }
+  if (!read.label) return null;
   const provenance = read.provenance?.kind
-    ? ({ cds_store: "validated Common Data Set", cds_live: "live Common Data Set (unverified)", cds_web: "AI web-read CDS (unverified)", college_scorecard: "College Scorecard", baseline_only: "IPEDS baseline" }[read.provenance.kind] || read.provenance.kind)
+    ? ({ cds_store: "validated Common Data Set", cds_live: "live Common Data Set (unverified)", cds_web: "AI web-read CDS (unverified)", college_scorecard: "College Scorecard", baseline_only: "IPEDS baseline", none: "no stored school data" }[read.provenance.kind] || read.provenance.kind)
     : "stored data";
   const dims = [];
   if (read.admissibility != null) dims.push(`admissibility ${Math.round(read.admissibility)}/100`);
@@ -1476,6 +1578,11 @@ function fitReadLine(read) {
     ].filter(Boolean);
     line += `; it starts from the ${pct(admit.used)} admit rate for applicants outside Early Decision`
       + (context.length ? ` (${context.join("; ")})` : "");
+  }
+  // No admit rate on file: the likelihood starts from 50%, and the model
+  // must not present it as a school's own figure.
+  if (admit && admit.used == null && admit.assumedForLikelihood != null) {
+    line += `; no admit rate is on file, so this likelihood assumes ${Math.round(Number(admit.assumedForLikelihood) * 100)}%`;
   }
   line += ". Use this exact label when the student asks how they stand here.";
   if (read.verification) line += ` ${formatVerificationLine(read.verification)}.`;
@@ -1519,4 +1626,10 @@ export function formatVerifiedDataBlock({ schools = [], facts = [], unheld = [] 
   }
   if (!lines.length) return "";
   return "VERIFIED DATA (the ONLY statistics you may cite — quote each figure exactly as written here and attribute it with the bracketed source; if a number you need is not listed, say you don't have verified data for it and point the student to nces.ed.gov/ipeds or the school's Common Data Set; never estimate a statistic from memory, and never attach a source to a figure that is not listed here):\n" + lines.join("\n");
+}
+
+// Whether a block holds any data, not only "no verified data held" lines:
+// the chat's _meta.verifiedData means held data was sent.
+export function blockHoldsVerifiedData(block) {
+  return String(block || "").split("\n").some((line) => /^- /.test(line) && !/^- .*?: no verified data held — /.test(line));
 }

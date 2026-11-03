@@ -5,6 +5,9 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
+  FAFSA_RULESETS,
+  fafsaRulesetStatus,
+  selectFafsaRuleset,
   runFAFSAEligibilityCheck,
   calculateDeadlineStatus,
   runDocumentCompletenessCheck,
@@ -65,15 +68,83 @@ describe("runFAFSAEligibilityCheck", () => {
     assert.notEqual(result.eligible, false);
   });
 
-  it("versions every FAFSA rule with an academic year and lifecycle", () => {
-    const result = runFAFSAEligibilityCheck({});
-    assert.equal(result.academicYear, "2026-2027");
+  // The ruleset is chosen by date; the test reads a fixed clock, so it
+  // does not turn red on the day a ruleset lapses (the admin status and the
+  // boot line carry that warning instead).
+  it("versions every FAFSA rule with the ruleset that covers the date", () => {
+    const now = new Date("2026-11-03T12:00:00.000Z");
+    const ruleset = selectFafsaRuleset(now);
+    const result = runFAFSAEligibilityCheck({}, { now });
+    assert.equal(result.academicYear, ruleset.academicYear);
     assert.ok(Date.parse(result.effectiveAt) < Date.parse(result.expiresAt));
+    assert.ok(Date.parse(result.expiresAt) > now.getTime());
     for (const rule of result.results) {
       assert.equal(rule.academicYear, result.academicYear);
       assert.equal(rule.expiresAt, result.expiresAt);
       assert.equal(rule.sourceDomain, "fsapartners.ed.gov");
     }
+  });
+});
+
+// time-4 / debt-4: one hard-coded 2026-27 record lost every verified rule on
+// 2027-07-01 with no warning. Rulesets are keyed by award year and chosen
+// by date; when none covers the date the question goes to the model as
+// labeled general guidance, never to an empty verified lane.
+describe("FAFSA rulesets", () => {
+  const day = 24 * 60 * 60 * 1000;
+  const sample = Object.freeze([
+    { id: "a", academicYear: "2030-2031", effectiveAt: "2030-07-01T00:00:00.000Z", expiresAt: "2031-06-30T23:59:59.999Z", sourceUrl: "https://fsapartners.ed.gov/a", sourceTitle: "A", sourceDomain: "fsapartners.ed.gov" },
+    { id: "b", academicYear: "2031-2032", effectiveAt: "2031-07-01T00:00:00.000Z", expiresAt: "2032-06-30T23:59:59.999Z", sourceUrl: "https://fsapartners.ed.gov/b", sourceTitle: "B", sourceDomain: "fsapartners.ed.gov" },
+  ]);
+
+  it("keeps every ruleset dated and sourced", () => {
+    assert.ok(FAFSA_RULESETS.length >= 1);
+    for (const ruleset of FAFSA_RULESETS) {
+      assert.match(ruleset.academicYear, /^\d{4}-\d{4}$/);
+      assert.ok(Date.parse(ruleset.effectiveAt) < Date.parse(ruleset.expiresAt), ruleset.id);
+      assert.match(ruleset.sourceUrl, /^https:\/\/(?:fsapartners\.ed\.gov|studentaid\.gov)\//);
+      assert.ok(ruleset.sourceTitle);
+    }
+  });
+
+  it("prefers the award year whose FAFSA opened most recently, then the one in effect", () => {
+    // Before the newer form opens (October 1), the ruleset in effect.
+    assert.equal(selectFafsaRuleset(new Date("2030-09-15T00:00:00Z"), sample).id, "a");
+    // From October 1 the newer form is open: seniors file it.
+    assert.equal(selectFafsaRuleset(new Date("2030-10-02T00:00:00Z"), sample).id, "b");
+    assert.equal(selectFafsaRuleset(new Date("2031-08-01T00:00:00Z"), sample).id, "b");
+    assert.equal(selectFafsaRuleset(new Date("2032-07-01T00:00:00Z"), sample), null);
+    assert.equal(selectFafsaRuleset(new Date("2029-01-01T00:00:00Z"), sample), null);
+  });
+
+  it("hands an uncovered date to the general-guidance path instead of an empty checklist", () => {
+    const result = runFAFSAEligibilityCheck({}, { now: new Date("2032-07-02T00:00:00Z"), rulesets: sample });
+    assert.equal(result.available, false);
+    assert.deepEqual(result.results, []);
+    assert.match(result.message, /^No deterministic rule is available/);
+  });
+
+  it("says which handbook the checklist comes from when the open form is a newer year", () => {
+    const now = new Date("2030-11-03T00:00:00Z");
+    const result = runFAFSAEligibilityCheck({}, { now, rulesets: [sample[0]] });
+    assert.equal(result.available, true);
+    assert.match(result.summary, /2030-2031/);
+    assert.match(result.summary, /2031-2032 FAFSA/);
+    assert.equal(result.eligible, null);
+  });
+
+  it("reports days left and warns from 60 days before the newest ruleset expires", () => {
+    const expiry = Date.parse(sample[1].expiresAt);
+    const early = fafsaRulesetStatus(new Date(expiry - 120 * day), sample);
+    assert.equal(early.warning, null);
+    assert.deepEqual(early.rulesets.map((r) => Object.keys(r).sort()), [["academicYear", "daysLeft", "expiresAt", "id"], ["academicYear", "daysLeft", "expiresAt", "id"]]);
+    assert.equal(early.rulesets[1].daysLeft, 120);
+    const late = fafsaRulesetStatus(new Date(expiry - 59 * day), sample);
+    assert.equal(late.rulesets[1].daysLeft, 59);
+    assert.match(late.warning, /2031-2032.*59 day/);
+    const lapsed = fafsaRulesetStatus(new Date(expiry + day), sample);
+    assert.equal(lapsed.current, null);
+    assert.match(lapsed.warning, /No FAFSA eligibility ruleset covers/);
   });
 });
 

@@ -18,7 +18,7 @@ import { isCdsRecordValidated, resolveStoredCdsRecord, schoolNamesCompatible } f
 import { POSITIONING_MODEL_VERSION, buildProfileComparison, buildStudentModel, scoreAcademicReadiness } from "../colleges/positioning-engine.js";
 import { localFitContext } from "./fit-context.js";
 import { getActiveNarrative } from "../activities/narrative-store.js";
-import { detectSchoolMentions, formatVerifiedDataBlock } from "../chat/chat-grounding.js";
+import { detectSchoolMentions, formatVerifiedDataBlock, unresolvedSchoolNames } from "../chat/chat-grounding.js";
 import { calculateDeadlineStatus, runFAFSAEligibilityCheck } from "../chat/rules-engine.js";
 
 let deps;
@@ -152,7 +152,27 @@ export function regulatedChatGate(classification, studentId, userText, locale, {
       },
     };
   }
-  return { systemPrefix: buildSystemPrompt(classification) };
+  const rules = fafsaRuleTextForPrompt(userText, classification.subIntent);
+  return { systemPrefix: [buildSystemPrompt(classification), rules].filter(Boolean).join("\n\n") };
+}
+
+// The official rule text beside a FAFSA eligibility question the checklist
+// does not answer on its own (gate-9): "Am I eligible as a permanent
+// resident?" and "my parents are undocumented" went to the canned checklist
+// and were never addressed. They now reach the model as labeled general
+// guidance with the reviewed rules to cite, and an honest pointer for what
+// the rules do not settle. Nothing when no reviewed ruleset covers `now`:
+// the advisory prefix and the StudentAid.gov pointer stand alone.
+const FAFSA_RULES_TOPIC_RE = /\b(?:eligib\w*|qualif\w*|citizen\w*|residents?|green\s+card|daca|undocumented|non-?citizens?|ssn|social\s+security|visas?|immigra\w*|refugees?|asylum)\b|자격|영주권|시민권|체류|비자|사회\s*보장/i;
+
+export function fafsaRuleTextForPrompt(questionText, subIntent, { now = new Date() } = {}) {
+  const intent = String(subIntent || "").toLowerCase();
+  if (intent !== "eligibility" && !(intent === "fafsa" && FAFSA_RULES_TOPIC_RE.test(String(questionText || "")))) return "";
+  const check = runFAFSAEligibilityCheck({}, { now });
+  if (check.available === false) return "";
+  const lines = check.results.map((rule) => `- ${rule.label}: ${rule.description}${rule.note ? ` ${rule.note}` : ""} [Source: ${rule.source}]`);
+  for (const removed of check.removedRequirements || []) lines.push(`- ${removed.note} [Source: ${removed.source}]`);
+  return `OFFICIAL FAFSA ELIGIBILITY RULES (${check.sourceTitle}, for the ${check.academicYear} award year; reviewed text, not a determination). Answer the student's own situation from these where they apply and cite the source. For a case they do not settle (a parent or contributor without a Social Security number, a particular immigration status), say so plainly and send the student to studentaid.gov/apply-for-aid/fafsa/eligibility instead of guessing.${check.filingYearNote ? ` ${check.filingYearNote}` : ""}\n${lines.join("\n")}`;
 }
 
 export async function scoutSchoolOnDemand(schoolName, { timeoutMs = 15_000 } = {}) {
@@ -204,19 +224,29 @@ export async function scorecardStatsOnDemand(schoolName) {
 // PII-light: names/descriptions of the student's OWN activities/courses are
 // their own data (no third-party PII); paid calls use the administrator's
 // fixed OpenRouter key and the student's monthly budget ledger.
+//
+// The grade level is the server's own (getStudentGrade, from the class the
+// student registered with), never one the client sends: the model could not
+// tell a freshman from a senior (fid-5). The GPA and testing statuses ride
+// along when the snapshot stores them. A read of `snap.profile_json` used
+// to sit here; profile_snapshots has no such column, so it never fired.
 export function assembleProfileForGeneration(studentId) {
   const snap = deps.ragStmts.getLatestSnapshot.get(studentId);
   if (!snap) return null;
-  const profile = snap.profile_json ? safeParseJSON(snap.profile_json, {}) : {};
+  let gradeLevel = null;
+  try { gradeLevel = deps.authStore?.getStudentGrade?.(studentId) ?? null; } catch { gradeLevel = null; }
   return {
-    gpaUnweighted: snap.gpa_unweighted ?? profile?.gpa?.unweighted ?? null,
-    gpaWeighted: snap.gpa_weighted ?? profile?.gpa?.weighted ?? null,
+    gradeLevel,
+    gpaStatus: snap.gpa_status ?? null,
+    testingStatus: snap.testing_status ?? null,
+    gpaUnweighted: snap.gpa_unweighted ?? null,
+    gpaWeighted: snap.gpa_weighted ?? null,
     classRank: safeParseJSON(snap.class_rank_json, null),
     courses: safeParseJSON(snap.courses_json, []),
     apScores: safeParseJSON(snap.ap_scores_json, []),
     testScores: safeParseJSON(snap.test_scores_json, []),
     activities: safeParseJSON(snap.activities_json, []),
-    majorInterest: snap.major_interest || profile?.majorInterest || null,
+    majorInterest: snap.major_interest || null,
     goals: safeParseJSON(snap.goals_json, []),
   };
 }
@@ -288,6 +318,10 @@ export function baselineCollegeNames() {
 export function buildVerifiedDataContext({ questionText, studentId, evidence = [], wantsCollegeData = false }) {
   const knownNames = [...baselineCollegeNames(), ...fitReadsForStudent(studentId).map((r) => r.school)];
   const names = detectSchoolMentions(questionText, { knownNames });
+  // Schools the question names that nothing is held for get a line saying
+  // so (fid-10): with no line the model answered from memory. Only the
+  // question's own names; a target school with no data is not news.
+  const asked = new Set(names.map((n) => n.toLowerCase()));
   if (wantsCollegeData) {
     for (const target of deps.resolveTargetSchools(studentId)) {
       const canonical = detectSchoolMentions(target, { knownNames, max: 1 })[0] || target;
@@ -296,6 +330,7 @@ export function buildVerifiedDataContext({ questionText, studentId, evidence = [
   }
   const schools = [];
   const fitReads = fitReadsForStudent(studentId);
+  const unheld = [];
   for (const name of names.slice(0, 8)) {
     const row = deps.resolveBaselineCollegeRow(deps.db, { schoolName: name });
     const cds = resolveStoredCdsRecord(deps.ragStmts, { schoolName: row?.name || name });
@@ -305,7 +340,10 @@ export function buildVerifiedDataContext({ questionText, studentId, evidence = [
     // verified data worth citing (its plan deadlines and test policy).
     let snapshot = null;
     try { snapshot = readPolicySnapshot(deps.policyScoutStmts, { unitId: row?.unit_id, name: row?.name || cds?.school || name }); } catch { snapshot = null; }
-    if (!row && !cds && !fitRead && !snapshot) continue;
+    if (!row && !cds && !fitRead && !snapshot) {
+      if (asked.has(name.toLowerCase())) unheld.push(name);
+      continue;
+    }
     const resolvedName = row?.name || cds?.school || fitRead?.school || snapshot?.school || name;
     if (schools.some((s) => schoolNamesCompatible(s.name, resolvedName))) continue;
     let policyLine = null;
@@ -323,10 +361,18 @@ export function buildVerifiedDataContext({ questionText, studentId, evidence = [
     });
     if (schools.length >= 4) break;
   }
+  // A college name the alias table and the baseline names both miss ("Elm
+  // Valley College") is unheld too, unless the baseline resolver knows it
+  // under another spelling.
+  for (const name of unresolvedSchoolNames(questionText, { knownNames })) {
+    let row = null;
+    try { row = deps.resolveBaselineCollegeRow(deps.db, { schoolName: name }); } catch { row = null; }
+    if (!row) unheld.push(name);
+  }
   const facts = (Array.isArray(evidence) ? evidence : [])
     .filter((f) => String(f?.confidence || "").toLowerCase() === "verified" && (f.source_url || f.source_domain))
     .slice(0, 5);
-  return formatVerifiedDataBlock({ schools, facts });
+  return formatVerifiedDataBlock({ schools, facts, unheld });
 }
 
 // True when the question names a school we hold official data for, so an
@@ -343,10 +389,16 @@ export function hasVerifiedCollegeData(questionText) {
   return false;
 }
 
-export function regulatedResultForChat(classification, payload) {
+// A FAFSA eligibility question reaches this only as a plain checklist
+// question (policy-router canHandleDeterministically). When no reviewed
+// ruleset covers `now` the check answers "No deterministic rule is
+// available", which the route reads as not answerable here: the question
+// goes to the model under the regulated advisory prefix instead of an empty
+// verified lane.
+export function regulatedResultForChat(classification, payload, { now = new Date() } = {}) {
   const subIntent = String(classification?.subIntent || "").toLowerCase();
   if (subIntent.includes("fafsa") || subIntent.includes("eligibility")) {
-    return runFAFSAEligibilityCheck(payload.fafsa_profile || payload.student_data || {});
+    return runFAFSAEligibilityCheck(payload.fafsa_profile || payload.student_data || {}, { now });
   }
   if (subIntent.includes("deadline")) {
     return calculateDeadlineStatus(

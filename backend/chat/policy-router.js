@@ -115,6 +115,27 @@ const THIRD_PARTY_VERB = String.raw`(?:hits?|hitting|beats?|beating|abuses?|abus
 // emergency") is not a safety statement; any other "it's an emergency" is.
 const APPLICATION_WORDS = String.raw`(?:apps?|applications?|common\s+app|essays?|deadlines?|portal|submit\w*|upload\w*|forms?|fafsa|css\s+profile|transcripts?|homework|assignments?|exams?|tests?|quiz|sat|act|recommendations?|letters?|payments?|fees?|login|log\s+in|password|website)`;
 
+// Korean lexemes for the regulated and high-stakes gates. Korean is a
+// first-class locale, and until 2026-11-03 every topic pattern was English:
+// "스탠퍼드 조기 지원 마감일이 언제예요?" and "하버드 등록금이 얼마예요?" were
+// ordinary coaching, with no advisory prefix, no on-demand read of the
+// school's pages and no no-source reply (gate-12). No \b, which does not
+// work between Hangul syllables. A homework, project or club word right
+// before 마감 keeps a class deadline out, as "deadlines for school projects"
+// stays out in English; 기회비용 (opportunity cost) is not a price.
+const KO_NOT_ADMISSIONS = String.raw`(?:숙제|과제|프로젝트|리포트|보고서|동아리|대회)`;
+const KO_TOPIC = Object.freeze({
+  fafsa: String.raw`연방\s*(?:학생\s*)?(?:재정\s*)?(?:지원|보조)|연방\s*학자금`,
+  financial_aid_policy: String.raw`니드\s*(?:블라인드|어웨어)|css\s*프로(?:필|파일)|재정\s*(?:지원|보조)\s*정책`,
+  deadlines: String.raw`(?<!${KO_NOT_ADMISSIONS}\s?)마감\s*(?:일|날짜|기한|일자)|(?<!${KO_NOT_ADMISSIONS}\s?)마감(?:이|은|는)?\s*언제|(?:지원|원서|전형|얼리|조기|정시|디시전|액션|fafsa|css)[^.?!]{0,12}마감|원서\s*접수|(?:지원|접수|제출|신청)\s*(?:기한|기간)|언제까지\s*(?:지원|원서|접수|제출|신청)`,
+  financial_amounts: String.raw`학비|등록금|기숙사비|(?<!기회\s?)비용[^.?!]{0,10}(?:얼마|어느\s*정도)|(?:총|연간|1년|일년|대학)\s*비용|돈이?\s*얼마|장학금[^.?!]{0,20}(?:얼마|금액|액수|전액)|재정\s*(?:지원|보조)|학자금|순\s*비용|(?:펠|페일)\s*그랜트|메리트\s*(?:장학금|에이드)|근로\s*장학`,
+  official_stats: String.raw`합격률|합격\s*비율|경쟁률|입학률|평균\s*(?:sat|act|gpa|내신)|(?:sat|act)\s*(?:점수\s*)?(?:범위|평균|중간\s*50)|중간\s*50\s*%`,
+});
+
+function withKorean(pattern, korean) {
+  return new RegExp(`${pattern.source}|${korean}`, pattern.flags);
+}
+
 const PATTERNS = {
   crisis: [
     // Self-harm / suicidal ideation, first person.
@@ -143,25 +164,37 @@ const PATTERNS = {
     /(위험에\s*처|안전하지\s*않|저는\s*위험해|집에\s*가(?:기|는\s*(?:게|것이))\s*(?:무서|두려))/,
   ],
   regulated: {
-    fafsa: /\bfafsa\b|\bstudent\s*aid\s*index\b|\bsai\b|\befc\b|\bexpected\s*family\s*contribution\b|\bfederal\s*student\s*aid\b|\bstudentaid\.gov\b|\bfsa\s*id\b|\bcontributor\b.*\bfafsa\b/i,
+    fafsa: withKorean(/\bfafsa\b|\bstudent\s*aid\s*index\b|\bsai\b|\befc\b|\bexpected\s*family\s*contribution\b|\bfederal\s*student\s*aid\b|\bstudentaid\.gov\b|\bfsa\s*id\b|\bcontributor\b.*\bfafsa\b/i, KO_TOPIC.fafsa),
     // "school records" alone is how students describe their transcript; the
     // regulated sense needs a rights / access / disclosure word nearby.
-    ferpa: /\bferpa\b|\bfamily\s*educational\s*rights\b|\bstudent\s*privacy\b|\b(?:education|school)\s+records?\b[^.?!]{0,60}\b(?:rights?|access|privacy|amend\w*|disclos\w*|release\w*|consent|request\w*|see|view)\b|\b(?:rights?|access|privacy|amend\w*|disclos\w*|release\w*|consent|request\w*)\b[^.?!]{0,60}\b(?:education|school)\s+records?\b/i,
-    financial_aid_policy: /\bneed[- ]blind\b|\bneed[- ]aware\b|\bcss\s*profile\b|\binstitutional\s*aid\b|\binstitutional\s*methodology\b|\bfinancial\s*aid\s*policy\b/i,
+    // "Student privacy" likewise: "my app project is about student privacy
+    // online" is an activity, "my student privacy rights" is FERPA.
+    ferpa: /\bferpa\b|\bfamily\s*educational\s*rights\b|\bstudent\s*privacy\b(?=[^.?!]{0,40}\b(?:rights?|records?|ferpa|office)\b)|\b(?:education|school)\s+records?\b[^.?!]{0,60}\b(?:rights?|access|privacy|amend\w*|disclos\w*|release\w*|consent|request\w*|see|view)\b|\b(?:rights?|access|privacy|amend\w*|disclos\w*|release\w*|consent|request\w*)\b[^.?!]{0,60}\b(?:education|school)\s+records?\b/i,
+    financial_aid_policy: withKorean(/\bneed[- ]blind\b|\bneed[- ]aware\b|\bcss\s*profile\b|\binstitutional\s*aid\b|\binstitutional\s*methodology\b|\bfinancial\s*aid\s*policy\b/i, KO_TOPIC.financial_aid_policy),
     // Federal-aid eligibility only. "Am I eligible for Princeton" and
     // scholarship qualification questions are coaching.
     eligibility: /\b(?:am\s+i|are\s+we|is\s+my\s+\w+|do\s+i|would\s+i|will\s+i|can\s+i)\s+(?:be\s+|still\s+)?(?:eligible|qualify|qualified)\b[^.?!]{0,60}\b(?:fafsa|federal|financial\s+aid|student\s+aid|pell|loans?|grants?|work[- ]study|aid)\b|\b(?:fafsa|federal\s+(?:student\s+)?aid|pell|financial\s+aid|student\s+aid)\b[^.?!]{0,40}\b(?:eligib\w*|qualif\w*)\b|\bcitizenship\s+requirement\b|\bselective\s+service\b/i,
-    // Bare "legal" ("legal studies", "paralegal") is not a compliance question.
-    legal_compliance: /\blegal\s+(?:rights?|requirements?|obligations?|status|issues?|questions?)\b|\bcompliance\b|\bregulations?\b|\b(?:federal|state)\s+law\b|\btitle\s+ix\b|\bada\s+accommodations?\b/i,
+    // Bare "legal" ("legal studies", "paralegal") is not a compliance
+    // question, and neither are bare "compliance" and "regulations": an EPA
+    // internship, a Model UN committee and an AP Gov unit all got the
+    // regulated prefix and a Department of Education pointer. They count
+    // here next to the student's own school.
+    legal_compliance: /\blegal\s+(?:rights?|requirements?|obligations?|status|issues?|questions?)\b|\b(?:federal|state)\s+law\b|\btitle\s+ix\b|\bada\s+accommodations?\b|\b(?:my|our)\s+(?:high\s+)?(?:school|college|university|district)\b[^.?!]{0,60}\b(?:complian\w*|violat\w*|regulations?)\b|\b(?:complian\w*|violat\w*|regulations?)\b[^.?!]{0,40}\b(?:my|our)\s+(?:high\s+)?(?:school|college|university|district)\b/i,
   },
   high_stakes: {
     // "Early decision" on its own is a strategy topic ("should I apply
-    // ED?"); it counts here only next to a date word.
-    deadlines: /\bdeadlines?\b|\bdue\s+dates?\b|\bwhen\s+(?:is|are|do|does|did|will)\b[^.?!]{0,60}\b(?:due|deadline|close|open|apply\s+by)\b|\bpriority\s+deadline\b|\bapplications?\s+(?:closes?|opens?)\b|\brolling\s+admissions?\b/i,
-    // Money questions, not every "how much" or "scholarship" mention.
-    financial_amounts: /\bhow\s+much\b[^.?!]{0,50}\b(?:costs?|tuition|pay|aid|money|loans?|scholarships?|price|afford\w*|owe|borrow|expensive)\b|\b(?:tuition|net\s+price|sticker\s+price|cost\s+of\s+attendance|room\s+and\s+board|afford\w*)\b|\b(?:pell|merit\s+aid|financial\s+aid|need[- ]based\s+aid|student\s+loans?|federal\s+loans?|work[- ]study|stipends?)\b|\b(?:scholarships?|grants?|loans?)\b[^.?!]{0,40}(?:\b(?:amount|worth|how\s+much|dollars?|cover|pays?|full[- ]ride|full\s+tuition|money)\b|\$)|\$\s?\d/i,
+    // ED?"); it counts here only next to a date word. Rolling admissions at
+    // a summer program or camp is an activity (and see ORDINARY_SENSE).
+    deadlines: withKorean(/\bdeadlines?\b|\bdue\s+dates?\b|\bwhen\s+(?:is|are|do|does|did|will)\b[^.?!]{0,60}\b(?:due|deadline|close|open|apply\s+by)\b|\bpriority\s+deadline\b|\bapplications?\s+(?:closes?|opens?)\b|\brolling\s+admissions?\b(?![^.?!]{0,40}\b(?:summer|programs?|camps?|internships?|clubs?|experience)\b)/i, KO_TOPIC.deadlines),
+    // Money questions, not every "how much" or "scholarship" mention. Bare
+    // "afford" ("I can't afford to waste time on a fifth AP"), "pay
+    // attention" and a dollar figure from a tutoring business were all
+    // financial_amounts and ended an EC answer with "contact the college's
+    // financial aid office". Afford counts with a family subject or a
+    // college, tuition or cost object; a dollar figure next to a cost word.
+    financial_amounts: withKorean(/\bhow\s+much\b[^.?!]{0,50}\b(?:costs?|tuition|pay(?!\s+attention)|aid|money|loans?|scholarships?|price|owe|borrow|expensive)\b|\b(?:tuition|net\s+price|sticker\s+price|cost\s+of\s+attendance|room\s+and\s+board)\b|\b(?:my\s+(?:family|parents?|mom|dad|mother|father)|we|our\s+family)\b[^.?!]{0,20}\bafford\b|\bafford(?:s|ed|ing)?\s+(?:to\s+(?:go|attend|pay|study|enroll|live)\b|(?:the\s+)?(?:college|colleges|universit\w*|tuition|costs?|price|fees?|out[- ]of[- ]state|private\s+(?:college|school|universit\w*))\b|it\b)|\baffordab(?:le|ility)\b(?![^.?!]{0,30}\b(?:summer|programs?|camps?|hobby|hobbies|equipment|supplies|laptops?|calculators?|books?)\b)|\b(?:pell|merit\s+aid|financial\s+aid|need[- ]based\s+aid|student\s+loans?|federal\s+loans?|work[- ]study|stipends?)\b|\b(?:scholarships?|grants?|loans?)\b[^.?!]{0,40}(?:\b(?:amount|worth|how\s+much|dollars?|cover|pays?|full[- ]ride|full\s+tuition|money)\b|\$)|\$\s?\d[\d,.]*\s*k?\b[^.?!]{0,40}\b(?:tuition|costs?|price|fees?|aid|loans?|per\s+year|a\s+year)\b|\b(?:tuition|costs?|price|fees?|aid|loans?)\b[^.?!]{0,40}\$\s?\d/i, KO_TOPIC.financial_amounts),
     school_policies: /\btest[- ]optional\b|\btest[- ]required\b|\bsuperscore\b|\bscore\s*choice\b|\bapplication\s*requirement\b|\brequired\s*document\b/i,
-    official_stats: /\bacceptance\s*rate\b|\badmission\s*rate\b|\bclass\s*profile\b|\bmiddle\s*50\b|\b(25th|75th)\s*percentile\b/i,
+    official_stats: withKorean(/\bacceptance\s*rate\b|\badmission\s*rate\b|\bclass\s*profile\b|\bmiddle\s*50\b|\b(25th|75th)\s*percentile\b/i, KO_TOPIC.official_stats),
   },
   coaching: {
     ec_strategy: /\bextracurricular(s)?\b|\becs?\b|\bactivit(y|ies)\b|\bspike\b|\bhook\b|\bsummer\s*(program|activit|plan)\b|\bleadership\b|\bvolunteer\b|\binternship\b|\bresearch\b/i,
@@ -172,6 +205,17 @@ const PATTERNS = {
     gpa_benchmark: /\bgpa\b|\bsat\b|\bact\b|\bpercentile\b|\bbenchmark\b|\bhow\s*(do|does)\s*(my|i)\s*(compare|stack)\b/i,
   },
 };
+
+// A topic word used in its everyday sense. "How do I manage deadlines for
+// school projects?" is about homework, not an admissions date, and got the
+// official-source footer; a deadline counts only when nothing marks it as
+// a class, club or program deadline, or when an admissions word is there
+// too ("the summer program's application deadline" is still a lookup).
+const NON_ADMISSIONS_DEADLINE_RE = /\b(?:projects?|homework|assignments?|lab\s+reports?|papers?|club|clubs|team|competitions?|science\s+fair|hackathons?|tournaments?|summer\s+programs?|camps?|internships?|newspaper|yearbook|job|shifts?|midterms?|finals)\b/i;
+const ADMISSIONS_CONTEXT_RE = /\b(?:applications?|apply(?:ing)?|admissions?|early\s+(?:decision|action)|regular\s+decision|ed(?:\s?ii|2)?|r?ea|rd|fafsa|css|common\s+app|coalition|universit(?:y|ies)|colleges?|financial\s+aid|scholarships?|enroll\w*|deposits?|commit\w*|transcripts?)\b/i;
+const ORDINARY_SENSE = Object.freeze({
+  deadlines: (text) => NON_ADMISSIONS_DEADLINE_RE.test(text) && !ADMISSIONS_CONTEXT_RE.test(text),
+});
 
 const TOPIC_SOURCE_DOMAINS = Object.freeze({
   fafsa: ["studentaid.gov", "fsapartners.ed.gov"],
@@ -328,7 +372,7 @@ export function classifyTopic(query, conversationContext = {}) {
 
   // 3. High-stakes topics
   for (const [subIntent, pattern] of Object.entries(PATTERNS.high_stakes)) {
-    if (pattern.test(text)) {
+    if (pattern.test(text) && !ORDINARY_SENSE[subIntent]?.(text)) {
       return {
         topicType: TOPIC_TYPES.HIGH_STAKES,
         intent: "high_stakes",
@@ -392,14 +436,20 @@ export function classifyTopic(query, conversationContext = {}) {
 const LOOKUP_ASK_RE = /\b(?:when|what|what's|whats|which|how\s+many|give\s+me|tell\s+me|list|show\s+me|find|look\s+up|do\s+you\s+(?:know|have)|is\s+(?:it|the|there))\b/i;
 const GUIDANCE_RE = /\b(?:should|shouldn't|would\s+it|worth|better|best|vs\.?|versus|differ\w*|compar\w*|means?|meaning|explain|understand|why|how\s+(?:do|does|did|can|could|should|important|much\s+do(?:es)?)|strateg\w*|chances?|odds|decide|deciding|decided|choos\w*|pros|cons|matters?|good\s+idea|bad\s+idea|advice|advise|recommend\w*|plan|planning|prepar\w*|manag\w*|organiz\w*|keep\s+track|tips?|help\s+me|thoughts?|opinion|ok(?:ay)?\s+to|worr\w*|stress\w*|realistic|competitive|likely|typical\w*|usually|generally|in\s+general|on\s+average|improve|increase|boost|affect|impact|prioriti\w*|handle|balance|too\s+late|missed|miss|extension|extend|late)\b/i;
 
+// The Korean ask and guidance words (gate-12): 언제 / 몇 / 얼마 ask for a
+// date or a figure; 할까 / 어떻게 / 중요 / 전략 ask what to do with one, so
+// "얼리 디시전 지원해야 할까요?" (should I apply ED?) is never refused.
+const KO_LOOKUP_ASK_RE = /언제|몇|얼마|무엇|뭐(?:예요|에요|야|죠|지|인가)|어디|알려\s*주|찾아\s*주/;
+const KO_GUIDANCE_RE = /할까|좋을까|나을까|어떻게|전략|차이|왜|추천|중요|괜찮|의미|뜻이|비교|가능성|확률|도움|조언|준비|놓쳤|늦었|연장|보통|대략|일반적/;
+
 export function isLookupQuestion(query, subIntent) {
   const text = String(query || "").trim();
   if (!text) return false;
   const intent = String(subIntent || "").toLowerCase();
   if (intent !== "deadlines" && intent !== "official_stats") return false;
-  if (GUIDANCE_RE.test(text)) return false;
+  if (GUIDANCE_RE.test(text) || KO_GUIDANCE_RE.test(text)) return false;
   const words = text.split(/\s+/).filter(Boolean).length;
-  return LOOKUP_ASK_RE.test(text) || words <= 8;
+  return LOOKUP_ASK_RE.test(text) || KO_LOOKUP_ASK_RE.test(text) || words <= 8;
 }
 
 // ─── Compliance gate enforcement ───
@@ -600,10 +650,25 @@ export function canHandleDeterministically(topicType, subIntent, query = "") {
   // federal FAFSA checklist buried real questions under boilerplate. Require
   // both an eligibility verb AND explicit federal-aid context.
   if (topicType === TOPIC_TYPES.REGULATED && (subIntent === "fafsa" || subIntent === "eligibility") && String(query || "").trim()) {
-    return /\b(eligib\w*|qualif\w*)\b/i.test(query)
-      && /\b(fafsa|federal|financial\s+aid|student\s+aid|pell|loan|grant)\b/i.test(query);
+    return isFafsaChecklistQuestion(query);
   }
   return true;
+}
+
+// The checklist lists the federal requirements; it cannot weigh a student's
+// own situation. "Am I eligible for FAFSA as a permanent resident?" and "do
+// I qualify for federal aid if my parents are undocumented?" got "6
+// eligibility item(s) have not been confirmed yet" and nothing about
+// permanent residents or a contributor without an SSN (gate-9). A question
+// that names a situation, or asks why or what if, goes to the model as
+// labeled general guidance with the official rule text beside it.
+const FAFSA_SITUATION_RE = /\b(?:as\s+an?|if|since|because|even\s+though|although|unless|while\s+(?:i|my)|with(?:out)?\s+(?:a|an|my|no|our)|when\s+(?:i|my)|why|what\s+(?:if|happens)|my\s+(?:parents?|mom|dad|mother|father|family|guardian|status|visa|income)|permanent\s+residents?|green\s+card|daca|dreamers?|undocumented|international|visas?|non-?citizens?|citizenship\s+status|ssn|social\s+security|drugs?|convict\w*|felon\w*|default\w*|incarcerat\w*|prison|jail|foster|homeless|ward|independent|divorc\w*|separated|married|ged|home-?school\w*|tps|refugees?|asylum|immigra\w*|parole|part[- ]time|community\s+college|grad(?:uate)?\s+school|abroad|another\s+country)\b/i;
+
+export function isFafsaChecklistQuestion(query) {
+  const text = String(query || "");
+  return /\b(eligib\w*|qualif\w*)\b/i.test(text)
+    && /\b(fafsa|federal|financial\s+aid|student\s+aid|pell|loan|grant)\b/i.test(text)
+    && !FAFSA_SITUATION_RE.test(text);
 }
 
 // ─── Check Opus budget ───
