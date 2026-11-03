@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { webcrypto } from "node:crypto";
 import App from "./App.jsx";
+import { describeConsentTypes, getOnboardingConsentRequirements } from "../../backend/security/consent.js";
 
 // The survey's transcript step, walked through the real App. The import used
 // to key a course on its year and name, so the spring row of every
@@ -29,14 +30,17 @@ const serverProfile = {
   goals: [],
 };
 
-// What GET /api/consent/requirements describes: the onboarding three and,
-// in this test, one more the server has started to require.
-const requirements = [
-  { consentType: "data_processing", required: true, label: "Data processing consent", description: "Storing what I enter." },
-  { consentType: "ai_interaction", required: true, label: "External AI processing consent", description: "Redacted text goes to OpenRouter." },
-  { consentType: "cross_border_transfer", required: true, label: "Cross-border transfer consent", description: "It may be processed abroad." },
-  { consentType: "fafsa_contributor", required: true, label: "FAFSA contributor consent", description: "I may record a FAFSA contributor's details." },
-];
+// GET /api/consent/requirements answered with the server's own copy, the way
+// routes/consent.js answers it. This stub used to hand back a list that
+// described fafsa_contributor, which the server never did: it described only
+// the onboarding three, so the panel could never offer anything for real.
+function consentRequirements(path) {
+  const query = new URL(path, "http://localhost").searchParams;
+  const locale = query.get("locale") || "en-US";
+  return query.has("types")
+    ? describeConsentTypes(query.get("types").split(",").map((type) => type.trim()).filter(Boolean), locale)
+    : getOnboardingConsentRequirements(true, locale);
+}
 
 describe("survey transcript step", () => {
   let calls;
@@ -56,7 +60,7 @@ describe("survey transcript step", () => {
       const json = (payload, status = 200) => ({ ok: status < 400, status, json: async () => payload, text: async () => JSON.stringify(payload) });
       if (method === "POST" && path.includes("/api/students/auth")) return json({ token: "tok_test_1", studentId: "stu_test_1" });
       if (path.includes("/api/consent/status")) return json({ consents: {}, missing: [], revoked: [] });
-      if (path.includes("/api/consent/requirements")) return json(requirements);
+      if (path.includes("/api/consent/requirements")) return json(consentRequirements(path));
       if (method === "POST" && path.includes("/api/consent/grant")) return json({ granted: true });
       if (path.includes("/api/students/transcript-import")) return typeof importReply === "function" ? importReply(json) : json(importReply);
       if (path.includes("/api/students/budget")) return json({ grade: 11 });
@@ -129,6 +133,60 @@ describe("survey transcript step", () => {
     expect(grants()[0].body.grantedBy).toBe("student");
     await waitFor(() => expect(screen.queryByTestId("consent-needed")).not.toBeInTheDocument());
     expect(screen.getByText("Permission given. Try that again now.")).toBeInTheDocument();
+  }, 40000);
+
+  // Every type a route can require is one the server can describe, so the
+  // panel can always offer it; it asks the server about exactly those types.
+  it("offers every consent type a route can require, in the server's words", async () => {
+    importReply = (json) => json({ error: "Consent is required.", code: "consent_required", missing: ["session_persistence", "chat_transcript_graphing", "institutional_sharing"] }, 403);
+    await openTranscriptStep();
+    attachTranscript();
+    const panel = await screen.findByTestId("consent-needed", {}, { timeout: 5000 });
+    for (const label of ["Saved session consent", "Chat history map consent", "School sharing consent"]) {
+      expect(await screen.findByText(label)).toBeInTheDocument();
+    }
+    expect(panel).not.toHaveTextContent("can't describe a required permission");
+    const asked = calls.filter((c) => c.path.includes("/api/consent/requirements"));
+    expect(asked.map((c) => new URL(c.path, "http://localhost").searchParams.get("types"))).toEqual(["session_persistence,chat_transcript_graphing,institutional_sharing"]);
+    // Still nothing until each one is ticked.
+    const grants = () => calls.filter((c) => c.method === "POST" && c.path.includes("/api/consent/grant"));
+    const give = screen.getByRole("button", { name: "Give permission" });
+    const boxes = screen.getAllByRole("checkbox");
+    fireEvent.click(boxes[0]);
+    fireEvent.click(boxes[1]);
+    expect(give).toBeDisabled();
+    fireEvent.click(boxes[2]);
+    fireEvent.click(give);
+    await waitFor(() => expect(grants().map((c) => c.body.consentType).sort()).toEqual(["chat_transcript_graphing", "institutional_sharing", "session_persistence"]));
+  }, 40000);
+
+  // The import merged into the course list and checked the GPA field as they
+  // stood when the file was picked, then set both after a read of several
+  // seconds: a course added by hand meanwhile vanished, and a GPA typed
+  // meanwhile was replaced by the transcript's.
+  it("keeps a course and a GPA the student entered while the transcript was being read", async () => {
+    profileBody = { revision: "r2", profile: { ...serverProfile, gpa: null, gpaStatus: "pending" } };
+    let release;
+    importReply = (json) => new Promise((resolve) => {
+      release = () => resolve(json({ courses: { junior: [{ name: "Chemistry Honors", type: "honors", grade: "A", semester: "full_year" }] }, gpa: 3.2 }));
+    });
+    await openTranscriptStep();
+    attachTranscript();
+    await screen.findByText("Reading transcript…");
+    fireEvent.click(screen.getByRole("button", { name: "Junior (1)" }));
+    fireEvent.change(screen.getByPlaceholderText("Course name"), { target: { value: "Orchestra" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    expect(await screen.findByRole("button", { name: "Junior (2)" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    fireEvent.change(await screen.findByPlaceholderText("e.g. 3.75"), { target: { value: "3.7" } });
+    release();
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByText(/Imported 1 course\./, {}, { timeout: 5000 })).toBeInTheDocument();
+    // Calculus BC, the hand-added Orchestra and the imported Chemistry.
+    expect(screen.getByRole("button", { name: "Junior (3)" })).toBeInTheDocument();
+    expect(screen.getByText(/Orchestra/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(await screen.findByPlaceholderText("e.g. 3.75")).toHaveValue(3.7);
   }, 40000);
 
   it("tells the student a repeated course and term is already on the list instead of doing nothing", async () => {

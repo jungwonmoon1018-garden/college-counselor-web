@@ -2,7 +2,7 @@
 // 2026-09-16 so the server file holds setup and helpers only. `deps` is
 // the server's routeDeps object: live getters onto the module bindings
 // these handlers use (hashIP, piiStmts, requireStudentAuth, stmts, studentLimiter).
-import { getOnboardingConsentRequirements, grantConsent, hasActiveConsent, isValidConsentType, revokeConsentType, revokedConsentTypes } from "../security/consent.js";
+import { describeConsentTypes, getOnboardingConsentRequirements, grantConsent, hasActiveConsent, isValidConsentType, revokeConsentType, revokedConsentTypes } from "../security/consent.js";
 import crypto from "node:crypto";
 
 export function registerConsentRoutes(app, deps) {
@@ -10,9 +10,19 @@ export function registerConsentRoutes(app, deps) {
   // CONSENT ENDPOINTS
   // ═══════════════════════════════════════════════════════════
 
+  // GET /api/consent/requirements — the onboarding consents, in the asked
+  // locale. With ?types=a,b it describes those types instead: the consent
+  // panel asks the student for a type a route requires that sign-up never
+  // asked for, and it can offer one only when it is described here. This
+  // route used to describe the onboarding three alone, so the panel could
+  // never offer anything.
   app.get("/api/consent/requirements", (req, res) => {
     const isMinor = req.query.isMinor !== "false";
-    const locale = req.query.locale || "en-US";
+    const locale = typeof req.query.locale === "string" && req.query.locale ? req.query.locale : "en-US";
+    if (req.query.types != null) {
+      const types = [req.query.types].flat().join(",").split(",").map((type) => type.trim()).filter(Boolean).slice(0, 20);
+      return res.json(describeConsentTypes(types, locale));
+    }
     res.json(getOnboardingConsentRequirements(isMinor, locale));
   });
 

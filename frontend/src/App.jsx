@@ -120,6 +120,10 @@ function StudentApp({ endedBy = null, onSessionEnd }) {
     setSImportBusy, setSImportNote, setSNoGpaYet, setSNoTestsYet, setSTestCategory, setSTestInput,
     setSTests, setSurveyError, setSurveyStep, setsMajorInterest, surveyError, surveyStep,
   } = useSurveyForm();
+  // The course list as last rendered, for the survey's transcript import,
+  // which reads it after a wait of several seconds (importTranscript).
+  const sCoursesRef = useRef(sCourses);
+  sCoursesRef.current = sCourses;
   const {
     lEmail, lError, lPass, setLEmail, setLError, setLPass,
     setShowLoginPass, setStudentRecoveryBusy, setStudentRecoveryCode, setStudentRecoveryInput, setStudentRecoveryMessage, setStudentRecoveryOpen,
@@ -504,13 +508,21 @@ function StudentApp({ endedBy = null, onSessionEnd }) {
     endSession, setProfileReady, setShowLoginPass, setSyncBase, setSyncNote, setSyncStatus,
   });
 
-  const handleSurveyComplete = useCallback((...args) => handleSurveyCompleteImpl({
+  // Not memoized: the survey's Continue/Finish handler calls it from the
+  // render it was made in, so it reads that render's fields, every one of
+  // them. Its hand-kept dependency list once left out sClassRank, and a
+  // class rank edited on its own was saved as the old rank, which the
+  // fidelity check then held the counselor to.
+  const handleSurveyComplete = (...args) => handleSurveyCompleteImpl({
       authedFetch, messages, sAPScores, sClassRank, sCourses, sECs,
       sGoals, sGpaUw, sGpaW, sMajorInterest, sNoGpaYet, sNoTestsYet,
       sTests, setData, setMessages, setScreen, setSurveyError, user,
       getSyncBase, setSyncBase, syncInFlightRef,
       locale, setSetAsideRows,
-    }, ...args), [sGpaUw, sGpaW, sNoGpaYet, sCourses, sAPScores, sTests, sNoTestsYet, sECs, sGoals, sMajorInterest, user, messages, authedFetch, getSyncBase, setSyncBase, syncInFlightRef, locale]);
+      // A device that has not joined the server's profile reads it before
+      // the survey is saved, and refills the form when it finds one.
+      profileReady, setProfileReady, hydrateSurveyFromCurrentData, setSurveyStep,
+    }, ...args);
 
   const send = useCallback((...args) => sendImpl({
       abortRef, activeThreadId, authedFetch, calendarCtx, chatFiles, chatTextareaRef,
@@ -664,14 +676,20 @@ function StudentApp({ endedBy = null, onSessionEnd }) {
         if (askForUnknownConsents(r, body)) { setSurveyError(tt(locale, "consent.needed")); return; }
         if (!r.ok) { setSurveyError(body.error || `Import failed (HTTP ${r.status})`); return; }
 
-        // Merge outside the state updater (StrictMode double-invokes updaters).
-        // Keyed on year and name alone, the spring row of every semester-graded
-        // course was dropped as a "duplicate" of the fall row, grade and all;
-        // the shared merge keys on the term too and says which rows the limit
-        // left out.
-        const { merged, note } = mergeSurveyImport(sCourses, body.courses, { years: SURVEY_YEARS, fallbackYear: sCourseYear });
-        setSCourses(merged);
-        if (body.gpa != null && !sGpaUw) setSGpaUw(String(body.gpa));
+        // Merged into the list as it stands when the read returns. The form
+        // stays open while the file is read, and the merge used to start from
+        // the list as it was when the file was picked: a course the student
+        // added, changed or removed meanwhile was put back the old way, and a
+        // GPA typed meanwhile gave way to the transcript's. The merge is pure,
+        // so StrictMode calling the updater twice is harmless; the note is
+        // counted against the list last rendered. Keyed on year and name
+        // alone, the spring row of every semester-graded course was dropped
+        // as a "duplicate" of the fall row, grade and all; the shared merge
+        // keys on the term too and says which rows the limit left out.
+        const importOptions = { years: SURVEY_YEARS, fallbackYear: sCourseYear };
+        const { note } = mergeSurveyImport(sCoursesRef.current, body.courses, importOptions);
+        setSCourses(prev => mergeSurveyImport(prev, body.courses, importOptions).merged);
+        if (body.gpa != null) setSGpaUw(prev => prev || String(body.gpa));
 
         const notes = [note];
         if (body.gpa != null) notes.push(`Transcript GPA: ${body.gpa}.`);

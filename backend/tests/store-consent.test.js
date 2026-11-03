@@ -9,7 +9,8 @@ import os from "node:os";
 import path from "node:path";
 import Database from "better-sqlite3";
 import { initPIIVault, preparePIIStatements } from "../storage/pii-vault.js";
-import { grantConsent, hasActiveConsent, revokeConsentType, revokedConsentTypes, validateRequiredConsents } from "../security/consent.js";
+import { CONSENT_TYPES, describeConsentTypes, getOnboardingConsentRequirements, grantConsent, hasActiveConsent, revokeConsentType, revokedConsentTypes, validateRequiredConsents } from "../security/consent.js";
+import { registerConsentRoutes } from "../routes/consent.js";
 import { initUsageBudget } from "../security/usage-budget.js";
 import { bindModelCalls, buildStudentCallLLM, respondLLMError } from "../server/model-calls.js";
 
@@ -81,4 +82,58 @@ test("withdrawing a type revokes every active row, is reported as revoked, and a
   } finally {
     close();
   }
+});
+
+// The consent panel (frontend components/ConsentNeeded.jsx) offers a type a
+// route requires only when GET /api/consent/requirements describes it, and
+// the route described only the onboarding three, the very types the panel
+// never opens for: a 403 naming fafsa_contributor or any other type left the
+// student at "can't describe a required permission" with no way forward.
+// Every type an operation can require is now described, in both languages.
+const HANGUL = /[\uac00-\ud7af\u1100-\u11ff\u3130-\u318f]/;
+const OPERATIONS = ["ai_interaction", "cross_border", "strategy_council", "fafsa_workflow", "session_persistence", "institutional_sharing", "chat_transcript_graphing", "anything_else"];
+
+test("every consent an operation can require is described in English and Korean", () => {
+  const none = { getActiveConsent: { get: () => undefined } };
+  const required = new Set(OPERATIONS.flatMap((operation) => validateRequiredConsents(none, "s1", operation).missing));
+  assert.deepEqual([...required].sort(), Object.values(CONSENT_TYPES).sort());
+  for (const locale of ["en-US", "ko-KR"]) {
+    const described = describeConsentTypes([...required], locale);
+    assert.deepEqual(described.map((item) => item.consentType).sort(), [...required].sort(), locale);
+    for (const item of described) {
+      assert.ok(item.label && item.description, `${item.consentType} (${locale})`);
+      if (locale.startsWith("ko")) {
+        assert.match(item.label, HANGUL, `${item.consentType} label`);
+        assert.match(item.description, HANGUL, `${item.consentType} description`);
+      } else {
+        assert.doesNotMatch(item.label + item.description, HANGUL, item.consentType);
+      }
+    }
+  }
+  // The onboarding three read the same words either way.
+  for (const requirement of getOnboardingConsentRequirements(true, "en")) {
+    const [same] = describeConsentTypes([requirement.consentType], "en");
+    assert.equal(same.label, requirement.label);
+    assert.equal(same.description, requirement.description);
+  }
+  // A type the server does not know is left out, never invented.
+  assert.deepEqual(describeConsentTypes(["brand_new_consent", "fafsa_contributor", "fafsa_contributor"], "en").map((item) => item.consentType), ["fafsa_contributor"]);
+  assert.deepEqual(describeConsentTypes(undefined, "en"), []);
+});
+
+test("GET /api/consent/requirements describes the types it is asked about, and the onboarding three otherwise", () => {
+  const handlers = new Map();
+  const app = { get: (route, ...chain) => handlers.set(`GET ${route}`, chain.at(-1)), post: (route, ...chain) => handlers.set(`POST ${route}`, chain.at(-1)) };
+  registerConsentRoutes(app, { studentLimiter: () => {}, requireStudentAuth: () => {} });
+  const handler = handlers.get("GET /api/consent/requirements");
+  const ask = (query) => { let body; handler({ query }, { json: (value) => { body = value; } }); return body; };
+
+  const asked = ask({ types: "fafsa_contributor,session_persistence,chat_transcript_graphing,institutional_sharing,brand_new_consent", locale: "ko" });
+  assert.deepEqual(asked.map((item) => item.consentType), ["fafsa_contributor", "session_persistence", "chat_transcript_graphing", "institutional_sharing"]);
+  for (const item of asked) assert.match(item.label, HANGUL, item.consentType);
+  // Repeated as ?types=a&types=b, the query parser hands over a list.
+  assert.deepEqual(ask({ types: ["fafsa_contributor", "institutional_sharing"], locale: "en-US" }).map((item) => item.label), ["FAFSA contributor consent", "School sharing consent"]);
+
+  assert.deepEqual(ask({}).map((item) => item.consentType), ["data_processing", "ai_interaction", "cross_border_transfer"]);
+  assert.deepEqual(ask({ locale: ["ko", "en"] }).map((item) => item.consentType), ["data_processing", "ai_interaction", "cross_border_transfer"]);
 });

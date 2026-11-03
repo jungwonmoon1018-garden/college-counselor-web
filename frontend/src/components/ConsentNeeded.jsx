@@ -6,10 +6,13 @@ import CloseButton from "./CloseButton.jsx";
 // ConsentNeeded — asks the student for a consent the server requires that
 // this app does not grant on its own (session/consent-needs.js, debt-11).
 // The app knows nothing about such a type, so what the student reads is the
-// server's own label and description (GET /api/consent/requirements, in the
-// app's language), and nothing is granted until the student ticks each one
-// and presses the button. A type the server does not describe cannot be
-// consented to knowingly, so it is named and not offered.
+// server's own label and description (GET /api/consent/requirements?types=,
+// in the app's language), and nothing is granted until the student ticks
+// each one and presses the button. A type the server does not describe
+// cannot be consented to knowingly, so it is named and not offered. The
+// panel used to ask the route without the types, and the route then
+// described only the three onboarding consents, which never come here, so
+// it could not offer anything at all.
 // ═══════════════════════════════════════════════════════════════════════
 
 export default function ConsentNeeded({ types = [], locale = "en-US", onGranted, onClose }) {
@@ -17,12 +20,13 @@ export default function ConsentNeeded({ types = [], locale = "en-US", onGranted,
   const [checked, setChecked] = useState({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const typesKey = types.join(",");
 
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const r = await fetch(`/api/consent/requirements?locale=${encodeURIComponent(locale)}`);
+        const r = await fetch(`/api/consent/requirements?types=${encodeURIComponent(typesKey)}&locale=${encodeURIComponent(locale)}`);
         const list = r.ok ? await r.json() : [];
         const map = {};
         for (const item of Array.isArray(list) ? list : []) {
@@ -34,7 +38,7 @@ export default function ConsentNeeded({ types = [], locale = "en-US", onGranted,
       }
     })();
     return () => { alive = false; };
-  }, [locale]);
+  }, [locale, typesKey]);
 
   const offered = described ? types.filter((type) => described[type]) : [];
   const undescribed = described ? types.filter((type) => !described[type]) : [];

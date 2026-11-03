@@ -44,6 +44,45 @@ function ecRowToActivity(ec) {
   };
 }
 
+// What the student reads when Finish could not check the survey against the
+// server's profile, and when it found one and put it in the form instead.
+export const SURVEY_JOIN_FAILED = "Couldn't check this against the profile you may have saved before, so nothing was saved yet — check your connection and press Finish setup again.";
+export const SURVEY_JOIN_REVIEW = "We found the profile you saved before and loaded it here, so nothing was saved over it. Check each step, then press Finish setup to save.";
+
+// The first save from a device that has not joined the server's profile.
+// Sign-in reads that profile once; when the read failed (a 500, a 429, a
+// cold start), a returning student on a new device was shown an empty
+// survey as if new, and Finish posted what she typed with no baseRevision.
+// The server checks revisions only when one is sent, so it stored the
+// survey over her real courses, scores and activities, in the snapshot the
+// counselor, the fidelity check and College Fit read. Finish now reads the
+// profile first and joins it through the one merge rule
+// (profile/profile-reconcile.js), with the base this device has. Returns
+// { ok: false } when the read failed, else the new base and, when the
+// server's record changed what the survey holds, the joined record for the
+// student to check before anything is saved.
+async function joinServerProfileBeforeSave(ctx, edited) {
+  const { authedFetch, getSyncBase, setSyncBase, setProfileReady, setData } = ctx;
+  const startBase = getSyncBase ? getSyncBase() : null;
+  let server;
+  try {
+    const r = await authedFetch("/api/students/profile");
+    if (!r?.ok) return { ok: false };
+    server = readServerProfile(await r.json());
+  } catch {
+    return { ok: false };
+  }
+  // A save that landed while the read was out is newer than what it returned.
+  if (getSyncBase && getSyncBase() !== startBase) return { ok: false };
+  const result = reconcileProfile({ local: edited, server, base: startBase });
+  setSyncBase?.(result.base);
+  setProfileReady?.(true);
+  // The app's data joins the same way, so the auto-save, which runs from
+  // here on, finds nothing of the old copy to send over the server's.
+  setData(prev => reconcileProfile({ local: prev, server, base: startBase }).data);
+  return { ok: true, base: result.base, review: result.changed ? result.data : null };
+}
+
 // ─── COMPLETE SURVEY → build profile → go to chat ───
 export async function handleSurveyComplete(ctx) {
   const {
@@ -52,6 +91,7 @@ export async function handleSurveyComplete(ctx) {
     sTests, setData, setMessages, setScreen, setSurveyError, user,
     getSyncBase, setSyncBase, syncInFlightRef,
     locale, setSetAsideRows,
+    profileReady, hydrateSurveyFromCurrentData, setSurveyStep,
   } = ctx;
   // Flatten per-year courses into one array with year tags. A course in
   // the unplaced bucket keeps the year it came with (none, or one the
@@ -79,6 +119,26 @@ export async function handleSurveyComplete(ctx) {
   const activities = sECs.map(ecRowToActivity);
   const edited = { profile, activities, goals: sGoals, majorInterest: sMajorInterest };
 
+  // Before anything is stored here or sent: a device that has not seen the
+  // server's profile cannot tell an edit from a blank form. A falsy
+  // profileReady counts as not joined, so a caller that leaves it out reads
+  // first rather than posting blind.
+  const proxyUrl = window.__CC_PROXY_URL__;
+  let joinedBase = null;
+  if (proxyUrl && !profileReady) {
+    const joined = await joinServerProfileBeforeSave(ctx, edited);
+    if (!joined.ok) { setSurveyError(SURVEY_JOIN_FAILED); return; }
+    if (joined.review) {
+      // The form is refilled from the first step; hydrate clears the error
+      // line, so the note is set after it.
+      hydrateSurveyFromCurrentData?.(joined.review);
+      setSurveyStep?.(0);
+      setSurveyError(SURVEY_JOIN_REVIEW);
+      return;
+    }
+    joinedBase = joined.base;
+  }
+
   setData(prev => ({
     ...prev, profile, activities, surveyCompleted: true, goals: sGoals, majorInterest: sMajorInterest,
     documents: (prev.documents || []).filter(doc => doc?.source !== "survey_transcript"),
@@ -105,14 +165,13 @@ export async function handleSurveyComplete(ctx) {
   // BEFORE entering chat. A failed sync keeps the student on the survey with
   // a retry message instead of dropping them into a chat the backend knows
   // nothing about. (Skipped entirely in offline/local-only mode.)
-  const proxyUrl = window.__CC_PROXY_URL__;
   // What the server could not store (a value out of range from an older
   // build); the rest of the save landed and the student hears which part.
   let setAsideNote = "";
   let conflictNote = "";
   if (proxyUrl) {
     let response;
-    let base = getSyncBase ? getSyncBase() : null;
+    let base = joinedBase || (getSyncBase ? getSyncBase() : null);
     let payload = buildSyncPayload(edited, base);
     const post = (body) => authedFetch("/api/students/sync", {
       method: "POST",

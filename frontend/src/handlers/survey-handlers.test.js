@@ -27,6 +27,9 @@ function surveyCtx(overrides = {}) {
     setScreen: vi.fn(),
     setSurveyError: vi.fn(),
     user: null,
+    // This device has joined the server's profile (sign-in read it); the
+    // cases where it has not are below.
+    profileReady: true,
     ...overrides,
   };
 }
@@ -68,6 +71,126 @@ describe("finishing the survey", () => {
     await handleSurveyComplete(ctx);
     const [welcome] = ctx.setMessages.mock.calls[0][0];
     expect(welcome.content).not.toContain("Saved, except");
+  });
+});
+
+// Sign-in reads the server's profile once. When that read failed (a 500, a
+// 429, a cold start), a returning student on a new device was shown an empty
+// survey as if new, and Finish posted what she typed with no baseRevision;
+// the server checks revisions only when one is sent, so her real courses,
+// scores and activities were replaced in the snapshot the counselor, the
+// fidelity check and College Fit read.
+describe("finishing the survey before this device has seen the server's profile", () => {
+  beforeEach(() => { window.__CC_PROXY_URL__ = "/api/chat"; });
+  afterEach(() => { delete window.__CC_PROXY_URL__; });
+
+  const saved = {
+    gpa: { unweighted: 3.9, weighted: 4.4 },
+    courses: [{ name: "Calculus BC", type: "ap", grade: "A", year: "junior", semester: "full_year" }],
+    apScores: [{ exam: "Biology", score: 5, year: 2025 }],
+    testScores: [{ test: "sat", totalScore: 1500 }],
+    activities: [{ id: "a1", name: "Robotics", role: "Captain" }],
+    goals: ["STEM-focused"],
+    majorInterest: "Engineering",
+  };
+
+  // The routes the handler calls, answered by path; every call is kept.
+  function server(profileReply) {
+    const calls = [];
+    const authedFetch = vi.fn(async (path, opts = {}) => {
+      calls.push({ path, method: opts.method || "GET", body: opts.body ? JSON.parse(opts.body) : null });
+      if (path === "/api/students/profile") return profileReply();
+      if (path === "/api/students/sync") return { ok: true, status: 200, json: async () => ({ synced: true, setAside: [], revision: "r8" }) };
+      throw new Error(`unexpected ${path}`);
+    });
+    return { calls, authedFetch, syncs: () => calls.filter((c) => c.path === "/api/students/sync") };
+  }
+
+  function unjoinedCtx(authedFetch, overrides = {}) {
+    let base = null;
+    let data = { profile: null, activities: [], studyNotes: [], documents: [] };
+    const ctx = surveyCtx({
+      authedFetch,
+      profileReady: false,
+      getSyncBase: () => base,
+      setSyncBase: vi.fn((next) => { base = next; }),
+      setProfileReady: vi.fn(),
+      setData: vi.fn((next) => { data = typeof next === "function" ? next(data) : next; }),
+      hydrateSurveyFromCurrentData: vi.fn(),
+      setSurveyStep: vi.fn(),
+      ...overrides,
+    });
+    return { ctx, data: () => data, base: () => base };
+  }
+
+  it("saves nothing while the saved profile can't be read", async () => {
+    for (const reply of [
+      () => ({ ok: false, status: 500, json: async () => ({ error: "Profile retrieval failed" }) }),
+      () => { throw new TypeError("Failed to fetch"); },
+    ]) {
+      const { calls, authedFetch, syncs } = server(reply);
+      const { ctx } = unjoinedCtx(authedFetch);
+      await handleSurveyComplete(ctx);
+      expect(calls.map((c) => c.path)).toEqual(["/api/students/profile"]);
+      expect(syncs()).toEqual([]);
+      expect(ctx.setSurveyError).toHaveBeenCalledWith("Couldn't check this against the profile you may have saved before, so nothing was saved yet — check your connection and press Finish setup again.");
+      expect(ctx.setData).not.toHaveBeenCalled();
+      expect(ctx.setProfileReady).not.toHaveBeenCalled();
+      expect(ctx.setScreen).not.toHaveBeenCalled();
+    }
+  });
+
+  it("loads a saved profile into the form for the student to check instead of posting over it", async () => {
+    const { authedFetch, syncs } = server(() => ({ ok: true, status: 200, json: async () => ({ revision: "r7", profile: saved }) }));
+    const { ctx, data, base } = unjoinedCtx(authedFetch);
+    await handleSurveyComplete(ctx);
+    expect(syncs()).toEqual([]);
+    expect(ctx.setScreen).not.toHaveBeenCalled();
+    // The form shows the saved record, from the first step.
+    const shown = ctx.hydrateSurveyFromCurrentData.mock.calls[0][0];
+    expect(shown.profile.courses).toEqual(saved.courses);
+    expect(shown.profile.testScores).toEqual(saved.testScores);
+    expect(shown.activities).toEqual(saved.activities);
+    expect(ctx.setSurveyStep).toHaveBeenCalledWith(0);
+    expect(ctx.setSurveyError).toHaveBeenLastCalledWith("We found the profile you saved before and loaded it here, so nothing was saved over it. Check each step, then press Finish setup to save.");
+    // The device has now joined: the next Finish is checked against r7.
+    expect(base().serverRevision).toBe("r7");
+    expect(ctx.setProfileReady).toHaveBeenCalledWith(true);
+    expect(data().profile.courses).toEqual(saved.courses);
+    expect(data().surveyCompleted).toBeUndefined();
+  });
+
+  it("saves against the server's revision once it has seen the server's profile", async () => {
+    const same = {
+      gpa: { unweighted: 3.8 },
+      courses: [{ name: "Chemistry", type: "honors", grade: "A", semester: "full_year", year: "junior" }],
+      apScores: [], testScores: [], testingStatus: "planned", activities: [], goals: ["Explore options"], majorInterest: "Biology",
+    };
+    const { authedFetch, syncs } = server(() => ({ ok: true, status: 200, json: async () => ({ revision: "r7", profile: same }) }));
+    const { ctx } = unjoinedCtx(authedFetch);
+    await handleSurveyComplete(ctx);
+    expect(syncs()).toHaveLength(1);
+    expect(syncs()[0].body.baseRevision).toBe("r7");
+    expect(ctx.hydrateSurveyFromCurrentData).not.toHaveBeenCalled();
+    expect(ctx.setScreen).toHaveBeenCalledWith(S.CHAT);
+  });
+
+  it("saves the survey when the server holds no profile yet", async () => {
+    const { calls, authedFetch, syncs } = server(() => ({ ok: true, status: 200, json: async () => ({ profile: null, revision: null }) }));
+    const { ctx } = unjoinedCtx(authedFetch);
+    await handleSurveyComplete(ctx);
+    expect(calls.map((c) => c.path)).toEqual(["/api/students/profile", "/api/students/sync"]);
+    expect(syncs()[0].body.profile.courses.map((c) => c.name)).toEqual(["Chemistry"]);
+    expect(ctx.setProfileReady).toHaveBeenCalledWith(true);
+    expect(ctx.setScreen).toHaveBeenCalledWith(S.CHAT);
+  });
+
+  it("reads nothing first on a device that has joined", async () => {
+    const { calls, authedFetch } = server(() => { throw new Error("no read expected"); });
+    const ctx = surveyCtx({ authedFetch, getSyncBase: () => ({ serverRevision: "r3", snapshot: null }), setSyncBase: vi.fn() });
+    await handleSurveyComplete(ctx);
+    expect(calls.map((c) => c.path)).toEqual(["/api/students/sync"]);
+    expect(calls[0].body.baseRevision).toBe("r3");
   });
 });
 
