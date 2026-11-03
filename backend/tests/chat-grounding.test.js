@@ -770,3 +770,72 @@ test("a block of only unheld schools holds no verified data", async () => {
     unheld: ["Oak University"],
   })), true);
 });
+
+// A TOEFL band entry and a PSAT 8/9 entry are stored with their scale
+// (test-catalog.js), and the profile block names it: "TOEFL 5.5" was read
+// as 5.5 of 120 and "PSAT 900" as a weak PSAT/NMSQT. A Korean 성취도 grade
+// says which scale its letter is on.
+test("a score's scale and a Korean achievement grade reach the model by name", () => {
+  const block = formatProfileForModel({
+    testScores: [
+      { test: "toefl", scale: "band", totalScore: 5.5, sections: { reading: 5.5, listening: 6, speaking: 5, writing: 5.5 } },
+      { test: "psat", scale: "8/9", totalScore: 900, date: "2026-10" },
+      { test: "toefl", totalScore: 105 },
+    ],
+    courses: [
+      { name: "Korean Literature", type: "regular", grade: "E", gradeScale: "kr_achievement", year: "sophomore", semester: "fall" },
+      { name: "Mathematics I", type: "regular", grade: "A", gradeScale: "kr_achievement", year: "sophomore", semester: "spring" },
+      { name: "Integrated Science", type: "regular", grade: "IP", gradeScale: "kr_achievement", year: "junior" },
+      { name: "Chemistry", type: "honors", grade: "A-", year: "junior" },
+    ],
+  });
+  assert.match(block, /Test scores: TOEFL \(1-6 band\) 5\.5 \(Reading 5\.5, Listening 6, Speaking 5, Writing 5\.5\); PSAT 8\/9 900 \(taken 2026-10\); TOEFL 105\n/);
+  assert.match(block, /  - sophomore: Korean Literature — regular — grade E \(Korean achievement level, A-E scale\) \(fall semester\)\n/);
+  assert.match(block, /  - sophomore: Mathematics I — regular — grade A \(Korean achievement level, A-E scale\) \(spring semester\)\n/);
+  // No final grade yet: there is no achievement level to describe.
+  assert.match(block, /  - junior: Integrated Science — regular — in progress \(no final grade yet\)\n/);
+  // A US course carries no scale note.
+  assert.match(block, /  - junior: Chemistry — Honors — grade A-$/m);
+});
+
+// CLAUDE.md rule 1: the check reads an entry on the scale it was stored on.
+// A stated band 5.5 is the record, never "corrected" toward a 0-120 value;
+// a wrong band or a wrong PSAT 8/9 figure, which used to fall outside the
+// base range and pass unread, is caught and reported under the scale's name.
+test("TOEFL band and PSAT 8/9 entries are checked on their own scales", () => {
+  const band = { testScores: [{ test: "toefl", scale: "band", totalScore: 5.5 }] };
+  assert.deepEqual(kinds("Your TOEFL of 5.5 is strong for most programs.", band), []);
+  assert.deepEqual(kinds("Your TOEFL score of 5.5 clears the bar.", band), []);
+  const wrongBand = checkProfileFidelity("Your TOEFL score of 6 clears every bar.", band).contradictions;
+  assert.deepEqual(wrongBand.map((c) => [c.kind, c.item, c.stated, c.actual]), [["toefl", "TOEFL (1-6 band)", "6", "5.5"]]);
+  assert.match(buildFidelityFootnote(wrongBand), /- TOEFL \(1-6 band\): recorded 5\.5 \(the reply said 6\)/);
+  assert.match(buildFidelityCorrection(wrongBand), /- TOEFL \(1-6 band\): recorded 5\.5 \(the reply said 6\)/);
+  const invented = checkProfileFidelity("Your TOEFL of 110 is excellent.", band).contradictions;
+  assert.deepEqual(invented.map((c) => [c.item, c.stated, c.actual]), [["TOEFL (1-6 band)", "110", "5.5"]]);
+
+  // A 0-120 record is not "corrected" by a band figure it does not hold,
+  // and its own total stays true.
+  const ibt = { testScores: [{ test: "toefl", totalScore: 105 }] };
+  assert.deepEqual(kinds("Your TOEFL of 105 is excellent.", ibt), []);
+  assert.deepEqual(kinds("Your TOEFL score of 5.5 is excellent.", ibt), ["toefl:5.5"]);
+
+  // Band sittings combine with each other, not with a 0-120 sitting: the
+  // old superscore summed the band sections into a TOEFL "21".
+  const mixed = { testScores: [
+    { test: "toefl", scale: "band", totalScore: 5, date: "2026-02", sections: { reading: 5, listening: 5.5, speaking: 4.5, writing: 5 } },
+    { test: "toefl", scale: "band", totalScore: 5, date: "2026-06", sections: { reading: 5.5, listening: 5, speaking: 5, writing: 5 } },
+    { test: "toefl", totalScore: 105, date: "2025-11" },
+  ] };
+  assert.deepEqual(kinds("Your TOEFL superscore of 5.5 helps.", mixed), []);
+  assert.deepEqual(kinds("Your TOEFL of 105 helps.", mixed), []);
+  assert.deepEqual(kinds("Your TOEFL of 21 helps.", mixed), ["toefl:21"]);
+  const mixedFound = checkProfileFidelity("Your TOEFL of 21 helps.", mixed).contradictions;
+  assert.equal(mixedFound[0].item, "TOEFL");
+  assert.equal(mixedFound[0].actual, "5 (2026-02) and 5 (2026-06) and 105 (2025-11) (superscore 5.5)");
+
+  const psat89 = { testScores: [{ test: "psat", scale: "8/9", totalScore: 900 }] };
+  assert.deepEqual(kinds("Your PSAT 8/9 score of 900 is a fine start.", psat89), []);
+  const low = checkProfileFidelity("Your PSAT 8/9 score of 280 leaves room to grow.", psat89).contradictions;
+  assert.deepEqual(low.map((c) => [c.kind, c.item, c.stated, c.actual]), [["psat", "PSAT 8/9", "280", "900"]]);
+  assert.match(buildFidelityFootnote(low, "ko"), /- PSAT 8\/9: 기록된 점수 900 \(답변에서는 280\)/);
+});

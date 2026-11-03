@@ -6,6 +6,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 
 import crypto from "node:crypto";
+import { calendarDateOf, daysUntilDue } from "../shared/calendar-date.js";
 
 // The federal eligibility rules, one entry per award year, each reviewed
 // against that year's FSA Handbook before it is added. There used to be a
@@ -232,19 +233,43 @@ export function runFAFSAEligibilityCheck(studentData = {}, { now = new Date(), r
 // DEADLINE CALCULATIONS
 // ═══════════════════════════════════════════════════════════
 
-export function calculateDeadlineStatus(deadlineDate, applicationType = "regular_decision") {
+// A deadline as the tracker stores it: a calendar date (YYYY-MM-DD) when
+// the value names a day, an ISO instant only when it carries a time of day.
+// "November 1, 2026" names a day, though Date reads it at local midnight.
+function deadlineValue(input) {
+  if (input instanceof Date) return Number.isFinite(input.getTime()) ? input.toISOString() : null;
+  const text = String(input ?? "").trim();
+  if (!text) return null;
+  const date = calendarDateOf(text);
+  if (date) return date;
+  const ms = Date.parse(text);
+  if (!Number.isFinite(ms)) return null;
+  if (!/\d:\d/.test(text)) {
+    const d = new Date(ms);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+  return new Date(ms).toISOString();
+}
+
+// Days are counted as the deadline tracker counts them (daysUntilDue in
+// shared/calendar-date.js): a date-only deadline is 0 days away on its date
+// and negative only once that date has ended Anywhere on Earth, or on the
+// student's own date when `today` names it. Math.ceil of milliseconds from
+// UTC midnight told the chat a deadline had passed from 00:00 UTC the day
+// after it (still the due date in New York) while the tracker said "due
+// today".
+export function calculateDeadlineStatus(deadlineDate, applicationType = "regular_decision", { now = new Date(), today = null } = {}) {
   if (!deadlineDate) {
     return { status: "unknown", daysRemaining: null, message: "No deadline date available." };
   }
 
-  const now = new Date();
-  const deadline = new Date(deadlineDate);
-  if (isNaN(deadline.getTime())) {
+  const value = deadlineValue(deadlineDate);
+  if (!value) {
     return { status: "invalid", daysRemaining: null, message: "Invalid deadline date format." };
   }
 
-  const msRemaining = deadline.getTime() - now.getTime();
-  const daysRemaining = Math.ceil(msRemaining / (1000 * 60 * 60 * 24));
+  const nowMs = now instanceof Date ? now.getTime() : Number(now);
+  const daysRemaining = daysUntilDue(value, { nowMs, today });
 
   let status, urgency;
   if (daysRemaining < 0) {
@@ -268,12 +293,14 @@ export function calculateDeadlineStatus(deadlineDate, applicationType = "regular
     status,
     urgency,
     daysRemaining,
-    deadlineDate: deadline.toISOString().slice(0, 10),
+    deadlineDate: calendarDateOf(value) || value.slice(0, 10),
     applicationType,
     message:
       status === "passed"
         ? `This deadline has passed (${Math.abs(daysRemaining)} day(s) ago).`
-        : `${daysRemaining} day(s) remaining until the ${applicationType.replace(/_/g, " ")} deadline.`,
+        : daysRemaining === 0
+          ? `The ${applicationType.replace(/_/g, " ")} deadline is today.`
+          : `${daysRemaining} day(s) remaining until the ${applicationType.replace(/_/g, " ")} deadline.`,
   };
 }
 

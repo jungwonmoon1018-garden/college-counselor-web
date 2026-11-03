@@ -180,7 +180,9 @@ test("the stored values are read back from a snapshot row", () => {
     gpa_unweighted: 3.7, gpa_weighted: null,
     courses_json: '[{"name":"Biology"}]', activities_json: "not json", goals_json: null, major_interest: "Biology",
   });
-  assert.deepEqual(prev, { gpaUnweighted: 3.7, gpaWeighted: null, courses: [{ name: "Biology" }], activities: [], goals: [], majorInterest: "Biology", testScores: [], apScores: [], classRank: null });
+  assert.deepEqual(prev, { gpaUnweighted: 3.7, gpaWeighted: null, courses: [{ name: "Biology" }], activities: [], goals: [], majorInterest: "Biology", testScores: [], apScores: [], classRank: null, gpaStatus: null, testingStatus: null });
+  assert.equal(previousFromSnapshot({ gpa_status: "pending", testing_status: "" }).gpaStatus, "pending");
+  assert.equal(previousFromSnapshot({ gpa_status: "pending", testing_status: "" }).testingStatus, null);
   const withScores = previousFromSnapshot({
     test_scores_json: '[{"test":"sat","totalScore":1500}]', ap_scores_json: '[{"exam":"Biology","score":5,"year":2026}]', class_rank_json: '{"rank":5,"size":400}',
   });
@@ -285,4 +287,33 @@ test("the server's AP score-year rule matches the app's", () => {
   }
   const spring = normalizeSyncInput({ profile: { apScores: [{ exam: "Biology", score: 4, year: 2027 }] } }, {}, { now: new Date("2027-03-15T12:00:00Z") });
   assert.deepEqual(spring.profile.apScores, [{ exam: "Biology", score: 4 }]);
+});
+
+// fid-5: the survey's "no GPA yet" and "no test taken yet" were never
+// stored, so the chat said "not recorded" once the device's copy was gone.
+// Only the values the app sends are kept, and a real value outranks the
+// statement that there is none.
+test("the GPA and testing statuses are kept when known and cleared by a real value", () => {
+  const pending = normalizeSyncInput({ profile: { gpa: null, gpaStatus: "pending", testScores: [], testingStatus: "planned" } });
+  assert.deepEqual(pending.setAside, []);
+  assert.equal(pending.profile.gpaStatus, "pending");
+  assert.equal(pending.profile.testingStatus, "planned");
+
+  // Absent is a clear: the app sends the whole profile.
+  const cleared = normalizeSyncInput({ profile: {} }, { gpaStatus: "pending", testingStatus: "planned" });
+  assert.equal(cleared.profile.gpaStatus, null);
+  assert.equal(cleared.profile.testingStatus, null);
+
+  // A GPA or a score on the record and "none yet" cannot both stand.
+  const both = normalizeSyncInput({ profile: { gpa: { unweighted: 3.8 }, gpaStatus: "pending", testScores: [{ test: "sat", totalScore: 1400 }], testingStatus: "planned" } });
+  assert.equal(both.profile.gpaStatus, null);
+  assert.equal(both.profile.testingStatus, null);
+  assert.deepEqual(both.setAside, []);
+
+  // An unknown value is set aside for the stored one.
+  const odd = normalizeSyncInput({ profile: { gpaStatus: "maybe", testingStatus: 7 } }, { gpaStatus: "pending", testingStatus: null });
+  assert.equal(odd.profile.gpaStatus, "pending");
+  assert.equal(odd.profile.testingStatus, null);
+  assert.deepEqual(reasons(odd.setAside), ["gpaStatus:unknown_status", "testingStatus:unknown_status"]);
+  assert.equal(odd.setAside.find((s) => s.field === "gpaStatus").kept, true);
 });

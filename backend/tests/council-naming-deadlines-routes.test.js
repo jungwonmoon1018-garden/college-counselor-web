@@ -228,9 +228,9 @@ test("deadline cascade is tenant-scoped and matches literal school names and com
   const firstToken = await registerStudent("deadlines-first");
   const secondToken = await registerStudent("deadlines-second");
 
-  await createDeadline(firstToken, "A_%B ??Regular Decision");
-  await createDeadline(firstToken, "AxxB ??Keep this unrelated deadline");
-  await createDeadline(secondToken, "A_%B ??Other student's deadline");
+  await createDeadline(firstToken, "A_%B — Regular Decision");
+  await createDeadline(firstToken, "AxxB — Keep this unrelated deadline");
+  await createDeadline(secondToken, "A_%B — Other student's deadline");
 
   const noAuth = await request("DELETE", "/api/students/deadlines/by-school", {
     body: { schoolName: "A_%B" },
@@ -243,8 +243,8 @@ test("deadline cascade is tenant-scoped and matches literal school names and com
   });
   assert.equal(literalDelete.status, 200, JSON.stringify(literalDelete.data));
   assert.equal(literalDelete.data.deleted, 1);
-  assert.deepEqual(await listDeadlineTitles(firstToken), ["AxxB ??Keep this unrelated deadline"]);
-  assert.deepEqual(await listDeadlineTitles(secondToken), ["A_%B ??Other student's deadline"]);
+  assert.deepEqual(await listDeadlineTitles(firstToken), ["AxxB — Keep this unrelated deadline"]);
+  assert.deepEqual(await listDeadlineTitles(secondToken), ["A_%B — Other student's deadline"]);
 
   await createDeadline(firstToken, "Exact unit ID", ["166683"]);
   await createDeadline(firstToken, "Containing-but-different unit ID", ["91666839"]);
@@ -520,7 +520,7 @@ test("chat route serves a coaching turn with a request_id and rejects one withou
 
   const messages = [{ role: "user", content: "What extracurriculars should I add for a computer science major?" }];
 
-  // The frontend must send a request_id with every paid model call ??the
+  // The frontend must send a request_id with every paid model call — the
   // budget ledger reserves under it. A turn without one is rejected, which
   // (before the frontend fix) surfaced as a generic error on every
   // model-backed chat turn, most visibly file-attachment turns.

@@ -18,7 +18,7 @@ import { buildTranscriptParseMessages, parseTranscriptModelReply } from "../acad
 import { normalizeSyncInput, previousFromSnapshot } from "../academics/profile-input.js";
 import { ExtractionError, SUPPORTED_MIME_TYPES, extractPdfOCR, extractText, isSupportedMime } from "../shared/file-extractors.js";
 import { resolveLocale, t } from "../shared/i18n.js";
-import { anywhereOnEarthToday, calendarDateOf, dueValueMs, normalizeDueValue, referenceToday } from "../shared/calendar-date.js";
+import { addCalendarDays, anywhereOnEarthToday, calendarDateOf, dueValueMs, normalizeDueValue, referenceToday } from "../shared/calendar-date.js";
 import { cycleOfDate } from "../shared/admissions-cycle.js";
 import { DEADLINE_CATEGORIES, DEADLINE_TITLE_MAX, deadlineDateOutside } from "../shared/deadline-rules.js";
 
@@ -37,12 +37,52 @@ function deadlineCategory(value, fallback) {
   return typed || fallback;
 }
 
+// A snoozed deadline sleeps until a calendar date (snooze_until) and from
+// that date reads as open again, in the counts and in the row the tracker
+// shows. "Snoozed" used to have no end: the row left the upcoming and
+// overdue counts for good (input-4). A row snoozed before the date existed
+// has nothing to wait for and reads as open; the button said "Snooze",
+// never "hide for good". `snoozeUntil` rides only on a sleeping row, so the
+// list keeps the shape its fixture pins.
+function shapeDeadlineRow(deps, row, nowMs, today) {
+  const shaped = deps.shapeDeadline(row, nowMs, today);
+  if (!shaped || row.status !== "snoozed") return shaped;
+  const until = calendarDateOf(row.snooze_until);
+  if (until && until > (today || anywhereOnEarthToday(nowMs))) return { ...shaped, snoozeUntil: until };
+  return { ...shaped, status: "open" };
+}
+
+// When a snooze names no date: a week, but never past the due date, so a
+// snoozed deadline is back on the day it is due; a row due today or already
+// past comes back tomorrow.
+const DEFAULT_SNOOZE_DAYS = 7;
+function defaultSnoozeUntil(row, today) {
+  const tomorrow = addCalendarDays(today, 1);
+  const week = addCalendarDays(today, DEFAULT_SNOOZE_DAYS);
+  const due = calendarDateOf(row?.due_at) || (Number.isFinite(Date.parse(row?.due_at)) ? new Date(row.due_at).toISOString().slice(0, 10) : null);
+  const until = due && due < week ? due : week;
+  return until < tomorrow ? tomorrow : until;
+}
+
+// The GPA and testing statuses are reported only from a row that stores
+// them: "" there is a save that made no such statement, sent as null, and
+// NULL is a row from before the columns, left out so the app's merge
+// (profile-reconcile.js readServerProfile) keeps the device's value rather
+// than reading the absence as a clear.
+function storedStatuses(snap) {
+  const out = {};
+  if (snap.gpa_status != null) out.gpaStatus = snap.gpa_status || null;
+  if (snap.testing_status != null) out.testingStatus = snap.testing_status || null;
+  return out;
+}
+
 // The stored profile as GET /api/students/profile returns it; a sync refused
 // for a stale base revision returns the same shape, so the client can merge
 // against what the server holds.
 function storedProfile(deps, snap) {
   return {
     gpa: { unweighted: snap.gpa_unweighted, weighted: snap.gpa_weighted },
+    ...storedStatuses(snap),
     classRank: deps.safeJSON(snap.class_rank_json, null),
     courses: deps.safeJSON(snap.courses_json, []),
     apScores: deps.safeJSON(snap.ap_scores_json, []),
@@ -861,7 +901,7 @@ export function registerStudentsRoutes(app, deps) {
       // Earth), else from Anywhere-on-Earth today, so a deadline is never
       // called overdue while its date is still running for the student.
       const today = referenceToday(req.query?.today, now);
-      const shaped = rows.map((r) => deps.shapeDeadline(r, now, today));
+      const shaped = rows.map((r) => shapeDeadlineRow(deps, r, now, today));
       const upcoming = shaped.filter((d) => d.status === "open" && d.daysUntil >= 0);
       const overdue = shaped.filter((d) => d.status === "open" && d.daysUntil < 0);
       const done = shaped.filter((d) => d.status === "done");
@@ -926,8 +966,30 @@ export function registerStudentsRoutes(app, deps) {
       const { id } = req.params;
       const existing = deps.ragStmts.deadlines.getById.get(id, req.studentId);
       if (!existing) return res.status(404).json({ error: "deadline not found" });
-      const { title, dueAt, category, notes, collegeIds, status } = req.body || {};
+      const { title, dueAt, category, notes, collegeIds, snoozeUntil } = req.body || {};
       const locale = resolveLocale(req);
+      const now = Date.now();
+      const today = referenceToday(req.query?.today, now);
+      // A snooze names the calendar date the row comes back, held to the
+      // due date's window and never before today (Anywhere on Earth, so a
+      // student a day ahead is not refused). A date alone means a snooze;
+      // with any other status it is a contradiction.
+      let snoozeDate = null;
+      if (snoozeUntil != null && snoozeUntil !== "") {
+        if (req.body?.status != null && req.body.status !== "snoozed") {
+          return res.status(400).json({ error: "snoozeUntil goes with status snoozed", friendlyMessage: t("deadlines.status_invalid", locale) });
+        }
+        const earliest = anywhereOnEarthToday(now);
+        const date = typeof snoozeUntil === "string" ? calendarDateOf(snoozeUntil.trim()) : null;
+        const outside = date ? deadlineDateOutside(dueValueMs(date), now) : null;
+        if (!date || date < earliest || outside) {
+          // The window's far end, from the same rule the due date follows.
+          const range = { from: earliest, to: deadlineDateOutside(Infinity, now).to };
+          return res.status(400).json({ error: `snoozeUntil must be a date (YYYY-MM-DD) between ${range.from} and ${range.to}`, friendlyMessage: t("deadlines.due_at_range", locale, range) });
+        }
+        snoozeDate = date;
+      }
+      const status = req.body?.status || (snoozeDate ? "snoozed" : undefined);
       // Status-only convenience path.
       if (status && !title && !dueAt && !category && notes === undefined && !collegeIds) {
         if (!["open", "done", "snoozed"].includes(status)) {
@@ -966,8 +1028,15 @@ export function registerStudentsRoutes(app, deps) {
         );
         if (status) deps.ragStmts.deadlines.updateStatus.run(status, id, req.studentId);
       }
+      // A snooze always has an end; reopening or finishing clears it.
+      if (status === "snoozed") {
+        const current = deps.ragStmts.deadlines.getById.get(id, req.studentId);
+        deps.ragStmts.deadlines.setSnoozeUntil.run(snoozeDate || defaultSnoozeUntil(current, today), id, req.studentId);
+      } else if (status) {
+        deps.ragStmts.deadlines.setSnoozeUntil.run(null, id, req.studentId);
+      }
       const updated = deps.ragStmts.deadlines.getById.get(id, req.studentId);
-      res.json({ ok: true, deadline: deps.shapeDeadline(updated) });
+      res.json({ ok: true, deadline: shapeDeadlineRow(deps, updated, now, today) });
     } catch (err) {
       console.error("[deadlines] update error:", err.message);
       res.status(500).json({ error: "Update failed" });

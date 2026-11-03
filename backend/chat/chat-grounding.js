@@ -20,7 +20,7 @@
 //                             and the named schools nothing is held for
 
 import { formatVerificationLine } from "../colleges/fit-verifier.js";
-import { TEST_CATALOG, testKey, testLabel, sectionEntries, formatSections, formatClassRank, normalizeClassRank, deriveTotal } from "../academics/test-catalog.js";
+import { TEST_CATALOG, testKey, testLabel, entryLabel, scaleKey, testSpec, sectionEntries, formatSections, formatClassRank, normalizeClassRank, deriveTotal } from "../academics/test-catalog.js";
 import { AP_EXAMS, apExamAliases, apExamKey, apExamOnlyAliases } from "../academics/ap-exams.js";
 import { t } from "../shared/i18n.js";
 import { writeMoneyAsUsd } from "./content-moderation.js";
@@ -78,6 +78,18 @@ function gradePhrase(grade) {
   if (isLetterGrade(grade)) return `grade ${normalizeGrade(grade)}`;
   const raw = presentText(grade);
   return raw ? `grade ${raw}` : "grade not recorded";
+}
+
+// A Korean school record's 성취도 (A-E) is kept as written with gradeScale
+// "kr_achievement" (transcript-import.js). Without the scale named, the
+// model read its A as a US letter grade and its E as a failing one.
+const GRADE_SCALE_NOTES = Object.freeze({
+  kr_achievement: " (Korean achievement level, A-E scale)",
+});
+
+function gradeScaleNote(course) {
+  if (!presentText(course?.grade) || isInProgress(course.grade)) return "";
+  return GRADE_SCALE_NOTES[presentText(course?.gradeScale)] || "";
 }
 
 function goalName(goal) {
@@ -138,7 +150,10 @@ export function formatProfileForModel(profile, limits = {}) {
   const tests = (Array.isArray(profile.testScores) ? profile.testScores : []).filter((t) => t && typeof t === "object");
   if (tests.length) {
     lines.push(`Test scores: ${tests.map((t) => {
-      const label = testLabel(t.test);
+      // The entry's own scale names it: a TOEFL 5.5 on the 1-6 band read
+      // "TOEFL 5.5" and a ninth grader's PSAT 8/9 900 read "PSAT 900", and
+      // the model took each for the 0-120 or the PSAT/NMSQT scale.
+      const label = entryLabel(t);
       const subject = presentText(t.subject) ? ` (${presentText(t.subject)})` : "";
       const date = presentText(t.date) ? ` (taken ${presentText(t.date)})` : "";
       // Section scores ride with the total (SAT Reading & Writing and Math,
@@ -165,7 +180,7 @@ export function formatProfileForModel(profile, limits = {}) {
       const type = TYPE_LABELS[presentText(course.type).toLowerCase()] || presentText(course.type) || "regular";
       const semester = String(course.semester || "").toLowerCase();
       const term = semester === "fall" || semester === "spring" ? ` (${semester} semester)` : "";
-      lines.push(`  - ${year ? `${year}: ` : ""}${courseDisplayName(course)} — ${type} — ${gradePhrase(course.grade)}${term}`);
+      lines.push(`  - ${year ? `${year}: ` : ""}${courseDisplayName(course)} — ${type} — ${gradePhrase(course.grade)}${gradeScaleNote(course)}${term}`);
     }
     if (courses.length > maxCourses) {
       lines.push(`  (+${courses.length - maxCourses} more courses not shown — ask the student if a specific one matters)`);
@@ -594,16 +609,20 @@ function inRange(value, range) {
   return Math.abs(value / range.step - Math.round(value / range.step)) < 1e-6;
 }
 
+// A test's ranges cover its other scales too (the TOEFL 1-6 band, PSAT
+// 8/9): with the base range alone a stated band 5.5 or a PSAT 8/9 280 was
+// out of range and never compared with the record, right or wrong.
 const TEST_SPECS = Object.freeze(Object.fromEntries(Object.keys(TEST_LABEL_SOURCES).map((key) => {
   const catalog = TEST_CATALOG[key];
+  const scales = Object.values(catalog?.scales || {});
   const section = TEST_SECTION_SOURCES[key] || null;
   return [key, {
     key,
     label: testLabel(key),
     section,
     patterns: bindingPatterns(TEST_LABEL_SOURCES[key], section, SCORE_VALUE_SOURCE),
-    totalRange: rangeOf(catalog?.total),
-    sectionRange: rangeOf(catalog?.sections),
+    totalRange: rangeOf([catalog?.total, ...scales.map((s) => s.total)]),
+    sectionRange: rangeOf([...(catalog?.sections || []), ...scales.flatMap((s) => s.sections || [])]),
   }];
 })));
 const GPA_PATTERNS = bindingPatterns(GPA_LABEL_SOURCE, null, GPA_VALUE_SOURCE);
@@ -651,23 +670,36 @@ function boundValueMentions(text, patterns, { section = null } = {}) {
 
 // Every recorded sitting of a test: all totals and section scores are true,
 // and so is the superscore the sittings imply (the best of each section).
+// Sittings combine only within one scale: a 1-6 band sitting beside a
+// 0-120 one used to be summed into a "superscore" of neither, which the
+// check then accepted as a true TOEFL score.
 function testRecord(tests, key) {
   const entries = tests.filter((t) => testKey(t?.test) === key);
   const totals = [...new Set(entries.map((e) => finiteNumber(e?.totalScore)).filter((v) => v != null))];
   const sectionValues = [...new Set(entries.flatMap((e) => sectionEntries(e).map((s) => s.value)))];
-  let superscore = null;
-  const spec = TEST_CATALOG[key];
-  if (spec?.derive && entries.length > 1) {
+  const byScale = new Map();
+  for (const entry of entries) {
+    const scale = scaleKey(key, entry?.scale);
+    byScale.set(scale, [...(byScale.get(scale) || []), entry]);
+  }
+  const superscores = [];
+  for (const [scale, sittings] of byScale) {
+    const spec = testSpec(key, scale);
+    if (!spec?.derive || sittings.length < 2) continue;
     const best = {};
     let complete = true;
     for (const def of spec.sections.filter((s) => s.composite !== false)) {
-      const values = entries.map((e) => finiteNumber(e?.sections?.[def.key])).filter((v) => v != null);
+      const values = sittings.map((e) => finiteNumber(e?.sections?.[def.key])).filter((v) => v != null);
       if (!values.length) { complete = false; break; }
       best[def.key] = Math.max(...values);
     }
-    if (complete) superscore = deriveTotal(key, best);
+    const superscore = complete ? deriveTotal(key, best, { scale }) : null;
+    if (superscore != null && !superscores.includes(superscore)) superscores.push(superscore);
   }
-  return { entries, totals, sectionValues, superscore };
+  // The label the record goes by: the scale's own ("TOEFL (1-6 band)") when
+  // every sitting shares it, so a correction never reads a band as 0-120.
+  const labels = [...new Set(entries.map((e) => entryLabel(e)))];
+  return { entries, totals, sectionValues, superscores, label: labels.length === 1 ? labels[0] : testLabel(key) };
 }
 
 function describeTestRecord(record, label, scoped) {
@@ -689,7 +721,8 @@ function describeTestRecord(record, label, scoped) {
   const withTotals = entries.filter((e) => finiteNumber(e?.totalScore) != null);
   if (!withTotals.length) return { state: "none", actual: `no ${label} score recorded` };
   const items = withTotals.map((e) => ({ value: String(finiteNumber(e.totalScore)), ...(dated && e.date ? { date: e.date } : {}) }));
-  const recorded = { items, ...(record.superscore != null && !record.totals.includes(record.superscore) ? { superscore: record.superscore } : {}) };
+  const extra = record.superscores.filter((v) => !record.totals.includes(v));
+  const recorded = { items, ...(extra.length ? { superscore: extra.join(" / ") } : {}) };
   return { state: "recorded", actual: formatRecordedItems(recorded, "en-US"), recorded };
 }
 
@@ -887,12 +920,12 @@ export function checkProfileFidelity(answerText, profile) {
       if (mention.scoped && spec.sectionRange) {
         if (!inRange(stated, spec.sectionRange)) continue;
         if (record.sectionValues.includes(stated) || record.totals.includes(stated)) continue;
-        add({ kind: spec.key, item: `${spec.label} section`, test: spec.label, scoped: true, stated: String(stated), ...describeTestRecord(record, spec.label, true) });
+        add({ kind: spec.key, item: `${record.label} section`, test: record.label, scoped: true, stated: String(stated), ...describeTestRecord(record, record.label, true) });
         continue;
       }
       if (!inRange(stated, spec.totalRange)) continue;
-      if (record.totals.includes(stated) || record.superscore === stated) continue;
-      add({ kind: spec.key, item: spec.label, test: spec.label, stated: String(stated), ...describeTestRecord(record, spec.label, false) });
+      if (record.totals.includes(stated) || record.superscores.includes(stated)) continue;
+      add({ kind: spec.key, item: record.label, test: record.label, stated: String(stated), ...describeTestRecord(record, record.label, false) });
     }
   }
 

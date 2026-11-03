@@ -368,7 +368,7 @@ export function scoreAcademicStrength(academics = {}, targetColleges = []) {
   const apScores = Array.isArray(academics.apScores) ? academics.apScores : [];
 
   if (!targetColleges || targetColleges.length === 0) {
-    reasoning.push("No target colleges supplied ??returning neutral academic read.");
+    reasoning.push("No target colleges supplied — returning neutral academic read.");
     return {
       gpaFitVsTargets: null,
       apRigorVsExpectations: null,
@@ -514,7 +514,7 @@ export function buildNextStepPlan({
 
   const suggestions = [];
 
-  // Well-being is the foundation ??always first.
+  // Well-being is the foundation — always first.
   suggestions.push({
     category: "well_being",
     priority: "foundation",

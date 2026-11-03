@@ -42,6 +42,14 @@ export const GPA_LIMITS = Object.freeze({
 
 const NUMERIC_TEXT = /^\s*-?\d+(?:\.\d+)?\s*$/;
 
+// The survey's "no GPA yet" and "no test taken yet" answers, the only
+// values the app sends for them (fid-5). They are stored with the snapshot
+// so the chat can say "none yet" instead of "not recorded" on any device.
+export const PROFILE_STATUS_VALUES = Object.freeze({
+  gpaStatus: Object.freeze(["pending"]),
+  testingStatus: Object.freeze(["planned"]),
+});
+
 // A finite number, or numeric text such as "3.85"; anything else is null.
 function toNumber(value) {
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
@@ -193,7 +201,8 @@ function normalizeTestForSync(raw) {
  * @param {object} input    { profile, activities, goals, majorInterest } as sent
  * @param {object} previous the last stored values (from the latest snapshot):
  *                          { gpaUnweighted, gpaWeighted, courses, activities,
- *                            goals, majorInterest, testScores, apScores, classRank }
+ *                            goals, majorInterest, testScores, apScores, classRank,
+ *                            gpaStatus, testingStatus }
  * @param {object} options  { now }: the clock an AP score's year is checked against
  * @returns {{ profile, activities, goals, majorInterest, setAside: Array<{field, reason, count?, kept?, entries?: Array<{index, label, message, kept?}>}> }}
  */
@@ -253,6 +262,26 @@ export function normalizeSyncInput({ profile, activities, goals, majorInterest }
     out.classRank = kept;
   }
 
+  // The GPA and testing statuses. An absent one is no statement: the app
+  // sends the whole profile, so absence is a clear. An unknown one is set
+  // aside for the stored one. A GPA or a test score on the record outranks
+  // the statement that there is none, as the app's merge has it
+  // (profile-reconcile.js cohere).
+  for (const [field, allowed] of Object.entries(PROFILE_STATUS_VALUES)) {
+    const raw = source[field];
+    if (raw == null || raw === "") {
+      out[field] = null;
+    } else if (typeof raw === "string" && allowed.includes(raw.trim())) {
+      out[field] = raw.trim();
+    } else {
+      const kept = allowed.includes(previous[field]) ? previous[field] : null;
+      setAside.push({ field, reason: "unknown_status", ...(kept ? { kept: true } : {}) });
+      out[field] = kept;
+    }
+  }
+  if (isPlainObject(out.gpa) && (toNumber(out.gpa.unweighted) != null || toNumber(out.gpa.weighted) != null)) out.gpaStatus = null;
+  if (out.testScores.length) out.testingStatus = null;
+
   const outActivities = dropInvalid(listField(activities, previous.activities, "activities", setAside), isPlainObject, "activities", setAside);
   const outGoals = dropInvalid(
     listField(goals, previous.goals, "goals", setAside),
@@ -284,5 +313,7 @@ export function previousFromSnapshot(row, parse = (text, fallback) => { try { re
     testScores: parse(row.test_scores_json, []),
     apScores: parse(row.ap_scores_json, []),
     classRank: parse(row.class_rank_json, null),
+    gpaStatus: row.gpa_status || null,
+    testingStatus: row.testing_status || null,
   };
 }

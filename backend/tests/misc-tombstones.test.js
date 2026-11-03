@@ -75,12 +75,24 @@ app.get("/api/new/thing", (req, res) => {});
   assert.deepEqual(collisions, [{ method: "post", path: "/api/old/thing" }]);
 });
 
-test("routes/ec-research.js registers nothing", async () => {
-  const { registerEcResearchRoutes } = await import("../routes/ec-research.js");
-  const registered = [];
-  const app = new Proxy({}, { get: (_t, method) => (routePath) => registered.push({ method, routePath }) });
-  registerEcResearchRoutes(app, {});
-  assert.deepEqual(registered, []);
+test("routes/ec-research.js stays deleted and its five paths stay tombstoned", () => {
+  // The module was left as an empty registration after its handlers were
+  // removed, then deleted with its server.js call. The 410 tombstone is
+  // what answers these paths now; a module that comes back under the old
+  // name would be the first step toward reviving them.
+  assert.equal(fs.existsSync(path.join(ROOT, "routes", "ec-research.js")), false, "routes/ec-research.js should not exist");
+  const source = readServerSource();
+  assert.doesNotMatch(source, /registerEcResearchRoutes|routes\/ec-research\.js/);
+  const tombstones = tombstonedPaths(source);
+  for (const p of [
+    "/api/ec/competitions/search",
+    "/api/ec/cache-memory",
+    "/api/ec/prestige/:activityName",
+    "/api/ec/prestige/recompute",
+    "/api/ec/component-cache",
+  ]) {
+    assert.ok(tombstones.has(p), `${p} should still answer 410`);
+  }
 });
 
 test("the CDS modules nothing imported stay deleted", () => {

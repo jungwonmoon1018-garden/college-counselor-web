@@ -74,10 +74,10 @@ test("academics evidence the academic priorities, placed against the school's en
 
   const gpa = rowFor(fit, "Academic GPA");
   assert.equal(gpa.hits, 1);
-  assert.deepEqual(gpa.evidence[0], { kind: "gpa", label: "GPA 3.9 (4.3 weighted)", tone: "fair", position: "within", detail: { average: 3.94, weighted: false } });
+  assert.deepEqual(gpa.evidence[0], { kind: "gpa", label: "GPA 3.9 (4.3 weighted)", labelKey: "gpa", labelParams: { unweighted: 3.9, weighted: 4.3 }, tone: "fair", position: "within", detail: { average: 3.94, weighted: false } });
 
   const rank = rowFor(fit, "Class Rank");
-  assert.deepEqual(rank.evidence[0], { kind: "rank", label: "Class rank top 3% (12 of 400)", tone: "strong", position: "above", detail: { topTenthPct: 97.8 } });
+  assert.deepEqual(rank.evidence[0], { kind: "rank", label: "Class rank top 3% (12 of 400)", labelKey: "class_rank", labelParams: { topPercent: 3, rank: 12, size: 400 }, tone: "strong", position: "above", detail: { topTenthPct: 97.8 } });
 
   // Both tests are listed; the SAT inside the band is a match, the ACT
   // below the band is on file but not one.
@@ -94,7 +94,7 @@ test("academics evidence the academic priorities, placed against the school's en
   // by the regular English course.
   const rigor = rowFor(fit, "Rigor of Secondary School Record");
   const course = rigor.evidence.find((e) => e.kind === "course");
-  assert.deepEqual(course, { kind: "course", label: "Calculus BC (AP)", tone: "strong", position: null });
+  assert.deepEqual(course, { kind: "course", label: "Calculus BC (AP)", labelKey: "course", labelParams: { name: "Calculus BC", level: "ap" }, tone: "strong", position: null });
   const ap = rigor.evidence.find((e) => e.kind === "ap");
   assert.equal(ap.label, "AP exams: Calculus BC 5, Computer Science A 4");
   assert.equal(ap.tone, "strong");
@@ -201,6 +201,8 @@ test("the course load is one line of rigor evidence: APs by name or by exam, wit
   assert.deepEqual(load, {
     kind: "rigor",
     label: "Course rigor: 2 AP (2 with exam scores)",
+    labelKey: "course_rigor",
+    labelParams: { apTaken: 2, apScored: 2, ib: 0, dualEnrollment: 0, aLevel: 0, honors: 0 },
     tone: "weak",
     position: "below",
     detail: { units: 2.3, apTaken: 2, apScored: 2, expectation: 7 },
@@ -225,4 +227,57 @@ test("the course load is one line of rigor evidence: APs by name or by exam, wit
   // A record with no college-level work has no load line at all.
   const none = computeFit(VALUES, { ...profile, courses: [{ name: "English 11", type: "regular" }], apScores: [] }, {});
   assert.ok(!rowFor(none, "Rigor of Secondary School Record").evidence.some((e) => e.kind === "rigor"));
+});
+
+// The matrix lines were English-only ("Course rigor: ...", "Class rank
+// top 3%", "AP exams: ..."), printed beside Korean bars in Korean mode
+// (fit-10). Each academic line now carries a stable code and its numbers
+// beside the English label, and a test names its own scale.
+test("academic evidence carries a stable code and its numbers beside the English label", () => {
+  const profile = {
+    ...PROFILE,
+    gpaUnweighted: null,
+    gpaWeighted: 4.4,
+    apScores: [
+      { exam: "Calculus BC", score: 5 }, { exam: "Computer Science A", score: 4 }, { exam: "Biology", score: 4 },
+      { exam: "Chemistry", score: 3 }, { exam: "Statistics", score: 5 },
+    ],
+    testScores: [
+      { test: "toefl", scale: "band", totalScore: 5.5, sections: { reading: 5.5, listening: 6, speaking: 5, writing: 5.5 } },
+      { test: "psat", scale: "8/9", totalScore: 900 },
+      { test: "sat", totalScore: 1520, sections: { readingWriting: 740, math: 780 } },
+    ],
+  };
+  const fit = computeFit(VALUES, profile, {});
+  const gpa = rowFor(fit, "Academic GPA").evidence[0];
+  assert.equal(gpa.label, "Weighted GPA 4.4");
+  assert.equal(gpa.labelKey, "gpa_weighted_only");
+  assert.deepEqual(gpa.labelParams, { unweighted: null, weighted: 4.4 });
+
+  const tests = rowFor(fit, "Standardized Test Scores").evidence;
+  const toefl = tests.find((e) => e.labelParams.test === "toefl");
+  assert.equal(toefl.label, "TOEFL (1-6 band) 5.5 (Reading 5.5, Listening 6, Speaking 5, Writing 5.5)");
+  assert.equal(toefl.labelKey, "test_score");
+  assert.deepEqual(toefl.labelParams, { test: "toefl", scale: "band", total: 5.5, sections: [{ key: "reading", value: 5.5 }, { key: "listening", value: 6 }, { key: "speaking", value: 5 }, { key: "writing", value: 5.5 }] });
+  const psat = tests.find((e) => e.labelParams.test === "psat");
+  assert.equal(psat.label, "PSAT 8/9 900");
+  assert.deepEqual(psat.labelParams, { test: "psat", scale: "8/9", total: 900, sections: [] });
+  assert.equal(tests.find((e) => e.labelParams.test === "sat").labelParams.scale, null);
+
+  const ap = rowFor(fit, "Rigor of Secondary School Record").evidence.find((e) => e.kind === "ap");
+  assert.equal(ap.label, "AP exams: Calculus BC 5, Computer Science A 4, Biology 4, Chemistry 3, +1 more");
+  assert.equal(ap.labelKey, "ap_exams");
+  assert.deepEqual(ap.labelParams, {
+    exams: [{ name: "Calculus BC", score: 5 }, { name: "Computer Science A", score: 4 }, { name: "Biology", score: 4 }, { name: "Chemistry", score: 3 }],
+    more: 1,
+  });
+
+  // Every academic or course line has a code; an activity's label is the
+  // student's own words and needs none.
+  for (const row of fit.perValueCoverage) {
+    for (const e of row.evidence) {
+      if (e.kind === "activity") continue;
+      assert.ok(typeof e.labelKey === "string" && e.labelParams && typeof e.labelParams === "object", JSON.stringify(e));
+    }
+  }
 });

@@ -20,6 +20,7 @@ import {
   renderCrisisText,
   crisisResourceFooter,
 } from "../chat/rules-engine.js";
+import { daysUntilDue } from "../shared/calendar-date.js";
 
 describe("runFAFSAEligibilityCheck", () => {
   // Rules are keyed by rule id with boolean values; required rules must all
@@ -171,6 +172,37 @@ describe("calculateDeadlineStatus", () => {
     const result = calculateDeadlineStatus(futureDate);
     assert.ok(typeof result.daysRemaining === "number");
     assert.ok(result.daysRemaining > 0);
+  });
+
+  // The chat's count agrees with the tracker's: 0 on the due date, negative
+  // only once the date has ended Anywhere on Earth (UTC-12). Math.ceil of
+  // milliseconds from UTC midnight called a Jan 1 deadline passed at 00:30
+  // UTC on Jan 2, which is still Jan 1 in New York.
+  it("counts calendar days the way the deadline tracker does", () => {
+    const on = (iso) => ({ now: new Date(iso) });
+    const dueToday = calculateDeadlineStatus("2027-01-01", "regular_decision", on("2027-01-02T00:30:00Z"));
+    assert.equal(dueToday.daysRemaining, 0);
+    assert.equal(dueToday.status, "imminent");
+    assert.equal(dueToday.deadlineDate, "2027-01-01");
+    assert.equal(dueToday.message, "The regular decision deadline is today.");
+    assert.equal(calculateDeadlineStatus("2027-01-01", "regular_decision", on("2027-01-02T11:59:00Z")).daysRemaining, 0);
+    const passed = calculateDeadlineStatus("2027-01-01", "regular_decision", on("2027-01-02T12:00:00Z"));
+    assert.equal(passed.daysRemaining, -1);
+    assert.equal(passed.status, "passed");
+    // The student's own date, when the client names it, is counted from.
+    assert.equal(calculateDeadlineStatus("2027-01-01", "early_action", { now: new Date("2027-01-02T00:30:00Z"), today: "2027-01-02" }).status, "passed");
+    // An older client's UTC-midnight instant is the date it was typed as.
+    assert.equal(calculateDeadlineStatus("2027-01-01T00:00:00.000Z", "regular_decision", on("2027-01-02T00:30:00Z")).daysRemaining, 0);
+    // A written-out date names the day too.
+    assert.equal(calculateDeadlineStatus("November 1, 2026", "early_decision", on("2026-10-29T12:00:00Z")).deadlineDate, "2026-11-01");
+    assert.equal(calculateDeadlineStatus("not a date").status, "invalid");
+
+    for (const nowIso of ["2026-11-03T00:00:00Z", "2026-11-03T11:59:00Z", "2026-11-03T12:00:00Z", "2026-11-03T23:30:00Z"]) {
+      const nowMs = Date.parse(nowIso);
+      for (const due of ["2026-11-01", "2026-11-02", "2026-11-03", "2026-11-04", "2026-12-01", "2026-11-05T04:59:00.000Z"]) {
+        assert.equal(calculateDeadlineStatus(due, "regular_decision", { now: new Date(nowMs) }).daysRemaining, daysUntilDue(due, { nowMs }), `${due} at ${nowIso}`);
+      }
+    }
   });
 });
 

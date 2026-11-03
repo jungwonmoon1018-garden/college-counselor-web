@@ -14,7 +14,7 @@ import { matchMajorBucket, normalizeText, clamp01, round2, safeArray } from "../
 //   3. major_academic_fit: AP/GPA alignment with intended major
 //   4. rigor_and_challenge: AP load vs GPA ratio
 //   5. overall_academic_standing: composite readiness
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??
+// ═══════════════════════════════════════════════════════════════════════
 export function initDirectionalityTable(db) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS student_directionality (
@@ -154,9 +154,9 @@ export function vectorizeDirectionality({
     ? academics.apCourses
     : (academics.courses || []).filter((c) => courseLevel(c) === "ap");
 
-  // ??? Factor 1: Academic Momentum (GPA trend + position) ???
+  // ─── Factor 1: Academic Momentum (GPA trend + position) ───
   // Momentum = GPA position + trend adjustment. Trend adjustment applies
-  // regardless of whether baseline tables are available ??a decline of
+  // regardless of whether baseline tables are available — a decline of
   // several tenths of a point is a real signal even in the absence of
   // percentile data.
   let momentum = 0.5; // neutral default
@@ -189,7 +189,7 @@ export function vectorizeDirectionality({
   factors.academic_momentum = round2(clamp01(momentum));
   reasoning.push(`Academic momentum: ${factors.academic_momentum} (GPA ${gpaUw.toFixed(2)}${priorSnapshot ? `, trend: ${trendDirection || 'unknown'}` : ''})`);
 
-  // ??? Factor 2: Test Score Strength (SAT/ACT vs T20) ???
+  // ─── Factor 2: Test Score Strength (SAT/ACT vs T20) ───
   let testStrength = 0.5; // neutral if no test yet
   let satPercentile = null;
   let actPercentile = null;
@@ -230,7 +230,7 @@ export function vectorizeDirectionality({
   metrics.actPercentileT20 = actPercentile;
   reasoning.push(`Test score strength: ${factors.test_score_strength}${satScore ? ` (SAT ${satScore})` : ''}${actScore ? ` (ACT ${actScore})` : ''}${!satScore && !actScore ? ' (no tests yet)' : ''}`);
 
-  // ??? Factor 3: Major-Academic Fit (AP/GPA alignment with major) ???
+  // ─── Factor 3: Major-Academic Fit (AP/GPA alignment with major) ───
   let majorFit = 0.5; // neutral default
   if (majorInterest) {
     const majorBucket = matchMajorBucket(majorInterest);
@@ -275,7 +275,7 @@ export function vectorizeDirectionality({
   metrics.majorInterest = majorInterest;
   reasoning.push(`Major-academic fit: ${factors.major_academic_fit}${majorInterest ? ` (${majorInterest})` : ''}`);
 
-  // ??? Factor 4: Rigor and Challenge (AP load vs GPA) ???
+  // ─── Factor 4: Rigor and Challenge (AP load vs GPA) ───
   let rigor = 0.2; // default for 0 APs
   const apCount = apCourses.length;
   if (apCount >= 6 && gpaUw >= 3.7) rigor = 1.0; // managing lots of rigor well
@@ -292,7 +292,7 @@ export function vectorizeDirectionality({
   metrics.apCount = apCount;
   reasoning.push(`Rigor & challenge: ${factors.rigor_and_challenge} (${apCount} APs, GPA ${gpaUw.toFixed(2)})`);
 
-  // ??? Factor 5: Overall Academic Standing (composite) ???
+  // ─── Factor 5: Overall Academic Standing (composite) ───
   // Weighted composite of GPA, AP count, and test score
   const gpaComponent = clamp01(gpaUw / 4.0); // 0-1 normalized GPA
   const apComponent = clamp01(apCount / 8); // 8 APs is typical for T20

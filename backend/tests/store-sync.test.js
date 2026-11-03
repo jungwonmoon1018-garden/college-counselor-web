@@ -167,3 +167,75 @@ test("a narrative save that fails part-way leaves the prior narrative active", a
   assert.throws(() => saveNarrative(failing, "s1", text("map tools")), /disk full/);
   assert.match(getActiveNarrative(stmts.narrative, "s1").narrativeText, /radio tools/);
 });
+
+// fid-5: the statuses are stored with the snapshot, a change in either one
+// is a change, and a row from before the columns (NULL) reads as no
+// statement, so the first sync after the migration stores nothing new.
+test("the GPA and testing statuses are stored, compared, and read back", () => {
+  const { db, stmts } = store();
+  const sid = crypto.randomUUID();
+  const none = { gpa: null, courses: [], testScores: [] };
+  const first = syncStudentData(stmts, sid, { ...none, gpaStatus: "pending", testingStatus: "planned" }, ACTS, [], "Biology");
+  const row = stmts.getLatestSnapshot.get(sid);
+  assert.equal(row.gpa_status, "pending");
+  assert.equal(row.testing_status, "planned");
+
+  const same = syncStudentData(stmts, sid, { ...none, gpaStatus: "pending", testingStatus: "planned" }, ACTS, [], "Biology");
+  assert.equal(same.unchanged, true);
+  assert.equal(same.revision, first.revision);
+
+  const cleared = syncStudentData(stmts, sid, { ...none, gpaStatus: "pending" }, ACTS, [], "Biology");
+  assert.equal(cleared.unchanged, false);
+  assert.equal(stmts.getLatestSnapshot.get(sid).testing_status, "");
+
+  // A row written before the columns existed carries NULL.
+  db.prepare("UPDATE profile_snapshots SET gpa_status = NULL, testing_status = NULL WHERE student_id = ?").run(sid);
+  assert.equal(syncStudentData(stmts, sid, none, ACTS, [], "Biology").unchanged, true);
+  assert.equal(syncStudentData(stmts, sid, { ...none, testingStatus: "planned" }, ACTS, [], "Biology").unchanged, false);
+});
+
+test("the status columns are added to an existing snapshot table once", () => {
+  const db = new Database(":memory:");
+  db.exec(`CREATE TABLE profile_snapshots (id TEXT PRIMARY KEY, student_id TEXT NOT NULL, snapshot_type TEXT NOT NULL, gpa_unweighted REAL, gpa_weighted REAL, courses_json TEXT, ap_scores_json TEXT, test_scores_json TEXT, activities_json TEXT, major_interest TEXT, goals_json TEXT, trigger TEXT, created_at TEXT DEFAULT (datetime('now')))`);
+  db.prepare("INSERT INTO profile_snapshots (id, student_id, snapshot_type) VALUES ('old', 's1', 'sync')").run();
+  initRAGTables(db);
+  initRAGTables(db);
+  const cols = db.prepare("PRAGMA table_info(profile_snapshots)").all().map((r) => r.name);
+  assert.ok(cols.includes("gpa_status") && cols.includes("testing_status"), cols.join(","));
+  const old = db.prepare("SELECT gpa_status, testing_status FROM profile_snapshots WHERE id = 'old'").get();
+  assert.deepEqual({ ...old }, { gpa_status: null, testing_status: null });
+});
+
+// debt-8: an encoding accident had replaced the arrow and the dash in the
+// milestone titles with "??", and stored rows kept it. New titles carry
+// the arrow, and a stored title is repaired once at boot.
+test("milestone titles carry their arrow, and stored ones are repaired at boot", () => {
+  const { db, stmts } = store();
+  const sid = crypto.randomUUID();
+  syncStudentData(stmts, sid, profile({ gpa: 3.8 }), [{ name: "Robotics Club", role: "Member" }], [], "Biology");
+  syncStudentData(stmts, sid, profile({ gpa: 3.9, sat: 1500 }), [{ name: "Robotics Club", role: "Captain" }], [], "Physics");
+  const titles = stmts.getMilestones.all(sid, 50).map((m) => m.title);
+  assert.ok(titles.includes("GPA improved: 3.80 → 3.90"), titles.join(" | "));
+  assert.ok(titles.includes("SAT updated: 1450 → 1500"), titles.join(" | "));
+  assert.ok(titles.includes("Leadership promotion: Robotics Club — Captain"), titles.join(" | "));
+  assert.ok(titles.includes("Major interest changed: Biology → Physics"), titles.join(" | "));
+  assert.ok(titles.every((t) => !t.includes("??")));
+
+  // The stored forms being repaired, as the accident wrote them.
+  const legacy = [
+    ["gpa_change", "GPA improved: 3.80 ??3.90"], // encoding-fixture
+    ["major_changed", "Major interest changed: Biology ??Physics"], // encoding-fixture
+    ["ec_leadership", "Leadership promotion: Robotics Club ??Captain"], // encoding-fixture
+    ["ec_added", "New activity: Why?? Club (Member)"],
+  ];
+  for (const [type, title] of legacy) stmts.insertMilestone.run(crypto.randomUUID(), "legacy", type, title, "{}", "2025-2026");
+  initRAGTables(db);
+  initRAGTables(db);
+  const repaired = stmts.getMilestones.all("legacy", 10).map((m) => m.title).sort();
+  assert.deepEqual(repaired, [
+    "GPA improved: 3.80 → 3.90",
+    "Leadership promotion: Robotics Club — Captain",
+    "Major interest changed: Biology → Physics",
+    "New activity: Why?? Club (Member)",
+  ]);
+});

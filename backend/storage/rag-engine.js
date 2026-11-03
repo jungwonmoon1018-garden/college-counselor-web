@@ -1,5 +1,7 @@
-﻿// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// RAG ENGINE ??Retrieval-Augmented Generation (redesigned)
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// REDESIGNED: Small-context retrieval, no PII in context, rules-first.
+﻿// ═══════════════════════════════════════════════════════════════════════
+// RAG ENGINE — Retrieval-Augmented Generation (redesigned)
+// ═══════════════════════════════════════════════════════════════════════
+// REDESIGNED: Small-context retrieval, no PII in context, rules-first.
 //
 // Changes from original:
 //   - Student PII lives in pii-vault.js, NOT here
@@ -10,7 +12,7 @@
 //   - Only latest snapshot by default (history only when trends requested)
 //   - Student identity replaced with [STUDENT] placeholder in context
 //   - Baseline tables remain here (operational data, not PII)
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??
+// ═══════════════════════════════════════════════════════════════════════
 import crypto from "node:crypto";
 import { computePercentile, computeAPRigorIndex } from "../chat/rules-engine.js";
 import { normalizeClassRank } from "../academics/test-catalog.js";
@@ -25,8 +27,9 @@ import { getActiveNarrative } from "../activities/narrative-store.js";
 export { initRAGTables, seedBaselines, hydrateBaselineWebsites, prepareRAGStatements, compactProfileHistory, PROFILE_HISTORY_LIMITS } from "./rag-schema.js";
 
 
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// COLLEGE SCORECARD ??historical data helpers
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??
+// ═══════════════════════════════════════════════════════════
+// COLLEGE SCORECARD — historical data helpers
+// ═══════════════════════════════════════════════════════════
 /**
  * For each unitId in the list, fetch ~10 years of Scorecard history and
  * persist it in `scorecard_history` + `scorecard_cache`. Schools whose
@@ -163,8 +166,9 @@ export function extractGoalUnitIds(goals) {
 }
 
 
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// STUDENT SYNC + CHANGE DETECTION
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??
+// ═══════════════════════════════════════════════════════════
+// STUDENT SYNC + CHANGE DETECTION
+// ═══════════════════════════════════════════════════════════
 // The profile's revision: an opaque token that changes only when a new
 // snapshot is stored. The latest snapshot's id is exactly that, because an
 // unchanged sync stores nothing and compaction never removes the newest
@@ -188,18 +192,29 @@ function storedSnapshotColumns(profile, activities, goals, majorInterest) {
     major_interest: majorInterest || null,
     goals_json: JSON.stringify(goals || []),
     class_rank_json: classRank ? JSON.stringify(classRank) : null,
+    // "" when the save makes no such statement (see the migration in
+    // rag-schema.js: NULL is a row from before the columns existed).
+    gpa_status: typeof profile?.gpaStatus === "string" ? profile.gpaStatus : "",
+    testing_status: typeof profile?.testingStatus === "string" ? profile.testingStatus : "",
   };
 }
 
 // Whether the latest snapshot already holds exactly these columns. Every
 // stored column is compared, removals and goals included, which
 // detectChanges (additions and promotions only) does not see.
+// The statuses compare "no statement" ("") equal to a row from before they
+// were stored (NULL), so the first sync after the columns arrived does not
+// write a snapshot only to record that there is still nothing to say.
+const NUMERIC_COLUMNS = new Set(["gpa_unweighted", "gpa_weighted"]);
+const STATUS_COLUMNS = new Set(["gpa_status", "testing_status"]);
 function sameAsSnapshot(prev, columns) {
   if (!prev) return false;
   const numeric = (value) => (value == null || value === "" ? null : Number(value));
-  return Object.entries(columns).every(([key, value]) => (key.startsWith("gpa_")
-    ? numeric(prev[key]) === numeric(value)
-    : (prev[key] ?? null) === value));
+  return Object.entries(columns).every(([key, value]) => {
+    if (NUMERIC_COLUMNS.has(key)) return numeric(prev[key]) === numeric(value);
+    if (STATUS_COLUMNS.has(key)) return (prev[key] ?? "") === value;
+    return (prev[key] ?? null) === value;
+  });
 }
 
 export function syncStudentData(stmts, studentId, profile, activities, goals, majorInterest, trigger = "user_update") {
@@ -245,6 +260,7 @@ export function syncStudentData(stmts, studentId, profile, activities, goals, ma
       trigger
     );
     if (stmts.setSnapshotClassRank) stmts.setSnapshotClassRank.run(columns.class_rank_json, snapshotId);
+    if (stmts.setSnapshotStatuses) stmts.setSnapshotStatuses.run(columns.gpa_status, columns.testing_status, snapshotId);
 
     for (const change of changes) {
       stmts.insertMilestone.run(
@@ -267,7 +283,7 @@ export function syncStudentData(stmts, studentId, profile, activities, goals, ma
   // the 5-factor recompute so both systems see the same inputs. Errors
   // are logged but never fail the sync (match the resilience pattern
   // above). Awaiting isn't practical here because syncStudentData is
-  // synchronous ??we fire-and-track, and the next sync or an explicit
+  // synchronous — we fire-and-track, and the next sync or an explicit
   // POST /api/ec/strength/recompute will pick up any failure.
   let ecStrengthRecomputePromise = null;
   try {
@@ -353,7 +369,7 @@ function detectChanges(prevSnapshot, profile, activities, majorInterest) {
     const direction = newGpa > prevGpa ? "improved" : "changed";
     changes.push({
       type: "gpa_change", significant: true,
-      title: `GPA ${direction}: ${prevGpa.toFixed(2)} ??${newGpa.toFixed(2)}`,
+      title: `GPA ${direction}: ${prevGpa.toFixed(2)} → ${newGpa.toFixed(2)}`,
       data: { previous: prevGpa, current: newGpa, delta: +(newGpa - prevGpa).toFixed(2) }
     });
   } else if (prevGpa == null && newGpa != null) {
@@ -374,7 +390,7 @@ function detectChanges(prevSnapshot, profile, activities, majorInterest) {
     } else if (existing.totalScore !== nt.totalScore) {
       changes.push({
         type: "test_score_updated", significant: true,
-        title: `${(nt.test || "").toUpperCase()} updated: ${existing.totalScore} ??${nt.totalScore}`,
+        title: `${(nt.test || "").toUpperCase()} updated: ${existing.totalScore} → ${nt.totalScore}`,
         data: { previous: existing.totalScore, current: nt.totalScore, test: nt.test }
       });
     }
@@ -411,7 +427,7 @@ function detectChanges(prevSnapshot, profile, activities, majorInterest) {
       if (!wasLeader && isLeader) {
         changes.push({
           type: "ec_leadership", significant: true,
-          title: `Leadership promotion: ${ne.name} ??${ne.role}`,
+          title: `Leadership promotion: ${ne.name} — ${ne.role}`,
           data: { activity: ne.name, previousRole: existing.role, newRole: ne.role }
         });
       }
@@ -448,7 +464,7 @@ function detectChanges(prevSnapshot, profile, activities, majorInterest) {
   if (majorInterest && prevMajor && majorInterest !== prevMajor) {
     changes.push({
       type: "major_changed", significant: true,
-      title: `Major interest changed: ${prevMajor} ??${majorInterest}`,
+      title: `Major interest changed: ${prevMajor} → ${majorInterest}`,
       data: { previous: prevMajor, current: majorInterest }
     });
   }
@@ -457,8 +473,9 @@ function detectChanges(prevSnapshot, profile, activities, majorInterest) {
 }
 
 
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// CAPABILITY COMPUTATION ??delegates to rules-engine.js
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??
+// ═══════════════════════════════════════════════════════════
+// CAPABILITY COMPUTATION — delegates to rules-engine.js
+// ═══════════════════════════════════════════════════════════
 function recomputeCapabilities(stmts, studentId, profile, activities, snapshotId = null) {
   const metrics = capabilityMetrics(stmts, profile, activities);
   for (const m of metrics) {
@@ -551,8 +568,10 @@ function capabilityMetrics(stmts, profile, activities) {
 }
 
 
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// RAG CONTEXT ASSEMBLY ??small-context, PII-free
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// Returns a structured summary (100-200 tokens for model context)
+// ═══════════════════════════════════════════════════════════
+// RAG CONTEXT ASSEMBLY — small-context, PII-free
+// ═══════════════════════════════════════════════════════════
+// Returns a structured summary (100-200 tokens for model context)
 // instead of raw data dumps. Student identity is [STUDENT].
 
 export function assembleRAGContext(stmts, studentId, queryFocus, options = {}) {
@@ -570,7 +589,7 @@ export function assembleRAGContext(stmts, studentId, queryFocus, options = {}) {
   const studentContext = buildStudentSummary(latestSnap, capabilities, includeTrends ? stmts : null, studentId);
   studentContext.structuredData = structuredData;
 
-  // Attach numeric/categorical vectors ??closes the EC+AP+GPA integration
+  // Attach numeric/categorical vectors — closes the EC+AP+GPA integration
   // gap. All values here are scores or tiers (no raw activity names, no
   // PII). EC names go through a lightweight screening pass before
   // inclusion.
@@ -600,9 +619,9 @@ export function assembleRAGContext(stmts, studentId, queryFocus, options = {}) {
   // Comparisons
   const comparisons = buildComparisons(capabilities);
 
-  // ?? College history context ?????????????????????????????????????????????
+  // ── College history context ─────────────────────────────────────────────
   // Pull cached Scorecard history rows for each goal school that has a
-  // known unitId. This is read-only ??the background fetch is triggered
+  // known unitId. This is read-only — the background fetch is triggered
   // separately (on sync or on explicit /api/colleges/history/:id call).
   let collegeContext = null;
   try {
@@ -631,10 +650,10 @@ export function assembleRAGContext(stmts, studentId, queryFocus, options = {}) {
   };
 }
 
-// Assemble the numeric vectors block ??no PII, just scores + tiers.
+// Assemble the numeric vectors block — no PII, just scores + tiers.
 // EC names are screened and replaced with `activity_N` for any token
 // that resembles a personal name (all-cap initials, honorifics). This
-// is intentionally conservative ??the point is the tier/factor shape,
+// is intentionally conservative — the point is the tier/factor shape,
 // not the EC label.
 function buildVectorsBlock(stmts, studentId) {
   const out = { ec_strength: [], ap_subjects: [], directionality: null };
@@ -748,7 +767,7 @@ function screenECName(name, idx) {
   return looksLikeName ? `activity_${idx + 1}` : s;
 }
 
-// Build a structured student summary ??NO PII, NO raw dumps
+// Build a structured student summary — NO PII, NO raw dumps
 function buildStudentSummary(snapshot, capabilities, stmts, studentId) {
   const profile = {
     gpa: { unweighted: snapshot.gpa_unweighted, weighted: snapshot.gpa_weighted },
@@ -828,8 +847,9 @@ function buildTextSummary(profile, capabilities, majorInterest) {
 }
 
 
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// BASELINE ASSEMBLY ??query-focused, small context
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??
+// ═══════════════════════════════════════════════════════════
+// BASELINE ASSEMBLY — query-focused, small context
+// ═══════════════════════════════════════════════════════════
 function assembleBaselineForQuery(stmts, focus, studentCtx) {
   const baseline = {
     source: "NCES IPEDS, CollegeBoard, ACT.org, NACAC",
@@ -859,7 +879,7 @@ function assembleBaselineForQuery(stmts, focus, studentCtx) {
   }
 
   if (focus === "college_fit" || focus === "holistic") {
-    // Only top-level stats, not full profiles ??keep context small
+    // Only top-level stats, not full profiles — keep context small
     baseline.collegeProfiles = stmts.searchColleges.all().map(c => ({
       unitId: c.unit_id, name: c.name, state: c.state,
       sat25: c.sat_25, sat75: c.sat_75,
@@ -892,17 +912,18 @@ function buildComparisons(capabilities) {
 }
 
 function interpretPercentile(p) {
-  if (p >= 95) return "Exceptional ??top 5% nationally";
-  if (p >= 90) return "Excellent ??top 10%";
-  if (p >= 75) return "Above average ??top 25%";
+  if (p >= 95) return "Exceptional — top 5% nationally";
+  if (p >= 90) return "Excellent — top 10%";
+  if (p >= 75) return "Above average — top 25%";
   if (p >= 50) return "At or above the median";
-  if (p >= 25) return "Below median ??room for improvement";
-  return "Below average ??focus on strengthening this area";
+  if (p >= 25) return "Below median — room for improvement";
+  return "Below average — focus on strengthening this area";
 }
 
 
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// TREND ANALYSIS
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??
+// ═══════════════════════════════════════════════════════════
+// TREND ANALYSIS
+// ═══════════════════════════════════════════════════════════
 export function getStudentTrends(stmts, studentId) {
   const trends = {};
   for (const metric of ["gpa_uw", "gpa_w", "sat_total", "act_total", "ec_count", "ap_rigor_index"]) {
@@ -924,8 +945,9 @@ export function getStudentTrends(stmts, studentId) {
 }
 
 
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// COLLEGE FIT SCORING ??enhanced with baseline data
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??
+// ═══════════════════════════════════════════════════════════
+// COLLEGE FIT SCORING — enhanced with baseline data
+// ═══════════════════════════════════════════════════════════
 export function enhancedCollegeMatch(stmts, studentId, filters) {
   const snap = stmts.getLatestSnapshot.get(studentId);
   if (!snap) return { error: "No profile data", results: [] };
@@ -939,7 +961,7 @@ export function enhancedCollegeMatch(stmts, studentId, filters) {
   const activities = safeParseJSON(snap.activities_json, []);
   const major = snap.major_interest || filters?.majorKeyword;
 
-  // Jiyeon UX audit F4 ??the narrative was never weighted into college fit.
+  // Jiyeon UX audit F4 — the narrative was never weighted into college fit.
   // If we have an active narrative, pull its majorBuckets + themes and use
   // them as a 4th signal alongside SAT / GPA / AP / EC. This is what makes
   // "MIT for computational biology" actually outscore "MIT for anything"
@@ -1007,10 +1029,10 @@ export function enhancedCollegeMatch(stmts, studentId, filters) {
     }
 
     // Narrative alignment (0-100). Two signals:
-    //   1. Major bucket match ??does any of the student's detected major
+    //   1. Major bucket match — does any of the student's detected major
     //      buckets (from narrative_store) appear in this college's top_majors?
     //      Worth up to 70 points.
-    //   2. Theme co-occurrence ??do the student's written themes appear in
+    //   2. Theme co-occurrence — do the student's written themes appear in
     //      the college's top_majors list (loose substring match)?
     //      Worth up to 30 points.
     // If the student has no narrative, we leave narrativeFit undefined so
@@ -1081,8 +1103,9 @@ export function enhancedCollegeMatch(stmts, studentId, filters) {
 }
 
 
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// UTILITIES
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??
+// ═══════════════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════════════
 function safeParseJSON(str, fallback) {
   try { return str ? JSON.parse(str) : fallback; }
   catch { return fallback; }

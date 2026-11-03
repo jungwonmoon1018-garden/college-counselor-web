@@ -19,6 +19,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import Database from "better-sqlite3";
 import { SCOUT_VERSION } from "../scouts/admissions-policy-scout.js";
+import { planningCycle } from "../shared/admissions-cycle.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, "..");
@@ -319,7 +320,9 @@ function seedPolicySnapshot(slug, school, value, evidence, sourceUrl) {
     db.prepare(`INSERT OR REPLACE INTO admissions_policy_snapshots (slug, school_name, unit_id, homepage, checked_at, changed_at, content_hash, pages_json, policy_json, check_count)
       VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, 1)`).run(
       slug, school, "https://www.example.edu/", now, now, `hash-${slug}-${value}`, "[]",
-      JSON.stringify({ cycle: "2026-27", scoutVersion: SCOUT_VERSION, testPolicy: { value, through: null, evidence, sourceUrl }, applicationFee: null, deadlines: {} }),
+      // The scout counts a snapshot current only for the planning cycle, so a
+      // fixed "2026-27" would have gone stale on 2027-02-01.
+      JSON.stringify({ cycle: planningCycle(), scoutVersion: SCOUT_VERSION, testPolicy: { value, through: null, evidence, sourceUrl }, applicationFee: null, deadlines: {} }),
     );
   } finally {
     db.close();

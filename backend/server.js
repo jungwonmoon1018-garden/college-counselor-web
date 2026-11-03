@@ -68,6 +68,7 @@ import { ensureCdsStoreSeeded } from "./cds/cds-store.js";
 import { initAdmissionsIntelligenceTables, prepareAdmissionsIntelStatements, seedOfficialCipMappings } from "./colleges/admissions-intelligence.js";
 import "./colleges/admissions-intelligence-loader.js";
 import { loadOrchestrationCatalog } from "./chat/orchestration-engine.js";
+import { resolveFafsaGuidancePath } from "./chat/fafsa-guidance-path.js";
 import { initAuthStore } from "./security/security-auth.js";
 import { ADMIN_AUTH_RATE_LIMIT, AUTH_RATE_LIMIT, buildHealthResponse, createChatRateLimiters, rateLimitedHandler, resolveAllowedOrigins, securityResponseMiddleware } from "./security/security-hardening.js";
 import { OPENROUTER_MODEL_OPTIONS } from "./llm-adapters/tier-defaults.js";
@@ -94,7 +95,6 @@ import { registerSimulationsRoutes } from "./routes/simulations.js";
 import { registerEcRoutes } from "./routes/ec.js";
 import { registerEcNarrativeRoutes } from "./routes/ec-narrative.js";
 import { registerEcStrengthRoutes } from "./routes/ec-strength.js";
-import { registerEcResearchRoutes } from "./routes/ec-research.js";
 import { registerFilesRoutes } from "./routes/files.js";
 import { registerNarrativeRoutes } from "./routes/narrative.js";
 import { registerDirectionalityRoutes } from "./routes/directionality.js";
@@ -357,7 +357,14 @@ const SCORECARD_API_KEY = /^REPLACE_WITH/i.test(process.env.SCORECARD_API_KEY ||
 // print the token) when something still needs configuring — a real
 // ENCRYPTION_KEY from the environment, or a live Scorecard key. This keeps a
 // fully-configured production boot quiet and the token out of its logs.
-const FAFSA_GUIDANCE_PATH = process.env.FAFSA_GUIDANCE_PATH || path.join(__dirname, "data", "fafsa", "2026-2027.txt");
+// The FAFSA guidance text follows the award year the rules engine selects
+// for today (chat/fafsa-guidance-path.js), so it moves with FAFSA_RULESETS
+// instead of staying on the 2026-27 file after that year ends.
+const FAFSA_GUIDANCE_PATH = resolveFafsaGuidancePath({
+  dir: path.join(__dirname, "data", "fafsa"),
+  now: new Date(),
+  override: process.env.FAFSA_GUIDANCE_PATH,
+});
 const ADMISSIONS_DEADLINES_PATH = process.env.ADMISSIONS_DEADLINES_PATH || path.join(__dirname, "data", "admissions-deadlines.json");
 const RETENTION_MODE = process.env.RETENTION_MODE || "consumer"; // "consumer" or "institutional"
 const SIM_URL = (process.env.SIM_URL || `http://127.0.0.1:${process.env.SIM_PORT || "3002"}`).replace(/\/$/, "");
@@ -1016,7 +1023,6 @@ registerSimulationsRoutes(app, routeDeps);
 registerEcRoutes(app, routeDeps);
 registerEcNarrativeRoutes(app, routeDeps);
 registerEcStrengthRoutes(app, routeDeps);
-registerEcResearchRoutes(app, routeDeps);
 registerFilesRoutes(app, routeDeps);
 registerNarrativeRoutes(app, routeDeps);
 registerDirectionalityRoutes(app, routeDeps);

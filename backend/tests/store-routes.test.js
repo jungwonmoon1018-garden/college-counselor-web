@@ -424,3 +424,44 @@ test("deleting the account leaves no row, audit hint or file of the student in a
   }
   assert.equal(fs.existsSync(path.join(testDataDir, "ec-attachments", student.studentId)), false);
 });
+
+// fid-5: the survey's "no GPA yet" and "no test taken yet" are stored with
+// the profile, come back on GET /api/students/profile, and reach the model
+// from the server's own record, so the counselor neither asks again nor
+// fills a GPA in. A registration-time snapshot predates them and says
+// nothing either way.
+test("the GPA and testing statuses round-trip through the sync and reach the model", async () => {
+  const { token } = await registerStudent("statuses");
+  const initial = await request("GET", "/api/students/profile", { token });
+  assert.equal(initial.status, 200);
+  assert.equal(Object.hasOwn(initial.data.profile || {}, "gpaStatus"), false, JSON.stringify(initial.data.profile));
+
+  const body = syncBody({ gpa: null, sat: null });
+  body.profile.gpaStatus = "pending";
+  body.profile.testingStatus = "planned";
+  const saved = await request("POST", "/api/students/sync", { token, body });
+  assert.equal(saved.status, 200, JSON.stringify(saved.data));
+  assert.deepEqual(saved.data.setAside, []);
+  const read = await request("GET", "/api/students/profile", { token });
+  assert.equal(read.data.profile.gpaStatus, "pending");
+  assert.equal(read.data.profile.testingStatus, "planned");
+
+  await grant(token);
+  const marker = `status-${crypto.randomUUID()}`;
+  const chat = await request("POST", "/api/chat", { token, body: { request_id: crypto.randomUUID(), messages: [{ role: "user", content: `Which AP classes should I take next year? ${marker}` }] } });
+  assert.equal(chat.status, 200, `${JSON.stringify(chat.data)}\n${serverOutput.slice(-2000)}`);
+  const call = loggedModelCalls().filter((c) => JSON.stringify(c.messages).includes(marker)).pop();
+  assert.ok(call, "the chat turn reached the model");
+  const wire = JSON.stringify(call.messages);
+  assert.match(wire, /GPA: none yet \(the student says they don't have a GPA yet/);
+  assert.match(wire, /Test scores: none yet \(the student hasn't taken a test yet\)/);
+
+  // Adding a GPA clears "none yet", without the app having to say so.
+  const withGpa = syncBody({ gpa: 3.5, sat: null });
+  withGpa.profile.gpaStatus = "pending";
+  withGpa.profile.testingStatus = "planned";
+  assert.equal((await request("POST", "/api/students/sync", { token, body: withGpa })).status, 200);
+  const cleared = await request("GET", "/api/students/profile", { token });
+  assert.equal(cleared.data.profile.gpaStatus, null);
+  assert.equal(cleared.data.profile.testingStatus, "planned");
+});

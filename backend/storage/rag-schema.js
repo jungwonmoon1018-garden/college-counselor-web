@@ -7,8 +7,8 @@ import { initECStrengthTables, prepareECStrengthStatements } from "../activities
 import { initNarrativeTables, prepareNarrativeStatements } from "../activities/narrative-store.js";
 import { initNarrativeFitCacheTable, prepareNarrativeFitCacheStatements } from "../activities/narrative-fit-llm.js";
 
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// DATABASE SCHEMA ??operational tables (no PII)
-// Database schema: operational tables (no PII)
+// ═══════════════════════════════════════════════════════════
+// DATABASE SCHEMA — operational tables (no PII)
 export function initRAGTables(db) {
   db.exec(`
     -- Versioned profile snapshots (PII-free: student_id is opaque UUID)
@@ -124,7 +124,7 @@ export function initRAGTables(db) {
       website TEXT
     );
 
-    -- API usage log (per-student, per-call tracking ??no PII, just opaque IDs)
+    -- API usage log (per-student, per-call tracking — no PII, just opaque IDs)
     CREATE TABLE IF NOT EXISTS api_usage_log (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       student_id TEXT NOT NULL,
@@ -191,7 +191,7 @@ export function initRAGTables(db) {
     CREATE INDEX IF NOT EXISTS idx_ec_comp_category ON baseline_ec_competitive(category);
     CREATE INDEX IF NOT EXISTS idx_ec_comp_activity ON baseline_ec_competitive(activity_id);
 
-    -- ?? College Scorecard live cache ??????????????????????????????????????????
+    -- ── College Scorecard live cache ──────────────────────────────────────────
     -- Stores the most recent full normalized school record from the Scorecard
     -- API. Keyed by unit_id. Refreshed if older than 7 days.
     CREATE TABLE IF NOT EXISTS scorecard_cache (
@@ -212,7 +212,7 @@ export function initRAGTables(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_scorecard_query_kind ON scorecard_query_cache(cache_kind, fetched_at DESC);
 
-    -- ?? College Scorecard historical data ?????????????????????????????????????
+    -- ── College Scorecard historical data ─────────────────────────────────────
     -- One row per school per academic-year label (e.g. 2019 = AY 2019-2020).
     -- Populated on demand when a student's goal list includes a school with a
     -- known unitId. The AI context pipeline reads these rows to surface
@@ -237,7 +237,7 @@ export function initRAGTables(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_scorecard_hist_unit ON scorecard_history(unit_id, year DESC);
 
-    -- ?? EC prestige research cache ?????????????????????????????????????????
+    -- ── EC prestige research cache ─────────────────────────────────────────
     -- Stores prestige scores produced by the competition-research module.
     -- Keyed by sha256(normalizedActivityName || "|" || levelHint). TTL = 30d.
     -- source is one of "benchmark" | "catalog" | "research" | "research_failed".
@@ -256,7 +256,7 @@ export function initRAGTables(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_ec_prestige_activity ON ec_prestige_cache(activity_name);
 
-    -- ?? EC subvector component cache (all 5 factors) ???????????????????????
+    -- ── EC subvector component cache (all 5 factors) ───────────────────────
     -- Write-through cache for dedication/achievement/leadership/prestige/
     -- narrative_fit components. Keyed by sha256(factor || "|" || inputSig)
     -- so the per-factor recompute path short-circuits when inputs match.
@@ -366,8 +366,43 @@ export function initRAGTables(db) {
     if (!snapshotCols.includes("class_rank_json")) {
       db.exec(`ALTER TABLE profile_snapshots ADD COLUMN class_rank_json TEXT`);
     }
+    // The survey's "no GPA yet" (gpa_status "pending") and "no test taken
+    // yet" (testing_status "planned"). They were never stored, so the chat
+    // could tell "none yet" from "not entered" only while the device still
+    // sent them (fid-5). A save writes "" for "no such statement"; NULL is a
+    // row from before these columns, which says nothing either way.
+    if (!snapshotCols.includes("gpa_status")) {
+      db.exec(`ALTER TABLE profile_snapshots ADD COLUMN gpa_status TEXT`);
+    }
+    if (!snapshotCols.includes("testing_status")) {
+      db.exec(`ALTER TABLE profile_snapshots ADD COLUMN testing_status TEXT`);
+    }
   } catch (err) {
     console.warn("[RAG] profile_snapshots migration warning:", err.message);
+  }
+  // student_deadlines.snooze_until — the calendar date (YYYY-MM-DD) a
+  // snoozed deadline comes back. "Snoozed" had no end: the row left the
+  // upcoming and overdue counts for good, so a snoozed application
+  // deadline never reminded the student again (input-4).
+  try {
+    const deadlineCols = db.prepare(`PRAGMA table_info(student_deadlines)`).all().map((r) => r.name);
+    if (!deadlineCols.includes("snooze_until")) {
+      db.exec(`ALTER TABLE student_deadlines ADD COLUMN snooze_until TEXT`);
+    }
+  } catch (err) {
+    console.warn("[RAG] student_deadlines migration warning:", err.message);
+  }
+  // Milestone titles written before the source-encoding repair (debt-8)
+  // carry "??" where the arrow or the dash was lost: "GPA improved: 3.80
+  // ??3.90". GET /api/students/milestones serves them as stored, so they
+  // are repaired in place; a repaired title no longer matches, which makes
+  // this a no-op on every later boot. Only the four titles that ever held
+  // the character are touched.
+  try {
+    db.prepare(`UPDATE milestones SET title = replace(title, ' ??', ' → ') WHERE type IN ('gpa_change', 'test_score_updated', 'major_changed') AND title LIKE '% ??%'`).run();
+    db.prepare(`UPDATE milestones SET title = replace(title, ' ??', ' — ') WHERE type = 'ec_leadership' AND title LIKE '% ??%'`).run();
+  } catch (err) {
+    console.warn("[RAG] milestone title repair warning:", err.message);
   }
   // capability_timeline.snapshot_id — the snapshot each percentile row was
   // computed from. The latest metrics used to be "the newest row per
@@ -418,7 +453,7 @@ export function initRAGTables(db) {
   // Directionality vectors (overall academic trajectory and fit)
   initDirectionalityTable(db);
 
-  // AP concept components ??subject vectors are decomposed into weighted
+  // AP concept components — subject vectors are decomposed into weighted
   // concept components. LAZY-populated: rows appear only once the student's
   // own prompts/files reference the subject. See ap-concept-vectorizer.js.
   initAPConceptTables(db);
@@ -435,7 +470,8 @@ export function initRAGTables(db) {
   initNarrativeFitCacheTable(db);
 }
 
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// SEED BASELINE DATA
+// ═══════════════════════════════════════════════════════════
+// SEED BASELINE DATA
 export function seedBaselines(db, { GPA_BASELINES, SAT_BASELINES, ACT_BASELINES, EC_BENCHMARKS, COLLEGE_PROFILES, COMPETITIVE_ACTIVITY_BENCHMARKS }) {
   const normalizeRate = (value) => {
     if (value == null || value === "") return null;
@@ -564,7 +600,8 @@ export function compactProfileHistory(db, limits = PROFILE_HISTORY_LIMITS) {
   return { deleted: counts.snapshots + counts.linkedCapabilities + counts.unlinkedCapabilities + counts.milestones, ...counts };
 }
 
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// PREPARED STATEMENTS
+// ═══════════════════════════════════════════════════════════
+// PREPARED STATEMENTS
 export function prepareRAGStatements(db) {
   // Migration: chat_messages.model_content — the model-facing copy of a user
   // message (file-attachment context included), so reopening a thread can
@@ -585,6 +622,8 @@ export function prepareRAGStatements(db) {
     // Class rank rides in its own column, set right after the insert so the
     // registration path and older callers keep their twelve-value insert.
     setSnapshotClassRank: db.prepare(`UPDATE profile_snapshots SET class_rank_json = ? WHERE id = ?`),
+    // The GPA and testing statuses, set the same way.
+    setSnapshotStatuses: db.prepare(`UPDATE profile_snapshots SET gpa_status = ?, testing_status = ? WHERE id = ?`),
     getLatestSnapshot: db.prepare(`SELECT * FROM profile_snapshots WHERE student_id = ? ORDER BY datetime(created_at) DESC, rowid DESC LIMIT 1`),
     getSnapshotHistory: db.prepare(`SELECT id, snapshot_type, gpa_unweighted, gpa_weighted, major_interest, trigger, created_at FROM profile_snapshots WHERE student_id = ? ORDER BY datetime(created_at) DESC, rowid DESC LIMIT ?`),
 
@@ -697,20 +736,11 @@ export function prepareRAGStatements(db) {
     // EC prestige research cache (30-day TTL; check via created_at).
     getPrestigeCache:     db.prepare(`SELECT * FROM ec_prestige_cache WHERE cache_key = ?`),
     getPrestigeCacheByName: db.prepare(`SELECT * FROM ec_prestige_cache WHERE activity_name = ? ORDER BY created_at DESC LIMIT 1`),
-    listPrestigeCacheRecent: db.prepare(`SELECT * FROM ec_prestige_cache ORDER BY datetime(created_at) DESC, activity_name ASC LIMIT ?`),
-    countPrestigeCache:   db.prepare(`SELECT COUNT(*) AS total FROM ec_prestige_cache`),
     upsertPrestigeCache:  db.prepare(`INSERT OR REPLACE INTO ec_prestige_cache (cache_key, activity_name, level_hint, score, rationale, sources_json, source, provider, model, result_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`),
-    deletePrestigeCache:  db.prepare(`DELETE FROM ec_prestige_cache WHERE cache_key = ?`),
-    deletePrestigeByName: db.prepare(`DELETE FROM ec_prestige_cache WHERE activity_name = ?`),
 
     // EC subvector component cache (all 5 factors).
     getComponentCache:    db.prepare(`SELECT * FROM ec_component_cache WHERE cache_key = ?`),
-    listComponentCacheRecentByFactor: db.prepare(`SELECT * FROM ec_component_cache WHERE factor = ? ORDER BY datetime(created_at) DESC, cache_key ASC LIMIT ?`),
-    countComponentCache:  db.prepare(`SELECT COUNT(*) AS total FROM ec_component_cache`),
-    countComponentCacheByFactor: db.prepare(`SELECT COUNT(*) AS total FROM ec_component_cache WHERE factor = ?`),
     upsertComponentCache: db.prepare(`INSERT OR REPLACE INTO ec_component_cache (cache_key, factor, score, reasoning_json, source, provider, model, input_sig, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`),
-    deleteComponentCacheByFactor: db.prepare(`DELETE FROM ec_component_cache WHERE factor = ?`),
-    deleteComponentCacheOlderThan: db.prepare(`DELETE FROM ec_component_cache WHERE factor = ? AND created_at < datetime('now', ?)`),
 
     // ─── Common Data Set records + validations ──────────────────────
     // The cds object groups read/write paths. The positioning engine and
@@ -758,6 +788,7 @@ export function prepareRAGStatements(db) {
       listByStudent: db.prepare(`SELECT * FROM student_deadlines WHERE student_id = ? ORDER BY datetime(due_at) ASC, created_at ASC`),
       listOpenByStudent: db.prepare(`SELECT * FROM student_deadlines WHERE student_id = ? AND status = 'open' ORDER BY datetime(due_at) ASC`),
       updateStatus: db.prepare(`UPDATE student_deadlines SET status = ?, updated_at = datetime('now') WHERE id = ? AND student_id = ?`),
+      setSnoozeUntil: db.prepare(`UPDATE student_deadlines SET snooze_until = ?, updated_at = datetime('now') WHERE id = ? AND student_id = ?`),
       updateFields: db.prepare(`UPDATE student_deadlines SET title = COALESCE(?, title), due_at = COALESCE(?, due_at), category = COALESCE(?, category), notes = COALESCE(?, notes), college_ids_json = COALESCE(?, college_ids_json), updated_at = datetime('now') WHERE id = ? AND student_id = ?`),
       delete: db.prepare(`DELETE FROM student_deadlines WHERE id = ? AND student_id = ?`),
       // Cascade delete when a university is removed from the college list.
