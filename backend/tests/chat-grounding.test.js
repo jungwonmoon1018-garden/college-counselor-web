@@ -7,6 +7,7 @@ import {
   buildFidelityFootnote,
   detectSchoolMentions,
   formatVerifiedDataBlock,
+  unresolvedSchoolNames,
 } from "../chat/chat-grounding.js";
 
 const profile = {
@@ -83,7 +84,7 @@ test("fidelity check catches misstated grades, GPA, test and AP scores", () => {
   const correction = buildFidelityCorrection(contradictions);
   assert.match(correction, /^FIDELITY CORRECTION/);
   assert.match(correction, /- AP English Language and Composition: recorded grade B\+ \(the reply said A\)/);
-  assert.match(correction, /- AP Calculus BC: recorded in progress — no final grade recorded \(the reply said A\)/);
+  assert.match(correction, /- AP Calculus BC: in progress, with no final grade yet \(the reply said A\)/);
   assert.match(correction, /- GPA: recorded 3\.82 unweighted \/ 4\.31 weighted \(the reply said 3\.9\)/);
   const footnote = buildFidelityFootnote(contradictions);
   assert.match(footnote, /^\n\n_Correction from your saved profile/);
@@ -370,4 +371,301 @@ test("the remaining CDS sections reach the model as verified data, with money in
   assert.match(block, /average first-year need-based aid package 14,100 USD/);
   assert.match(block, /average share of financial need met 63\.2%; 34\.7% of class sections have fewer than 20 students/);
   assert.doesNotMatch(block, /\$/);
+});
+
+// ─── Attribution (2026-11-03) ─────────────────────────────────────────
+// A number counts as the student's only when the clause ties it to them.
+// The check used to take every number in a sentence that said "your" and
+// "SAT", so a true comparison with a school's verified figure was
+// "corrected", and the retry told the model to rewrite the school's number.
+const kinds = (text, record) => checkProfileFidelity(text, record).contradictions.map((c) => `${c.kind}:${c.stated}`);
+const compared = {
+  gpaUnweighted: 3.82,
+  gpaWeighted: 4.31,
+  testScores: [{ test: "sat", totalScore: 1450 }, { test: "act", totalScore: 33 }],
+  courses: [
+    { name: "Calculus BC", type: "ap", grade: "IP", year: "senior" },
+    { name: "Statistics", type: "ap", grade: "B+", year: "junior" },
+  ],
+  apScores: [{ exam: "Statistics", score: 4, year: 2026 }],
+};
+
+test("a comparison with a school's figure, a target or a hypothetical is not a misstated record", () => {
+  const empty = { courses: [], testScores: [], apScores: [] };
+  for (const [text, record] of [
+    ["Your SAT of 1450 is 60 points below Stanford's 1510.", compared],
+    ["Your 1450 SAT is below WashU's 1500.", compared],
+    ["Compared with Michigan's 1350, your 1450 SAT is strong.", compared],
+    ["Your SAT of 1450 sits in the middle range of 1350 to 1530.", compared],
+    ["Your 3.82 GPA is close to Stanford's 3.94.", compared],
+    ["Your 3.82 GPA is just under Michigan's 3.9.", compared],
+    ["With your 3.82 GPA, you're within Stanford's enrolled GPA range of 3.75–4.0.", compared],
+    ["Your 3.82 GPA isn't a perfect 4.0, and that is fine.", compared],
+    ["With your 33 ACT and 6 AP courses, you have range.", compared],
+    ["You're in grade 11 with an ACT of 33.", compared],
+    ["Your ACT of 33 is two points below MIT's 35.", compared],
+    ["Your GPA is 0.1 below Stanford's average, and your ACT is 2 short of MIT's 35.", compared],
+    ["If your GPA is around 3.8, consider adding rigor.", empty],
+    ["Since your school doesn't rank, you won't be ranked in the top 10%.", empty],
+    ["An A in AP Calculus BC would help.", compared],
+    ["An A in AP Calculus BC this year would help.", compared],
+    ["Getting an A in AP Calculus BC this year matters.", compared],
+    ["Aim for an A in AP Statistics next semester.", compared],
+    ["Aim for a 5 on AP Statistics.", compared],
+    ["Many schools need a 5 on AP Statistics.", compared],
+    ["A 5 on AP Statistics would earn credit at Michigan.", compared],
+    ["Michigan gives credit for a 4 or 5 on AP Statistics.", compared],
+  ]) assert.deepEqual(kinds(text, record), [], text);
+});
+
+test("a value the reply ties to the student is still checked, even with a modal after it", () => {
+  for (const [text, want] of [
+    ["Your SAT of 1500 is strong.", ["sat:1500"]],
+    ["Your 1500 SAT should help a lot.", ["sat:1500"]],
+    ["Your SAT of 1500 is above average.", ["sat:1500"]],
+    ["You scored 1500 on the SAT.", ["sat:1500"]],
+    ["Your 3.95 GPA would make you competitive.", ["gpa:3.95"]],
+    ["You scored a 3 on AP Statistics.", ["ap_score:3"]],
+    ["Your A in AP Calculus BC is impressive.", ["course_grade:A"]],
+    ["Your A in AP Statistics will help.", ["course_grade:A"]],
+    // "with a 3.9 GPA" in a clause whose subject is the student.
+    ["Your B+ in AP Statistics is solid, and you scored a 5 on AP Statistics with a 3.9 GPA.", ["gpa:3.9", "ap_score:5"]],
+    ["You're in grade 11 with an ACT of 30.", ["act:30"]],
+  ]) assert.deepEqual(kinds(text, compared), want, text);
+  // Other students' GPA is not the student's.
+  assert.deepEqual(kinds("Students with a 3.9 GPA often apply early.", compared), []);
+});
+
+// Every recorded sitting is a true score: the check read only the first
+// entry, so a retaker's newer 1450 was "corrected" to 1390 and the retry
+// told the model to downgrade the student's best score.
+test("every SAT and ACT sitting and the superscore are true; PSAT, TOEFL and IELTS are checked under their own labels", () => {
+  const sittings = { testScores: [
+    { test: "sat", totalScore: 1390, date: "2026-03", sections: { readingWriting: 700, math: 690 } },
+    { test: "sat", totalScore: 1450, date: "2026-10", sections: { readingWriting: 690, math: 760 } },
+  ] };
+  assert.deepEqual(kinds("Your SAT of 1450 from October is your best score.", sittings), []);
+  assert.deepEqual(kinds("Your 1390 SAT from March was a good start.", sittings), []);
+  assert.deepEqual(kinds("Your SAT superscore of 1460 helps at schools that superscore.", sittings), []);
+  assert.deepEqual(kinds("Your SAT Math 760 is your strongest section.", sittings), []);
+  const third = checkProfileFidelity("Your SAT of 1500 is strong.", sittings).contradictions;
+  assert.equal(third.length, 1);
+  assert.equal(third[0].actual, "1390 (2026-03) and 1450 (2026-10) (superscore 1460)");
+  assert.match(buildFidelityFootnote(third), /- SAT: recorded 1390 \(2026-03\) and 1450 \(2026-10\) \(superscore 1460\) \(the reply said 1500\)/);
+
+  assert.deepEqual(kinds("Your ACT of 33 is strong.", { testScores: [{ test: "act", totalScore: 30 }, { test: "act", totalScore: 33 }] }), []);
+
+  // A PSAT figure is never an SAT figure, and the SAT on a PSAT-only record
+  // is not on the record at all.
+  const psat = { testScores: [{ test: "psat", totalScore: 1380 }] };
+  assert.deepEqual(kinds("Your PSAT 1380 is a strong start toward the SAT.", psat), []);
+  assert.deepEqual(kinds("Your PSAT of 1380 predicts an SAT around 1420.", psat), []);
+  const invented = checkProfileFidelity("Your SAT of 1420 is strong.", psat).contradictions;
+  assert.deepEqual(invented.map((c) => [c.kind, c.stated, c.actual]), [["sat", "1420", "no SAT score recorded"]]);
+  assert.match(buildFidelityFootnote(invented), /- SAT: no score is recorded \(the reply said 1420\)/);
+  assert.deepEqual(kinds("Your PSAT of 1400 is solid.", psat), ["psat:1400"]);
+
+  assert.deepEqual(kinds("Your TOEFL 112 is excellent.", { testScores: [{ test: "toefl", totalScore: 105 }] }), ["toefl:112"]);
+  assert.deepEqual(kinds("Your TOEFL 105 is excellent.", { testScores: [{ test: "toefl", totalScore: 105 }] }), []);
+  assert.deepEqual(kinds("Your IELTS 8.0 is excellent.", { testScores: [{ test: "ielts", totalScore: 7 }] }), ["ielts:8"]);
+  assert.deepEqual(kinds("Your IELTS 7.0 is excellent.", { testScores: [{ test: "ielts", totalScore: 7 }] }), []);
+  // A Subject Test score is not an SAT total.
+  assert.deepEqual(kinds("Your SAT Subject Test score of 780 still shows strength.", profile), []);
+  // A count beside a label is not a score.
+  assert.deepEqual(kinds("Your 2 ACT sittings both went well.", compared), []);
+});
+
+// The check was English-only, so a Korean reply with an invented score
+// passed and was replayed as history on later turns.
+test("a Korean reply is checked for grades, GPA, SAT and AP scores, and hedged Korean is not", () => {
+  const korean = {
+    gpaUnweighted: 3.82,
+    testScores: [{ test: "sat", totalScore: 1450 }],
+    courses: [{ name: "Statistics", type: "ap", grade: "B+", year: "junior" }],
+    apScores: [{ exam: "Statistics", score: 4 }],
+  };
+  for (const [text, want] of [
+    ["학생의 SAT 점수 1500점은 아주 경쟁력 있습니다.", ["sat:1500"]],
+    ["당신의 SAT 1500점은 훌륭합니다.", ["sat:1500"]],
+    ["학생의 GPA 3.95는 상위권입니다.", ["gpa:3.95"]],
+    ["AP Statistics에서 받은 A 학점이 강점입니다.", ["course_grade:A"]],
+    ["AP Statistics 시험에서 5점을 받은 것이 인상적입니다.", ["ap_score:5"]],
+    ["AP Statistics에서 A를 받았고 SAT 1500점이라 경쟁력이 있습니다.", ["course_grade:A", "sat:1500"]],
+    // The recorded values.
+    ["학생의 SAT 점수 1450점은 아주 경쟁력 있습니다.", []],
+    ["학생의 GPA 3.82는 상위권입니다.", []],
+    ["AP Statistics에서 받은 B+ 학점이 강점입니다.", []],
+    ["AP Statistics 시험에서 4점을 받은 것이 인상적입니다.", []],
+    // An admitted class, a school's band, a goal, a condition, a comparison.
+    ["합격자 평균 SAT 1500점입니다.", []],
+    ["스탠퍼드의 SAT 중간 50%는 1510–1580점입니다.", []],
+    ["SAT 1500점을 목표로 하세요.", []],
+    ["AP Statistics에서 5점을 받으면 학점 인정을 받을 수 있습니다.", []],
+    ["학생의 SAT 1450점은 스탠퍼드 SAT 1510점보다 낮습니다.", []],
+    ["학생의 SAT 1450점은 스탠퍼드의 SAT 1510점보다 낮습니다.", []],
+    ["합격한 학생의 SAT 1500점은 참고만 하세요.", []],
+  ]) assert.deepEqual(kinds(text, korean), want, text);
+});
+
+// Same-named courses are one course on the record, and a short name inside
+// a longer one names the longer course.
+test("semester halves and multi-year courses accept every recorded grade; a short name inside a longer one is the longer course", () => {
+  const chemistry = { courses: [
+    { name: "Chemistry", type: "honors", grade: "A-", year: "sophomore", semester: "fall" },
+    { name: "Chemistry", type: "honors", grade: "B+", year: "sophomore", semester: "spring" },
+  ] };
+  assert.deepEqual(kinds("Your A- in Honors Chemistry in the fall shows strength.", chemistry), []);
+  assert.deepEqual(kinds("Your B+ in Honors Chemistry in the spring held up.", chemistry), []);
+  const wrong = checkProfileFidelity("Your A in Honors Chemistry stands out.", chemistry).contradictions;
+  assert.equal(wrong.length, 1);
+  assert.equal(wrong[0].actual, "A- (sophomore year, fall semester) and B+ (sophomore year, spring semester)");
+  assert.match(buildFidelityFootnote(wrong), /- Chemistry: recorded grades A- \(sophomore year, fall semester\) and B\+ \(sophomore year, spring semester\) \(the reply said A\)/);
+
+  const orchestra = { courses: [{ name: "Orchestra", grade: "A", year: "freshman" }, { name: "Orchestra", grade: "B", year: "sophomore" }] };
+  assert.deepEqual(kinds("Your A in Orchestra freshman year and B in Orchestra sophomore year show commitment.", orchestra), []);
+
+  const shortNames = { courses: [
+    { name: "Biology", grade: "B", year: "freshman" },
+    { name: "History", grade: "C+", year: "freshman" },
+    { name: "Art", grade: "B", year: "freshman" },
+    { name: "World History", grade: "A", year: "sophomore" },
+    { name: "US History", type: "ap", grade: "A", year: "junior" },
+  ] };
+  for (const text of ["Marine Biology (A) shows your interest.", "World History: A is a strong grade.", "AP US History (A) adds rigor.", "Studio Art (A) is a strength.", "Your A in World History is great."]) {
+    assert.deepEqual(kinds(text, shortNames), [], text);
+  }
+  assert.deepEqual(kinds("History (A) was your best class.", shortNames), ["course_grade:A"]);
+  // Without the longer course on the record the grade is invented, not a
+  // misread of History.
+  const { courses } = shortNames;
+  assert.deepEqual(kinds("AP US History (A) adds rigor.", { courses: courses.filter((c) => c.name !== "US History") }), ["course_not_on_record:A"]);
+  // The level check still tells Honors from AP Chemistry.
+  assert.deepEqual(checkProfileFidelity("Your A in AP Chemistry matters.", profile).contradictions.map((c) => c.kind), ["course_not_on_record"]);
+});
+
+// An exam with no recorded score was never checked, so the natural
+// invention — a 5 on an AP course still in progress — passed.
+test("a score for an AP exam with no recorded score is flagged, and the profile says when none are recorded", () => {
+  const bio = checkProfileFidelity("You scored a 5 on AP Biology, which shows range.", compared).contradictions;
+  assert.deepEqual(bio.map((c) => [c.kind, c.item, c.stated, c.actual]), [["ap_not_on_record", "AP Biology exam", "5", "no score recorded for this exam"]]);
+  const calc = checkProfileFidelity("Your 5 on the AP Calculus BC exam is a highlight.", compared).contradictions;
+  assert.deepEqual(calc.map((c) => [c.kind, c.actual]), [["ap_not_on_record", "course in progress; no exam score yet"]]);
+  assert.match(buildFidelityFootnote(calc), /- AP Calculus BC exam: the course is in progress and no exam score is recorded yet \(the reply said 5\)/);
+  assert.deepEqual(kinds("You got a 5 on AP Statistics.", { courses: [{ name: "Statistics", type: "ap", grade: "A" }], apScores: [] }), ["ap_not_on_record:5"]);
+  for (const text of [
+    "You're taking AP Calculus BC this year.",
+    "A 5 on AP Calculus BC would earn credit.",
+    "Aim for a 5 on AP Biology.",
+    "Michigan gives credit for a 4 or 5 on AP Statistics.",
+    "You scored a 5 on the AP Biology practice test.",
+  ]) assert.deepEqual(kinds(text, compared), [], text);
+
+  const block = formatProfileForModel({ courses: [{ name: "Calculus BC", type: "ap", grade: "IP" }], apScores: [] });
+  assert.match(block, /\nAP exam scores: none recorded\n/);
+});
+
+// The footnote said "Health: recorded no grade recorded" and called a
+// recorded P or 95 no grade; its lines were English under the Korean heading.
+test("the correction footnote says what the record holds, in English and in Korean", () => {
+  const record = { courses: [
+    { name: "Health", grade: "P" },
+    { name: "Chemistry", grade: "95" },
+    { name: "Art", grade: "" },
+    { name: "Calculus BC", type: "ap", grade: "IP" },
+  ] };
+  const found = checkProfileFidelity("Your A in Health, your A in Chemistry, your A in Art and your A in AP Calculus BC all help.", record).contradictions;
+  const english = buildFidelityFootnote(found);
+  assert.match(english, /- Health: recorded P \(pass\/fail\) \(the reply said A\)/);
+  assert.match(english, /- Chemistry: recorded 95 \(the reply said A\)/);
+  assert.match(english, /- Art: no grade is recorded \(the reply said A\)/);
+  assert.match(english, /- AP Calculus BC: in progress, with no final grade yet \(the reply said A\)/);
+  assert.doesNotMatch(english, /recorded no\b/);
+  assert.match(buildFidelityFootnote(checkProfileFidelity("Your 3.8 GPA is fine.", {}).contradictions), /- GPA: no GPA is recorded \(the reply said 3\.8\)/);
+  assert.match(buildFidelityFootnote(checkProfileFidelity("Your 3.8 GPA is fine.", { gpaStatus: "pending" }).contradictions), /- GPA: the student has no GPA yet \(the reply said 3\.8\)/);
+  assert.match(buildFidelityFootnote(checkProfileFidelity("Your class rank in the top 5% is a strength.", {}).contradictions), /- Class rank: no class rank is recorded \(the reply said top 5%\)/);
+
+  const korean = buildFidelityFootnote(found, "ko-KR");
+  assert.match(korean, /^\n\n_저장된 프로필 기준 정정/);
+  assert.match(korean, /- Health: 기록된 성적 P \(P\/F 과목\) \(답변에서는 A\)/);
+  assert.match(korean, /- Art: 기록된 성적이 없습니다 \(답변에서는 A\)/);
+  assert.match(korean, /- AP Calculus BC: 수강 중이며 아직 최종 성적이 없습니다 \(답변에서는 A\)/);
+  const koreanScores = buildFidelityFootnote(checkProfileFidelity("Your 3.9 GPA and your SAT of 1500 help. You got a 3 on AP Statistics. You are ranked in the top 1% of your class.", { ...profile, classRank: { rank: 12, size: 400 } }).contradictions, "ko");
+  assert.match(koreanScores, /- GPA: 기록된 값 비가중 3\.82 \/ 가중 4\.31 \(답변에서는 3\.9\)/);
+  assert.match(koreanScores, /- SAT: 기록된 점수 1450 \(답변에서는 1500\)/);
+  assert.match(koreanScores, /- AP Statistics 시험: 기록된 점수 4 \(답변에서는 3\)/);
+  assert.match(koreanScores, /- 학급 석차: 기록된 값 상위 3% \(400명 중 12등\) \(답변에서는 top 1%\)/);
+  // Every body line under the Korean heading is Korean.
+  for (const line of koreanScores.split("\n").filter((l) => l.startsWith("- "))) assert.match(line, /[가-힣]/, line);
+  // The retry message to the model stays English.
+  assert.match(buildFidelityCorrection(found), /- Health: recorded P \(pass\/fail\) \(the reply said A\)/);
+});
+
+// "GPA: null" and "SAT ?" reached the model when a value was missing.
+test("the profile block never hands the model a bare null", () => {
+  const block = formatProfileForModel({
+    gpa: { unweighted: null, weighted: null },
+    gpaStatus: "pending",
+    testScores: [{ test: "sat", totalScore: null }],
+    apScores: [{ exam: "Biology", score: null, year: null }],
+    courses: [{ name: "Health", type: null, grade: null, year: null }],
+    activities: [{ name: "Robotics", role: null, category: "null", description: undefined }],
+    majorInterest: null,
+    goals: [null, "null"],
+  });
+  assert.match(block, /GPA: none yet \(the student says they don't have a GPA yet/);
+  assert.match(block, /Test scores: SAT \(total not recorded\)/);
+  assert.match(block, /AP exam scores: AP Biology: score not recorded\n/);
+  assert.match(block, /  - Health — regular — grade not recorded/);
+  assert.match(block, /^  - Robotics$/m);
+  assert.doesNotMatch(block, /null|undefined|\?/);
+  assert.match(formatProfileForModel({ gpaUnweighted: "", gpaWeighted: "4.1" }), /GPA: 4\.1 weighted/);
+  assert.match(formatProfileForModel({ testScores: [], testingStatus: "planned" }), /Test scores: none yet \(the student hasn't taken a test yet\)/);
+  assert.match(formatProfileForModel({}), /GPA: not recorded\nTest scores: none recorded/);
+});
+
+// Students type "nyu" and "ucla", and Korean students "스탠퍼드": every
+// short code matched only in capitals and no Hangul name matched at all, so
+// those questions got no VERIFIED DATA block and no College Fit read.
+test("school codes match in any case, Hangul names resolve, and the collision-prone codes stay capitals-only", () => {
+  for (const [text, want] of [
+    ["is nyu a good fit for me?", ["New York University"]],
+    ["what's ucla's acceptance rate", ["University of California-Los Angeles"]],
+    ["usc vs ucla for cs", ["University of Southern California", "University of California-Los Angeles"]],
+    ["Is mit test required?", ["Massachusetts Institute of Technology"]],
+    ["Nyu or Cmu?", ["New York University", "Carnegie Mellon University"]],
+    ["스탠퍼드 합격률이 어떻게 돼?", ["Stanford University"]],
+    ["스탠포드랑 하버드 얼리 마감일 알려줘", ["Stanford University", "Harvard University"]],
+    ["뉴욕대와 미시간대, 미시간 주립대를 비교해줘", ["New York University", "University of Michigan-Ann Arbor", "Michigan State University"]],
+    ["카네기멜런 CS는 어때?", ["Carnegie Mellon University"]],
+    ["Is Penn State a safety?", ["Pennsylvania State University-Main Campus"]],
+    ["because bc i said so", []],
+    ["uf", []],
+    ["bu", []],
+    ["uw is far", []],
+    ["AP Calculus BC grade", []],
+    ["버클리 음대 실기", []],
+    ["브리티시 컬럼비아 대학", []],
+    ["브라운 색 가방", []],
+  ]) assert.deepEqual(detectSchoolMentions(text), want, text);
+});
+
+// A named school with nothing held used to leave the block silent, and the
+// model answered from memory.
+test("a named school with nothing held gets a line that says so", () => {
+  const only = formatVerifiedDataBlock({ unheld: ["Rice University"] });
+  assert.match(only, /^VERIFIED DATA \(the ONLY statistics you may cite/);
+  assert.match(only, /\n- Rice University: no verified data held — say you don't have verified figures for this school, point the student to its Common Data Set or the College Scorecard \(collegescorecard\.ed\.gov\), and never quote a statistic for it from memory$/);
+  const mixed = formatVerifiedDataBlock({
+    schools: [{ name: "Elm College", baseline: null, cds: null, policyLine: "Admissions policy (official site, checked 2026-09-03): application fee none [Source: https://elm.edu/apply]" }],
+    unheld: ["Elm College", "Oak University", "oak university", ""],
+  });
+  assert.match(mixed, /- Elm College: Admissions policy/);
+  assert.doesNotMatch(mixed, /Elm College: no verified data held/);
+  assert.equal(mixed.match(/no verified data held/g).length, 1);
+  // The old contract holds: no data and no unheld names is no block.
+  assert.equal(formatVerifiedDataBlock({ schools: [{ name: "X", baseline: null, cds: null }] }), "");
+
+  assert.deepEqual(unresolvedSchoolNames("What is Elm Valley College's acceptance rate? And Stanford?"), ["Elm Valley College"]);
+  assert.deepEqual(unresolvedSchoolNames("Which College should I pick, Boston College or the University of Nowhere?", { knownNames: ["Boston College"] }), ["University of Nowhere"]);
+  assert.deepEqual(unresolvedSchoolNames("Is a Liberal Arts College right for me, or Carnegie Mellon University?", { knownNames: ["Carnegie Mellon University"] }), []);
 });

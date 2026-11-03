@@ -123,6 +123,15 @@ export function apExamAliases(name) {
   return [...new Set(names.filter((n) => n.length >= 3))];
 }
 
+// The names that can only mean the AP exam: those that carry "AP" or are
+// glued to it ("APUSH"). The chat's profile check listens for these when
+// the record holds no score for the exam, so a 5 stated for "AP Calculus
+// BC" still in progress is caught, while a bare "Biology" or "Statistics"
+// (a course, a unit test) is never read as an AP exam the student took.
+export function apExamOnlyAliases(name) {
+  return apExamAliases(name).filter((alias) => /^AP(?:\s|[A-Z])/.test(alias));
+}
+
 // The first year an exam had scores, when it is newer than the rest.
 export function apFirstExamYear(name) {
   return lookup(name)?.firstExamYear ?? null;

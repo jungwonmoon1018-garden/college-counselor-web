@@ -3,7 +3,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { AP_EXAMS, apExamAliases, apExamKey, apFirstExamYear, apNameWords, isGluedApName } from "../academics/ap-exams.js";
+import { AP_EXAMS, apExamAliases, apExamKey, apExamOnlyAliases, apFirstExamYear, apNameWords, isGluedApName } from "../academics/ap-exams.js";
 import { readFrontendSources } from "./helpers/frontend-source.mjs";
 
 test("every name in the AP catalog means one exam", () => {
@@ -62,6 +62,23 @@ test("the chat's profile check hears every name for an exam, and the newest exam
   assert.equal(apFirstExamYear("Cybersecurity"), 2027);
   assert.equal(apFirstExamYear("Business with Personal Finance"), 2027);
   assert.equal(apFirstExamYear("Biology"), null);
+});
+
+// For an exam with no recorded score the profile check listens only for the
+// names that can only mean the exam, so a bare "Biology" (a course, a unit
+// test) is never read as an AP score the student claims (2026-11-03).
+test("the names that can only mean the AP exam carry AP or are glued to it", () => {
+  assert.deepEqual(apExamOnlyAliases("Biology"), ["AP Biology", "AP Bio"]);
+  const history = apExamOnlyAliases("US History");
+  assert.ok(history.includes("AP US History") && history.includes("APUSH"));
+  assert.ok(!history.includes("US History") && !history.includes("United States History"));
+  assert.ok(apExamOnlyAliases("Calculus BC").includes("AP Calc BC"));
+  assert.ok(!apExamOnlyAliases("Calculus BC").includes("Calc BC"));
+  for (const exam of AP_EXAMS) {
+    const names = apExamOnlyAliases(exam.name);
+    assert.ok(names.length, `${exam.name} has no AP-only name`);
+    for (const name of names) assert.match(name, /^AP/, name);
+  }
 });
 
 // The app's picker stores these names, and its entry check knows the same

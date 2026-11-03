@@ -164,6 +164,20 @@ const KO_REQUIRED_KEYS = [
   // fetch-context.js — previously had only stdout/stderr English, now localized.
   "fetch.usage", "fetch.narrative_flag", "fetch.focus_flag", "fetch.locale_flag",
   "fetch.err.no_token", "fetch.err.http", "fetch.err.auth_expired", "fetch.err.unexpected",
+  // The chat's profile-fidelity footnote: its lines were English under the
+  // Korean heading until 2026-11-03.
+  "fidelity.heading", "fidelity.grade", "fidelity.grades", "fidelity.grade_other",
+  "fidelity.grade_in_progress", "fidelity.grade_none", "fidelity.course_not_on_record",
+  "fidelity.gpa", "fidelity.gpa_none", "fidelity.gpa_pending",
+  "fidelity.score", "fidelity.score_none", "fidelity.score_total_only",
+  "fidelity.ap_score", "fidelity.ap_none", "fidelity.ap_in_progress",
+  "fidelity.class_rank", "fidelity.class_rank_none",
+  "fidelity.item.ap_exam", "fidelity.item.section",
+  "fidelity.note.in_progress", "fidelity.note.no_grade", "fidelity.note.pass_fail",
+  "fidelity.note.unweighted", "fidelity.note.weighted", "fidelity.note.times", "fidelity.note.superscore",
+  "fidelity.note.fall", "fidelity.note.spring",
+  "fidelity.note.freshman", "fidelity.note.sophomore", "fidelity.note.junior", "fidelity.note.senior",
+  "fidelity.rank.top", "fidelity.rank.of", "fidelity.rank.rank",
 ];
 
 const HANGUL = /[\uac00-\ud7af\u1100-\u11ff\u3130-\u318f]/;
