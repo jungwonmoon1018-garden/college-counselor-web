@@ -41,10 +41,20 @@ async function req(method, urlPath, body = null, headers = {}) {
   return { status: res.status, data };
 }
 
+// A request straight to the sidecar, as the server makes it.
+async function sim(method, urlPath, { token = "endpoint-sim-token" } = {}) {
+  const headers = token ? { "x-simulation-internal-token": token } : {};
+  const res = await fetch(`${SIM_BASE}${urlPath}`, { method, headers });
+  const data = await res.json().catch(() => null);
+  return { status: res.status, data };
+}
+
+let serverOutput = "";
+
 async function withServers(fn) {
   clean();
   let sidecarOutput = "";
-  let serverOutput = "";
+  serverOutput = "";
   const sidecar = spawn(process.execPath, ["simulation-sidecar.js"], {
     cwd: PROJECT_ROOT,
     env: {
@@ -150,5 +160,63 @@ test("simulation proxy creates temporary vectors without changing actual profile
     const deleted = await req("DELETE", `/api/simulations/${created.data.simulationId}`, null, { Authorization: `Bearer ${token}` });
     assert.equal(deleted.status, 200);
     assert.equal(deleted.data.deleted, true);
+  });
+});
+
+// Account erasure asks the sidecar to drop the student's scenarios at
+// DELETE /students/:id. Erasure called that route before the sidecar had it,
+// so every erasure got a 404, logged a warning and left each scenario's base
+// profile (the minor's whole profile and narrative) in the sidecar's
+// databases until the TTL; the erasure unit test's stub always succeeded and
+// could not see it. This runs the real erasure against the real sidecar.
+test("deleting an account drops the student's scenarios from the sidecar, and only theirs", async () => {
+  await withServers(async () => {
+    const students = {};
+    for (const label of ["erased", "kept"]) {
+      const register = await req("POST", "/api/students/register", {
+        email: `sim-erasure-${label}@example.com`,
+        majorInterest: "Computer Science",
+        grade: "11",
+        password: "simulation erasure test password",
+      });
+      assert.equal(register.status, 201);
+      const auth = { Authorization: `Bearer ${register.data.token}` };
+      const sync = await req("POST", "/api/students/sync", {
+        profile: { gpa: { unweighted: 3.7 }, courses: [], testScores: [] },
+        activities: [{ name: "Harbor Tide Tutors", role: "Founder", description: "Tutors kids at the harbor." }],
+        goals: [],
+        majorInterest: "Computer Science",
+      }, auth);
+      assert.equal(sync.status, 200);
+      const simulationIds = [];
+      for (const unweighted of [3.8, 3.9]) {
+        const created = await req("POST", "/api/simulations", { profilePatch: { gpa: { unweighted } } }, auth);
+        assert.equal(created.status, 201);
+        simulationIds.push(created.data.simulationId);
+      }
+      students[label] = { auth, studentId: register.data.studentId, simulationIds };
+    }
+    const scenario = (student, id) => sim("GET", `/simulations/${id}?studentId=${encodeURIComponent(student.studentId)}`);
+    for (const student of Object.values(students)) {
+      for (const id of student.simulationIds) assert.equal((await scenario(student, id)).status, 200);
+    }
+
+    // The route answers only the server.
+    const unauthenticated = await sim("DELETE", `/students/${encodeURIComponent(students.kept.studentId)}`, { token: null });
+    assert.equal(unauthenticated.status, 401);
+    assert.equal((await scenario(students.kept, students.kept.simulationIds[0])).status, 200);
+
+    const erased = await req("DELETE", "/api/students", null, students.erased.auth);
+    assert.equal(erased.status, 200);
+    for (const id of students.erased.simulationIds) assert.equal((await scenario(students.erased, id)).status, 404);
+    for (const id of students.kept.simulationIds) assert.equal((await scenario(students.kept, id)).status, 200);
+    assert.doesNotMatch(serverOutput, /\[ERASURE\] simulation sidecar delete failed/);
+
+    // Called directly, it says what it removed, and a second call finds nothing.
+    const direct = await sim("DELETE", `/students/${encodeURIComponent(students.kept.studentId)}`);
+    assert.equal(direct.status, 200);
+    assert.equal(direct.data.profiles, 2);
+    assert.ok(direct.data.vectors >= 2, JSON.stringify(direct.data));
+    assert.deepEqual((await sim("DELETE", `/students/${encodeURIComponent(students.kept.studentId)}`)).data, { profiles: 0, vectors: 0 });
   });
 });

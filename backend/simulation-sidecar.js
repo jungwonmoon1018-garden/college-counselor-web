@@ -7,6 +7,7 @@ import {
   createSimulation,
   getSimulation,
   deleteSimulation,
+  deleteStudentSimulations,
   cleanupExpiredSimulations,
 } from "./simulation/simulation-engine.js";
 
@@ -74,6 +75,18 @@ app.delete("/simulations/:id", requireInternalToken, (req, res) => {
     res.json(deleteSimulation(store, req.query.studentId, req.params.id));
   } catch (err) {
     res.status(500).json({ error: err.message || "Simulation deletion failed" });
+  }
+});
+
+// Account erasure (server/student-data.js eraseStudent, its follow-up sweep
+// and the daily tombstone sweep) drops every scenario of the student here.
+// Erasure called this route before it existed, so each erasure got a 404 and
+// the minor's whole profile and narrative stayed until the TTL.
+app.delete("/students/:id", requireInternalToken, (req, res) => {
+  try {
+    res.json(deleteStudentSimulations(store, req.params.id));
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message || "Student simulation deletion failed" });
   }
 });
 

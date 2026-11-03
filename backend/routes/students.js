@@ -21,6 +21,7 @@ import { resolveLocale, t } from "../shared/i18n.js";
 import { addCalendarDays, anywhereOnEarthToday, calendarDateOf, dueValueMs, normalizeDueValue, referenceToday } from "../shared/calendar-date.js";
 import { cycleOfDate } from "../shared/admissions-cycle.js";
 import { DEADLINE_CATEGORIES, DEADLINE_TITLE_MAX, deadlineDateOutside } from "../shared/deadline-rules.js";
+import { collectFitVerifyRows } from "../server/student-data.js";
 
 // A deadline's name and date are held to the same rules on create, bulk
 // create and edit; the rules and their reasons live in
@@ -594,6 +595,11 @@ export function registerStudentsRoutes(app, deps) {
       if (deps.db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='evidence_items'").get()) {
         operational.evidence_items = deps.db.prepare("SELECT * FROM evidence_items WHERE entity_type = 'student' AND entity_id = ?").all(sid);
       }
+      // The College Fit double-check rows (the student's fit label and score
+      // per school and snapshot) sit in the shared research cache, keyed by
+      // "fitverify:<student id>:", with no student_id column; erasure deletes
+      // them, and the export left them out.
+      operational.college_research_cache = collectFitVerifyRows(deps.db, sid);
       const piiProfile = retrieveStudentPII(deps.piiStmts, deps.piiVault, sid);
       const consents = deps.piiVault.db.prepare("SELECT * FROM consent_records WHERE student_id = ? ORDER BY created_at").all(sid);
       const documents = deps.piiVault.db.prepare(`SELECT id, doc_type, doc_classification, content_hash,

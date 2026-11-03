@@ -17,8 +17,23 @@ import { initVectorStore } from "../storage/vector-store.js";
 import { configureChatEncryption } from "../chat/chat-history.js";
 import { initCollegeResearch } from "../colleges/college-research.js";
 import { bindStudentData, eraseStudent, erasureIdHash, purgeStudentAudit, sweepErasedStudents } from "../server/student-data.js";
+import { callHaikuForNarrativeFit, computeCacheKey, hashText, initNarrativeFitCacheTable, prepareNarrativeFitCacheStatements } from "../activities/narrative-fit-llm.js";
 
 configureChatEncryption("ef".repeat(32));
+
+// The small model's narrative-fit reply, for the narrative-fit cache.
+async function narrativeFitReply() {
+  return {
+    ok: true,
+    status: 200,
+    headers: new Headers(),
+    json: async () => ({
+      model: "test/small",
+      choices: [{ message: { content: JSON.stringify({ score: 0.7, reason: "The tutoring fits the harbor story." }) } }],
+      usage: { prompt_tokens: 10, completion_tokens: 5 },
+    }),
+  };
+}
 
 function setup() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cc-erasure-"));
@@ -32,7 +47,10 @@ function setup() {
   const piiVault = initPIIVault(dir, "ef".repeat(32), "test");
   const vectorStore = initVectorStore(dir, "test");
   // The simulation sidecar's databases are its own; erasure asks it to drop
-  // the student's scenarios.
+  // the student's scenarios. This stub records the call and always succeeds,
+  // so it cannot tell whether the sidecar serves that route: the route test
+  // in simulations-endpoint.test.js runs the real erasure against the real
+  // sidecar for that (the route was missing once and every erasure 404'd).
   const sidecarCalls = [];
   const callSimulationSidecar = async (pathname, options = {}) => {
     sidecarCalls.push(`${options.method || "GET"} ${pathname}`);
@@ -49,13 +67,14 @@ function setup() {
   return { ...deps, dir, stmts: prepareRAGStatements(db), piiStmts: preparePIIStatements(piiVault), close };
 }
 
-function seedStudent(ctx, label, activity = "Peer Line") {
+function seedStudent(ctx, label, activities = "Peer Line") {
   const studentId = crypto.randomUUID();
   const emailHash = crypto.createHash("sha256").update(`email_salt_cc:${label}@example.test`).digest("hex");
   ctx.authStore.createStudentCredential(studentId, emailHash, "correct horse battery staple", { grade: 11 });
   ctx.authStore.issueStudentSession(emailHash, studentId);
   storeStudentPII(ctx.piiStmts, ctx.piiVault, studentId, { name: label, email: `${label}@example.test` });
-  syncStudentData(ctx.stmts, studentId, { gpa: { unweighted: 3.62 }, courses: [], testScores: [] }, [{ name: activity, role: "Founder" }], [], "Biology");
+  const ecs = [activities].flat().map((name) => ({ name, role: "Founder" }));
+  syncStudentData(ctx.stmts, studentId, { gpa: { unweighted: 3.62 }, courses: [], testScores: [] }, ecs, [], "Biology");
   const audit = ctx.db.prepare("INSERT INTO audit_events (id, timestamp, type, user_hint, details, ip_hash) VALUES (?, ?, ?, ?, ?, ?)");
   // What the sync route wrote before 2026-11-03: content, under the email hash.
   audit.run(crypto.randomUUID(), new Date().toISOString(), "profile_ec_added", emailHash.slice(0, 12), "New activity: Peer Line (Founder)", "iphash");
@@ -144,14 +163,17 @@ test("a write that lands after the delete is swept, and a live account never is"
 // row per profile snapshot, with the student's fit label and score for that
 // school) and nothing ever removed it. A notification names its recipient
 // by the full email hash. The EC caches are shared by content and keyed by
-// the student's own activity names and narrative hashes; the narrative-fit
-// rows hold a model-written reason about the student's narrative. The
-// simulation sidecar keeps a scenario's base profile (the minor's whole
-// profile and narrative) in databases of its own.
-test("erasure removes the rows keyed by the student's id, email hash, activity names and narrative", async () => {
+// activity names and narrative hashes: the narrative-fit rows hold a
+// model-written reason about the student's narrative, and a name only this
+// student ever used (it can carry their own name) is theirs. A name another
+// student also has ("Robotics Club") is a shared cache: erasing it would
+// only cost that student a recompute, so its rows stay. The simulation
+// sidecar keeps a scenario's base profile (the minor's whole profile and
+// narrative) in databases of its own.
+test("erasure removes the rows keyed by the student's id, email hash, own activity names and narrative", async () => {
   const ctx = setup();
   try {
-    const gone = seedStudent(ctx, "keyed", "Harbor Tide Tutors");
+    const gone = seedStudent(ctx, "keyed", ["Harbor Tide Tutors", "Robotics Club"]);
     const kept = seedStudent(ctx, "neighbor", "Robotics Club");
     await new Promise((resolve) => setTimeout(resolve, 50));
     const cache = ctx.db.prepare("INSERT INTO college_research_cache (cache_key, kind, slug, display_name, payload_json, fetched_at) VALUES (?, ?, ?, ?, ?, '2026-11-03T00:00:00.000Z')");
@@ -167,14 +189,26 @@ test("erasure removes the rows keyed by the student's id, email hash, activity n
     // A narrative-fit read of an activity the student has since removed:
     // only the narrative hash leads back to them.
     component.run("k-narrative", "narrative_fit", JSON.stringify({ reason: "The harbor tutoring carries the story." }), JSON.stringify({ ecName: "Old Club", ecHash: "e", narrativeHash: "narrative-hash-gone", themesHash: "t" }));
+    // The narrative leads back to the student whatever the activity is called.
+    component.run("k-narrative-shared", "narrative_fit", JSON.stringify({ reason: "Robotics builds on the harbor story." }), JSON.stringify({ ecName: "Robotics Club", ecHash: "e", narrativeHash: "narrative-hash-gone", themesHash: "t" }));
     ctx.db.prepare("INSERT INTO ec_prestige_cache (cache_key, activity_name, score, rationale, source, created_at) VALUES ('p-gone', 'Harbor Tide Tutors', 0.2, 'r', 'catalog', datetime('now')), ('p-kept', 'Robotics Club', 0.4, 'r', 'catalog', datetime('now'))").run();
-    // The narrative-fit model cache, once its rows record the narrative's
-    // hash beside the hashed key.
-    ctx.db.exec("ALTER TABLE narrative_fit_cache ADD COLUMN narrative_hash TEXT");
-    ctx.db.prepare("INSERT INTO narrative_fit_cache (cache_key, score, reason, narrative_hash) VALUES ('nf-gone', 0.7, 'The tutoring fits the harbor story.', 'narrative-hash-gone'), ('nf-other', 0.3, 'x', 'narrative-hash-other')").run();
+    // The narrative-fit model cache, written the way the vectorizer writes
+    // it: its key is a hash of the narrative's hash and the activity text's,
+    // so only the narrative hash it records beside the key leads back.
+    const ecText = "Tutors kids at the harbor every weekend.";
+    for (const narrativeHash of ["narrative-hash-gone", "narrative-hash-other"]) {
+      const fit = await callHaikuForNarrativeFit({
+        narrative: "I tutor kids at the harbor.", ecText, narrativeHash, ecTextHash: hashText(ecText),
+        stmts: ctx.stmts.narrativeFitCache, options: { apiKey: "sk-or-test", fetchImpl: narrativeFitReply },
+      });
+      assert.equal(fit?.cached, false, "the model's reply was cached");
+    }
+    assert.equal(ctx.db.prepare("SELECT COUNT(*) AS n FROM narrative_fit_cache").get().n, 2);
     const componentRows = (name) => ctx.db.prepare("SELECT COUNT(*) AS n FROM ec_component_cache WHERE input_sig LIKE ?").get(`%${name}%`).n;
     assert.ok(componentRows("Harbor Tide Tutors") > 0, "the sync's strength read cached the activity");
-    assert.ok(componentRows("Robotics Club") > 0);
+    const sharedNameRows = () => ctx.db.prepare("SELECT cache_key FROM ec_component_cache WHERE input_sig LIKE '%Robotics Club%' AND input_sig NOT LIKE '%narrative-hash-gone%' ORDER BY cache_key").all();
+    const sharedRows = sharedNameRows();
+    assert.ok(sharedRows.length > 0);
 
     await eraseStudent(gone);
 
@@ -187,14 +221,35 @@ test("erasure removes the rows keyed by the student's id, email hash, activity n
     assert.equal(componentRows("Harbor Tide Tutors"), 0);
     assert.equal(componentRows("narrative-hash-gone"), 0);
     assert.equal(ctx.db.prepare("SELECT COUNT(*) AS n FROM ec_prestige_cache WHERE activity_name = 'Harbor Tide Tutors'").get().n, 0);
-    assert.deepEqual(ctx.db.prepare("SELECT cache_key FROM narrative_fit_cache").all().map((row) => row.cache_key), ["nf-other"]);
-    // The other student's cached reads stay.
-    assert.ok(componentRows("Robotics Club") > 0);
+    assert.deepEqual(ctx.db.prepare("SELECT cache_key FROM narrative_fit_cache").all().map((row) => row.cache_key), [computeCacheKey("narrative-hash-other", hashText(ecText))]);
+    // The reads of an activity name another student also has stay, all of
+    // them: they are that student's cache too.
+    assert.deepEqual(sharedNameRows(), sharedRows);
     assert.equal(ctx.db.prepare("SELECT COUNT(*) AS n FROM ec_prestige_cache WHERE activity_name = 'Robotics Club'").get().n, 1);
     assert.deepEqual(ctx.sidecarCalls, [`DELETE /students/${encodeURIComponent(gone.studentId)}`]);
   } finally {
     await ctx.close();
   }
+});
+
+// The narrative-fit cache gains the column in place on a database from
+// before it. The rows already there record no narrative, so erasure could
+// never find them; they are a cache, dropped once at the migration, and a
+// later boot leaves the rows written since alone.
+test("the narrative-fit cache gains its narrative_hash column in place, once", () => {
+  const db = new Database(":memory:");
+  db.exec("CREATE TABLE narrative_fit_cache (cache_key TEXT PRIMARY KEY, score REAL NOT NULL, reason TEXT, model TEXT, created_at TEXT DEFAULT (datetime('now')))");
+  db.prepare("INSERT INTO narrative_fit_cache (cache_key, score, reason) VALUES ('legacy', 0.5, 'Fits the story of someone erased long ago.')").run();
+  initNarrativeFitCacheTable(db);
+  const columns = db.prepare("PRAGMA table_info(narrative_fit_cache)").all().map((column) => column.name);
+  assert.ok(columns.includes("narrative_hash"));
+  assert.ok(columns.includes("provider"));
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM narrative_fit_cache").get().n, 0);
+
+  prepareNarrativeFitCacheStatements(db).put.run("fresh", 0.6, "reason", "test/small", "openrouter", "narrative-hash-1");
+  initNarrativeFitCacheTable(db);
+  assert.deepEqual(db.prepare("SELECT cache_key, narrative_hash FROM narrative_fit_cache").all(), [{ cache_key: "fresh", narrative_hash: "narrative-hash-1" }]);
+  db.close();
 });
 
 // The daily sweep finds an erased id in a fitverify key too: a double-check

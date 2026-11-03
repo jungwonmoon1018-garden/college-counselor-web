@@ -49,15 +49,23 @@ function fitVerifyKeyPrefix(studentId) {
   return `${FIT_VERIFY_PREFIX}${studentId}:`;
 }
 
+// The student's College Fit double-check rows, for the data export: the
+// same exact prefix erasure deletes by, so the export hands over what
+// erasure removes and nothing of a student whose id only starts with this
+// one.
+export function collectFitVerifyRows(database, studentId) {
+  if (!studentId || !tableExists(database, "college_research_cache")) return [];
+  const prefix = fitVerifyKeyPrefix(studentId);
+  return database.prepare("SELECT * FROM college_research_cache WHERE kind = 'fitverify' AND substr(cache_key, 1, length(?)) = ? ORDER BY cache_key").all(prefix, prefix);
+}
+
 // The student's own activity names and narrative hashes. The EC caches
 // (ec_component_cache, ec_prestige_cache) are shared by content and carry
 // no student_id: their rows are keyed by the activity name the student typed
 // and, for the narrative-fit factor, by the narrative's hash, and that row
 // holds a model-written reason about the student's narrative. The names come
 // from every stored snapshot as well as the current reads, so an activity
-// the student removed earlier is found too. A row another student's
-// identical activity name shares goes with them; it is a cache and is
-// recomputed on the next read.
+// the student removed earlier is found too.
 function studentCacheKeys(database, studentId, names) {
   const ecNames = new Set();
   const add = (value) => {
@@ -85,13 +93,35 @@ function studentCacheKeys(database, studentId, names) {
   return { ecNames: [...ecNames], narrativeHashes };
 }
 
+// The names no other student has, now or in any stored snapshot. A row
+// keyed by a name only this student used is theirs (a name can carry the
+// student's own name or their school's); a name another student also has
+// ("Varsity Soccer") keys a shared cache that holds nothing of this
+// student's, and deleting it by name only cost every other student with
+// that activity a recompute. The snapshot probe matches the quoted name
+// anywhere in another student's activities, so it errs toward keeping.
+function namesOnlyThisStudentHas(database, studentId, names, ecNames) {
+  const probes = [];
+  for (const table of ["ec_strength_vectors", "ec_attachments"]) {
+    if (!names.has(table)) continue;
+    const probe = database.prepare(`SELECT 1 FROM ${quoteSqlIdentifier(table)} WHERE ec_name = ? AND student_id <> ? LIMIT 1`);
+    probes.push((name) => probe.get(name, studentId));
+  }
+  if (names.has("profile_snapshots")) {
+    const probe = database.prepare("SELECT 1 FROM profile_snapshots WHERE student_id <> ? AND instr(activities_json, ?) > 0 LIMIT 1");
+    probes.push((name) => probe.get(studentId, JSON.stringify(name)));
+  }
+  return ecNames.filter((name) => !probes.some((probe) => probe(name)));
+}
+
 function deleteStudentCacheRows(database, studentId, names) {
   if (names.has("college_research_cache")) {
     const prefix = fitVerifyKeyPrefix(studentId);
     database.prepare("DELETE FROM college_research_cache WHERE kind = 'fitverify' AND substr(cache_key, 1, length(?)) = ?").run(prefix, prefix);
   }
   if (!["ec_component_cache", "ec_prestige_cache", "narrative_fit_cache"].some((table) => names.has(table))) return;
-  const { ecNames, narrativeHashes } = studentCacheKeys(database, studentId, names);
+  const { ecNames: allNames, narrativeHashes } = studentCacheKeys(database, studentId, names);
+  const ecNames = namesOnlyThisStudentHas(database, studentId, names, allNames);
   if (names.has("ec_component_cache")) {
     // input_sig is the JSON of the factor's inputs, its first key the
     // activity's name (activityName for prestige, ecName for the rest).

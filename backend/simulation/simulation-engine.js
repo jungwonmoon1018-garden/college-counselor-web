@@ -183,6 +183,7 @@ export function initSimulationStore(dataDir, options = {}) {
     );
     CREATE INDEX IF NOT EXISTS idx_sim_vectors_simulation ON simulated_vectors(simulation_id);
     CREATE INDEX IF NOT EXISTS idx_sim_vectors_expiry ON simulated_vectors(expires_at);
+    CREATE INDEX IF NOT EXISTS idx_sim_vectors_student ON simulated_vectors(student_id);
   `);
 
   // Expiry is compared as time (julianday), not text: expires_at is an ISO
@@ -193,6 +194,7 @@ export function initSimulationStore(dataDir, options = {}) {
     insert: profileDb.prepare(`INSERT INTO simulated_profiles (id, student_id, scenario_name, scenario_json, base_profile_json, simulated_profile_json, positioning_json, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`),
     get: profileDb.prepare(`SELECT * FROM simulated_profiles WHERE id = ? AND student_id = ? AND julianday(expires_at) > julianday('now')`),
     delete: profileDb.prepare(`DELETE FROM simulated_profiles WHERE id = ? AND student_id = ?`),
+    deleteByStudent: profileDb.prepare(`DELETE FROM simulated_profiles WHERE student_id = ?`),
     cleanup: profileDb.prepare(`DELETE FROM simulated_profiles WHERE COALESCE(julianday(expires_at) <= julianday('now'), 1)`),
     count: profileDb.prepare(`SELECT COUNT(*) AS count FROM simulated_profiles`),
   };
@@ -200,6 +202,7 @@ export function initSimulationStore(dataDir, options = {}) {
     insert: vectorDb.prepare(`INSERT INTO simulated_vectors (id, simulation_id, student_id, vector_type, vector_name, vector_json, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)`),
     list: vectorDb.prepare(`SELECT * FROM simulated_vectors WHERE simulation_id = ? AND student_id = ? AND julianday(expires_at) > julianday('now') ORDER BY vector_type, vector_name`),
     deleteBySimulation: vectorDb.prepare(`DELETE FROM simulated_vectors WHERE simulation_id = ? AND student_id = ?`),
+    deleteByStudent: vectorDb.prepare(`DELETE FROM simulated_vectors WHERE student_id = ?`),
     cleanup: vectorDb.prepare(`DELETE FROM simulated_vectors WHERE COALESCE(julianday(expires_at) <= julianday('now'), 1)`),
     count: vectorDb.prepare(`SELECT COUNT(*) AS count FROM simulated_vectors`),
   };
@@ -317,4 +320,17 @@ export function deleteSimulation(store, studentId, simulationId) {
   store.vectorStmts.deleteBySimulation.run(simulationId, studentId);
   const deleted = store.profileStmts.delete.run(simulationId, studentId).changes;
   return { deleted: deleted > 0 };
+}
+
+// Account erasure: every scenario of one student, expired or not. A
+// scenario's base_profile_json is the student's whole profile and narrative,
+// and the main server's deletes cannot reach these databases, so erasure
+// asks the sidecar (DELETE /students/:id) instead of leaving the rows to the
+// TTL. Vectors go first, as in deleteSimulation, so no vector outlives its
+// profile row if the second delete fails.
+export function deleteStudentSimulations(store, studentId) {
+  if (!studentId) throw Object.assign(new Error("studentId required"), { status: 400 });
+  const vectors = store.vectorStmts.deleteByStudent.run(String(studentId)).changes;
+  const profiles = store.profileStmts.deleteByStudent.run(String(studentId)).changes;
+  return { profiles, vectors };
 }
