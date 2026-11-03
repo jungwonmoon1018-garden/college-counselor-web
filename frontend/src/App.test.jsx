@@ -26,12 +26,15 @@ describe("App boot", () => {
 
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
+  // It renders in about 1.6 s alone; the first render of App in a worker
+  // queued behind 35 other files took 5.2 s on 2026-11-03, so it gets the
+  // whole-suite allowance like the other App renders.
   it("routes to the login screen on mount instead of hanging on the loading state", async () => {
     render(<App />);
 
-    expect(await screen.findByText("Welcome back")).toBeVisible();
+    expect(await screen.findByText("Welcome back", {}, { timeout: 15_000 })).toBeVisible();
     expect(screen.queryByText("Loading your vault...")).not.toBeInTheDocument();
-  });
+  }, 20_000);
 
   it("does not enumerate accounts on the device", async () => {
     // A shared machine must not disclose who has an account, and no plaintext

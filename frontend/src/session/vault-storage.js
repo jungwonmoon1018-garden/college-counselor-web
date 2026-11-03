@@ -78,9 +78,17 @@ export async function clearSession() {
 // the backend disclosing who has an account. `_verifier` marks a vault seeded
 // at signup that holds no data yet. Every write must go through
 // buildVaultBlob() so identity survives auto-save.
-export function buildVaultBlob(data, identity, { verifier = false } = {}) {
-  const blob = { ...data, _identity: identity };
+//
+// `_sync` is the sync base (profile/profile-reconcile.js): the server revision
+// the data was last in step with, the value of each synced field at that
+// point, and whether the device held unsent edits. Without it a login could
+// not tell a day-old copy from a fresh edit, and the old merge kept whichever
+// was non-empty.
+export function buildVaultBlob(data, identity, { verifier = false, sync } = {}) {
+  const { _sync: _ignored, ...rest } = data || {};
+  const blob = { ...rest, _identity: identity };
   if (verifier) blob._verifier = true;
+  if (sync) blob._sync = sync;
   return blob;
 }
 
@@ -90,6 +98,14 @@ export function readVaultIdentity(blob) {
 }
 
 export function readVaultData(blob) {
-  const { _identity, _verifier, ...data } = blob || {};
+  const { _identity, _verifier, _sync, ...data } = blob || {};
   return data;
+}
+
+// The vault's sync base, or null for a vault written before there was one.
+export function readVaultSync(blob) {
+  const sync = blob?._sync;
+  if (!sync || typeof sync !== "object") return null;
+  const snapshot = sync.snapshot && typeof sync.snapshot === "object" ? sync.snapshot : null;
+  return { serverRevision: sync.serverRevision ?? null, snapshot, dirty: sync.dirty === true };
 }

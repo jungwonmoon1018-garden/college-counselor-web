@@ -1,4 +1,5 @@
-// gpa.js — the range a GPA may take, for the survey and the profile editor.
+// gpa.js — the range a GPA may take, for the survey and the profile editor,
+// and the one test for whether a record holds a GPA at all.
 //
 // The survey checked only that a GPA was typed and the profile editor only
 // that it parsed as a number, so a missed decimal (39) or a 100-point
@@ -20,6 +21,32 @@ const isBlank = (value) => value == null || String(value).trim() === "";
 export function gpaNumber(value) {
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
   return NUMERIC_TEXT.test(String(value ?? "")) ? Number(value) : null;
+}
+
+// A GPA the record actually holds: an unweighted or a weighted number. The
+// profile route answers { unweighted: null, weighted: null } for a student
+// with no GPA, and every truthiness check (`profile.gpa ? …`) read that object
+// as a GPA, so the sidebar showed an empty GPA card and the profile quick
+// reply said "GPA: null".
+export function hasGpa(gpa) {
+  if (!gpa || typeof gpa !== "object") return false;
+  return gpaNumber(gpa.unweighted) != null || gpaNumber(gpa.weighted) != null;
+}
+
+// The GPA with each part read as a number, or null when neither part is one.
+// Other keys the object carries are kept.
+export function normalizeGpa(gpa) {
+  if (!hasGpa(gpa)) return null;
+  return { ...gpa, unweighted: gpaNumber(gpa.unweighted), weighted: gpaNumber(gpa.weighted) };
+}
+
+// The GPA as a student reads it. A part that is missing is said to be "not
+// entered" rather than printed as blank or as "null".
+export function formatGpa(gpa) {
+  const value = normalizeGpa(gpa);
+  if (!value) return "not entered";
+  if (value.unweighted == null) return `${value.weighted}w (unweighted not entered)`;
+  return value.weighted == null ? String(value.unweighted) : `${value.unweighted} / ${value.weighted}w`;
 }
 
 // Blank fields are not errors here (the survey asks for an unweighted GPA

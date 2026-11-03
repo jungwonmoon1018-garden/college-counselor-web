@@ -63,8 +63,8 @@ const GRADE_LABELS = { 9: "Freshman", 10: "Sophomore", 11: "Junior", 12: "Senior
 // The backend gates every AI operation on all three of these (see consent.js
 // getRequiredConsentsForOperation). Signup must grant all three; older builds
 // granted only the first two, so cross_border_transfer was missing and every
-// AI feature 403'd. grantOnboardingConsents is shared by signup, the login
-// heal, and the transcript-import retry.
+// AI feature 403'd. grantOnboardingConsents is shared by signup and the heal
+// below, which the login and the transcript-import retries go through.
 export const ONBOARDING_CONSENT_TYPES = ["data_processing", "ai_interaction", "cross_border_transfer"];
 
 export async function grantOnboardingConsents(types = ONBOARDING_CONSENT_TYPES) {
@@ -83,16 +83,26 @@ export async function grantOnboardingConsents(types = ONBOARDING_CONSENT_TYPES) 
 
 // Grant only the onboarding consents the backend reports as missing — used to
 // heal accounts created before signup recorded all three. Best-effort.
+//
+// A consent the student withdrew is missing too, and the heal used to grant
+// it straight back at the next sign-in or the next 403, so a withdrawal held
+// only until the student next touched the app. The server now lists withdrawn
+// types as `revoked`, and those are never granted here; an older server that
+// sends no list is read as having none. Returns the types it granted, so a
+// caller retries a refused request only when something changed.
 export async function healMissingConsents() {
   const token = window.__CC_SESSION_TOKEN__;
-  if (!token) return;
+  if (!token) return [];
   try {
     const r = await fetch("/api/consent/status", { headers: { Authorization: `Bearer ${token}` } });
-    if (!r.ok) return;
+    if (!r.ok) return [];
     const body = await r.json();
-    const missing = (body.missing || []).filter((type) => ONBOARDING_CONSENT_TYPES.includes(type));
-    if (missing.length) await grantOnboardingConsents(missing);
-  } catch { /* best-effort — the import retry covers the rest */ }
+    const revoked = new Set(Array.isArray(body.revoked) ? body.revoked : []);
+    const missing = (Array.isArray(body.missing) ? body.missing : [])
+      .filter((type) => ONBOARDING_CONSENT_TYPES.includes(type) && !revoked.has(type));
+    if (!missing.length) return [];
+    return (await grantOnboardingConsents(missing)) ? missing : [];
+  } catch { return []; /* best-effort — the caller shows the refusal */ }
 }
 
 // ─── Identity recovery from the backend ──────────────────────────────────

@@ -19,7 +19,7 @@ import { detectLocale, t as tt } from "./i18n.js";
 import "./profile/fit-refresh.js";
 import "./profile/dates.js";
 import { TEST_SCORE_LIMITS, validateTestEntry, blankTestForm, entryToForm, formToEntry } from "./profile/test-scores.js";
-import { validateGpa } from "./profile/gpa.js";
+import { hasGpa, validateGpa } from "./profile/gpa.js";
 import "./profile/strategy-council.js";
 import Sidebar from "./screens/Sidebar.jsx";
 import { GRADE_SCALE } from "./app-shared.js";
@@ -30,7 +30,8 @@ import LoginScreen from "./screens/LoginScreen.jsx";
 import { S, dots } from "./app-shared.js";
 import CreateAccountScreen from "./screens/CreateAccountScreen.jsx";
 import "./session/vault-storage.js";
-import { ONBOARDING_CONSENT_TYPES, grantOnboardingConsents } from "./session/server-session.js";
+import { healMissingConsents } from "./session/server-session.js";
+import { closeStudentSession } from "./session/end-session.js";
 import "./profile/profile-analysis.js";
 import { MAX_SCHOOL_FILE_SIZE_BYTES } from "./chat/chat-files.js";
 import { _tryReAuth } from "./chat/chat-client.js";
@@ -39,7 +40,7 @@ import "./chat/chat-orchestrator.js";
 import ChatScreen from "./screens/ChatScreen.jsx";
 import { send as sendImpl } from "./handlers/chat-send.js";
 import "./handlers/auth-handlers.js";
-import { handleSurveyComplete as handleSurveyCompleteImpl, hydrateSurveyFromCurrentData as hydrateSurveyFromCurrentDataImpl, reconcileWithBackendProfile as reconcileWithBackendProfileImpl, editECFromProfile as editECFromProfileImpl } from "./handlers/survey-handlers.js";
+import { handleSurveyComplete as handleSurveyCompleteImpl, hydrateSurveyFromCurrentData as hydrateSurveyFromCurrentDataImpl, reconcileWithBackendProfile as reconcileWithBackendProfileImpl, editECFromProfile as editECFromProfileImpl, UNPLACED_YEAR } from "./handlers/survey-handlers.js";
 import { createDeadlinesForSchool as createDeadlinesForSchoolImpl, conveneStrategyCouncil as conveneStrategyCouncilImpl } from "./handlers/school-handlers.js";
 import { useCreateAccountForm } from "./hooks/useCreateAccountForm.js";
 import { useSurveyForm } from "./hooks/useSurveyForm.js";
@@ -50,9 +51,13 @@ import { useSessionLifecycle } from "./hooks/useSessionLifecycle.js";
 import { useChatTools } from "./hooks/useChatTools.js";
 import { useAuthHandlers } from "./hooks/useAuthHandlers.js";
 import { useChatFiles } from "./hooks/useChatFiles.js";
+import { useSyncBase } from "./hooks/useSyncBase.js";
 
 
 const SURVEY_YEARS = ["freshman","sophomore","junior","senior"];
+
+// What the login screen says about the session that just ended.
+const SESSION_END_NOTICES = { expired: "Session expired due to inactivity. Please sign in again." };
 
 
 function getPassphraseStrength(passphrase) {
@@ -85,7 +90,24 @@ function formatUserFacingError(error) {
 }
 
 
+// The session boundary. Everything a signed-in student touches — the draft
+// and its attachments, the open thread, the College Fit card, the survey
+// answers, the login and create-account fields — is state inside
+// StudentApp, and ending a session (log out, the inactivity expiry, deleting
+// the account) remounts it with a new key, so the next person at a shared
+// school or family computer starts from empty state. The exits used to reset
+// their own hand-kept lists instead: B's composer showed A's typed question,
+// B's sidebar A's fit card and scores, a new account's survey A's GPA and
+// courses, and B's first message went to A's thread id.
 export default function App() {
+  const [session, setSession] = useState({ epoch: 0, endedBy: null });
+  const onSessionEnd = useCallback((reason) => {
+    setSession((s) => ({ epoch: s.epoch + 1, endedBy: reason || "logout" }));
+  }, []);
+  return <StudentApp key={session.epoch} endedBy={session.endedBy} onSessionEnd={onSessionEnd} />;
+}
+
+function StudentApp({ endedBy = null, onSessionEnd }) {
   const [screen, setScreen] = useState(S.LOADING);
 
   const {
@@ -110,7 +132,7 @@ export default function App() {
     setShowLoginPass, setStudentRecoveryBusy, setStudentRecoveryCode, setStudentRecoveryInput, setStudentRecoveryMessage, setStudentRecoveryOpen,
     setStudentRecoveryPassword, showLoginPass, studentRecoveryBusy, studentRecoveryCode, studentRecoveryInput, studentRecoveryMessage,
     studentRecoveryOpen, studentRecoveryPassword,
-  } = useLoginForm();
+  } = useLoginForm({ initialError: SESSION_END_NOTICES[endedBy] || "" });
 
   // Chat state
   const [user, setUser] = useState(null); // { name, email, grade }
@@ -120,6 +142,9 @@ export default function App() {
   // available. This avoids storing GPA, activities, and family contact data as
   // plaintext in localStorage.
   const [data, setData] = useState({ profile:null, activities:[], studyNotes:[], documents:[] });
+  // The profile's sync base and whether this session has joined its data
+  // with the server's (profile/profile-reconcile.js).
+  const { getSyncBase, profileReady, setProfileReady, setSyncBase, syncBase, syncInFlightRef } = useSyncBase();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -165,10 +190,20 @@ export default function App() {
   // it's actually safe in the DB, just unreachable without a token.
   //   1. If no token, re-auth before the request.
   //   2. On 401, re-auth ONCE and retry.
+  // Every request also carries this session's abort signal, so ending the
+  // session stops what is still in flight instead of letting it land in the
+  // next student's screen.
+  const sessionAbortRef = useRef(null);
+  if (!sessionAbortRef.current) sessionAbortRef.current = new AbortController();
   const authedFetch = useCallback(async (path, opts = {}) => {
     const proxyUrl = window.__CC_PROXY_URL__ || "/api/chat";
+    const sessionSignal = sessionAbortRef.current.signal;
+    const signal = opts.signal && typeof AbortSignal.any === "function"
+      ? AbortSignal.any([opts.signal, sessionSignal])
+      : (opts.signal || sessionSignal);
     const doFetch = (tok) => fetch(path, {
       ...opts,
+      signal,
       headers: {
         ...(opts.headers || {}),
         ...(tok ? { Authorization: `Bearer ${tok}` } : {}),
@@ -241,15 +276,16 @@ export default function App() {
     });
     let r = await post();
     let body = await r.json().catch(() => ({}));
-    if (r.status === 403 && body.code === "consent_required") {
-      const missing = (Array.isArray(body.missing) ? body.missing : []).filter((type) => ONBOARDING_CONSENT_TYPES.includes(type));
-      await grantOnboardingConsents(missing.length ? missing : undefined);
+    // An account from an older signup build may lack a consent row; the heal
+    // grants only what was never recorded, never one the student withdrew,
+    // and the import is retried only when something was granted.
+    if (r.status === 403 && body.code === "consent_required" && (await healMissingConsents()).length) {
       r = await post();
       body = await r.json().catch(() => ({}));
     }
     if (!r.ok) throw new Error(body.error || `Import failed (HTTP ${r.status})`);
     return body;
-  }, [authedFetch, grantOnboardingConsents]);
+  }, [authedFetch]);
   const importParsedTranscript = useCallback((parsed) => {
     let outcome = { added: 0, skipped: 0, unplaced: 0 };
     setData(prev => {
@@ -257,7 +293,7 @@ export default function App() {
       const merged = mergeImportedCourses(profile.courses || [], parsed?.courses || {}, { fallbackYear: currentYearKey(user?.grade) });
       outcome = { added: merged.added, skipped: merged.skipped, unplaced: merged.unplaced };
       profile.courses = merged.courses;
-      if (parsed?.gpa != null && !profile.gpa) { profile.gpa = { unweighted: parsed.gpa }; profile.gpaStatus = undefined; }
+      if (parsed?.gpa != null && !hasGpa(profile.gpa)) { profile.gpa = { unweighted: parsed.gpa }; profile.gpaStatus = undefined; }
       return { ...prev, profile };
     });
     return outcome;
@@ -346,8 +382,8 @@ export default function App() {
     }, ...args), [data]);
 
   const reconcileWithBackendProfile = useCallback((...args) => reconcileWithBackendProfileImpl({
-      authedFetch, data, setData,
-    }, ...args), [data, authedFetch]);
+      authedFetch, data, getSyncBase, setData, setProfileReady, setSyncBase, setSyncNote, setSyncStatus,
+    }, ...args), [data, authedFetch, getSyncBase, setSyncBase]);
 
   const openProfileEditor = useCallback(async (step=0) => {
     // Pull the canonical backend profile first so the editor shows the
@@ -388,6 +424,20 @@ export default function App() {
     abortRef.current?.abort();
   }, []);
 
+  // ─── END OF SESSION ───
+  // The one way out for logging out, the inactivity expiry and deleting the
+  // account. session/end-session.js revokes the server session with the
+  // token in hand (the expiry used to leave it valid for days), ends silent
+  // re-auth and aborts the chat request and every authedFetch still out;
+  // then the parent remounts this tree, which empties every field above.
+  const sessionEndingRef = useRef(false);
+  const endSession = useCallback(async (reason) => {
+    if (sessionEndingRef.current) return;
+    sessionEndingRef.current = true;
+    await closeStudentSession({ controllers: [abortRef.current, sessionAbortRef.current] });
+    onSessionEnd?.(reason);
+  }, [onSessionEnd]);
+
   useEffect(()=>{chatEnd.current?.scrollIntoView({behavior:"smooth"});},[messages]);
 
   const {
@@ -401,9 +451,10 @@ export default function App() {
     EXPIRY_NOTICE,
   } = useSessionLifecycle({
     authedFetch, data, passphrase, reconcileWithBackendProfile, refreshCollegeFit, refreshThreadList,
-    screen, setCalendarCtx, setData, setExpiryWarning, setLError, setMessages,
-    setOfflineMode, setPassphrase, setReauthStatus, setScreen, setSyncNote, setSyncStatus,
-    setUser, targetSchools, user,
+    screen, setCalendarCtx, setData, setExpiryWarning,
+    setOfflineMode, setReauthStatus, setScreen, setSyncNote, setSyncStatus,
+    targetSchools, user,
+    endSession, initialScreen: endedBy === "deleted" ? S.CREATE : S.LOGIN, profileReady, setSyncBase, syncBase, syncInFlightRef,
   });
 
   const {
@@ -416,13 +467,15 @@ export default function App() {
     setLPass, setMessages, setOfflineMode, setPassphrase, setScreen, setStudentRecoveryBusy,
     setStudentRecoveryCode, setStudentRecoveryInput, setStudentRecoveryMessage, setStudentRecoveryOpen, setStudentRecoveryPassword, setSurveyStep,
     setUser, studentRecoveryInput, studentRecoveryPassword, user,
+    endSession, setProfileReady, setShowLoginPass, setSyncBase, setSyncNote, setSyncStatus,
   });
 
   const handleSurveyComplete = useCallback((...args) => handleSurveyCompleteImpl({
       authedFetch, messages, sAPScores, sClassRank, sCourses, sECs,
       sGoals, sGpaUw, sGpaW, sMajorInterest, sNoGpaYet, sNoTestsYet,
       sTests, setData, setMessages, setScreen, setSurveyError, user,
-    }, ...args), [sGpaUw, sGpaW, sNoGpaYet, sCourses, sAPScores, sTests, sNoTestsYet, sECs, sGoals, sMajorInterest, user, messages, authedFetch]);
+      getSyncBase, setSyncBase, syncInFlightRef,
+    }, ...args), [sGpaUw, sGpaW, sNoGpaYet, sCourses, sAPScores, sTests, sNoTestsYet, sECs, sGoals, sMajorInterest, user, messages, authedFetch, getSyncBase, setSyncBase, syncInFlightRef]);
 
   const send = useCallback((...args) => sendImpl({
       abortRef, activeThreadId, authedFetch, calendarCtx, chatFiles, chatTextareaRef,
@@ -480,7 +533,7 @@ export default function App() {
     const AP_COURSES = apExamsWithScores();
     const RIGOR = { regular:"Standard",elective:"Elective (graduation requirement)",honors:"Honors (+0.5w)",ap:"AP (+1.0w, College-level)",ib:"IB (+1.0w)",dual_enrollment:"Dual Enrollment (+1.0w)" };
     const YEARS = SURVEY_YEARS;
-    const ylbl = y => y.charAt(0).toUpperCase()+y.slice(1);
+    const ylbl = y => y === UNPLACED_YEAR ? "Year not stated" : y.charAt(0).toUpperCase()+y.slice(1);
     const scoreHint = {sat:"400-1600",act:"1-36",psat:"320-1520",toefl:"0-120",ielts:"0-9.0",sat_subject:"200-800",duolingo:"10-160",clep:"20-80"};
     const testLimit = TEST_SCORE_LIMITS[sTestInput.test];
     const COURSE_GRADES = GRADE_SCALE.map(e => e.grade);
@@ -510,7 +563,7 @@ export default function App() {
       if (!sCourseInput.name.trim() || sCourseInput.name.length > 100) return;
       if (Object.values(sCourses).flat().length >= MAX_ITEMS) return;
       setSurveyError("");
-      setSCourses(p=>({...p,[sCourseYear]:[...p[sCourseYear],{...sCourseInput,name:sCourseInput.name.trim().slice(0,100)}]}));
+      setSCourses(p=>({...p,[sCourseYear]:[...(p[sCourseYear] || []),{...sCourseInput,name:sCourseInput.name.trim().slice(0,100)}]}));
       setSCourseInput({name:"",type:sCourseInput.type,grade:"A",semester:sCourseInput.semester||"full_year"});
     };
     // Import a transcript file (PDF / image / DOCX): the backend extracts text
@@ -537,12 +590,10 @@ export default function App() {
         let r = await postImport();
         let body = await r.json().catch(() => ({}));
         // Accounts from older signup builds are missing the cross-border
-        // consent row the backend requires before AI parsing. Re-grant the
-        // onboarding consents the student accepted at signup, then retry once.
-        if (r.status === 403 && body.code === "consent_required") {
-          const missing = (Array.isArray(body.missing) ? body.missing : [])
-            .filter((type) => ONBOARDING_CONSENT_TYPES.includes(type));
-          await grantOnboardingConsents(missing.length ? missing : undefined);
+        // consent row the backend requires before AI parsing. Heal the
+        // onboarding consents that were never recorded (never one the
+        // student withdrew), then retry once if anything was granted.
+        if (r.status === 403 && body.code === "consent_required" && (await healMissingConsents()).length) {
           r = await postImport();
           body = await r.json().catch(() => ({}));
         }

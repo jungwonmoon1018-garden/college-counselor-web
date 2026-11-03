@@ -7,6 +7,40 @@ import { describeSetAside, syncFailureMessage } from "../profile/sync-result.js"
 import { S } from "../app-shared.js";
 import { latestApScoreYear } from "../profile/ap-entry.js";
 import { storageApi, safeBtoa } from "../session/vault-storage.js";
+import { formatGpa, hasGpa } from "../profile/gpa.js";
+import { baseFromPayload, buildSyncPayload, describeProfileConflict, readServerProfile, reconcileProfile } from "../profile/profile-reconcile.js";
+
+// The school years the survey has a tab for, and the bucket for a course
+// saved without one of them. Such courses used to be filed as freshman on
+// the way into the editor and saved that way on Finish, which moved them
+// into 9th grade for the senior-rigor read.
+export const SURVEY_YEAR_KEYS = ["freshman", "sophomore", "junior", "senior"];
+export const UNPLACED_YEAR = "unplaced";
+
+// What the editor holds for a value the record does not have is nothing:
+// the editor used to fill a blank course grade with "A", a year-less AP exam
+// with the current calendar year and a missing activity category with the
+// legacy "club", and Finish saved them as the student's own record, where the
+// profile-fidelity check then held the counselor to them.
+const present = (value) => value != null && value !== "";
+
+function apRowToEntry(row) {
+  const score = parseInt(row.score, 10);
+  const year = present(row.year) ? parseInt(row.year, 10) : NaN;
+  return { exam: row.subject, score, ...(Number.isFinite(year) ? { year } : {}) };
+}
+
+function ecRowToActivity(ec) {
+  const { category, timing, ...rest } = ec;
+  return {
+    ...rest,
+    ...(present(category) ? { category } : {}),
+    ...(present(timing) ? { timing } : {}),
+    hoursPerWeek: ec.hoursPerWeek ? parseFloat(ec.hoursPerWeek) : undefined,
+    // An activity keeps its id through the editor; only a new one gets one.
+    id: ec.id || crypto.randomUUID(),
+  };
+}
 
 // ─── COMPLETE SURVEY → build profile → go to chat ───
 export async function handleSurveyComplete(ctx) {
@@ -14,25 +48,33 @@ export async function handleSurveyComplete(ctx) {
     authedFetch, messages, sAPScores, sClassRank, sCourses, sECs,
     sGoals, sGpaUw, sGpaW, sMajorInterest, sNoGpaYet, sNoTestsYet,
     sTests, setData, setMessages, setScreen, setSurveyError, user,
+    getSyncBase, setSyncBase, syncInFlightRef,
   } = ctx;
-  // Flatten per-year courses into one array with year tags
+  // Flatten per-year courses into one array with year tags. A course in
+  // the unplaced bucket keeps the year it came with (none, or one the
+  // survey has no tab for).
   const allCourses = [];
   for (const [year, courses] of Object.entries(sCourses)) {
-    for (const c of courses) allCourses.push({ ...c, year });
+    for (const c of courses) {
+      const { year: storedYear, ...course } = c;
+      if (year !== UNPLACED_YEAR) allCourses.push({ ...course, year });
+      else allCourses.push(present(storedYear) ? { ...course, year: storedYear } : course);
+    }
   }
   const profile = {
     gpa: sNoGpaYet ? null : (sGpaUw ? { unweighted: parseFloat(sGpaUw), weighted: sGpaW ? parseFloat(sGpaW) : undefined } : null),
     gpaStatus: sNoGpaYet ? "pending" : undefined,
     classRank: normalizeClassRank(sClassRank) || undefined,
     courses: allCourses,
-    apScores: sAPScores.map(a => ({ exam: a.subject, score: parseInt(a.score), year: parseInt(a.year) })),
+    apScores: sAPScores.map(apRowToEntry),
     // Every test keeps its section scores (SAT and PSAT Reading & Writing
     // and Math, ACT English/Math/Reading/Science, TOEFL, IELTS, Duolingo).
     testScores: sTests.map(t => formToEntry(t)),
     testingStatus: sNoTestsYet ? "planned" : undefined,
     majorInterest: sMajorInterest || undefined
   };
-  const activities = sECs.map(ec => ({ ...ec, hoursPerWeek: ec.hoursPerWeek ? parseFloat(ec.hoursPerWeek) : undefined, id: crypto.randomUUID() }));
+  const activities = sECs.map(ecRowToActivity);
+  const edited = { profile, activities, goals: sGoals, majorInterest: sMajorInterest };
 
   setData(prev => ({
     ...prev, profile, activities, surveyCompleted: true, goals: sGoals, majorInterest: sMajorInterest,
@@ -40,7 +82,7 @@ export async function handleSurveyComplete(ctx) {
   }));
 
   const sum = [];
-  if (profile.gpa) sum.push(`GPA: ${profile.gpa.unweighted}${profile.gpa.weighted ? ` / ${profile.gpa.weighted}w` : ""}`);
+  if (hasGpa(profile.gpa)) sum.push(`GPA: ${formatGpa(profile.gpa)}`);
   else if (sNoGpaYet) sum.push("GPA: not yet available");
   if (allCourses.length) {
     const apCount = allCourses.filter(c => c.type === "ap").length;
@@ -61,33 +103,69 @@ export async function handleSurveyComplete(ctx) {
   // What the server could not store (a value out of range from an older
   // build); the rest of the save landed and the student hears which part.
   let setAsideNote = "";
+  let conflictNote = "";
   if (proxyUrl) {
     let response;
+    let base = getSyncBase ? getSyncBase() : null;
+    let payload = buildSyncPayload(edited, base);
+    const post = (body) => authedFetch("/api/students/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...body, trigger: "survey_complete" }),
+    });
+    // The auto-save waits while this save is out: two saves from one device
+    // racing each other would read as a conflict with "another device".
+    if (syncInFlightRef) syncInFlightRef.current = true;
     try {
-      response = await authedFetch("/api/students/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profile, activities, goals: sGoals, majorInterest: sMajorInterest, trigger: "survey_complete" }),
-      });
+      response = await post(payload);
+      if (response?.status === 409) {
+        const conflict = await response.json().catch(() => ({}));
+        let server = readServerProfile(conflict);
+        // A conflict answer without the profile is joined with a fresh read.
+        if (conflict?.code === "profile_revision_conflict" && !server.exists) {
+          const fresh = await authedFetch("/api/students/profile");
+          if (fresh?.ok) server = readServerProfile(await fresh.json().catch(() => ({})));
+        }
+        if (conflict?.code === "profile_revision_conflict" && server.exists) {
+          // Another device saved while this one was in the editor. What the
+          // student changed here stays, the rest takes the other device's
+          // save, and the joined record is sent once against its revision.
+          const result = reconcileProfile({ local: edited, server, base });
+          base = result.base;
+          setSyncBase?.(base);
+          conflictNote = describeProfileConflict(result);
+          const joined = result.data;
+          setData(prev => ({ ...prev, profile: joined.profile, activities: joined.activities, goals: joined.goals, majorInterest: joined.majorInterest }));
+          payload = buildSyncPayload(joined, base);
+          response = await post(payload);
+        }
+      }
     } catch {
       setSurveyError("Couldn't save your profile to your counselor — check your connection and try again.");
       return; // stay on the survey; do NOT enter a chat the backend can't back
+    } finally {
+      if (syncInFlightRef) syncInFlightRef.current = false;
     }
     // authedFetch resolves on every HTTP status. A refused save (413, 429,
     // 500, 503) used to pass as saved and drop the student into a chat that
     // knew nothing of the profile.
     if (!response?.ok) {
-      setSurveyError(syncFailureMessage(response?.status));
+      setSurveyError(response?.status === 409
+        ? "Your profile changed on another device while you were editing — press Finish again to save."
+        : syncFailureMessage(response?.status));
       return;
     }
     const body = await response.json().catch(() => ({}));
+    // The server now holds what was sent: that is the base the next save
+    // is checked against.
+    setSyncBase?.(baseFromPayload(payload, body?.revision ?? base?.serverRevision ?? null));
     setAsideNote = describeSetAside(body?.setAside);
   }
 
   // FIX P2: Only reset messages on FIRST setup. If editing from chat, append an update
   // summary instead of wiping the entire conversation history.
   const isEditFromChat = messages.length > 1; // If there's an existing conversation, this is an edit
-  const setAsideLine = setAsideNote ? `\n\n${setAsideNote}` : "";
+  const setAsideLine = [conflictNote, setAsideNote].filter(Boolean).map((note) => `\n\n${note}`).join("");
   const updateMsg = {
     role: "assistant",
     content: isEditFromChat
@@ -125,15 +203,20 @@ export function hydrateSurveyFromCurrentData(ctx, src) {
     setsMajorInterest,
   } = ctx;
   const d = src || data;
-  const groupedCourses = { freshman:[], sophomore:[], junior:[], senior:[] };
+  const groupedCourses = { freshman:[], sophomore:[], junior:[], senior:[], [UNPLACED_YEAR]:[] };
   for (const course of d.profile?.courses || []) {
-    const year = groupedCourses[course.year] ? course.year : "freshman";
-    groupedCourses[year].push({
-      name: course.name || "",
-      type: course.type || "regular",
-      grade: course.grade === "In Progress" ? "IP" : (course.grade || "A"),
-      semester: course.semester || "full_year"
-    });
+    const { year, ...stored } = course || {};
+    const row = {
+      ...stored,
+      name: course?.name || "",
+      type: course?.type || "regular",
+      // A course saved without a grade stays without one ("no grade
+      // recorded"); "IP" would claim it is in progress.
+      grade: course?.grade === "In Progress" ? "IP" : (course?.grade || ""),
+      semester: course?.semester || "full_year",
+    };
+    if (SURVEY_YEAR_KEYS.includes(year)) groupedCourses[year].push(row);
+    else groupedCourses[UNPLACED_YEAR].push(present(year) ? { ...row, year } : row);
   }
   setSGpaUw(d.profile?.gpa?.unweighted != null ? String(d.profile.gpa.unweighted) : "");
   setSGpaW(d.profile?.gpa?.weighted != null ? String(d.profile.gpa.weighted) : "");
@@ -151,21 +234,24 @@ export function hydrateSurveyFromCurrentData(ctx, src) {
   setSNoTestsYet(Boolean(d.profile?.testingStatus === "planned"));
   setSTestCategory("sat");
   setSTestInput(blankTestForm("sat"));
+  // An exam saved without a year (the sync drops a year no score can come
+  // from and keeps the entry) stays without one, and the survey says so.
   setSAPScores((d.profile?.apScores || []).map(a => ({
     subject: a.exam || a.subject || "",
-    score: String(a.score ?? 5),
-    year: String(a.year || new Date().getFullYear())
+    score: present(a.score) ? String(a.score) : "",
+    year: present(a.year) ? String(a.year) : "",
   })));
   setSAPInput({ subject:"", score:"5", year:String(latestApScoreYear()) });
   setSECs((d.activities || []).map(a => ({
+    ...a,
     name: a.name || "",
-    category: a.category || "club",
+    category: a.category || "",
     role: a.role || "",
     hoursPerWeek: a.hoursPerWeek != null ? String(a.hoursPerWeek) : "",
     weeksPerYear: a.weeksPerYear != null ? String(a.weeksPerYear) : "",
     description: a.description || "",
     grades: Array.isArray(a.grades) ? a.grades : [],
-    timing: a.timing || "school_year",
+    timing: a.timing || "",
   })));
   setSECInput({ name:"", category:"academic", role:"", hoursPerWeek:"", weeksPerYear:"", description:"", grades:[], timing:"school_year" });
   setSGoals([...(d.goals || [])]);
@@ -173,57 +259,41 @@ export function hydrateSurveyFromCurrentData(ctx, src) {
   setSurveyError("");
 }
 
-// Pull the canonical profile from the backend and reconcile it with
-// local `data`. The backend DB is the durable source of truth —
-// grades/GPA/ECs live there and survive restarts + device changes.
-// If the local vault is sparser than the backend (e.g. it was reset,
-// or this is a different browser), adopt the backend's richer data so
-// the student never sees an empty transcript when their courses are
-// safely stored server-side. Local edits are preserved when local is
-// the richer side. Returns the reconciled `data`-shaped object.
-export async function reconcileWithBackendProfile(ctx, base = ctx.data) {
+// Pull the profile the server holds and join it with local `data` through
+// the one merge rule (profile/profile-reconcile.js): fields this device
+// edited since its sync base stay, everything else takes the server's
+// value. The editor calls this before it opens, and the chat calls it when
+// sign-in could not reach the server. Returns the joined `data`.
+export async function reconcileWithBackendProfile(ctx, local = ctx.data) {
   const {
-    authedFetch, data, setData,
+    authedFetch, setData, getSyncBase, setSyncBase, setProfileReady, setSyncNote, setSyncStatus,
   } = ctx;
+  const startBase = getSyncBase ? getSyncBase() : null;
   try {
     const r = await authedFetch("/api/students/profile");
-    if (!r.ok) return base;
+    if (!r.ok) return local;
     const body = await r.json();
-    const bp = body.profile || {};
-    const localCourses = base.profile?.courses || [];
-    const localEcs = base.activities || [];
-    const beCourses = bp.courses || [];
-    const beEcs = bp.activities || [];
-    // Prefer whichever side has MORE entries (backend recovery when
-    // local is empty; keep local when the student just added rows
-    // that haven't synced yet).
-    const courses = beCourses.length > localCourses.length ? beCourses : localCourses;
-    const activities = beEcs.length > localEcs.length ? beEcs : localEcs;
-    const merged = {
-      ...base,
-      profile: {
-        ...(base.profile || {}),
-        gpa: base.profile?.gpa?.unweighted != null ? base.profile.gpa : (bp.gpa || base.profile?.gpa),
-        classRank: base.profile?.classRank || bp.classRank || null,
-        courses,
-        apScores: (base.profile?.apScores?.length ? base.profile.apScores : bp.apScores) || [],
-        testScores: (base.profile?.testScores?.length ? base.profile.testScores : bp.testScores) || [],
-        majorInterest: base.profile?.majorInterest || bp.majorInterest || "",
-      },
-      activities,
-      goals: (base.goals?.length ? base.goals : bp.goals) || [],
-      majorInterest: base.majorInterest || bp.majorInterest || "",
-    };
-    // Push the reconciled view back into app state so the chat
-    // sidebar + auto-save reflect the recovered data too.
-    if (courses.length !== localCourses.length || activities.length !== localEcs.length) {
-      setData(merged);
-      console.info(`[profile-recover] Adopted backend data — courses ${localCourses.length}→${courses.length}, ECs ${localEcs.length}→${activities.length}`);
+    // A save that landed while this read was out is newer than what the
+    // read returned; merging it would put the older record back.
+    if (getSyncBase && getSyncBase() !== startBase) return local;
+    const server = readServerProfile(body);
+    const result = reconcileProfile({ local, server, base: startBase });
+    setSyncBase?.(result.base);
+    setProfileReady?.(true);
+    if (result.changed) {
+      // The updater merges onto whatever the state holds by now, so an edit
+      // made while the read was out is kept as an edit.
+      setData(prev => reconcileProfile({ local: prev, server, base: startBase }).data);
+      console.info(`[profile-recover] Took the server's ${result.adopted.join(", ") || "profile"}; kept local edits to ${result.kept.join(", ") || "nothing"}.`);
     }
-    return merged;
+    if (result.conflicts.length && setSyncNote) {
+      setSyncNote(describeProfileConflict(result));
+      setSyncStatus?.("partial");
+    }
+    return result.data;
   } catch (err) {
     console.warn("[profile-recover] backend pull failed:", err?.message);
-    return base;
+    return local;
   }
 }
 
@@ -238,16 +308,20 @@ export function editECFromProfile(ctx, activity) {
   hydrateSurveyFromCurrentData();
   const key = a => `${(a?.name||"").toLowerCase().trim()}|${(a?.role||"").toLowerCase().trim()}`;
   const target = key(activity);
-  // Pull the clicked activity into the input form…
+  // Pull the clicked activity into the input form, as it is saved: a missing
+  // category or timing stays missing rather than becoming "club" or the
+  // school year, and the id goes with it so re-adding keeps the activity's
+  // identity.
   setSECInput({
+    ...(activity.id ? { id: activity.id } : {}),
     name: activity.name || "",
-    category: activity.category || "club",
+    category: activity.category || "",
     role: activity.role || "",
     hoursPerWeek: activity.hoursPerWeek != null ? String(activity.hoursPerWeek) : "",
     weeksPerYear: activity.weeksPerYear != null ? String(activity.weeksPerYear) : "",
     description: activity.description || "",
     grades: Array.isArray(activity.grades) ? [...activity.grades] : [],
-    timing: activity.timing || "school_year",
+    timing: activity.timing || "",
   });
   // …and drop it from the list hydrate just populated (runs after
   // hydrate's setSECs because both are queued in order).

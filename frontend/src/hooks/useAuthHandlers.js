@@ -2,10 +2,7 @@
 // the account screens: create, sign in, recover, log out, export, delete. Moved out of App() on 2026-09-21 as one contiguous run, so the order of every hook and effect is unchanged.
 import { useRef, useState, useCallback } from "react";
 import { handleCreate as handleCreateImpl, handleLogin as handleLoginImpl, handleStudentRecovery as handleStudentRecoveryImpl } from "../handlers/auth-handlers.js";
-import { endSessionReauth, rateLimiter } from "../chat/chat-client.js";
-import { clearSession, storageApi, storageKeyFor, safeBtoa } from "../session/vault-storage.js";
-import { sessionTimer } from "../session/server-session.js";
-import { S } from "../app-shared.js";
+import { storageApi, storageKeyFor, safeBtoa } from "../session/vault-storage.js";
 
 export function useAuthHandlers(ctx) {
   const {
@@ -15,6 +12,7 @@ export function useAuthHandlers(ctx) {
     setLPass, setMessages, setOfflineMode, setPassphrase, setScreen, setStudentRecoveryBusy,
     setStudentRecoveryCode, setStudentRecoveryInput, setStudentRecoveryMessage, setStudentRecoveryOpen, setStudentRecoveryPassword, setSurveyStep,
     setUser, studentRecoveryInput, studentRecoveryPassword, user,
+    endSession, setProfileReady, setShowLoginPass, setSyncBase, setSyncNote, setSyncStatus,
   } = ctx;
   // One auth action at a time. PBKDF2 + the server round-trips make sign-in /
   // account creation take seconds (more on a cold backend), and the submit
@@ -39,6 +37,7 @@ export function useAuthHandlers(ctx) {
       cAgeAttest, cConsentAI, cConsentData, cEmail, cFirst, cGrade,
       cLast, cName, cPass, cPass2, setCError, setLEmail,
       setPassphrase, setScreen, setStudentRecoveryCode, setSurveyStep, setUser,
+      setProfileReady, setSyncBase,
     }, ...args), [cFirst, cLast, cEmail, cGrade, cPass, cPass2, cAgeAttest, cConsentAI, cConsentData]);
 
   // ─── LOGIN ───
@@ -46,6 +45,7 @@ export function useAuthHandlers(ctx) {
   const handleLogin = useCallback((...args) => handleLoginImpl({
       lEmail, lPass, loginAttempts, setData, setLError, setLoginAttempts,
       setMessages, setOfflineMode, setPassphrase, setScreen, setSurveyStep, setUser,
+      setLPass, setProfileReady, setShowLoginPass, setSyncBase, setSyncNote, setSyncStatus,
     }, ...args), [lEmail, lPass, loginAttempts]);
 
   const handleStudentRecovery = useCallback((...args) => handleStudentRecoveryImpl({
@@ -54,21 +54,10 @@ export function useAuthHandlers(ctx) {
     }, ...args), [lEmail, studentRecoveryInput, studentRecoveryPassword]);
 
   // ─── LOGOUT ───
-  const handleLogout = useCallback(async () => {
-    // From here on no background request may sign the student back in, and a
-    // 401 on the logout call itself must not re-authenticate either.
-    endSessionReauth();
-    try { await authedFetch("/api/students/logout", { method: "POST" }); } catch { /* local logout still proceeds */ }
-    await clearSession();
-    sessionTimer.clear();
-    rateLimiter.reset();
-    window.__CC_SESSION_TOKEN__ = null;
-    setUser(null);
-    setPassphrase("");
-    setData({ profile:null, activities:[], studyNotes:[], documents:[] });
-    setMessages([]);
-    setScreen(S.LOGIN);
-  }, [authedFetch]);
+  // endSession (App.jsx) revokes the server session, ends silent
+  // re-authentication, aborts what is in flight and remounts the student tree
+  // empty, the same way the inactivity expiry and account deletion do.
+  const handleLogout = useCallback(() => endSession("logout"), [endSession]);
 
   const handleExportData = useCallback(async () => {
     try {
@@ -96,20 +85,12 @@ export function useAuthHandlers(ctx) {
       await storageApi.delete(await storageKeyFor(email));
       await storageApi.delete(`cc_draft_${safeBtoa(email).replace(/[^a-zA-Z0-9]/g, "")}`);
       try { localStorage.removeItem(`cc_targets_${email}`); } catch {}
-      endSessionReauth();
-      await clearSession();
-      sessionTimer.clear();
-      rateLimiter.reset();
-      window.__CC_SESSION_TOKEN__ = null;
-      setUser(null);
-      setPassphrase("");
-      setData({ profile:null, activities:[], studyNotes:[], documents:[] });
-      setMessages([]);
-      setScreen(S.CREATE);
     } catch (error) {
       window.alert(error?.message || "Deletion failed. No local data was removed.");
+      return;
     }
-  }, [authedFetch, user?.email]);
+    await endSession("deleted");
+  }, [authedFetch, endSession, user?.email]);
   return {
     authBusy, handleCreate, handleDeleteAccount, handleExportData, handleLogin, handleLogout,
     handleStudentRecovery, runAuthGuarded,
