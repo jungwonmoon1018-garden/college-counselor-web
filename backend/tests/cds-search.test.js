@@ -14,6 +14,9 @@ import {
   normalizeC7Object,
   normalizeC7TableRows,
   resolveAndParseCdsTargets,
+  loadRepositoryIndexHtml,
+  resetRepositoryIndexMemo,
+  CDS_REPOSITORY_URL,
 } from "../cds/cds-search.js";
 
 test("parseCdsRepositoryIndex extracts schools, years, and links", () => {
@@ -355,4 +358,128 @@ test("computeCdsQueryCacheKey is stable for equivalent targets", () => {
     { unitId: "1", schoolName: "stanford university" },
   ]);
   assert.equal(a, b);
+});
+
+// ─── 2026-11-03: the repository index is read by its header, and the
+// live repository is optional ──────────────────────────────────────────
+
+// The index used to label the i-th cell from a year list starting at
+// "2024-25", skipping the header: a 2025-26 column in front would have
+// filed every document one cycle older (time-7, debt-6).
+test("parseCdsRepositoryIndex labels each column from the table's own header", () => {
+  const newestFirst = parseCdsRepositoryIndex(`
+    <table>
+      <tr><th>Institution</th><th>2025-26</th><th>2024-25</th><th>2023-24</th></tr>
+      <tr><td>Example University</td><td><a href="https://example.edu/cds-2025-26.pdf">CDS</a></td><td><a href="https://example.edu/cds-2024-25.pdf">CDS</a></td><td>CDS</td></tr>
+    </table>
+  `);
+  assert.deepEqual(newestFirst[0].years.map((y) => y.year), ["2025-26", "2024-25", "2023-24"]);
+  assert.equal(newestFirst[0].years[0].links[0].url, "https://example.edu/cds-2025-26.pdf");
+  assert.equal(newestFirst[0].years[1].links[0].url, "https://example.edu/cds-2024-25.pdf");
+  assert.equal(selectPreferredCdsLink(newestFirst[0]).url, "https://example.edu/cds-2025-26.pdf");
+
+  // Oldest first, with a column that is not a cycle: each link keeps its
+  // own year, the non-cycle column labels nothing, and the newest comes first.
+  const oldestFirst = parseCdsRepositoryIndex(`
+    <table>
+      <tr><th>Institution</th><th>2023-2024</th><th>Notes</th><th>2025–26</th></tr>
+      <tr><td>Example University</td><td><a href="https://example.edu/old.pdf">CDS</a></td><td><a href="https://example.edu/notes.html">see note</a></td><td><a href="https://example.edu/new.pdf">CDS</a></td></tr>
+    </table>
+  `);
+  assert.deepEqual(oldestFirst[0].years.map((y) => [y.year, y.links[0]?.url]), [["2025-26", "https://example.edu/new.pdf"], ["2023-24", "https://example.edu/old.pdf"]]);
+});
+
+test("a table with no year header labels nothing and says so", () => {
+  const warnings = [];
+  const entries = parseCdsRepositoryIndex(`
+    <table>
+      <tr><td>Example University</td><td><a href="https://example.edu/cds.pdf">CDS</a></td></tr>
+    </table>
+  `, { warn: (message) => warnings.push(message) });
+  assert.equal(entries.length, 1);
+  assert.deepEqual(entries[0].years, []);
+  assert.equal(selectPreferredCdsLink(entries[0]), null);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /no year header/);
+});
+
+// A refused or unreachable index used to reject the whole call, and College
+// Fit answered 500 for every uncached school though the store held most of
+// them (fit-3).
+test("resolveAndParseCdsTargets answers index_unavailable rows when the index cannot be read", async () => {
+  for (const fetchImpl of [
+    async () => ({ ok: false, status: 403, text: async () => "blocked" }),
+    async () => { throw new Error("getaddrinfo ENOTFOUND www.collegetransitions.com"); },
+  ]) {
+    const results = await resolveAndParseCdsTargets([{ schoolName: "Columbia University" }, { schoolName: "Example College", unitId: "123" }], { fetchImpl });
+    assert.equal(results.length, 2);
+    for (const row of results) {
+      assert.equal(row.fetchStatus, "index_unavailable");
+      assert.equal(row.transientFailure, true);
+      assert.equal(row.parsed, null);
+    }
+    assert.equal(results[1].unitId, "123");
+  }
+});
+
+test("the index is retried with browser headers, and a stored school's document is not downloaded again", async () => {
+  const requested = [];
+  const fetchImpl = async (url, options) => {
+    requested.push({ url, agent: options?.headers?.["user-agent"] || "" });
+    if (url.includes("collegetransitions.com")) {
+      if (/college-counselor-backend/.test(options.headers["user-agent"])) return { ok: false, status: 403, text: async () => "" };
+      return { ok: true, status: 200, text: async () => `<table><tr><th>Institution</th><th>2025-26</th></tr><tr><td>Stored University</td><td><a href="https://stored.edu/cds.pdf">CDS</a></td></tr></table>` };
+    }
+    throw new Error(`unexpected fetch ${url}`);
+  };
+  const [row] = await resolveAndParseCdsTargets([{ schoolName: "Stored University" }], { fetchImpl, hasStoredRecord: () => true });
+  assert.equal(row.fetchStatus, "stored_record");
+  assert.equal(row.repositoryMatch.latestAvailableYear, "2025-26");
+  assert.deepEqual(requested.map((r) => r.url), [CDS_REPOSITORY_URL, CDS_REPOSITORY_URL], "the index twice (server agent, then browser), the document never");
+  assert.match(requested[1].agent, /Mozilla/);
+});
+
+test("the default index loader remembers a success for a day and a failure briefly", async () => {
+  const realFetch = globalThis.fetch;
+  let calls = 0;
+  let fail = true;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return fail ? { ok: false, status: 503, text: async () => "" } : { ok: true, status: 200, text: async () => "<table></table>" };
+  };
+  try {
+    resetRepositoryIndexMemo();
+    const t0 = Date.parse("2026-11-03T12:00:00Z");
+    assert.ok((await loadRepositoryIndexHtml({ now: t0 })).error);
+    assert.equal(calls, 2, "both header sets tried");
+    assert.ok((await loadRepositoryIndexHtml({ now: t0 + 60_000 })).error, "a failure is remembered for a moment");
+    assert.equal(calls, 2);
+    fail = false;
+    assert.equal((await loadRepositoryIndexHtml({ now: t0 + 3 * 60_000 })).html, "<table></table>", "and read again after it");
+    assert.equal(calls, 3);
+    await loadRepositoryIndexHtml({ now: t0 + 60 * 60_000 });
+    assert.equal(calls, 3, "a success is kept");
+  } finally {
+    globalThis.fetch = realFetch;
+    resetRepositoryIndexMemo();
+  }
+});
+
+// Every CDS prints the "Required" column header, so the flattened text
+// cannot say a school requires scores; it used to read every document
+// without a test-optional phrase as required (fit-6).
+test("parseCdsText reads no test policy it cannot see", () => {
+  assert.equal(parseCdsText("Common Data Set 2025-2026 C8A SAT or ACT Require Recommend Not required for admission").testPolicy, null);
+  assert.equal(parseCdsText("Common Data Set. Our admission is test-optional for first-year applicants.").testPolicy, "test_optional_or_deemphasized");
+  assert.equal(parseCdsText("Standardized test scores Not Considered").testPolicy, "test_optional_or_deemphasized", "C7 rating tests not considered");
+  assert.equal(parseCdsText("Standardized test scores Important. Very Important Important Considered Not Considered").testPolicy, null, "the C7 header is not a rating");
+});
+test("a header cell that names its cycle among other words still labels the column", () => {
+  const entries = parseCdsRepositoryIndex(`
+    <table>
+      <tr><th>School</th><th>CDS 2025-2026</th><th>CDS 2024-25</th></tr>
+      <tr><td>Example University</td><td><a href="https://example.edu/new.pdf">CDS</a></td><td><a href="https://example.edu/old.pdf">CDS</a></td></tr>
+    </table>
+  `);
+  assert.deepEqual(entries[0].years.map((y) => [y.year, y.links[0].url]), [["2025-26", "https://example.edu/new.pdf"], ["2024-25", "https://example.edu/old.pdf"]]);
 });

@@ -69,14 +69,53 @@ test("two readers that disagree are inconclusive; a verified model read alone co
 test("live inputs keep a fresh validated CDS for the numbers but always take the official site for policy", () => {
   const scorecard = { acceptanceRate: 49, sat25: 1330, sat75: 1490 };
   const checks = compareFitInputs({ used, scorecard, policy: { testPolicy: { value: "test_required", evidence: "e", sourceUrl: "u" } } });
-  const fresh = liveInputsFor({ used, scorecard, checks });
+  const fresh = liveInputsFor({ used, scorecard, checks, now: NOW });
   assert.deepEqual(fresh.changed, ["test_policy"]);
   assert.equal(fresh.inputs.acceptanceRate, 3.6);
   assert.equal(fresh.inputs.testPolicy, "test_considered_or_required");
-  const stale = liveInputsFor({ used: { ...used, source: "baseline_colleges", cdsYear: null }, scorecard, checks });
+  const stale = liveInputsFor({ used: { ...used, source: "baseline_colleges", cdsYear: null }, scorecard, checks, now: NOW });
   assert.deepEqual(stale.changed, ["acceptance_rate", "sat_range", "test_policy"]);
   assert.equal(stale.inputs.acceptanceRate, 49);
   assert.equal(stale.inputs.sat75, 1490);
+});
+
+// A value the read did not have and the Scorecard does used to be
+// "unavailable": the live rate was never applied and a read built on an
+// assumed 50% was reported as consistent (fit-5).
+test("a value the read lacked and a live source holds is filled, counted as a discrepancy, and applied", () => {
+  const noRate = { ...used, acceptanceRate: null, act25: null, act75: null };
+  const scorecard = { acceptanceRate: 37.6, sat25: 1500, sat75: 1570, act25: 33, act75: 35 };
+  const checks = compareFitInputs({ used: noRate, scorecard, policy: null });
+  const byField = Object.fromEntries(checks.map((c) => [c.field, c]));
+  assert.equal(byField.acceptance_rate.status, "filled");
+  assert.equal(byField.act_range.status, "filled");
+  assert.equal(byField.sat_range.status, "consistent");
+  assert.equal(verdictFromChecks(checks), "discrepancies_found");
+  // Filled even over a fresh validated CDS: there is nothing to keep.
+  const { inputs, changed } = liveInputsFor({ used: noRate, scorecard, checks, now: NOW });
+  assert.deepEqual(changed, ["acceptance_rate", "act_range"]);
+  assert.equal(inputs.acceptanceRate, 37.6);
+  assert.equal(inputs.act25, 33);
+  // The old pins hold: no live value is "unavailable", nothing at all is
+  // unverifiable.
+  assert.equal(compareFitInputs({ used: noRate, scorecard: null }).find((c) => c.field === "acceptance_rate").status, "unavailable");
+  assert.equal(verdictFromChecks(compareFitInputs({ used: {}, scorecard: null, policy: null })), "unverifiable");
+  assert.match(formatVerificationLine({ checkedAt: NOW.toISOString(), verdict: "discrepancies_found", checks }), /Admit rate: fit had none, live 37\.6%/);
+});
+
+// The Scorecard's data year was fixed at 2024, so in a later season an old
+// CDS would keep overriding newer Scorecard numbers; the CDS year is read
+// from its cycle label (fit-12).
+test("the Scorecard data year follows the clock and the CDS year is read from its cycle label", () => {
+  const scorecard = { acceptanceRate: 49, sat25: 1330, sat75: 1490 };
+  const checks = compareFitInputs({ used, scorecard, policy: null });
+  // In November 2026 the Scorecard's latest year is 2024: a 2024 CDS stays.
+  assert.deepEqual(liveInputsFor({ used, scorecard, checks, now: new Date("2026-11-03T00:00:00Z") }).changed, []);
+  // With 2026 data, a 2024 CDS no longer outranks it.
+  assert.deepEqual(liveInputsFor({ used, scorecard, checks, scorecardDataYear: 2026 }).changed, ["acceptance_rate", "sat_range"]);
+  assert.deepEqual(liveInputsFor({ used, scorecard, checks, now: new Date("2028-11-01T00:00:00Z") }).changed, ["acceptance_rate", "sat_range"]);
+  // A record whose year is missing but whose label says 2025-26 is a 2025 record.
+  assert.deepEqual(liveInputsFor({ used: { ...used, cdsYear: "2025-26" }, scorecard, checks, now: new Date("2026-11-03T00:00:00Z") }).changed, []);
 });
 
 test("the model's second read only counts when its quote appears verbatim on a fetched page", () => {

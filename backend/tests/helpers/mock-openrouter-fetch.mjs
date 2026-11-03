@@ -2,6 +2,16 @@ import fs from "node:fs";
 
 const realFetch = globalThis.fetch;
 const callLogPath = process.env.TEST_OPENROUTER_CALL_LOG;
+// Optional switches a route test can flip while the server runs: a JSON
+// file at TEST_MOCK_SWITCHES, read on every request. { "cdsIndex": 403 }
+// answers the CDS repository index with that status ("throw" fails the
+// request outright); { "scorecard": "fail" } answers the College Scorecard
+// with a 500. Absent or unreadable, every host behaves as below.
+const switchesPath = process.env.TEST_MOCK_SWITCHES;
+function mockSwitches() {
+  if (!switchesPath) return {};
+  try { return JSON.parse(fs.readFileSync(switchesPath, "utf8")) || {}; } catch { return {}; }
+}
 // The catalog carries a creation date (a month ago) and text modalities so
 // the model-catalog scout can classify rows. Gemma 4 31B and the last four
 // ids are NOT in the packaged tier list: the scout discovers them (small,
@@ -77,6 +87,7 @@ globalThis.fetch = async (input, init = {}) => {
   // (the picker requires a genuine name match now), so the positioning
   // route's Scorecard fallback can be exercised without the network.
   if (String(url || "").startsWith("https://api.data.gov/ed/collegescorecard/")) {
+    if (mockSwitches().scorecard === "fail") return new Response("upstream error", { status: 500 });
     const requestedName = new URL(url).searchParams.get("school.name") || "Stony Brook University";
     return Response.json({
       metadata: { total: 1, page: 0 },
@@ -100,6 +111,9 @@ globalThis.fetch = async (input, init = {}) => {
   // The CDS repository index — return an empty page so live CDS resolution
   // finds nothing and the route exercises its fallbacks.
   if (String(url || "").includes("collegetransitions.com")) {
+    const indexSwitch = mockSwitches().cdsIndex;
+    if (indexSwitch === "throw") throw new Error("mock: CDS repository unreachable");
+    if (Number.isInteger(indexSwitch)) return new Response("blocked", { status: indexSwitch });
     return new Response("<html><body></body></html>", { headers: { "Content-Type": "text/html" } });
   }
 

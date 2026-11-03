@@ -671,7 +671,7 @@ test("College Fit starts a regular-round read from the admit rate outside Early 
     body: { targets: [{ schoolName: "Columbia University" }], major: "Computer Science", searchCds: false },
   });
   assert.equal(fit.status, 200, `${JSON.stringify(fit.data)}\n${serverOutput}`);
-  assert.equal(fit.data.modelVersion, "positioning_v2");
+  assert.equal(fit.data.modelVersion, "positioning_v3");
   const read = fit.data.targets[0];
   assert.equal(read.admitRateBasis, "outside_early_decision", JSON.stringify(read.admitRate));
   assert.ok(Math.abs(read.admitRateUsed - 0.0282) < 0.0005, `used ${read.admitRateUsed}`);
@@ -981,12 +981,18 @@ test("subscores, AP scores and class rank reach the profile, the College Fit rea
   assert.equal(pc.tests.used.test, "sat", JSON.stringify(pc.tests));
   assert.equal(pc.tests.used.position, "within", JSON.stringify({ tests: pc.tests, provenance: target.dataProvenance, ranges: target.featureBreakdown.satGpaEnrolledRange }));
   assert.equal(pc.tests.sections.length, 2);
-  assert.equal(pc.tests.advice, "submit");
+  // Stanford's stored 2025-26 set said "test_required" only as the parser's
+  // old default for a policy it never read; its own C9 shares (55.6% SAT,
+  // 20.9% ACT) describe a test-optional class, so with no official-site
+  // snapshot held the read is test-optional and a 1520 at its 25th
+  // percentile is borderline (2026-11-03).
+  assert.equal(pc.tests.policy, "test_optional_or_deemphasized", JSON.stringify(pc.tests));
+  assert.equal(pc.tests.advice, "borderline");
   assert.equal(pc.classRank.bucket, "top10");
   assert.equal(pc.classRank.school.topTenthPct, STANFORD_CDS.extras.classRank.topTenthPct);
   assert.equal(pc.gpa.placement.band, "3.75–3.99");
   assert.equal(pc.apExams.count, 2);
-  assert.equal(target.featureBreakdown.testSubmissionAdvice, "submit");
+  assert.equal(target.featureBreakdown.testSubmissionAdvice, "borderline");
 
   // The counselor sees the same record and the same sections of the CDS,
   // and a faithful subscore statement draws no correction.

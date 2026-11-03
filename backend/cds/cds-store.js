@@ -108,6 +108,59 @@ export function normalizeCdsTestPolicy(policy) {
   return "test_considered_or_required";
 }
 
+// The test policy a stored record can support, read from the record itself.
+// Until parser version 8 a C8A row the parser did not read was stored as
+// "test_required", so a stored "required" from an older parse may be a
+// default rather than a reading: 175 of the 299 committed records said
+// required, among them UCLA (test-blind), Michigan, Kansas and Occidental
+// (test-optional). The record carries its own evidence against such a
+// default, and this reads it at every load, so no re-parse is needed:
+//
+//   No SAT band and no ACT band: a school that requires scores reports
+//   them, so nothing in the document backs "required". When C7 rates
+//   standardized tests "not considered" and reads sanely otherwise (GPA
+//   and rigor considered), the school reads no scores: test-blind (UCLA,
+//   UC Irvine). Otherwise the policy is unknown. C7 alone does not decide:
+//   misread C7 tables rate MIT's test scores and rigor "not considered".
+//   C9's submission shares: at a school that requires scores nearly every
+//   enrolled student sent one, so the SAT and ACT shares sum to about 100
+//   or more (some send both; Yale's 2025-26 class 92, Harvard's 106). Under
+//   80 the class was admitted without them: test-optional (Michigan 73,
+//   Kansas 58, Occidental 28).
+//
+// Otherwise an old "required" stands, as do every value a version-8 parse
+// stored and every optional or blind reading. Returns { value, basis }:
+// value is the CDS vocabulary ("test_required", "test_optional",
+// "test_blind") or null for unknown.
+const POLICY_DEFAULT_ERA_VERSION = 8;
+const REQUIRED_SUBMISSION_SHARE = 80;
+export function readCdsTestPolicy(record) {
+  const raw = String(record?.testPolicy || "").trim().toLowerCase();
+  if (!raw) return { value: null, basis: "not_read" };
+  const required = raw === "test_required" || raw === "required";
+  const parserVersion = Number(record?.parserVersion) || 0;
+  if (!required || parserVersion >= POLICY_DEFAULT_ERA_VERSION) return { value: raw, basis: "cds" };
+  const submitting = record?.extras?.submitting;
+  const sat = Number(submitting?.satPct);
+  const act = Number(submitting?.actPct);
+  if (Number.isFinite(sat) || Number.isFinite(act)) {
+    const share = (Number.isFinite(sat) ? sat : 0) + (Number.isFinite(act) ? act : 0);
+    return share < REQUIRED_SUBMISSION_SHARE
+      ? { value: "test_optional", basis: "submission_share" }
+      : { value: raw, basis: "cds" };
+  }
+  if (record?.enrolledSAT?.p25 == null && record?.enrolledACT?.p25 == null) {
+    const c7 = record?.c7 || {};
+    const rating = (...keys) => keys.map((k) => c7[k]).find((v) => v != null);
+    const notConsidered = (v) => v === "not_considered" || v === 0;
+    const tests = rating("test_scores", "standardizedTests", "standardized_tests");
+    const sane = [rating("gpa", "academicGpa", "academic_gpa"), rating("rigor")].every((v) => v != null && !notConsidered(v));
+    if (notConsidered(tests) && sane) return { value: "test_blind", basis: "c7_not_considered" };
+    return { value: null, basis: "unsupported_default" };
+  }
+  return { value: raw, basis: "cds" };
+}
+
 // ─── Ingest: disk → cds_records ────────────────────────────────────────
 // Reads every parsed record file (skips _meta files) and upserts it via the
 // existing validated-persist path so corrections/overrides are reapplied.
@@ -268,6 +321,7 @@ export function cdsRecordToPositioningResult(record, { liveFallback = null, unit
     : (liveFallback?.parsed?.admitRatePercent ?? null);
 
   const extras = record.extras && typeof record.extras === "object" ? record.extras : {};
+  const testPolicyRead = readCdsTestPolicy(record);
   const parsed = {
     c7: record.c7 && Object.keys(record.c7).length ? record.c7 : (liveFallback?.parsed?.c7 ?? null),
     admitRatePercent,
@@ -282,7 +336,11 @@ export function cdsRecordToPositioningResult(record, { liveFallback = null, unit
     actComposite: record.enrolledACT
       ? { low: record.enrolledACT.p25 ?? null, high: record.enrolledACT.p75 ?? null }
       : (liveFallback?.parsed?.actComposite ?? null),
-    testPolicy: normalizeCdsTestPolicy(record.testPolicy) ?? liveFallback?.parsed?.testPolicy ?? null,
+    // The policy the record supports (readCdsTestPolicy), its bucket for
+    // the read, and the raw value so a test-blind school reads no score.
+    testPolicy: normalizeCdsTestPolicy(testPolicyRead.value) ?? liveFallback?.parsed?.testPolicy ?? null,
+    testPolicyValue: testPolicyRead.value,
+    testPolicyBasis: testPolicyRead.basis,
     // The wider read the College Fit calculation compares the student's own
     // sections, rank and GPA against: C9 section bands and score-range
     // tables, C10 class-rank shares, C11 GPA distribution, and the share of

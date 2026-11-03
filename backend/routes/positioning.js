@@ -4,7 +4,7 @@
 // these handlers use (SCORECARD_API_KEY, buildStudentCallLLM, collegeResearchStmts, piiStmts, ragStmts, rememberFitRead, requireStudentAuth, runPositioning, studentLimiter, withScorecardMeta).
 import { validateRequiredConsents } from "../security/consent.js";
 import { expandCollegeAlias, pickScorecardHit, readResearchCache, slugifyCollege } from "../colleges/college-research.js";
-import { buildPositioningForTarget, buildStudentModel } from "../colleges/positioning-engine.js";
+import { POSITIONING_MODEL_VERSION, buildPositioningForTarget, buildStudentModel } from "../colleges/positioning-engine.js";
 import { getActiveNarrative } from "../activities/narrative-store.js";
 import { FIT_VERIFY_TTL_DAYS, verifyCollegeFit } from "../colleges/fit-verifier.js";
 import { getCollegeById, searchScorecard } from "../colleges/college-scorecard.js";
@@ -42,7 +42,12 @@ export function registerPositioningRoutes(app, deps) {
         return res.status(403).json({ error: "AI consent is required before web verification.", code: "consent_required", missing: consents.missing });
       }
       const slug = slugifyCollege(expandCollegeAlias(schoolName));
-      const cacheKey = "fitverify:" + req.studentId + ":" + slug;
+      // The day's double-check belongs to the read it checked: the profile
+      // snapshot and the engine version are in the key, so a profile edit
+      // or a version bump is not answered with yesterday's verdict on an
+      // older read (fit-9).
+      const snapshotId = deps.ragStmts.getLatestSnapshot.get(req.studentId)?.id ?? "none";
+      const cacheKey = "fitverify:" + req.studentId + ":" + slug + ":" + snapshotId + ":" + POSITIONING_MODEL_VERSION;
       if (req.body?.force !== true) {
         const cached = readResearchCache(deps.collegeResearchStmts, cacheKey, FIT_VERIFY_TTL_DAYS);
         if (cached) return res.json({ ...cached, cached: true });

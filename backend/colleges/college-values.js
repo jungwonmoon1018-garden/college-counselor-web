@@ -288,9 +288,14 @@ function academicEvidence(profile, comparison) {
   for (const entry of Array.isArray(profile?.testScores) ? profile.testScores : []) {
     if (!entry || !entry.test || numberOrNull(entry.totalScore) == null) continue;
     const testKey = String(entry.test).toLowerCase();
+    // The College Fit read places one sitting per test (the best one,
+    // academics/test-sittings.js); an earlier or lower sitting of the same
+    // test is listed but not placed, or a retake's band and position would
+    // be printed beside the score it replaced.
+    const sameSitting = (r) => r && String(r.test || "").toLowerCase() === testKey && (r.score == null || Number(r.score) === Number(entry.totalScore));
     const usedRead = comparison?.tests?.used;
-    const used = usedRead && String(usedRead.test || "").toLowerCase() === testKey ? usedRead : null;
-    const alternative = used ? null : (comparison?.tests?.alternatives || []).find((a) => String(a?.test || "").toLowerCase() === testKey) || null;
+    const used = sameSitting(usedRead) ? usedRead : null;
+    const alternative = used ? null : (comparison?.tests?.alternatives || []).find(sameSitting) || null;
     const read = used || alternative;
     const position = read?.position && read.position !== "unknown" ? read.position : null;
     const sections = formatSections(entry);

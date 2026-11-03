@@ -14,8 +14,9 @@ import { searchFacts } from "../scouts/fact-store.js";
 import { getEvidenceProfile } from "../storage/evidence-graph.js";
 import { formatPolicyLine, readPolicySnapshot, scoutSchool, snapshotAsDeadlineRecord, snapshotIsCurrent } from "../scouts/admissions-policy-scout.js";
 import { searchScorecard } from "../colleges/college-scorecard.js";
-import { cdsRecordToPositioningResult, cdsVerification, isCdsRecordValidated, resolveStoredCdsRecord, schoolNamesCompatible } from "../cds/cds-store.js";
-import { buildProfileComparison, buildStudentModel, compareApExams, compareCourseRigor, compareGpaToSchool, compareRankToSchool, compareTestsToSchool } from "../colleges/positioning-engine.js";
+import { isCdsRecordValidated, resolveStoredCdsRecord, schoolNamesCompatible } from "../cds/cds-store.js";
+import { POSITIONING_MODEL_VERSION, buildProfileComparison, buildStudentModel, scoreAcademicReadiness } from "../colleges/positioning-engine.js";
+import { localFitContext } from "./fit-context.js";
 import { getActiveNarrative } from "../activities/narrative-store.js";
 import { detectSchoolMentions, formatVerifiedDataBlock } from "../chat/chat-grounding.js";
 import { calculateDeadlineStatus, runFAFSAEligibilityCheck } from "../chat/rules-engine.js";
@@ -23,28 +24,83 @@ import { calculateDeadlineStatus, runFAFSAEligibilityCheck } from "../chat/rules
 let deps;
 export function bindVerifiedData(serverDeps) { deps = serverDeps; }
 
-export function rememberFitRead(studentId, target, { verification = null } = {}) {
+function latestSnapshotId(studentId) {
+  try { return deps.ragStmts.getLatestSnapshot.get(studentId)?.id ?? null; } catch { return null; }
+}
+
+// The student's College Fit read for a school, kept for the chat's
+// VERIFIED DATA block. The stored provenance carries what the read was
+// computed from (the profile snapshot and the engine version) and its
+// label key, so a later reader can tell a current read from an old one.
+//
+// A read the engine withheld a label from ("insufficient_student_data")
+// stores no label: the chat was told "use this exact label" for a "Reach"
+// computed from an empty record (fit-4).
+//
+// The double-check stays beside a read only while it describes that read:
+// the same label from the same snapshot and engine. The upsert keeps the
+// previous verification when a plain re-read passes none (server.js), so a
+// new "Competitive" read sat beside October's "with live inputs the read
+// moves to High reach" (fit-9). When the read moved, an explicit JSON null
+// is written, which the upsert takes in place of the old verdict.
+export function rememberFitRead(studentId, target, { verification = null, snapshotId = undefined } = {}) {
   try {
     const slug = slugifyCollege(target?.schoolName || "");
     if (!slug) return;
+    const withheld = String(target?.labelKey || "").startsWith("insufficient_");
+    const label = withheld ? null : (target.overallPositioningLabel || null);
+    const snapshot = snapshotId !== undefined ? snapshotId : latestSnapshotId(studentId);
+    const provenance = {
+      ...(target.dataProvenance || {}),
+      labelKey: target.labelKey ?? target.dataProvenance?.labelKey ?? null,
+      modelVersion: POSITIONING_MODEL_VERSION,
+      snapshotId: snapshot ?? null,
+    };
+    let verificationJson = verification ? JSON.stringify(verification) : null;
+    if (!verification) {
+      const previous = (deps.fitReadStmts.byStudent.all(studentId) || []).find((row) => row.slug === slug) || null;
+      if (previous?.verification_json && previous.verification_json !== "null") {
+        const before = safeParseJSON(previous.provenance_json, null) || {};
+        const sameRead = previous.label === label
+          && before.modelVersion === POSITIONING_MODEL_VERSION
+          && String(before.snapshotId ?? "") === String(snapshot ?? "");
+        if (!sameRead) verificationJson = "null";
+      }
+    }
     deps.fitReadStmts.upsert.run(
-      studentId, slug, target.schoolName, target.overallPositioningLabel || null, target.finalPositioningScore ?? null,
+      studentId, slug, target.schoolName, label, withheld ? null : (target.finalPositioningScore ?? null),
       target.admissibility?.academicReadinessScore ?? null, target.competitiveness?.majorCompetitivenessScore ?? null,
       target.fit?.institutionalPriorityFitScore ?? null, target.confidence?.evidenceConfidence || null,
-      JSON.stringify(target.dataProvenance || null), verification ? JSON.stringify(verification) : null,
+      JSON.stringify(provenance), verificationJson,
       new Date().toISOString(),
     );
   } catch (err) { console.warn("[fit-read] not saved:", err?.message); }
 }
 
+// The stored reads, each marked stale when it was computed by another
+// engine version or from an older profile snapshot. A stale read gives no
+// label (the chat's fit line needs one) and no double-check: rows written
+// before a version bump kept their old labels in the chat until the student
+// reopened that school (fit-9). `staleLabel` keeps what it said.
 export function fitReadsForStudent(studentId) {
   try {
-    return deps.fitReadStmts.byStudent.all(studentId).map((row) => ({
-      school: row.school, slug: row.slug, label: row.label, score: row.score,
-      admissibility: row.admissibility, competitiveness: row.competitiveness, fit: row.fit,
-      confidence: row.confidence, provenance: safeParseJSON(row.provenance_json, null),
-      verification: safeParseJSON(row.verification_json, null), computedAt: row.computed_at,
-    }));
+    const currentSnapshot = latestSnapshotId(studentId);
+    return deps.fitReadStmts.byStudent.all(studentId).map((row) => {
+      const provenance = safeParseJSON(row.provenance_json, null);
+      const stale = provenance?.modelVersion !== POSITIONING_MODEL_VERSION
+        || (currentSnapshot != null && String(provenance?.snapshotId ?? "") !== String(currentSnapshot));
+      return {
+        school: row.school, slug: row.slug,
+        label: stale ? null : row.label,
+        score: stale ? null : row.score,
+        admissibility: row.admissibility, competitiveness: row.competitiveness, fit: row.fit,
+        confidence: row.confidence, provenance,
+        verification: stale ? null : safeParseJSON(row.verification_json, null), computedAt: row.computed_at,
+        stale,
+        staleLabel: stale ? row.label : null,
+        labelKey: stale ? null : (provenance?.labelKey ?? null),
+      };
+    });
   } catch { return []; }
 }
 
@@ -167,34 +223,19 @@ export function assembleProfileForGeneration(studentId) {
 
 // The student's record against one school's enrolled class — the same
 // reads the College Fit calculation makes (tests by section, GPA, class
-// rank, AP exams) from the stored Common Data Set and baseline row, with no
-// live fetch — so the priorities matrix under the fit card can place a
-// score against the school's middle 50% instead of only listing it. Null
-// when nothing is held for the school.
+// rank, AP exams, course load) from the same school context the card uses
+// (server/fit-context.js: the stored Common Data Set and baseline row, the
+// admit rate, the policy the school states this cycle), with no live
+// fetch — so the priorities matrix under the fit card places a score where
+// the card does. Null when nothing is held for the school.
 export function profileComparisonForSchool(studentId, schoolName) {
   try {
     if (!schoolName) return null;
     const snap = deps.ragStmts.getLatestSnapshot.get(studentId);
     if (!snap) return null;
     const wanted = expandCollegeAlias(String(schoolName));
-    const collegeRow = deps.resolveBaselineCollegeRow(deps.db, { schoolName: wanted });
-    const record = resolveStoredCdsRecord(deps.ragStmts, { schoolName: collegeRow?.name || wanted });
-    if (!record && !collegeRow) return null;
-    // A usable record (validated, or the school's own current document
-    // reading consistently) supplies the numbers; only an externally
-    // checked one counts as verified for the confidence read.
-    const validated = record ? isCdsRecordValidated(deps.ragStmts, record.slug) : false;
-    const verification = record ? cdsVerification(deps.ragStmts, record.slug) : "unverified";
-    const cds = record ? cdsRecordToPositioningResult(record, { validated: verification === "validated", verification }) : null;
-    const pick = (cdsVal, baseVal) => (record && validated ? (cdsVal ?? baseVal) : (baseVal ?? cdsVal));
-    const college = {
-      name: collegeRow?.name || record?.school || wanted,
-      sat25: pick(record?.enrolledSAT?.p25, collegeRow?.sat_25) ?? null,
-      sat75: pick(record?.enrolledSAT?.p75, collegeRow?.sat_75) ?? null,
-      act25: pick(record?.enrolledACT?.p25, collegeRow?.act_25) ?? null,
-      act75: pick(record?.enrolledACT?.p75, collegeRow?.act_75) ?? null,
-      avgGpaAdmitted: pick(record?.enrolledGPA?.avg, collegeRow?.avg_gpa_admitted) ?? cds?.parsed?.gpaAverage ?? null,
-    };
+    const context = localFitContext(deps, schoolName, { wanted });
+    if (!context) return null;
     const strengthRows = deps.ragStmts.strength.getByStudent.all(studentId);
     const student = buildStudentModel({
       gpa_unweighted: snap.gpa_unweighted,
@@ -206,14 +247,10 @@ export function profileComparisonForSchool(studentId, schoolName) {
       activities_json: snap.activities_json,
       major_interest: snap.major_interest,
     }, strengthRows, getActiveNarrative(deps.ragStmts.narrative, studentId));
-    const gpa = compareGpaToSchool(student, college, cds);
-    return buildProfileComparison({
-      tests: compareTestsToSchool(student, college, cds),
-      gpa,
-      classRank: compareRankToSchool(student, cds),
-      apExams: compareApExams(student),
-      rigor: compareCourseRigor(student, gpa.average),
-    });
+    // The readiness reads themselves, as buildPositioningForTarget takes
+    // them: the GPA average falls back to what the admit rate implies, and
+    // the rigor expectation follows it.
+    return buildProfileComparison(scoreAcademicReadiness(student, context.collegeContext, context.cdsForRead).reads);
   } catch (err) {
     console.warn("[COLLEGE-VALUES] profile comparison skipped:", err?.message);
     return null;

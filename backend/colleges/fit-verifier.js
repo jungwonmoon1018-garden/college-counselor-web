@@ -14,13 +14,15 @@
 //      it cites appears verbatim in the fetched text.
 //
 // Every check records what the fit used, what the live source says, and a
-// status (consistent / differs / unavailable / info). When a live value
-// differs, the fit is re-scored with the live inputs so the student sees
-// whether the label would move. Pure orchestration: the caller injects the
-// Scorecard lookup, the page reader, the model, and the re-scorer.
+// status (consistent / differs / filled / unavailable / info). When a live
+// value differs, or fills a value the fit did not have, the fit is re-scored
+// with the live inputs so the student sees whether the label would move.
+// Pure orchestration: the caller injects the Scorecard lookup, the page
+// reader, the model, and the re-scorer.
 
 import { verifyQuote } from "./college-research.js";
 import { testPolicyBucket } from "./positioning-engine.js";
+import { cycleStartYear, scorecardDataYear as scorecardDataYearFor } from "../cds/cds-cycle.js";
 
 export const FIT_VERIFY_TTL_DAYS = 1;
 const MAX_MODEL_PAGE_CHARS = 9_000;
@@ -64,6 +66,18 @@ function titleCase(text) {
 // sat75, act25, act75, testPolicy (bucket), source, cdsYear }. `scorecard`
 // is a live Scorecard row (percent admit rate). `policy` is the scout's live
 // policy object; `modelPolicy` the model's quote-verified read.
+//
+// A value the fit did not have and the live source does is "filled": the
+// read ran without it (an unknown admit rate is taken as 50%), so it counts
+// as a discrepancy. It used to be "unavailable", the live value was never
+// applied, and a read built on a guessed 50% was reported as consistent
+// with the very source that held the real rate (fit-5).
+function numericStatus(usedPresent, livePresent, ok) {
+  if (!livePresent) return "unavailable";
+  if (!usedPresent) return "filled";
+  return ok ? "consistent" : "differs";
+}
+
 export function compareFitInputs({ used = {}, scorecard = null, policy = null, modelPolicy = null, policyFailure = null } = {}) {
   const checks = [];
   const usedSource = used.source || "stored data";
@@ -81,7 +95,7 @@ export function compareFitInputs({ used = {}, scorecard = null, policy = null, m
       usedSource,
       live: live != null ? `${live}%` : null,
       liveSource: live != null ? scorecardLabel : null,
-      status: used.acceptanceRate == null || live == null ? "unavailable" : (within ? "consistent" : "differs"),
+      status: numericStatus(used.acceptanceRate != null, live != null, within),
     });
   }
   {
@@ -96,7 +110,7 @@ export function compareFitInputs({ used = {}, scorecard = null, policy = null, m
       usedSource,
       live: liveRange,
       liveSource: liveRange ? scorecardLabel : null,
-      status: !usedRange || !liveRange ? "unavailable" : (ok ? "consistent" : "differs"),
+      status: numericStatus(Boolean(usedRange), Boolean(liveRange), ok),
     });
   }
   {
@@ -111,7 +125,7 @@ export function compareFitInputs({ used = {}, scorecard = null, policy = null, m
       usedSource,
       live: liveRange,
       liveSource: liveRange ? scorecardLabel : null,
-      status: !usedRange || !liveRange ? "unavailable" : (ok ? "consistent" : "differs"),
+      status: numericStatus(Boolean(usedRange), Boolean(liveRange), ok),
     });
   }
   // Test policy — two independent readers of the official pages. Two that
@@ -178,25 +192,32 @@ export function compareFitInputs({ used = {}, scorecard = null, policy = null, m
 }
 
 export function verdictFromChecks(checks) {
-  const scored = checks.filter((c) => ["consistent", "differs", "inconclusive"].includes(c.status));
+  const scored = checks.filter((c) => ["consistent", "differs", "filled", "inconclusive"].includes(c.status));
   if (!scored.length) return "unverifiable";
-  if (scored.some((c) => c.status === "differs")) return "discrepancies_found";
+  if (scored.some((c) => c.status === "differs" || c.status === "filled")) return "discrepancies_found";
   if (scored.some((c) => c.status === "inconclusive")) return "inconclusive";
   return "consistent";
 }
 
 // Live inputs for a re-score: the official site wins for policy; for the
 // numbers, a validated CDS as new as Scorecard's data year stays, otherwise
-// the live Scorecard row wins.
-export function liveInputsFor({ used = {}, scorecard = null, checks = [], scorecardDataYear = 2024 } = {}) {
+// the live Scorecard row wins. A value the fit did not have at all is
+// always taken, fresh CDS or not, since there is nothing to keep. The
+// Scorecard's data year comes from the clock (cds-cycle.js) and the CDS
+// year from its cycle label ("2025-26"); the year used to be fixed at 2024,
+// so as cycles passed an old CDS would have kept overriding newer Scorecard
+// numbers (fit-12).
+export function liveInputsFor({ used = {}, scorecard = null, checks = [], now = new Date(), scorecardDataYear = scorecardDataYearFor(now) } = {}) {
   const next = { ...used };
   const changed = [];
-  const cdsFresh = used.source === "cds_store" && Number(used.cdsYear) >= scorecardDataYear;
-  const differs = (field) => checks.find((c) => c.field === field)?.status === "differs";
-  if (scorecard && !cdsFresh) {
-    if (differs("acceptance_rate") && scorecard.acceptanceRate != null) { next.acceptanceRate = scorecard.acceptanceRate; changed.push("acceptance_rate"); }
-    if (differs("sat_range") && scorecard.sat25 != null) { next.sat25 = scorecard.sat25; next.sat75 = scorecard.sat75; changed.push("sat_range"); }
-    if (differs("act_range") && scorecard.act25 != null) { next.act25 = scorecard.act25; next.act75 = scorecard.act75; changed.push("act_range"); }
+  const cdsStart = cycleStartYear(used.cdsYear);
+  const cdsFresh = used.source === "cds_store" && cdsStart != null && cdsStart >= scorecardDataYear;
+  const statusOf = (field) => checks.find((c) => c.field === field)?.status;
+  const take = (field) => statusOf(field) === "filled" || (!cdsFresh && statusOf(field) === "differs");
+  if (scorecard) {
+    if (take("acceptance_rate") && scorecard.acceptanceRate != null) { next.acceptanceRate = scorecard.acceptanceRate; changed.push("acceptance_rate"); }
+    if (take("sat_range") && scorecard.sat25 != null) { next.sat25 = scorecard.sat25; next.sat75 = scorecard.sat75; changed.push("sat_range"); }
+    if (take("act_range") && scorecard.act25 != null) { next.act25 = scorecard.act25; next.act75 = scorecard.act75; changed.push("act_range"); }
   }
   const policyCheck = checks.find((c) => c.field === "test_policy");
   if (policyCheck && (policyCheck.status === "differs" || policyCheck.status === "info") && policyCheck.liveBucket) {
@@ -333,7 +354,7 @@ export async function verifyCollegeFit({
     policyFailure: live.failure,
   });
   const verdict = verdictFromChecks(checks);
-  const { inputs: liveInputs, changed } = liveInputsFor({ used, scorecard, checks });
+  const { inputs: liveInputs, changed } = liveInputsFor({ used, scorecard, checks, now });
   let recomputed = null;
   if (rescore && changed.length) {
     try {
@@ -342,6 +363,9 @@ export async function verifyCollegeFit({
         changedInputs: changed,
         finalPositioningScore: next?.finalPositioningScore ?? null,
         overallPositioningLabel: next?.overallPositioningLabel ?? null,
+        // The card names a withheld read ("insufficient_student_data") by
+        // its key rather than its English label.
+        ...(next?.labelKey ? { labelKey: next.labelKey } : {}),
         labelChanged: Boolean(original?.overallPositioningLabel && next?.overallPositioningLabel
           && original.overallPositioningLabel !== next.overallPositioningLabel),
       };
@@ -378,8 +402,8 @@ export function formatVerificationLine(verification) {
     unverifiable: "could not be checked against live sources",
   }[verification.verdict] || verification.verdict;
   const differing = (verification.checks || [])
-    .filter((c) => c.status === "differs")
-    .map((c) => `${c.label}: fit used ${c.used}, live ${c.live}`);
+    .filter((c) => c.status === "differs" || c.status === "filled")
+    .map((c) => (c.status === "filled" ? `${c.label}: fit had none, live ${c.live}` : `${c.label}: fit used ${c.used}, live ${c.live}`));
   const moved = verification.recomputed?.labelChanged
     ? `; with live inputs the read moves to ${verification.recomputed.overallPositioningLabel}`
     : "";

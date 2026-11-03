@@ -174,10 +174,11 @@ export function extractTestPolicyPositional(items) {
   const lines = groupByLine(items, 2.5);
   // Find C8A row(s). The row is "SAT or ACT" followed by an X mark.
   const satRow = lines.find((l) => l.items.some((i) => /^SAT\s+or\s+ACT$/i.test(i.str.trim())));
-  // Not found is null, not a policy: the caller decides the default (a
-  // text layer keeps "test_required" as before; an OCR read, which misses
-  // rows, leaves the policy unknown rather than telling a student a
-  // test-optional school requires scores — Bradley's 2025-26 record).
+  // Not found is null, not a policy, for a text layer as for an OCR read.
+  // An OCR read went to null first (Bradley's 2025-26 record said a
+  // test-optional school required scores); a text layer kept defaulting to
+  // "test_required" until version 8, which is how 175 of 299 stored records
+  // came to read required, UCLA's (test-blind) among them (fit-6).
   if (!satRow) return null;
   const xItem = satRow.items.find((i) => /^[Xx•✓✔]$/.test(i.str.trim()));
   if (!xItem) return null;
@@ -220,11 +221,12 @@ export function extractTestPolicyPositional(items) {
     { key: "test_blind", x: cols.test_blind },
   ].filter((b) => b.x != null);
   if (buckets.length < 2) {
-    // Fall back to simple text matching if positional fails
+    // Fall back to simple text matching if positional fails. Without the
+    // column anchors the X cannot be placed, so no phrase is no policy.
     const t = items.map((i) => i.str).join(" ");
     if (/test[\s-]?blind/i.test(t)) return "test_blind";
     if (/test[\s-]?optional/i.test(t)) return "test_optional";
-    return "test_required";
+    return null;
   }
   // Snap xPos to the nearest bucket center
   let nearest = buckets[0];
@@ -239,11 +241,13 @@ export function extractTestPolicyPositional(items) {
   return "test_required";
 }
 
-// Plain-text fallback (kept for callers that already have the text).
+// Plain-text fallback (kept for callers that already have the text, the
+// workbook parser among them): a phrase, or null. Every CDS prints the
+// "Required" column header, so its absence of "optional" proves nothing.
 export function extractTestPolicy(text) {
   if (/test[\s-]?blind/i.test(text)) return "test_blind";
   if (/test[\s-]?optional/i.test(text)) return "test_optional";
-  return "test_required";
+  return null;
 }
 
 // ─── Year ────────────────────────────────────────────────────────────
@@ -625,8 +629,10 @@ export function extractExtras(items) {
 // cached document whose row already carries this one (cachedParseIsCurrent).
 // Bump it whenever a parser reads more, or reads differently. Version 7
 // (2026-09-22) sends a document whose text layer is unreadable glyph codes
-// to OCR instead of reading nothing from it.
-export const CDS_PARSER_VERSION = 7;
+// to OCR instead of reading nothing from it. Version 8 (2026-11-03) leaves
+// a C8A test policy it did not read unknown (null) instead of
+// "test_required", in the PDF and workbook parsers alike.
+export const CDS_PARSER_VERSION = 8;
 
 export async function parseCDSPositional(pdfPath, { method = "auto" } = {}) {
   const items = await extractItems(pdfPath, { method });
@@ -651,7 +657,7 @@ export async function parseCDSPositional(pdfPath, { method = "auto" } = {}) {
     positional.extractionMethod = "pdfjs";
   }
   positional.year = extractYear(allText);
-  positional.testPolicy = extractTestPolicyPositional(items) ?? (items._source === "tesseract" ? null : "test_required");
+  positional.testPolicy = extractTestPolicyPositional(items) ?? null;
   const counts = extractC1Counts(items);
   if (counts) {
     positional.b1 = counts;
@@ -704,7 +710,11 @@ export async function parseCDSPositional(pdfPath, { method = "auto" } = {}) {
         if (!positional.enrolledACT && fromForm.enrolledACT) positional.enrolledACT = fromForm.enrolledACT;
         if (!positional.enrolledGPA && fromForm.enrolledGPA) positional.enrolledGPA = fromForm.enrolledGPA;
         if (!positional.c7 && fromForm.c7) positional.c7 = fromForm.c7;
-        if ((positional.testPolicy === "test_required" || positional.testPolicy == null) && fromForm.testPolicy && fromForm.testPolicy !== "test_required") {
+        // An unread policy takes the form's; a positional "required" yields
+        // only to a form that says otherwise.
+        if (positional.testPolicy == null && fromForm.testPolicy) {
+          positional.testPolicy = fromForm.testPolicy;
+        } else if (positional.testPolicy === "test_required" && fromForm.testPolicy && fromForm.testPolicy !== "test_required") {
           positional.testPolicy = fromForm.testPolicy;
         }
         positional.parserNotes = (positional.parserNotes || []).concat("merged_form_fields");
