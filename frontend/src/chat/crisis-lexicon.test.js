@@ -88,6 +88,35 @@ describe("crisis statements", () => {
   });
 });
 
+// Two fix passes on the crisis-line request overshot in turn. A sentence
+// that asks for the line is a request unless an activity construction about
+// the line is in the same sentence; the shared fixture holds every phrasing a
+// verifier listed, and these pairs keep each direction in view here.
+describe("crisis lines", () => {
+  it("answers a line named as an activity and keeps the request beside it", () => {
+    const pairs = [
+      ["Is there a suicide hotline at my school I could volunteer for?", "is there a suicide hotline I can call?"],
+      ["Is there a suicide hotline near me that takes teen volunteers?", "anyone have the suicide hotline number"],
+      ["I’m looking for a crisis hotline to volunteer at this summer", "I’m looking for a crisis hotline"],
+      ["How do I get a suicide hotline volunteer position?", "I need a crisis hotline volunteer please"],
+      ["What is the suicide hotline’s role in my essay about my volunteer work?", "I need the suicide hotline’s help"],
+      ["We added the crisis hotline number to every locker", "I need to call the suicide hotline in the bathroom stall"],
+      ["자살예방상담전화 번호를 사물함마다 넣었어요", "자살예방상담전화 번호 넣었는데 전화가 안 돼요"],
+    ];
+    for (const [activity, request] of pairs) {
+      expect(isCrisisStatement(activity), activity).toBe(false);
+      expect(isCrisisTopicMention(activity), activity).toBe(true);
+      expect(isCrisisStatement(request), request).toBe(true);
+    }
+  });
+
+  it("reads the line's number as a request with or without a frame", () => {
+    for (const text of ["whats the suicide hotline number", "whats the suicide hotline number.", "hi suicide hotline number", "u got the suicide hotline number", "help! suicide hotline"]) {
+      expect(isCrisisStatement(text), text).toBe(true);
+    }
+  });
+});
+
 describe("topic mentions", () => {
   it("are not crisis statements but get the resource footer", () => {
     for (const text of ["our school's suicide prevention club needs a fundraiser idea", "We run a self-harm awareness week", "자살 예방 동아리를 만들었어요"]) {

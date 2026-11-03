@@ -102,9 +102,13 @@ describe("classifyTopic", () => {
 
   // The request patterns stopped at the line's name and a bare "<line>
   // number" fired anywhere, so a role at the line or its number on a poster
-  // got the crisis reply. What follows the name now decides; a bare number
-  // needs the start of a sentence, a question mark or please.
-  it("answers a crisis line named as an activity, by what follows its name", () => {
+  // got the crisis reply. The next pass required a frame for the number and
+  // let a volunteer, a possessive or a place after the name end a request,
+  // so "whats the suicide hotline number" and "I need a crisis hotline
+  // volunteer please" lost it, and "Is there a suicide hotline at my school
+  // I could volunteer for?" gained it. A sentence that asks is now a request
+  // unless an activity construction about the line is in the same sentence.
+  it("answers a crisis line named as an activity, and keeps every request beside it", () => {
     const pairs = [
       ["How do I get a suicide hotline volunteer position?", "How do I get the suicide hotline?"],
       ["what's the suicide hotline volunteer age requirement", "what's the suicide hotline number"],
@@ -112,7 +116,17 @@ describe("classifyTopic", () => {
       ["I want the suicide hotline number on every locker at school", "I want the suicide hotline number in my phone"],
       ["Our club printed the suicide hotline number on posters around school", "suicide hotline number please"],
       ["We added the crisis hotline number to every locker", "the crisis hotline number"],
+      ["Is there a suicide hotline at my school I could volunteer for?", "is there a suicide hotline I can call?"],
+      ["Is there a suicide hotline near me that takes teen volunteers?", "anyone have the suicide hotline number"],
+      ["I'm looking for a crisis hotline to volunteer at this summer", "whats the suicide hotline number."],
+      ["Do you know a suicide hotline that accepts high school volunteers?", "u got the suicide hotline number"],
+      ["Is there a crisis text line I can volunteer with?", "I need a suicide hotline volunteer I can talk to"],
+      ["Can you find a suicide hotline nonprofit I could intern at?", "I need you to find the suicide hotline"],
+      ["What are suicide hotline volunteers trained to do?", "I need a crisis hotline volunteer, please"],
+      ["Do you know the suicide hotline’s history?", "I need the suicide hotline's help"],
+      ["We printed the crisis text line number on stickers for every bathroom stall", "I need to call the suicide hotline in the bathroom stall"],
       ["자살예방상담전화 번호를 사물함마다 붙였어요", "자살예방상담전화 번호가 뭐예요?"],
+      ["학생증에 자살예방상담전화 번호를 넣었어요", "자살 상담전화 번호 넣었는데 연결이 안 돼요"],
     ];
     for (const [activity, request] of pairs) {
       assert.notEqual(classifyTopic(activity).topicType, TOPIC_TYPES.CRISIS, activity);

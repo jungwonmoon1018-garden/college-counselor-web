@@ -47,28 +47,56 @@ const TOPIC_PAIR = String.raw`(?:suicide|self[\s-]?harm|overdose|crisis|mental[\
 const TOPIC_TAIL = String.raw`(?![\s/&-]+(?:(?:and|or)[\s/&-]+)?${TOPIC_PAIR}[\s-]+${TOPIC_NOUNS}\b|[\s-]+${TOPIC_NOUNS}\b)`;
 // Asking for a crisis line is a safety statement. With hotline and lifeline
 // among the topic nouns, "I need the suicide hotline number" became a topic
-// mention, answered only if a paid model call succeeded. A lifeline named as
-// an activity ("a volunteer for the 988 Suicide & Crisis Lifeline") stays a
+// mention, answered only if a paid model call succeeded. A line named as an
+// activity ("a volunteer for the 988 Suicide & Crisis Lifeline") stays a
 // topic.
 //
-// What follows the line's name tells a request from an activity. Stopping at
-// the name gave "How do I get a suicide hotline volunteer position?" and "We
-// added the crisis hotline number to every locker" the crisis reply. A role
-// at the line, its possessive (other than its number) and its number put up
-// somewhere are activities; "a suicide hotline volunteer to talk to" and "the
-// suicide hotline's number" are still asked for.
+// Two passes overshot in turn: volunteer positions and locker posters got
+// the crisis reply, then "whats the suicide hotline number" and "I need a
+// crisis hotline volunteer please" lost it. The rule is now one sentence: a
+// sentence that asks for the line is a request unless an activity
+// construction about the line is in the same sentence, and a genuinely
+// ambiguous one stays a request. Asking is a frame right before the name
+// (LINE_NEED, LINE_ASK), the line's number anywhere, or the name alone
+// ("Suicide hotline?").
+//
+// The activity constructions are a role noun right after the name
+// ("volunteer position", "internship", "club", "as my essay topic"), the
+// number put on a display place right after it (LINE_SPOT: on posters,
+// lockers or IDs, on a mirror or a stall door; "in the bathroom stall", "in
+// the hallway" and "in my classroom" say where the student is), and
+// anywhere in the sentence (LINE_ACTIVITY) "I could volunteer", "to
+// volunteer", "volunteer at the line", "takes teen volunteers", "hires high
+// schoolers", "posters with the line", "the number we put on lockers" or
+// "promote the line". A first-person need is a request even with a
+// volunteer or the line's possessive after it ("I need a crisis hotline
+// volunteer please", "I need the suicide hotline's help"); after the other
+// frames a volunteer who does something ("what are suicide hotline
+// volunteers trained to do") and a possessive that is no way to reach the
+// line ("its history") are topics.
+//
+// The match starts at a sentence boundary, so the activity check reads the
+// whole sentence, and every scan stops at the sentence's end or a fixed
+// width, which keeps the pattern linear on a long message.
 const LINE_NAME = String.raw`(?:988\s+|national\s+)?(?:suicide|crisis|self[\s-]?harm)(?:\s+prevention)?(?:\s*(?:&|and)\s*crisis)?\s+(?:hot|life|text\s+)line`;
-const LINE_PLACE = String.raw`(?:posters?|flyers?|fliers?|(?:student\s+)?ids?|id\s+cards?|lockers?|badges?|stickers?|banners?|bookmarks?|wristbands?|lanyards?|t-?shirts?|magnets?|bulletin\s+boards?|stalls?|mirrors?|hallways?|classrooms?)`;
-const LINE_TAIL = String.raw`(?!\s+(?:volunteer(?:s|ing|ed)?\b(?!\s+(?:to\s+)?(?:talk|call|text|chat|speak)\b)|positions?\b|jobs?\b|roles?\b|trainings?\b|internships?\b|interns?\b|shifts?\b|clubs?\b|projects?\b|essays?\b|fundraisers?\b|campaigns?\b|research\b)|'s\s+(?!(?:phone\s+|text\s+|contact\s+)?(?:numbers?|phone|contact)\b)|(?:\s+(?:phone\s+)?numbers?)?\s+(?:on|onto|to|in|into|across|around|throughout|inside)\s+(?:[\w'-]+\s+){0,3}?${LINE_PLACE}\b)`;
-// The student asks for the line: first person or addressed to the counselor,
-// so a specialist's draft ("if you're looking for a crisis line") does not.
-const LINE_ASK = String.raw`(?:i\s+(?:(?:really|just|urgently|desperately|seriously)\s+)?(?:need|want)(?:\s+to\s+(?:call|text|contact|reach|talk\s+to))?|(?:how|where)\s+(?:can|do|could|should)\s+i\s+(?:find|get|call|text|contact|reach)|can\s+i\s+(?:have|get|call|text|reach)|(?:can|could|would|will)\s+you\s+(?:please\s+)?(?:find|get|send|share|text|look\s+up)|(?:i'm|im|i\s+am)\s+looking\s+for|do\s+you\s+(?:have|know)|is\s+there|(?:give|get|send|tell|show|find|text)\s+me|what(?:'s|\s+is)|where(?:'s|\s+is)|(?:phone\s+)?number\s+(?:for|of))`;
-// With no asking words, the line's number is a request at the start of a
-// sentence or with a question mark or please after it, and the line's name
-// alone is one when it is the whole sentence ("Suicide hotline?").
+const LINE_PLACE = String.raw`(?:posters?|flyers?|fliers?|(?:student\s+)?ids?|id\s+cards?|lockers?(?!\s+rooms?\b)|badges?|stickers?|banners?|bookmarks?|wristbands?|lanyards?|t-?shirts?|magnets?|bulletin\s+boards?)`;
+const LINE_ROLE = String.raw`(?:positions?|jobs?|roles?|work|trainings?|internships?|interns?|shifts?|clubs?|projects?|essays?|fundraisers?|campaigns?|research|programs?|opportunit(?:y|ies)|experience|certifications?|volunteering|volunteered|as\s+(?:(?:my|an?|the|our)\s+)?(?:[\w'-]+\s+){0,2}?(?:topics?|examples?|essays?|subjects?|activit(?:y|ies)|ecs?|extracurriculars?|prompts?|stor(?:y|ies))|volunteers?\s+(?:positions?|jobs?|roles?|ages?|requirements?|applications?|hours|work|opportunit(?:y|ies)|programs?|experience|shifts?|trainings?|orientation|certifications?|interviews?|forms?|openings?|spots?|slots?))\b`;
+const LINE_DOES = String.raw`volunteers?\s+(?:do(?:es)?|did|gets?|are|is|was|were|ha(?:ve|s)|needs?|must|should|trained|trains?|earns?|makes?|works?|handles?|answers?|learns?|like)\b`;
+const LINE_SPOT = String.raw`(?:(?:on|onto|to|in|into|across|around|throughout|inside|for)\s+(?:[\w'-]+\s+){0,3}?${LINE_PLACE}|(?:on|onto)\s+(?:[\w'-]+\s+){0,3}?(?:mirrors?|stall\s+doors?|walls?))\b`;
+const LINE_PUT = String.raw`(?:'s)?(?:\s+(?:phone\s+)?numbers?)?\s+${LINE_SPOT}`;
+const LINE_OWN = String.raw`'s\s+(?!(?:(?:phone|text|contact|chat)\s+)?(?:numbers?|phone|contact|website|site|link|url|chat|text|hours|address|email|help|support|app)\b)`;
+const LINE_VERB = String.raw`(?:call(?:ing)?|text(?:ing)?|contact(?:ing)?|reach(?:ing)?|(?:talk|speak|chat)(?:ing|ting)?\s+(?:to|with)|find(?:ing)?|get(?:ting)?|have|use|try)`;
+// The student needs the line, or someone at it to talk to.
+const LINE_NEED = String.raw`(?:i\s+(?:(?:really|just|urgently|desperately|seriously|honestly|kinda|still)\s+)?(?:need|want|have\s+to|gotta|got\s+to|wanna|must)(?:\s+(?:you|u|someone|somebody)\s+to|\s+help|\s+to)?(?:\s+${LINE_VERB})?|(?:i'm|im|i\s+am)\s+(?:(?:gonna|going\s+to|about\s+to|trying\s+to)\s+${LINE_VERB}|calling|texting|contacting))`;
+// The student asks for it, in the first person or of the counselor, so a
+// specialist's draft ("if you're looking for a crisis line") does not ask.
+const LINE_ASK = String.raw`(?:(?:how|where)\s+(?:can|do|could|should|would)\s+(?:i|we|you|u)\s+(?:find|get|call|text|contact|reach)|how\s+(?:to|2)\s+(?:find|get|call|text|contact|reach)|(?:can|could|may|should)\s+i\s+${LINE_VERB}|(?:ok(?:ay)?|safe|fine|normal|weird|bad|wrong)\s+(?:to|if\s+i)\s+(?:call|text|contact|reach)|(?:can|could|would|will)\s+(?:you|u)\s+(?:please\s+)?(?:find|get|send|share|text|look\s+up|give|tell|show)(?:\s+me)?|(?:i'm|im|i\s+am)\s+looking\s+for|(?:do|did)\s+(?:you|u|ya)\s+(?:have|know|got)|(?:you|u|ya)\s+got|(?:any|some)\s*(?:one|body)\s+(?:have|has|got|know|knows)|is\s+there|(?:give|get|send|tell|show|find|text)\s+me|help\s+me\s+(?:find|get|call|reach|contact|text)|what(?:'s|s|\s+is|\s+are)|what\s+(?:phone\s+)?number\s+(?:is|for)|where(?:'s|s|\s+is|\s+are)|(?:phone\s+)?number\s+(?:for|of|to))`;
+const LINE_TO = String.raw`(?:\s+(?:someone|somebody|anyone|anybody|a\s+person|people))?(?:\s+(?:at|from|on|with))?[\s,]+(?:(?:a|an|the|your|ur|my|some|any)\s+)?(?:(?:nearest|closest|local|free|anonymous|teen|youth|24/7|24-hour)\s+)?`;
+const LINE_ACTIVITY = String.raw`(?:\bi(?:\s+(?:could|can|might|would|will|want\s+to|wanna|hope\s+to|plan\s+to|would\s+like\s+to)|'d(?:\s+like\s+to)?|'ll)\s+(?:(?:also|maybe|still|possibly|actually|really)\s+)?(?:volunteer|intern)|\bto\s+(?:volunteer|intern)|\b(?:volunteer(?:s|ed|ing)?|intern(?:s|ed|ing)?|work(?:s|ed|ing)?|serv(?:e|es|ed|ing)|train(?:s|ed|ing)?)\s+(?:at|for|with|on)\s+(?:(?:a|an|the|our|my|your|this|that|their|its)\s+)?(?:local\s+)?${LINE_NAME}|\b(?:promot(?:e|es|ed|ing)|advertis(?:e|es|ed|ing)|publiciz(?:e|es|ed|ing)|rais(?:e|es|ed|ing)\s+awareness\s+(?:of|about|for)|spread(?:s|ing)?\s+(?:the\s+word|awareness)\s+(?:of|about))\s+(?:(?:a|an|the|our|my|your|this|that|their|its)\s+)?(?:local\s+)?${LINE_NAME}|\b(?:takes?|taking|accepts?|accepting)\s+(?:[\w'-]+\s+){0,3}?(?:volunteers?|interns?)|\b(?:recruits?|recruiting|hires?|hiring|trains?)\s+(?:[\w'-]+\s+){0,3}?(?:volunteers?|interns?|teens?|students?|high\s*schoolers?|minors?|people|staff)|\b${LINE_PLACE}\s+(?:with|showing|listing|that\s+(?:has|have|shows?|lists?))\s+(?:(?:a|an|the|our|my|your)\s+)?${LINE_NAME}|\bnumbers?\b[^.!?;:]{0,40}?\b(?:put|puts|putting|print|prints|printed|printing|post|posts|posted|posting|add|adds|added|adding|stick|sticks|stuck|place|placed|include|included|list|listed)\s+(?:(?:it|them)\s+)?${LINE_SPOT})\b`;
+// The name alone is a request when it is the whole sentence, with please,
+// help or a question mark around it.
 const LINE_ALONE = String.raw`(?=(?:\s*(?:please|pls|plz|now|asap))*\s*(?:[?!]|\.?\s*$)|\s*(?:please|pls|plz)\b)`;
-const LINE_BARE = String.raw`(?:^|[.!?;:]+\s*)(?:(?:please|pls|plz)\s+)?(?:need\s+)?(?:(?:the|a|an|your)\s+)?${LINE_NAME}(?:\s+(?:phone\s+)?number\b${LINE_TAIL}|s?${LINE_ALONE})|${LINE_NAME}\s+(?:phone\s+)?number(?=\s*(?:\?|(?:please|pls|plz|asap)\b))`;
-const LINE_REQUEST = String.raw`${LINE_ASK}\s+(?:a|an|the|your)?\s*${LINE_NAME}s?\b${LINE_TAIL}|${LINE_BARE}`;
+const LINE_REQUEST = String.raw`(?:^|[.!?;:])(?![^.!?;:]*?${LINE_ACTIVITY})(?:[^.!?;:]*?\b(?:${LINE_NEED}${LINE_TO}${LINE_NAME}s?\b(?!\s+${LINE_ROLE}|${LINE_PUT})|${LINE_ASK}${LINE_TO}${LINE_NAME}s?\b(?!\s+(?:${LINE_ROLE}|${LINE_DOES})|${LINE_OWN}|${LINE_PUT})|${LINE_NAME}(?:'s)?\s+(?:phone\s+)?number\b(?!${LINE_PUT}))|[^\w.!?;:]*(?:(?:please|pls|plz|help(?:\s+me)?)[\s,]+)*(?:need\s+)?(?:(?:the|a|an|your)\s+)?${LINE_NAME}s?${LINE_ALONE})`;
 // "I hurt myself playing soccer" and "I cut myself off from social media"
 // are about a sports injury and a phone, and both got the hotlines. The
 // sports carve-out holds only while nothing later in the sentence says the
@@ -89,7 +117,10 @@ const THIRD_PARTY_VERB = String.raw`(?:hits?|hitting|beats?|beating|abuses?|abus
 // emergency") is not a safety statement; any other "it's an emergency" is.
 const APPLICATION_WORDS = String.raw`(?:apps?|applications?|common\s+app|essays?|deadlines?|portal|submit\w*|upload\w*|forms?|fafsa|css\s+profile|transcripts?|homework|assignments?|exams?|tests?|quiz|sat|act|recommendations?|letters?|payments?|fees?|login|log\s+in|password|website)`;
 
-const SELF_HARM_RE = new RegExp(String.raw`\b(?:suicid\w*\b${TOPIC_TAIL}|kill(?:ing)?\s+myself|self[\s-]?harm(?:ing|ed)?\b${TOPIC_TAIL}|(?:want|wanted|wanting|going|ready)\s+to\s+die|wanna\s+die|end(?:ing)?\s+my\s+(?:own\s+)?life|end\s+it\s+all|take\s+my\s+(?:own\s+)?life|hurt(?:ing)?\s+myself\b${HURT_IDIOM}|cut(?:ting)?\s+myself\b${CUT_IDIOM}|don'?t\s+want\s+to\s+(?:live|be\s+alive|wake\s+up|exist|be\s+here)|no\s+reason\s+to\s+(?:live|(?:go\s+on|keep\s+going)\b${ACTIVITY_TAIL})|better\s+off\s+dead|not\s+worth\s+living|wish\s+i\s+(?:was|were)\s+dead|overdos(?:e|ed|es|ing)\b${TOPIC_TAIL}|took\s+(?:too\s+many|a\s+(?:bunch|handful)\s+of|all\s+(?:of\s+)?(?:my|the))\s+(?:pills|meds|medications?|tablets)|${LINE_REQUEST})\b`, "i");
+const SELF_HARM_RE = new RegExp(String.raw`\b(?:suicid\w*\b${TOPIC_TAIL}|kill(?:ing)?\s+myself|self[\s-]?harm(?:ing|ed)?\b${TOPIC_TAIL}|(?:want|wanted|wanting|going|ready)\s+to\s+die|wanna\s+die|end(?:ing)?\s+my\s+(?:own\s+)?life|end\s+it\s+all|take\s+my\s+(?:own\s+)?life|hurt(?:ing)?\s+myself\b${HURT_IDIOM}|cut(?:ting)?\s+myself\b${CUT_IDIOM}|don'?t\s+want\s+to\s+(?:live|be\s+alive|wake\s+up|exist|be\s+here)|no\s+reason\s+to\s+(?:live|(?:go\s+on|keep\s+going)\b${ACTIVITY_TAIL})|better\s+off\s+dead|not\s+worth\s+living|wish\s+i\s+(?:was|were)\s+dead|overdos(?:e|ed|es|ing)\b${TOPIC_TAIL}|took\s+(?:too\s+many|a\s+(?:bunch|handful)\s+of|all\s+(?:of\s+)?(?:my|the))\s+(?:pills|meds|medications?|tablets))\b`, "i");
+// Its own pattern: it starts at a sentence boundary, which a leading \b
+// would refuse after "!!" or a space.
+const LINE_RE = new RegExp(LINE_REQUEST, "i");
 const ABUSE_RE = new RegExp(String.raw`\b(?:(?:my|our)\s+${RELATION}\s+(?:is\s+|keeps\s+|has\s+been\s+|always\s+|still\s+)?${HARM_VERB}\s+me|i(?:'?m|\s+am|\s+was|\s+have\s+been|'ve\s+been|\s+get|\s+got|\s+keep\s+getting)\s+(?:being\s+)?(?:(?:physically|sexually|emotionally|verbally)\s+)?(?:abused|molested|assaulted|raped|groomed|beaten)|(?:he|she|they|someone|somebody|an?\s+adult)\s+(?:is\s+|are\s+|keeps\s+|has\s+been\s+)?${THIRD_PARTY_VERB}\s+me|domestic\s+violence\s+(?:at|in)\s+(?:my\s+)?home)\b`, "i");
 // A threat counts when it is a threat of harm: "they threatened me with
 // detention" and "my teacher threatened me with a zero" are school discipline.
@@ -107,12 +138,15 @@ export const IDEATION_RE = new RegExp(String.raw`\b(?:no\s+point\s+(?:in|to)\s+(
 // crisis line's number ("자살 상담전화 번호 알려주세요") is a safety statement,
 // as in English; volunteering at one stays a topic, and so does putting the
 // number up ("번호를 사물함마다 붙였어요"), said after the number in Korean.
-const KO_SELF_HARM_RE = /(자살(?!\s*(?:예방|방지|률|율|통계|연구|인식|캠페인|동아리|프로그램|교육|상담전화))|자해(?!\s*(?:예방|방지|인식|연구|통계|캠페인|동아리|프로그램|교육))|죽고\s*싶|목숨을\s*끊|극단적\s*선택|살기\s*싫|죽어\s*버리고\s*싶|살고\s*싶지\s*않|살\s*이유가\s*없|살\s*가치가\s*없|사라지고\s*싶|없어지고\s*싶|삶을\s*끝내|인생을\s*끝내|손목을\s*(?:긋|그었|그어)|(?:^|[^가-힣])(?:나|내가|제가|저)\s*(?:없으면|없는\s*게|없어지면)\s*(?:다들\s*|모두\s*|가족도\s*)?(?:더\s*)?(?:나을|낫|행복할)|(?:자살|자해)\s*(?:예방\s*)?(?:상담\s*)?(?:전화\s*)?번호(?![^.?!]{0,30}?(?:붙였|붙이자|붙여\s*놓|넣었|넣자|인쇄했|인쇄하자|새겼|게시했|배포했|나눠\s*줬|홍보했))|(?:자살|자해)\s*(?:예방\s*)?상담\s*(?:전화|센터)\s*(?:좀\s*)?(?:알려|가르쳐))/;
+// 넣다 also means dialing a number or saving it to a phone ("번호 넣었는데
+// 연결이 안 돼요"), so it puts the number up only when a display place
+// (사물함, 포스터, 게시판, 학생증) is named in the same sentence.
+const KO_SELF_HARM_RE = /(자살(?!\s*(?:예방|방지|률|율|통계|연구|인식|캠페인|동아리|프로그램|교육|상담전화))|자해(?!\s*(?:예방|방지|인식|연구|통계|캠페인|동아리|프로그램|교육))|죽고\s*싶|목숨을\s*끊|극단적\s*선택|살기\s*싫|죽어\s*버리고\s*싶|살고\s*싶지\s*않|살\s*이유가\s*없|살\s*가치가\s*없|사라지고\s*싶|없어지고\s*싶|삶을\s*끝내|인생을\s*끝내|손목을\s*(?:긋|그었|그어)|(?:^|[^가-힣])(?:나|내가|제가|저)\s*(?:없으면|없는\s*게|없어지면)\s*(?:다들\s*|모두\s*|가족도\s*)?(?:더\s*)?(?:나을|낫|행복할)|(?:자살|자해)\s*(?:예방\s*)?(?:상담\s*)?(?:전화\s*)?번호(?![^.?!]{0,30}?(?:붙였|붙이자|붙여\s*놓|인쇄했|인쇄하자|새겼|게시했|배포했|나눠\s*줬|홍보했))(?![^.?!]{0,30}?(?:사물함|포스터|게시판|학생증|전단|스티커|배너|현수막|책갈피|명찰|팔찌|티셔츠)[^.?!]{0,20}?넣(?!어도|으면)(?![^.?!]{0,40}?(?:연결|통화|걸어|걸었|걸면|걸어도|안\s*돼|안\s*되|안\s*받)))(?!(?<=(?:사물함|포스터|게시판|학생증|전단|스티커|배너|현수막|책갈피|명찰|팔찌|티셔츠)[^.?!]{0,40})[^.?!]{0,30}?넣(?!어도|으면)(?![^.?!]{0,40}?(?:연결|통화|걸어|걸었|걸면|걸어도|안\s*돼|안\s*되|안\s*받)))|(?:자살|자해)\s*(?:예방\s*)?상담\s*(?:전화|센터)\s*(?:좀\s*)?(?:알려|가르쳐))/;
 const KO_ABUSE_RE = /((?:학대|성추행|성폭행|폭행|가정폭력)(?:을|를)?\s*(?:당하|당했|당하고|받고|받았|겪|겪고)|(?:아빠|엄마|아버지|어머니|부모님|새아빠|새엄마|계부|계모|오빠|형|누나|언니|삼촌|이모|고모|할아버지|할머니|선생님|코치|남자\s*친구|남친|여자\s*친구|여친)(?:가|이|께서|는|은)?\s*(?:저를|나를|절|날)?\s*(?:자꾸\s*|계속\s*|매일\s*|또\s*)?(?:때려|때렸|때린|때리|해칠|해치려|만져|만졌|만지)|(?:아빠|엄마|아버지|어머니|부모님|새아빠|새엄마|계부|계모|오빠|형|누나|언니|삼촌|선생님|코치|남자\s*친구|남친|여자\s*친구|여친)(?:한테|에게|께)\s*(?:자꾸\s*|계속\s*|매일\s*|또\s*)?(?:맞고\s*있|맞았|맞아요|맞는다|맞아))/;
 const KO_DANGER_RE = /(위험에\s*처|안전하지\s*않|저는\s*위험해|집에\s*가(?:기|는\s*(?:게|것이))\s*(?:무서|두려))/;
 
 export const CRISIS_PATTERNS = Object.freeze([
-  SELF_HARM_RE, ABUSE_RE, THREAT_RE, DANGER_RE, EMERGENCY_RE, IDEATION_RE,
+  SELF_HARM_RE, LINE_RE, ABUSE_RE, THREAT_RE, DANGER_RE, EMERGENCY_RE, IDEATION_RE,
   KO_SELF_HARM_RE, KO_ABUSE_RE, KO_DANGER_RE,
 ]);
 

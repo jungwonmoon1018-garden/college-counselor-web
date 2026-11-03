@@ -218,6 +218,32 @@ test("asking for the suicide hotline gets the crisis reply before consent and wi
   assert.equal(modelCallCount(), calls);
 });
 
+// The second fix pass required a frame for the line's number and let a
+// volunteer, a possessive or a place after the name end a request, so these
+// went to the consent check and a model call. Each is a request again, and
+// so is a Korean student who dialed the number and could not get through
+// (넣었 read as putting the number up).
+test("requests the second pass lost get the crisis reply with no model call", async () => {
+  const token = await registerStudent("crisis-hotline-frames");
+  const calls = modelCallCount();
+  for (const content of [
+    "whats the suicide hotline number.",
+    "anyone have the suicide hotline number",
+    "I gotta call the crisis hotline",
+    "I need a crisis hotline volunteer, please",
+    "I need the suicide hotline’s help",
+    "I need to call the suicide hotline in the bathroom stall",
+  ]) {
+    const turn = await chat(token, content);
+    assert.equal(turn.status, 200, `${content}\n${JSON.stringify(turn.data)}`);
+    assertCrisisReply(turn.data, US_LINES);
+  }
+  const korean = await chat(token, "자살 상담전화 번호 넣었는데 연결이 안 돼요", { headers: { "X-CollegeApp-Locale": "ko" } });
+  assert.equal(korean.status, 200, JSON.stringify(korean.data));
+  assertCrisisReply(korean.data, [...KO_LINES, ...US_LINES]);
+  assert.equal(modelCallCount(), calls);
+});
+
 // The client's gatekeeper sends the student's words inside a JSON-only
 // classification prompt. Its reply must be the crisis reply, which the
 // client recognizes before it parses anything.
@@ -287,7 +313,9 @@ test("a question naming suicide as a topic gets a normal answer with the 988 / 7
 // hotline number" fired anywhere: a student asking about a hotline volunteer
 // position or describing the number on every locker got the crisis reply,
 // lost the question and had the thread retitled. They are answered, with the
-// lines in the footer.
+// lines in the footer, and so is a question whose activity comes after the
+// line's name ("… I could volunteer for?"), which the second pass's new
+// request frames had turned into the crisis reply.
 test("a crisis line named as an activity is answered with the footer, not the crisis reply", async () => {
   const token = await registerStudent("crisis-line-topic");
   await grantConsents(token);
@@ -297,6 +325,8 @@ test("a crisis line named as an activity is answered with the footer, not the cr
     "What is the suicide hotline’s role in my essay about my volunteer work?",
     "We added the crisis hotline number to every locker",
     "I petitioned to put the suicide hotline number on our student IDs",
+    "Is there a suicide hotline at my school I could volunteer for?",
+    "Do you know a suicide hotline that accepts high school volunteers?",
   ];
   for (const [index, content] of asked.entries()) {
     const turn = await chat(token, content, { requestId: `crisis-line-topic-${index}` });

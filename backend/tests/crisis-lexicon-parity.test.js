@@ -81,6 +81,49 @@ test("the client renders the same crisis reply, resource list and footers as the
   }
 });
 
+// A question may carry a 200k-character pasted document, and the crisis-line
+// pattern reads whole sentences: it starts at a sentence boundary and checks
+// the sentence for an activity before it looks for a request. Each scan stops
+// at the sentence's end or a fixed width, so a megabyte of near misses (frames
+// with no line, lines with no frame, roles, posters, one endless sentence, no
+// sentence at all) takes tens of milliseconds on each side, not seconds.
+test("both lexicons stay linear on a megabyte of near misses", () => {
+  const MB = 1_000_000;
+  const fill = (unit) => unit.repeat(Math.ceil(MB / unit.length)).slice(0, MB);
+  const inputs = [
+    fill("a "),
+    fill("i need i want is there whats help me find anyone have "),
+    fill("suicide hotline crisis text line "),
+    fill("what's the suicide hotline volunteer position "),
+    fill("i need the crisis hotline club "),
+    `${fill("i need the crisis hotline club ")} I could volunteer`,
+    fill("number numbers put posters with lockers with "),
+    fill("takes takes teen "),
+    fill(". "),
+    fill("!"),
+    `i need${fill(",")}`,
+    `.${" ".repeat(MB)}x`,
+    fill("please "),
+    fill("자살예방상담전화 번호 "),
+    fill("학생증에 자살예방상담전화 번호를 붙였어요 "),
+  ];
+  isCrisisText("warm up");
+  client.isCrisisStatement("warm up");
+  for (const text of inputs) {
+    const label = JSON.stringify(text.slice(0, 40));
+    let started = performance.now();
+    isCrisisText(text);
+    isCrisisTopicMention(text);
+    const server = performance.now() - started;
+    started = performance.now();
+    client.isCrisisStatement(text);
+    client.isCrisisTopicMention(text);
+    const browser = performance.now() - started;
+    assert.ok(server < 1_500, `server: ${label} took ${Math.round(server)} ms`);
+    assert.ok(browser < 1_500, `client: ${label} took ${Math.round(browser)} ms`);
+  }
+});
+
 // The client sends drafts back through /api/chat for the supervisor merge
 // and the validator. A footer or reply that tripped the lexicon would turn
 // an answered topic question into a crisis reply on its own.
