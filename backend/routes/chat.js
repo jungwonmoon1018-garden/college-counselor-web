@@ -14,7 +14,7 @@ import { composeAnswer, composeDeterministicAnswer } from "../chat/answer-compos
 import crypto from "node:crypto";
 import { buildCrisisChatReply, crisisResourceFooter } from "../chat/rules-engine.js";
 import { searchFacts } from "../scouts/fact-store.js";
-import { buildFidelityCorrection, buildFidelityFootnote, checkProfileFidelity, detectSchoolMentions, formatProfileForModel } from "../chat/chat-grounding.js";
+import { blockHoldsVerifiedData, buildFidelityCorrection, buildFidelityFootnote, checkProfileFidelity, detectSchoolMentions, formatProfileForModel } from "../chat/chat-grounding.js";
 import { processStudentInputForConcepts } from "../academics/ap-concept-vectorizer.js";
 import { filesFromInlinedBlocks } from "../activities/ec-chat-evidence.js";
 import * as chatGraph from "../chat/chat-graph.js";
@@ -201,10 +201,13 @@ export function registerChatRoutes(app, deps) {
         // a snapshot.
         let onDemand = null;
         if (pureLookup && namedSchools.length) {
+          // The turn's signal goes with the read: a student who cancels or
+          // times out stops waiting on the school's pages (up to 15 s) and
+          // the Scorecard, and a page read nobody else waits on is stopped.
           if (lookupIntent === "deadlines" && !deps.deadlinesFromResearchCache(questionText, { current: true })) {
-            onDemand = await deps.scoutSchoolOnDemand(namedSchools[0]);
+            onDemand = await deps.scoutSchoolOnDemand(namedSchools[0], { signal: turnAbort.signal });
           } else if (lookupIntent === "official_stats" && !deps.hasVerifiedCollegeData(questionText)) {
-            const stats = await deps.scorecardStatsOnDemand(namedSchools[0]);
+            const stats = await deps.scorecardStatsOnDemand(namedSchools[0], { signal: turnAbort.signal });
             onDemand = stats ? "ok" : "failed";
             if (stats) {
               markStage("on_demand_read");
@@ -217,6 +220,8 @@ export function registerChatRoutes(app, deps) {
             }
           }
           markStage("on_demand_read");
+          // Nobody is left to answer.
+          if (turnAbort.signal.aborted) return;
         }
         // Canned deterministic answers are reserved for queries the rules
         // engine genuinely answers (federal-aid eligibility checks, deadline
@@ -232,8 +237,11 @@ export function registerChatRoutes(app, deps) {
             // that also asks about testing policy, fees, or admit rates — or a
             // strategy question ("should I apply ED to Brown?") — needs the
             // model with the full VERIFIED DATA block, which carries the same
-            // scouted dates.
-            const purelyDeadline = !/\b(?:test(?:ing)?|polic(?:y|ies)|admit|acceptance|rate|fee|essay|requirement|interview|optional)\b/i.test(questionText);
+            // scouted dates. The Korean words sit outside \b, which only
+            // knows ASCII word characters: since the router heard Korean
+            // deadline questions, "마감일 언제예요? 시험 정책도요" got the
+            // dates alone and nothing about the testing policy it asked for.
+            const purelyDeadline = !/\b(?:test(?:ing)?|polic(?:y|ies)|admit|acceptance|rate|fee|essay|requirement|interview|optional)\b|시험|정책|합격률|전형료|에세이|인터뷰|요건/i.test(questionText);
             if (cached && purelyDeadline && pureLookup) result = cached;
             // No cached official dates and no date supplied to compute from:
             // the canned "No deadline date available." is a non-answer, so the
@@ -309,6 +317,8 @@ export function registerChatRoutes(app, deps) {
       // simply absent, and the model narrated a truncated file. Extract the text
       // here (OCR for scans) and hand the model the full document.
       const inlinedTexts = [];
+      // A closed request does not queue an OCR job on the one document lane.
+      if (turnAbort.signal.aborted) return;
       const attachmentsInlined = await deps.inlineAttachmentBlocks(payload.messages, inlinedTexts);
       markStage("attachments");
       // The document or image the student attached on THIS turn is filed as EC
@@ -631,7 +641,9 @@ export function registerChatRoutes(app, deps) {
           modelTier: tier,
           inputScreened: inputScreen.redacted,
           profileFidelity,
-          verifiedData: Boolean(verifiedDataContext),
+          // Held data was sent, not merely a block: one that only says "no
+          // verified data held" for the schools asked about reported true.
+          verifiedData: blockHoldsVerifiedData(verifiedDataContext),
           threadMemory: threadMemoryCount,
           attachmentTurn,
           attachmentsInlined,

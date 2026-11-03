@@ -187,3 +187,21 @@ describe("the GPA quick reply", () => {
     expect(result.text).toBe("GPA: 3.8 / 4.2w");
   });
 });
+
+// A TOEFL band 5.5 read "TOEFL: 5.5" (a failing 0-120 score, to anyone
+// reading it) and a ninth grader's PSAT 8/9 read "PSAT: 900".
+describe("the test-score quick replies name each score's scale", () => {
+  const tests = [
+    { test: "toefl", scale: "band", totalScore: 5.5 },
+    { test: "psat", scale: "8/9", totalScore: 900 },
+    { test: "sat", totalScore: 1450 },
+  ];
+  it("in the test-score list", async () => {
+    const result = await run("what are my test scores?", { data: { profile: { testScores: tests }, activities: [] } });
+    expect(result.text).toBe("TOEFL (1-6 band): 5.5\nPSAT 8/9: 900\nSAT: 1450");
+  });
+  it("in the profile summary", async () => {
+    const result = await run("my profile", { data: { profile: { testScores: tests }, activities: [] } });
+    expect(result.text).toContain("Test scores: TOEFL (1-6 band): 5.5, PSAT 8/9: 900, SAT: 1450");
+  });
+});

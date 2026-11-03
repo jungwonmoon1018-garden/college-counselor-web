@@ -189,10 +189,12 @@ export async function requestChat(payload, signal, locale = "en-US") {
     headers["Authorization"] = `Bearer ${window.__CC_SESSION_TOKEN__}`;
   }
   // Fresh id per call — each agent/tool-loop invocation is its own billed
-  // model call, so ids must never repeat, the 401 resend below included.
+  // model call, so ids must never repeat, the 401 resend below included. The
+  // id goes after the payload, so a caller's own request_id can never ride
+  // along: the ledger refuses an id whose call failed as request_id_released.
   const post = () => fetch(url, {
     method: "POST", credentials: "same-origin", headers,
-    body: JSON.stringify({ request_id: newChatRequestId(), ...payload }),
+    body: JSON.stringify({ ...payload, request_id: newChatRequestId() }),
     signal: withCallTimeout(signal, MODEL_CALL_TIMEOUT_MS),
   });
 

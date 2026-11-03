@@ -22,6 +22,12 @@ const CASES = [
   { status: 504, body: { code: "provider_timeout" }, en: /took too long/, ko: /너무 오래 걸려서/ },
   { status: 502, body: { code: "empty_model_reply" }, en: /empty answer/, ko: /빈 답변/ },
   { status: 401, body: { error: "Invalid or expired session token." }, en: /sign-in has expired/, ko: /로그인이 만료/ },
+  { status: 401, body: { error: "Invalid or expired session token.", code: "session_invalid" }, en: /sign-in has expired/, ko: /로그인이 만료/ },
+  { status: 409, body: { code: "request_id_released" }, en: /goes as a new request/, ko: /새 요청으로/ },
+  { status: 409, body: { code: "duplicate_request_id" }, en: /already sent once/, ko: /이미 한 번/ },
+  { status: 499, body: { code: "request_cancelled" }, en: /stopped before the counselor answered/, ko: /요청이 중단됐어요/ },
+  { status: 400, body: { code: "invalid_request" }, en: /Reload the page/, ko: /새로 고친/ },
+  { status: 402, body: { code: "identity_required" }, en: /Reload the page/, ko: /새로 고친/ },
 ];
 
 describe("formatChatError", () => {
@@ -33,6 +39,29 @@ describe("formatChatError", () => {
       expect(formatChatError(err, "en-US")).not.toMatch(GENERIC);
     });
   }
+
+  // The cap's 402 carries when the month ends. Noon UTC is the same calendar
+  // day in every zone the test can run in.
+  it("says when a used-up budget comes back, when the server says", () => {
+    const err = chatErrorFromResponse(402, { code: "monthly_cap_exceeded", budget: { remainingUsd: 0, resetsAt: "2026-12-01T12:00:00.000Z" } });
+    expect(formatChatError(err, "en-US")).toMatch(/until it resets on December 1\./);
+    expect(formatChatError(err, "ko")).toMatch(/12월 1일에 예산이 초기화될 때까지/);
+    const short = chatErrorFromResponse(402, { code: "monthly_cap_exceeded", budget: { remainingUsd: 0.4, resetsAt: "2026-12-01T12:00:00.000Z" } });
+    expect(formatChatError(short, "en-US")).toMatch(/resets on December 1\./);
+    const unknown = chatErrorFromResponse(402, { code: "monthly_cap_exceeded", budget: { remainingUsd: 0, resetsAt: "soon" } });
+    expect(formatChatError(unknown, "en-US")).toMatch(/at the start of next month/);
+  });
+
+  it("tells a fresh-id resend, a stop and a server fault apart from a dead end", () => {
+    expect(chatErrorRetryable(chatErrorFromResponse(409, { code: "request_id_released" }))).toBe(true);
+    expect(chatErrorRetryable(chatErrorFromResponse(402, { code: "request_id_conflict" }))).toBe(true);
+    expect(chatErrorRetryable(chatErrorFromResponse(499, { code: "request_cancelled" }))).toBe(true);
+    expect(chatErrorRetryable(chatErrorFromResponse(400, { code: "invalid_request" }))).toBe(false);
+    const internal = chatErrorFromResponse(500, { code: "internal_error" });
+    expect(chatErrorRetryable(internal)).toBe(true);
+    expect(formatChatError(internal, "en-US")).toMatch(/Trying again in a minute may help/);
+    expect(formatChatError(internal, "ko")).toMatch(/1분 뒤에 다시 시도/);
+  });
 
   it("takes the wait from the Retry-After header when the body has none", () => {
     const err = chatErrorFromResponse(429, { error: "Too many requests." }, headers({ "Retry-After": "17" }));

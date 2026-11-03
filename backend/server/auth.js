@@ -71,13 +71,18 @@ export function safeJSON(str, fallback) {
 // ═══════════════════════════════════════════════════════════
 // MIDDLEWARE
 // ═══════════════════════════════════════════════════════════
+// Both 401s carry code "session_invalid". The client signs in again only on
+// a 401 that is about the session (chat-errors.js isSessionExpiry): an
+// upstream OpenRouter 401 used to reach the browser as our own, and every
+// one set off a hidden sign-in against the per-IP login limit. A bare 401
+// from an older server still counts as a session failure.
 export function requireStudentAuth(req, res, next) {
   const auth = req.headers.authorization;
   if (!auth || !auth.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "Student session token required. Include Authorization: Bearer <token>" });
+    return res.status(401).json({ error: "Student session token required. Include Authorization: Bearer <token>", code: "session_invalid" });
   }
   const session = validateToken(auth.split(" ")[1]);
-  if (!session) return res.status(401).json({ error: "Invalid or expired session token." });
+  if (!session) return res.status(401).json({ error: "Invalid or expired session token.", code: "session_invalid" });
   req.studentEmailHash = session.emailHash;
   req.studentId = session.studentId;
   next();

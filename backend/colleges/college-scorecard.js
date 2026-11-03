@@ -82,7 +82,10 @@ export async function searchScorecard(apiKey, filters = {}) {
 
   try {
     const url = `${SCORECARD_BASE}/schools?${params}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    // A caller's signal (a chat turn whose student left) stops the request
+    // itself, not only the wait for it; the 10 s ceiling still applies.
+    const signal = filters.signal ? AbortSignal.any([filters.signal, AbortSignal.timeout(10000)]) : AbortSignal.timeout(10000);
+    const res = await fetch(url, { signal });
     if (!res.ok) throw new Error(`Scorecard API ${res.status}: ${res.statusText}`);
     const json = await res.json();
 

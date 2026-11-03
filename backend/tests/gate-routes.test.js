@@ -14,7 +14,10 @@ import os from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import Database from "better-sqlite3";
 import { FAFSA_RULESETS, selectFafsaRuleset } from "../chat/rules-engine.js";
+import { expandCollegeAlias, slugifyCollege } from "../colleges/college-research.js";
+import { planningCycle, planningCycleStartYear } from "../shared/admissions-cycle.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, "..");
@@ -22,6 +25,7 @@ const FETCH_MOCK = path.join(__dirname, "helpers", "mock-openrouter-fetch.mjs");
 
 let baseUrl;
 let callLogPath;
+let dbPath;
 let serverOutput = "";
 let serverProcess;
 let testDataDir;
@@ -110,6 +114,7 @@ before(async () => {
   const port = await freePort();
   testDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "college-counselor-route-tests-"));
   callLogPath = path.join(testDataDir, "openrouter-calls.jsonl");
+  dbPath = path.join(testDataDir, "operational.db");
   baseUrl = `http://127.0.0.1:${port}`;
   serverProcess = spawn(process.execPath, ["--import", pathToFileURL(FETCH_MOCK).href, "server.js"], {
     cwd: PROJECT_ROOT,
@@ -119,7 +124,7 @@ before(async () => {
       NODE_ENV: "test",
       RATE_LIMIT_RELAXED: "1",
       DATA_DIR: testDataDir,
-      DB_PATH: path.join(testDataDir, "operational.db"),
+      DB_PATH: dbPath,
       ENCRYPTION_KEY: "ab".repeat(32),
       OPENROUTER_API_KEY: "sk-or-test-openrouter-key",
       SCORECARD_API_KEY: "test-scorecard-key",
@@ -172,6 +177,46 @@ test("a Korean deadline lookup goes through the official-source gate like the En
   const essay = "에세이 주제 추천해 주세요";
   await chat(token, essay, "gate-ko-2", { "X-CollegeApp-Locale": "ko" });
   assert.doesNotMatch(systemTextFor(essay), /This is a high-stakes topic|This is a regulated topic/);
+});
+
+// The dates-only answer from the research cache fits a pure deadline lookup.
+// Its exclusion list was English, so once the router heard Korean deadline
+// questions, one that also asked about the testing policy got the dates and
+// nothing else. Both directions, with official dates cached for the cycle
+// the server plans for (the same function the route reads them under).
+test("a Korean deadline question that also asks about policy is not answered from the dates-only cache", async () => {
+  const token = await registerStudent("gate-ko-cache");
+  const cycle = planningCycle(new Date());
+  const start = planningCycleStartYear(new Date());
+  const slug = slugifyCollege(expandCollegeAlias("Stanford University"));
+  const fetchedAt = new Date().toISOString();
+  const record = {
+    displayName: "Stanford University",
+    slug,
+    cycle,
+    deadlines: { ea: `${start}-11-01`, ed: null, edII: null, rd: `${start + 1}-01-05`, financialAid: null, commitBy: null, decisionRelease: null },
+    sourceUrl: "https://admission.stanford.edu/apply/",
+    extractedAt: fetchedAt,
+  };
+  const db = new Database(dbPath);
+  try {
+    db.pragma("busy_timeout = 5000");
+    db.prepare("INSERT OR REPLACE INTO college_research_cache (cache_key, kind, slug, display_name, payload_json, fetched_at) VALUES (?, 'deadlines', ?, ?, ?, ?)")
+      .run(`deadlines:${slug}:${cycle}`, slug, record.displayName, JSON.stringify(record), fetchedAt);
+  } finally {
+    db.close();
+  }
+
+  const dates = await chat(token, "스탠퍼드 조기 지원 마감일이 언제예요?", "gate-ko-cache-1", { "X-CollegeApp-Locale": "ko" });
+  assert.equal(dates._meta?.deterministic, true, JSON.stringify(dates));
+  assert.ok(JSON.stringify(dates).includes(`${start}-11-01`), JSON.stringify(dates).slice(0, 800));
+
+  const withPolicy = "스탠퍼드 조기 지원 마감일 언제예요? 시험 정책도요";
+  const reply = await chat(token, withPolicy, "gate-ko-cache-2", { "X-CollegeApp-Locale": "ko" });
+  assert.equal(reply._meta?.deterministic, false, JSON.stringify(reply).slice(0, 800));
+  assert.match(systemTextFor(withPolicy), /VERIFIED DATA[\s\S]*Stanford University/);
+  // The block it reached the model with held Stanford's data.
+  assert.equal(reply._meta.verifiedData, true);
 });
 
 // gate-9: a FAFSA question about the student's own situation got "6
@@ -227,8 +272,11 @@ test("the model is told the student's grade level from the server's record", asy
 test("a college the question names that nothing is held for is said to be unheld", async () => {
   const token = await registerStudent("gate-unheld");
   const question = "What is Elm Valley College's acceptance rate?";
-  await chat(token, question, "gate-unheld-1");
+  const reply = await chat(token, question, "gate-unheld-1");
   assert.match(systemTextFor(question), /- Elm Valley College: no verified data held/);
+  // A block that only says so is not held data: _meta.verifiedData used to
+  // report true for any block at all.
+  assert.equal(reply._meta?.verifiedData, false, JSON.stringify(reply._meta));
 });
 
 // time-4: the counselor is told before the FAFSA ruleset lapses.

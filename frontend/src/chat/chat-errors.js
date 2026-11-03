@@ -2,9 +2,11 @@
 // becomes an Error the client can reason about, and the words a student sees
 // for it, in English and Korean.
 //
-// The routes answer every failure with a stable `code` (402 budget codes,
-// 403 consent_required, 429 rate_limited, 502 provider_error /
-// provider_auth_failed / empty_model_reply, 503 openrouter_not_configured /
+// The routes answer every failure with a stable `code` (401 session_invalid,
+// 402 budget codes, 403 consent_required, 409 request_id_released /
+// duplicate_request_id, 429 rate_limited, 499 request_cancelled, 500
+// internal_error, 502 provider_error / provider_auth_failed /
+// empty_model_reply, 503 openrouter_not_configured /
 // installation_setup_required, 504 provider_timeout). requestChat used to keep
 // only the status, and App's formatter matched substrings of the English
 // message, so a used-up monthly budget, a missing consent, a 429 and an
@@ -12,17 +14,30 @@
 // capped student retried for days without being told why, and a Korean
 // student got English. Each code now has its own copy that says what to do
 // and whether trying again can help; an unknown code still says the latter.
+// backend/tests/chatglue-error-contract.test.js collects every code the two
+// routes can send and fails when one has no copy here (or in
+// profile/strategy-council.js) in both languages.
 
 const PROVIDER_AUTH_CODES = new Set(["provider_auth_failed", "provider_auth_rejected", "auth_rejected"]);
 
+// Codes for a request the server could not read, or a server-side check that
+// has nothing to do with the student (no student or request id, a zero
+// token limit). Sending the same thing again cannot help; a reload can.
+const REQUEST_INVALID_CODES = new Set(["invalid_request", "too_many_messages", "model_not_allowed", "request_id_required", "identity_required", "invalid_token_limit"]);
+
+// A request id the budget ledger will not take again: a released one is a
+// failed call's, a conflicting one another student's. requestChat sends a
+// fresh id on every post, so sending the question again goes through.
+const REQUEST_ID_CODES = new Set(["request_id_released", "request_id_conflict"]);
+
 const COPY = {
   budget_used: {
-    en: "You've used this month's AI budget, so the counselor can't answer new questions until it resets at the start of next month. Your profile, saved chats and deadlines still work. Trying again before then won't help.",
-    ko: "이번 달 AI 사용 예산을 모두 사용해서 다음 달 초에 예산이 초기화될 때까지 새 질문에 답할 수 없어요. 프로필, 저장된 대화, 마감일은 계속 사용할 수 있어요. 그 전에는 다시 보내도 해결되지 않아요.",
+    en: (when) => `You've used this month's AI budget, so the counselor can't answer new questions until it resets ${when ? `on ${when}` : "at the start of next month"}. Your profile, saved chats and deadlines still work. Trying again before then won't help.`,
+    ko: (when) => `이번 달 AI 사용 예산을 모두 사용해서 ${when ? `${when}에` : "다음 달 초에"} 예산이 초기화될 때까지 새 질문에 답할 수 없어요. 프로필, 저장된 대화, 마감일은 계속 사용할 수 있어요. 그 전에는 다시 보내도 해결되지 않아요.`,
   },
   budget_short: {
-    en: "This question needs more of your monthly AI budget than you have left. Try a shorter question or one without attachments, or wait until the budget resets at the start of next month.",
-    ko: "이 질문은 이번 달 남은 AI 예산보다 많은 예산이 필요해요. 더 짧게 질문하거나 첨부 파일 없이 보내 보세요. 아니면 다음 달 초 예산이 초기화될 때까지 기다려 주세요.",
+    en: (when) => `This question needs more of your monthly AI budget than you have left. Try a shorter question or one without attachments, or wait until the budget resets ${when ? `on ${when}` : "at the start of next month"}.`,
+    ko: (when) => `이 질문은 이번 달 남은 AI 예산보다 많은 예산이 필요해요. 더 짧게 질문하거나 첨부 파일 없이 보내 보세요. 아니면 ${when ? `${when}에` : "다음 달 초"} 예산이 초기화될 때까지 기다려 주세요.`,
   },
   unknown_model_pricing: {
     en: "The counselor's AI model has no price on file right now, so it's paused to protect your budget. This isn't something you did, and trying again won't help until your counselor updates the model settings.",
@@ -63,6 +78,18 @@ const COPY = {
   duplicate: {
     en: "That message was already sent once. Check the conversation for its answer, or send it again.",
     ko: "이 메시지는 이미 한 번 보내졌어요. 대화에서 답변을 확인하거나 다시 보내 주세요.",
+  },
+  request_id_released: {
+    en: "That attempt had already failed, so it couldn't be sent again as it was. Send your question again; it goes as a new request.",
+    ko: "이전 시도가 이미 실패해서 같은 요청으로는 다시 보낼 수 없었어요. 질문을 다시 보내 주세요. 새 요청으로 전송돼요.",
+  },
+  cancelled: {
+    en: "The request was stopped before the counselor answered. Send it again when you're ready.",
+    ko: "답변이 오기 전에 요청이 중단됐어요. 준비되면 다시 보내 주세요.",
+  },
+  request_invalid: {
+    en: "The counselor couldn't process that request. Reload the page and send it again; if it keeps happening, let your counselor know.",
+    ko: "상담 서버가 이 요청을 처리하지 못했어요. 페이지를 새로 고친 뒤 다시 보내 주세요. 계속 문제가 생기면 상담 선생님께 알려 주세요.",
   },
   session_expired: {
     en: "Your sign-in has expired. Sign out and sign back in, then send your question again.",
@@ -119,7 +146,13 @@ export function chatErrorFromResponse(status, body = {}, headers = null) {
   // behind "Something went wrong".
   if (body?.blocked === true) err.blocked = true;
   if (body?.budget) err.budget = body.budget;
-  if (Array.isArray(body?.missing)) err.missing = body.missing;
+  // The routes send the missing consents under both names; an older one
+  // sent only `missing`.
+  const missing = Array.isArray(body?.missing) ? body.missing : (Array.isArray(body?.missingConsents) ? body.missingConsents : null);
+  if (missing) {
+    err.missing = missing;
+    err.missingConsents = missing;
+  }
   const retryAfter = retryAfterFrom(body, headers);
   if (retryAfter != null) err.retryAfterSeconds = retryAfter;
   err.body = body;
@@ -165,42 +198,77 @@ export function isAbortError(err) {
 export function chatErrorRetryable(err) {
   const code = String(err?.code || "");
   if (["monthly_cap_exceeded", "budget_exceeded", "unknown_model_pricing", "grade_required", "consent_required", "openrouter_not_configured", "OPENROUTER_NOT_CONFIGURED", "installation_setup_required"].includes(code)) return false;
+  if (REQUEST_INVALID_CODES.has(code)) return false;
   if (isProviderAuthFailure(err)) return false;
+  // Sent again, the question goes under a fresh request id, or was only
+  // stopped on its way.
+  if (REQUEST_ID_CODES.has(code) || code === "request_cancelled") return true;
   const status = Number(err?.status);
   if (!Number.isFinite(status) || status === 0) return true; // network, timeout
   return status >= 500 || status === 429 || status === 409;
 }
 
-export function formatChatError(err, locale = "en-US") {
+// The budget's reset as a date in the student's own calendar ("December 1",
+// "12월 1일"). The 402 at the cap carries `budget.resetsAt`, the instant the
+// server's month ends; null when it is missing or unreadable, and the copy
+// then says "the start of next month".
+function budgetResetLabel(budget, locale) {
+  const ms = Date.parse(String(budget?.resetsAt || ""));
+  if (!Number.isFinite(ms)) return null;
+  try {
+    return new Intl.DateTimeFormat(locale === "ko" ? "ko-KR" : "en-US", { month: "long", day: "numeric" }).format(new Date(ms));
+  } catch {
+    return null;
+  }
+}
+
+// Which copy a failure gets: the key into COPY. formatChatError words it;
+// the contract test reads the key to tell a code with its own copy from one
+// that fell through to the generic lines.
+export function chatErrorCopyKey(err) {
   const code = String(err?.code || "");
   const status = Number(err?.status) || 0;
   const message = String(err?.message || "");
   if (code === "monthly_cap_exceeded" || code === "budget_exceeded") {
     const remaining = Number(err?.budget?.remainingUsd);
-    return pick(Number.isFinite(remaining) && remaining > 0.005 ? COPY.budget_short : COPY.budget_used, locale);
+    return Number.isFinite(remaining) && remaining > 0.005 ? "budget_short" : "budget_used";
   }
-  if (code === "unknown_model_pricing") return pick(COPY.unknown_model_pricing, locale);
-  if (code === "grade_required") return pick(COPY.grade_required, locale);
-  if (code === "consent_required") return pick(COPY.consent_required, locale);
-  if (code === "rate_limited" || status === 429) return pick(COPY.rate_limited, locale, err?.retryAfterSeconds);
-  if (/^(openrouter_not_configured|installation_setup_required)$/i.test(code)) return pick(COPY.not_configured, locale);
-  if (isProviderAuthFailure(err)) return pick(COPY.provider_auth_failed, locale);
-  if (code === "provider_timeout" || code === "client_timeout" || status === 504) return pick(COPY.timeout, locale);
-  if (code === "empty_model_reply") return pick(COPY.empty_model_reply, locale);
-  if (code === "provider_error" || code === "llm_error") return pick(COPY.provider_error, locale);
-  if (code === "duplicate_request_id" || code === "request_id_conflict" || status === 409) return pick(COPY.duplicate, locale);
-  if (status === 402) return pick(COPY.budget_used, locale);
-  if (isSessionExpiry(status, err?.body || {})) return pick(COPY.session_expired, locale);
-  if (status === 403 && /consent/i.test(message)) return pick(COPY.consent_required, locale);
+  if (code === "unknown_model_pricing") return "unknown_model_pricing";
+  if (code === "grade_required") return "grade_required";
+  if (code === "consent_required") return "consent_required";
+  if (code === "rate_limited" || status === 429) return "rate_limited";
+  if (/^(openrouter_not_configured|installation_setup_required)$/i.test(code)) return "not_configured";
+  if (isProviderAuthFailure(err)) return "provider_auth_failed";
+  if (code === "provider_timeout" || code === "client_timeout" || status === 504) return "timeout";
+  if (code === "empty_model_reply") return "empty_model_reply";
+  if (code === "provider_error" || code === "llm_error") return "provider_error";
+  if (REQUEST_ID_CODES.has(code)) return "request_id_released";
+  if (code === "duplicate_request_id" || status === 409) return "duplicate";
+  // A 499 the browser rarely sees (the connection is usually gone first);
+  // the student's own Cancel never reaches here (isAbortError).
+  if (code === "request_cancelled" || status === 499) return "cancelled";
+  if (REQUEST_INVALID_CODES.has(code)) return "request_invalid";
+  if (code === "internal_error" || code === "server_error") return "generic_retry";
+  if (status === 402) return "budget_used";
+  if (isSessionExpiry(status, err?.body || {})) return "session_expired";
+  if (status === 403 && /consent/i.test(message)) return "consent_required";
   // Errors without a code: an older server, a network failure, the client's
   // own timeout. The English message is all there is to go on.
   const lower = message.toLowerCase();
-  if (status === 413 || lower.includes("api 413") || lower.includes("too large")) return pick(COPY.too_large, locale);
-  if (lower.includes("timed out") || lower.includes("took too long")) return pick(COPY.timeout, locale);
-  if (lower.includes("rate limit") || lower.includes("too many requests")) return pick(COPY.rate_limited, locale);
-  if (lower.includes("failed to fetch") || lower.includes("network")) return pick(COPY.network, locale);
-  if (/no api key|not configured|must configure openrouter|missing .*api key/i.test(lower) || status === 503) return pick(COPY.not_configured, locale);
-  return pick(chatErrorRetryable(err) ? COPY.generic_retry : COPY.generic_no_retry, locale);
+  if (status === 413 || lower.includes("api 413") || lower.includes("too large")) return "too_large";
+  if (lower.includes("timed out") || lower.includes("took too long")) return "timeout";
+  if (lower.includes("rate limit") || lower.includes("too many requests")) return "rate_limited";
+  if (lower.includes("failed to fetch") || lower.includes("network")) return "network";
+  if (/no api key|not configured|must configure openrouter|missing .*api key/i.test(lower) || status === 503) return "not_configured";
+  return chatErrorRetryable(err) ? "generic_retry" : "generic_no_retry";
+}
+
+export function formatChatError(err, locale = "en-US") {
+  const key = chatErrorCopyKey(err);
+  const arg = key === "rate_limited" ? err?.retryAfterSeconds
+    : (key === "budget_used" || key === "budget_short") ? budgetResetLabel(err?.budget, locale)
+      : undefined;
+  return pick(COPY[key], locale, arg);
 }
 
 // The client's own per-call timeout. Named apart from AbortError so a timeout

@@ -123,6 +123,35 @@ describe("requestChat failures", () => {
     expect(err.budget).toEqual({ remainingUsd: 0 });
   });
 
+  it("keeps the missing consents under either name and the Retry-After header", async () => {
+    const replies = [
+      { status: 403, body: { error: "Required AI consent has not been granted.", code: "consent_required", missingConsents: ["cross_border_transfer"], blocked: true }, headers: {} },
+      { status: 429, body: { error: "Too many requests.", code: "rate_limited" }, headers: { "Retry-After": "12" } },
+    ];
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      const next = replies.shift();
+      return { ok: false, status: next.status, headers: { get: (name) => next.headers[name] ?? null }, json: async () => next.body };
+    }));
+    const consent = await requestChat({ messages: [] }).catch((e) => e);
+    expect(consent.missing).toEqual(["cross_border_transfer"]);
+    expect(consent.missingConsents).toEqual(["cross_border_transfer"]);
+    const limited = await requestChat({ messages: [] }).catch((e) => e);
+    expect(limited.code).toBe("rate_limited");
+    expect(limited.retryAfterSeconds).toBe(12);
+  });
+
+  // The ledger refuses an id whose call failed (409 request_id_released), so
+  // no id a caller hands in is ever sent: every post carries a fresh one.
+  it("never sends a caller's own request_id", async () => {
+    const fetchSpy = stubSequence([{ status: 200, body: { answer: "ok" } }, { status: 200, body: { answer: "ok" } }]);
+    await requestChat({ request_id: "released-id", messages: [] });
+    await requestChat({ request_id: "released-id", messages: [] });
+    const ids = chatBodies(fetchSpy).map((body) => body.request_id);
+    expect(ids).toHaveLength(2);
+    expect(ids).not.toContain("released-id");
+    expect(ids[0]).not.toBe(ids[1]);
+  });
+
   // An upstream 401 from OpenRouter is the operator's key, not the student's
   // session: no hidden sign-in, no resend.
   it("does not sign in again when the provider refused the key", async () => {
@@ -149,6 +178,30 @@ describe("requestChat failures", () => {
     expect(sent[0].request_id).toBeTruthy();
     expect(sent[1].request_id).not.toBe(sent[0].request_id);
     expect(fetchSpy.mock.calls.filter(([url]) => String(url).includes("/api/students/auth"))).toHaveLength(1);
+  });
+
+  // The server's session 401 now says so (code session_invalid); a bare 401
+  // from an older server still counts. A provider's refused key arrives as
+  // 502 provider_auth_failed and never signs in again.
+  it("re-authenticates on the server's coded session 401", async () => {
+    setReauthCredentialProvider(() => ({ email: "jiyeon@school.edu", password: "correct-horse-battery" }));
+    const fetchSpy = stubSequence([
+      { status: 401, body: { error: "Invalid or expired session token.", code: "session_invalid" } },
+      { status: 200, body: { answer: "Here is your plan." } },
+    ]);
+    const body = await requestChat({ messages: [{ role: "user", content: "hi" }] });
+    expect(body.structuredText).toBe("Here is your plan.");
+    expect(fetchSpy.mock.calls.filter(([url]) => String(url).includes("/api/students/auth"))).toHaveLength(1);
+  });
+
+  it("never signs in again on a 502 provider_auth_failed", async () => {
+    setReauthCredentialProvider(() => ({ email: "jiyeon@school.edu", password: "correct-horse-battery" }));
+    const fetchSpy = stubSequence([{ status: 502, body: { error: "The AI service rejected this site's credential.", code: "provider_auth_failed", upstreamStatus: 401 } }]);
+    const err = await requestChat({ messages: [] }).catch((e) => e);
+    expect(err.status).toBe(502);
+    expect(err.code).toBe("provider_auth_failed");
+    expect(fetchSpy.mock.calls.some(([url]) => String(url).includes("/api/students/auth"))).toBe(false);
+    expect(chatBodies(fetchSpy)).toHaveLength(1);
   });
 
   it("throws the session 401 when signing in again fails", async () => {

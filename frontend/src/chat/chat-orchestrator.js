@@ -6,7 +6,7 @@ import { requestChat, sanitizeInput, screenUploadForSafety, auditLog, isCrisisRe
 import { cancelledError, formatChatError, isAbortError } from "./chat-errors.js";
 import { formatGpa, hasGpa } from "../profile/gpa.js";
 import { ACADEMICS_AGENT, EC_AGENT, COLLEGE_AGENT, STRATEGY_AGENT, GATEKEEPER, OUTPUT_VALIDATOR } from "./agent-prompts.js";
-import { testLabel, formatSections, formatClassRank } from "../profile/test-scores.js";
+import { entryLabel, formatSections, formatClassRank } from "../profile/test-scores.js";
 import { crisisResponseText, crisisTurnResult, isCrisisStatement, isCrisisTopicMention, isDistressed, stripResourceFooters, withResourceFooter, withSupport } from "./crisis-lexicon.js";
 import { sanitizeFilename } from "./chat-files.js";
 
@@ -222,6 +222,10 @@ function maybeHandleQuickQuery(userMsg, data, user) {
     : profile.gpaStatus === "pending"
       ? "GPA: not yet available."
       : null;
+  // A score is named by its own scale (entryLabel): a TOEFL band 5.5 read
+  // "TOEFL: 5.5" and a ninth grader's PSAT 8/9 900 read "PSAT: 900", which
+  // look like a failing 0-120 score and a PSAT/NMSQT result.
+  const testLine = (t) => `${entryLabel(t)}${t.subject ? ` (${t.subject})` : ""}: ${t.totalScore}${formatSections(t) ? ` (${formatSections(t)})` : ""}`;
 
   // ─── Whole-message regexes ───
   // Each pattern is anchored to ^...$ so the entire trimmed message
@@ -237,7 +241,7 @@ function maybeHandleQuickQuery(userMsg, data, user) {
       user?.name ? `${user.name}'s profile` : "Your profile",
       gpaLine || "GPA: not yet available.",
       courses.length ? `Courses: ${courses.length}` : "Courses: none added yet.",
-      tests.length ? `Test scores: ${tests.map(t => `${testLabel(t.test)}: ${t.totalScore}${formatSections(t) ? ` (${formatSections(t)})` : ""}`).join(", ")}` : (profile.testingStatus === "planned" ? "Test scores: not taken yet." : "Test scores: none added yet."),
+      tests.length ? `Test scores: ${tests.map(testLine).join(", ")}` : (profile.testingStatus === "planned" ? "Test scores: not taken yet." : "Test scores: none added yet."),
       profile.classRank ? `Class rank: ${formatClassRank(profile.classRank)}` : null,
       apScores.length ? `AP exams: ${apScores.map(x => `${x.exam || x.subject || x.name} ${x.score}${x.year ? ` (${x.year})` : ""}`).join(", ")}` : null,
       activities.length ? `Activities: ${activities.length}` : "Activities: none added yet.",
@@ -248,7 +252,7 @@ function maybeHandleQuickQuery(userMsg, data, user) {
   }
   if (new RegExp(`^(what (are )?my test scores|my test scores|what scores do i have|which tests have i taken|show (me )?my test scores)${trailer}`).test(q)) {
     if (!tests.length) return profile.testingStatus === "planned" ? "You haven't added any test scores yet. Your profile says tests are still pending." : "I don't have any test scores saved yet.";
-    return tests.map(t => `${testLabel(t.test)}${t.subject ? ` (${t.subject})` : ""}: ${t.totalScore}${formatSections(t) ? ` (${formatSections(t)})` : ""}${t.date ? ` · ${t.date}` : ""}`).join("\n");
+    return tests.map(t => `${testLine(t)}${t.date ? ` · ${t.date}` : ""}`).join("\n");
   }
   if (new RegExp(`^(what (are )?my ap (exam )?scores|my ap (exam )?scores|show (me )?my ap (exam )?scores|ap scores|my ap exams)${trailer}`).test(q)) {
     if (!apScores.length) return "I don't have any AP exam scores saved yet.";

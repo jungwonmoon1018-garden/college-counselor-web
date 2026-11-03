@@ -278,3 +278,34 @@ test("a Strategist whose reply cannot be parsed still yields the moderator's ans
   const strategist = response.body.council_breakdown.find((seat) => seat.role === "Strategist");
   assert.equal(strategist.abstained, true);
 });
+
+// The client's Cancel and its five-minute deadline abort the request; the
+// route ties its own signal to the response closing, so the run stops and
+// its reserved stages are released instead of four seats billing a review
+// nobody reads.
+test("a Council request the client abandons stops the run and releases the budget", async (t) => {
+  let seen = null;
+  const harness = await startHarness(t, {
+    conveneCouncil: (args) => new Promise((_, reject) => {
+      seen = args.signal;
+      args.signal.addEventListener("abort", () => {
+        reject(Object.assign(new Error("The client closed the Council request."), { code: "aborted", provider: "openrouter", status: 499 }));
+      }, { once: true });
+    }),
+  });
+  const client = new AbortController();
+  const pending = fetch(harness.url + "/api/council/convene", {
+    method: "POST",
+    headers: { authorization: "Bearer good", "content-type": "application/json" },
+    body: JSON.stringify(explicitRequest()),
+    signal: client.signal,
+  }).then(() => "answered", (error) => error?.name || "error");
+  for (let i = 0; i < 100 && !seen; i++) await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.ok(seen, "the run started with the route's signal");
+  assert.equal(seen.aborted, false);
+  client.abort();
+  assert.equal(await pending, "AbortError");
+  for (let i = 0; i < 100 && harness.calls.release.length === 0; i++) await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(seen.aborted, true, "the client's abort reached the run");
+  assert.equal(harness.calls.release.length, 1, "the reserved stages are released");
+});

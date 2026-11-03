@@ -271,6 +271,14 @@ test("errors before the model call carry stable codes", async () => {
   const noId = await request("POST", "/api/chat", { token, body: { messages: [{ role: "user", content: "hi there" }] } });
   assert.equal(noId.status, 400);
   assert.equal(noId.data.code, "request_id_required");
+  // The session's own 401s say so, which is what the client signs in again
+  // on; a provider's refusal is a 502 provider_auth_failed (above).
+  const expired = await chat("not-a-real-session-token", "How should I plan junior year?", { requestId: "codes-2" });
+  assert.equal(expired.status, 401);
+  assert.equal(expired.data.code, "session_invalid");
+  const missing = await request("POST", "/api/chat", { body: { messages: [{ role: "user", content: "hi there" }], request_id: "codes-3" } });
+  assert.equal(missing.status, 401);
+  assert.equal(missing.data.code, "session_invalid");
 });
 
 test("a utility call gets the model's JSON back with no profile, theme guard, advisory prefix or footer", async () => {

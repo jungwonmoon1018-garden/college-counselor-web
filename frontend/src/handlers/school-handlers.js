@@ -261,7 +261,10 @@ export async function lookupCollege(ctx, collegeName, hintUrl, { refresh = false
     const pbody = await pr.json().catch(() => ({}));
     if (!lookup.current()) return;
     if (pr.ok && Array.isArray(pbody.targets) && pbody.targets.length > 0) {
-      setCollegePositioning(pbody.targets[0]);
+      // `degraded` is the payload's, not the target's: a source failed while
+      // the read was built (it is not cached server-side). The card says so
+      // only when the flag rides on the read it is given.
+      setCollegePositioning(pbody.degraded ? { ...pbody.targets[0], degraded: true } : pbody.targets[0]);
     } else if (!refresh) {
       setCollegePositioning(null);
     }
@@ -344,6 +347,12 @@ export function removeTargetSchool(ctx, name) {
 
 // ─── Round 1-5 frontend wiring ───
 // (`locale` is declared above the college-fit lookups, which send it.)
+// `signal` is the turn's: send() joins the Cancel button and the Council's
+// five-minute deadline into it, and authedFetch hands it to fetch, so either
+// one closes the request and the route's own signal (tied to the response
+// closing) stops the run between seats and releases what was reserved. The
+// error keeps the route's code, so callers can tell a provider outage from
+// a refused key or a used-up budget without reading the copy.
 export async function conveneStrategyCouncil(ctx, question, decisionType, signal) {
   const {
     authedFetch, locale, setAgentStatus,
@@ -367,8 +376,11 @@ export async function conveneStrategyCouncil(ctx, question, decisionType, signal
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const error = new Error(councilErrorMessage(response.status, body, locale));
+    const error = new Error(councilErrorMessage(response.status, body, locale, response.headers));
     error.status = response.status;
+    if (body?.code) error.code = String(body.code);
+    if (body?.councilCode) error.councilCode = String(body.councilCode);
+    if (body?.blocked === true) error.blocked = true;
     error.body = body;
     throw error;
   }

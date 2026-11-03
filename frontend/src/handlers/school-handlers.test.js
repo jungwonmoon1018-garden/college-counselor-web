@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cancelLookup, createDeadlinesForSchool, lookupCollege } from "./school-handlers.js";
+import { cancelLookup, conveneStrategyCouncil, createDeadlinesForSchool, lookupCollege } from "./school-handlers.js";
 
 // A promise the test resolves when it chooses, so two lookups can be made
 // to answer out of order.
@@ -124,6 +124,20 @@ describe("lookupCollege", () => {
     expect(last(ctx.setCollegePositioning)).toEqual({ schoolName: "The University of Texas at Austin", overallPositioningLabel: "Competitive" });
   });
 
+  // The server marks the payload, not the target, when a source failed while
+  // the read was built; the card shows its "a source did not answer" line
+  // only from the read it is handed.
+  it("carries the payload's degraded flag onto the read the card shows", async () => {
+    const ctx = lookupCtx();
+    routes["positioning:Tufts"] = () => Promise.resolve(reply({ degraded: true, targets: [{ schoolName: "Tufts University", overallPositioningLabel: "Reach" }] }));
+    await lookupCollege(ctx, "Tufts");
+    expect(last(ctx.setCollegePositioning)).toEqual({ schoolName: "Tufts University", overallPositioningLabel: "Reach", degraded: true });
+    const clean = lookupCtx();
+    routes["positioning:Tufts"] = () => Promise.resolve(reply({ degraded: false, targets: [{ schoolName: "Tufts University", overallPositioningLabel: "Reach" }] }));
+    await lookupCollege(clean, "Tufts");
+    expect(last(clean.setCollegePositioning)).toEqual({ schoolName: "Tufts University", overallPositioningLabel: "Reach" });
+  });
+
   it("clears the previous school's values when a new school is looked up, and keeps them on a refresh", async () => {
     const ctx = lookupCtx();
     routes["values:Rice"] = () => Promise.resolve(reply({ error: "boom" }, 502));
@@ -222,5 +236,53 @@ describe("createDeadlinesForSchool dates reminders for the student's own cycle",
     expect(items[0]).toMatchObject({ title: "MIT — Regular Decision", dueAt: "2027-01-05" });
     expect(result).toMatchObject({ created: 1, duplicates: 2, past: ["Early (EA/ED)"] });
     expect(notify).toHaveBeenCalledWith("MIT: Fall 2027 입학 기준 마감일 1개를 마감일 목록에 추가했어요. Early (EA/ED) 마감일은 이미 지나서 추가하지 않았어요. 2개는 이미 목록에 있어요.");
+  });
+});
+
+// chat-9: the Council route answers a provider failure as 502/504 with the
+// shared code and councilCode COUNCIL_PROVIDER_UNAVAILABLE beside it; the
+// client read `code` alone, so its outage copy never showed. The turn's
+// signal (Cancel, the five-minute deadline) has to reach the request, since
+// the route stops the run when the response closes.
+describe("conveneStrategyCouncil", () => {
+  const councilCtx = (response, locale = "en-US") => ({
+    locale,
+    setAgentStatus: vi.fn(),
+    authedFetch: vi.fn(async () => response),
+  });
+  const failure = (status, body, headers = {}) => ({ ok: false, status, headers: { get: (name) => headers[name] ?? null }, json: async () => body });
+
+  it("hands the turn's signal to the request, so Cancel and the deadline close it", async () => {
+    const ctx = councilCtx({ ok: true, status: 200, json: async () => ({ recommendation: "Keep Ohio State as a target.", decision_type: "college-list" }) });
+    const turn = new AbortController();
+    await conveneStrategyCouncil(ctx, "Should I add a safety school?", "college-list", turn.signal);
+    const [path, options] = ctx.authedFetch.mock.calls[0];
+    expect(path).toBe("/api/council/convene");
+    expect(options.signal).toBe(turn.signal);
+  });
+
+  it("keeps the route's code and shows the Council's outage copy for a provider failure", async () => {
+    for (const [status, code] of [[502, "provider_error"], [504, "provider_timeout"]]) {
+      const ctx = councilCtx(failure(status, { error: "The AI service could not answer right now.", code, councilCode: "COUNCIL_PROVIDER_UNAVAILABLE", stage: "Strategist" }), "ko");
+      const err = await conveneStrategyCouncil(ctx, "Should I add a safety school?", "college-list").catch((e) => e);
+      expect(err.status).toBe(status);
+      expect(err.code).toBe(code);
+      expect(err.councilCode).toBe("COUNCIL_PROVIDER_UNAVAILABLE");
+      expect(err.message).toMatch(/학생의 정보가 부족해서가 아니에요/);
+    }
+  });
+
+  it("says a refused key is the site's to fix, not an outage to wait out", async () => {
+    const ctx = councilCtx(failure(502, { code: "provider_auth_failed", councilCode: "COUNCIL_PROVIDER_UNAVAILABLE", upstreamStatus: 401 }));
+    const err = await conveneStrategyCouncil(ctx, "Should I add a safety school?", "college-list").catch((e) => e);
+    expect(err.code).toBe("provider_auth_failed");
+    expect(err.message).toMatch(/still signed in/);
+  });
+
+  it("reads the limiter's 429 and the lower-case unconfigured code", async () => {
+    const limited = await conveneStrategyCouncil(councilCtx(failure(429, { error: "Too many requests.", code: "rate_limited" }, { "Retry-After": "30" })), "Q?", "other").catch((e) => e);
+    expect(limited.message).toMatch(/Wait 30 seconds/);
+    const unconfigured = await conveneStrategyCouncil(councilCtx(failure(503, { error: "The administrator must configure OpenRouter first.", code: "openrouter_not_configured" }), "ko"), "Q?", "other").catch((e) => e);
+    expect(unconfigured.message).toMatch(/설정되지 않아서/);
   });
 });

@@ -12,8 +12,9 @@ import { TOPIC_TYPES, enforceGates } from "../chat/policy-router.js";
 import { buildSystemPrompt } from "../chat/orchestration-engine.js";
 import { searchFacts } from "../scouts/fact-store.js";
 import { getEvidenceProfile } from "../storage/evidence-graph.js";
-import { formatPolicyLine, readPolicySnapshot, scoutSchool, snapshotAsDeadlineRecord, snapshotIsCurrent } from "../scouts/admissions-policy-scout.js";
+import { formatPolicyLine, makeFetcher, readPolicySnapshot, scoutSchool, snapshotAsDeadlineRecord, snapshotIsCurrent } from "../scouts/admissions-policy-scout.js";
 import { searchScorecard } from "../colleges/college-scorecard.js";
+import { assertSafeFetchTarget } from "../security/safe-fetch.js";
 import { isCdsRecordValidated, resolveStoredCdsRecord, schoolNamesCompatible } from "../cds/cds-store.js";
 import { POSITIONING_MODEL_VERSION, buildProfileComparison, buildStudentModel, scoreAcademicReadiness } from "../colleges/positioning-engine.js";
 import { localFitContext } from "./fit-context.js";
@@ -175,30 +176,84 @@ export function fafsaRuleTextForPrompt(questionText, subIntent, { now = new Date
   return `OFFICIAL FAFSA ELIGIBILITY RULES (${check.sourceTitle}, for the ${check.academicYear} award year; reviewed text, not a determination). Answer the student's own situation from these where they apply and cite the source. For a case they do not settle (a parent or contributor without a Social Security number, a particular immigration status), say so plainly and send the student to studentaid.gov/apply-for-aid/fafsa/eligibility instead of guessing.${check.filingYearNote ? ` ${check.filingYearNote}` : ""}\n${lines.join("\n")}`;
 }
 
-export async function scoutSchoolOnDemand(schoolName, { timeoutMs = 15_000 } = {}) {
+// What `orAbort` resolves to when the signal fires first.
+const ABORTED = Symbol("aborted");
+
+// The promise's value, or ABORTED as soon as `signal` aborts. The promise
+// keeps its handlers, so a rejection after the abort is not left unhandled.
+function orAbort(promise, signal) {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.resolve(ABORTED);
+  let onAbort = null;
+  const aborted = new Promise((resolve) => {
+    onAbort = () => resolve(ABORTED);
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+  return Promise.race([promise, aborted]).finally(() => signal.removeEventListener("abort", onAbort));
+}
+
+// An on-demand read of a school's own pages, shared by every chat turn that
+// asks about that school while it runs (deps.onDemandScouts, by slug). Each
+// turn waits under its own signal (chat-11): one whose student cancelled or
+// timed out stops waiting at once ("aborted") instead of holding the request
+// for up to 15 s, and when the last turn waiting has gone that way the page
+// reads stop too. A wait that only times out leaves the read running, as it
+// always has, so the snapshot it writes answers the next question.
+export async function scoutSchoolOnDemand(schoolName, { timeoutMs = 15_000, signal = null } = {}) {
+  if (signal?.aborted) return "aborted";
   const row = deps.resolveBaselineCollegeRow(deps.db, { schoolName });
   const target = { name: row?.name || schoolName, unitId: row?.unit_id || null, website: row?.website || null };
   const key = slugifyCollege(target.name) || String(target.name).toLowerCase();
-  if (!deps.onDemandScouts.has(key)) {
-    const run = scoutSchool(target, { stmts: deps.policyScoutStmts, factStmts: deps.factStmts, scorecardKey: deps.SCORECARD_API_KEY || null })
+  let entry = deps.onDemandScouts.get(key);
+  if (!entry) {
+    const controller = new AbortController();
+    // The scout's own fetcher (robots.txt, the per-host delay, the safe-fetch
+    // target check), with the run's signal joined to each page's timeout.
+    // Once it aborts, every later page is refused at the target check, ahead
+    // of the per-host delay, so the run ends instead of walking its list.
+    const fetcher = makeFetcher({
+      assertTarget: (url) => {
+        controller.signal.throwIfAborted();
+        return assertSafeFetchTarget(url);
+      },
+      fetchImpl: (url, init = {}) => globalThis.fetch(url, {
+        ...init,
+        signal: init.signal ? AbortSignal.any([init.signal, controller.signal]) : controller.signal,
+      }),
+    });
+    const created = { controller, waiters: 0, run: null };
+    created.run = scoutSchool(target, { stmts: deps.policyScoutStmts, factStmts: deps.factStmts, scorecardKey: deps.SCORECARD_API_KEY || null, fetcher })
       .catch((err) => { console.warn("[policy-scout] on-demand read failed:", err?.message); return { status: "error" }; })
-      .finally(() => deps.onDemandScouts.delete(key));
-    deps.onDemandScouts.set(key, run);
+      .finally(() => { if (deps.onDemandScouts.get(key) === created) deps.onDemandScouts.delete(key); });
+    deps.onDemandScouts.set(key, created);
+    entry = created;
   }
-  const result = await Promise.race([
-    deps.onDemandScouts.get(key),
-    new Promise((resolve) => setTimeout(() => resolve(null), timeoutMs).unref()),
-  ]);
-  if (!result) return "timeout";
-  if (["skipped", "failed", "error"].includes(result.status)) return result.status;
-  return "ok";
+  entry.waiters += 1;
+  let timer = null;
+  try {
+    const timedOut = new Promise((resolve) => { timer = setTimeout(() => resolve(null), timeoutMs); timer.unref?.(); });
+    const result = await orAbort(Promise.race([entry.run, timedOut]), signal);
+    if (result === ABORTED) return "aborted";
+    if (!result) return "timeout";
+    if (["skipped", "failed", "error"].includes(result.status)) return result.status;
+    return "ok";
+  } finally {
+    clearTimeout(timer);
+    entry.waiters -= 1;
+    if (signal?.aborted && entry.waiters === 0) entry.controller.abort(new Error("Every chat turn waiting on this read has closed."));
+  }
 }
 
-export async function scorecardStatsOnDemand(schoolName) {
-  if (!deps.SCORECARD_API_KEY) return null;
+// The Scorecard's figures for one school. A turn whose student went away
+// stops waiting (null, as if nothing were found); the search's own request
+// is held to its 10 s timeout inside searchScorecard.
+export async function scorecardStatsOnDemand(schoolName, { signal = null } = {}) {
+  if (!deps.SCORECARD_API_KEY || signal?.aborted) return null;
   try {
     const wanted = expandCollegeAlias(schoolName);
-    const hit = pickScorecardHit((await searchScorecard(deps.SCORECARD_API_KEY, { name: wanted, limit: 20 }))?.results, wanted);
+    const found = await orAbort(searchScorecard(deps.SCORECARD_API_KEY, { name: wanted, limit: 20, signal }), signal);
+    if (found === ABORTED) return null;
+    const hit = pickScorecardHit(found?.results, wanted);
     if (!hit) return null;
     const parts = [];
     const rate = Number(hit.acceptanceRate);
@@ -404,6 +459,7 @@ export function regulatedResultForChat(classification, payload, { now = new Date
     return calculateDeadlineStatus(
       payload.deadline || payload.deadline_date || null,
       payload.application_type || "regular_decision",
+      { now },
     );
   }
   return {
