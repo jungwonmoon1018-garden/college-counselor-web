@@ -91,13 +91,38 @@ describe("classifyTopic", () => {
   // Hotline and lifeline are topic nouns, which made a request for the number
   // a topic mention that waited on consent, the budget and a model call.
   it("treats a request for a crisis line as CRISIS, and the line named as an activity as a topic", () => {
-    for (const text of ["I need the suicide hotline number", "what's the suicide hotline? I need it now", "can you give me the suicide lifeline number", "How do I call the suicide hotline?", "자살 상담전화 번호 알려주세요"]) {
+    for (const text of ["I need the suicide hotline number", "what's the suicide hotline? I need it now", "can you give me the suicide lifeline number", "How do I call the suicide hotline?", "give me the crisis hotline", "what's the suicide hotline's number?", "I need a suicide hotline volunteer to talk to", "자살 상담전화 번호 알려주세요"]) {
       assert.equal(classifyTopic(text).topicType, TOPIC_TYPES.CRISIS, text);
     }
     for (const text of ["I trained as a volunteer for the 988 Suicide & Crisis Lifeline", "I answered calls at a suicide hotline for two summers", "자살예방상담전화에서 1년 동안 봉사했어요"]) {
       assert.notEqual(classifyTopic(text).topicType, TOPIC_TYPES.CRISIS, text);
       assert.equal(isCrisisTopicMention(text), true, text);
     }
+  });
+
+  // The request patterns stopped at the line's name and a bare "<line>
+  // number" fired anywhere, so a role at the line or its number on a poster
+  // got the crisis reply. What follows the name now decides; a bare number
+  // needs the start of a sentence, a question mark or please.
+  it("answers a crisis line named as an activity, by what follows its name", () => {
+    const pairs = [
+      ["How do I get a suicide hotline volunteer position?", "How do I get the suicide hotline?"],
+      ["what's the suicide hotline volunteer age requirement", "what's the suicide hotline number"],
+      ["What is the suicide hotline's role in my essay about my volunteer work?", "What is the suicide hotline's phone number?"],
+      ["I want the suicide hotline number on every locker at school", "I want the suicide hotline number in my phone"],
+      ["Our club printed the suicide hotline number on posters around school", "suicide hotline number please"],
+      ["We added the crisis hotline number to every locker", "the crisis hotline number"],
+      ["자살예방상담전화 번호를 사물함마다 붙였어요", "자살예방상담전화 번호가 뭐예요?"],
+    ];
+    for (const [activity, request] of pairs) {
+      assert.notEqual(classifyTopic(activity).topicType, TOPIC_TYPES.CRISIS, activity);
+      assert.equal(isCrisisTopicMention(activity), true, activity);
+      assert.equal(classifyTopic(request).topicType, TOPIC_TYPES.CRISIS, request);
+    }
+    // A crisis line with no suicide in it still carries the footer, and the
+    // word crisis on its own carries nothing.
+    assert.equal(isCrisisTopicMention("Where can I find a crisis hotline internship?"), true);
+    assert.equal(isCrisisTopicMention("my identity crisis essay"), false);
   });
 
   it("classifies Korean first-person statements as CRISIS and Korean hyperbole as coaching", () => {

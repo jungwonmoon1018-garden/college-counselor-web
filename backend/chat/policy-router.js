@@ -107,8 +107,30 @@ const TOPIC_TAIL = String.raw`(?![\s/&-]+(?:(?:and|or)[\s/&-]+)?${TOPIC_PAIR}[\s
 // budget, a withdrawn consent or an outage left the student who asked for the
 // number with an error note and no number. A lifeline named as an activity
 // ("a volunteer for the 988 Suicide & Crisis Lifeline") stays a topic.
-const LINE_NAME = String.raw`(?:988\s+|national\s+)?(?:suicide|crisis|self[\s-]?harm)(?:\s+prevention)?(?:\s*(?:&|and)\s*crisis)?\s+(?:hot|life)line`;
-const LINE_REQUEST = String.raw`(?:i\s+(?:need|want)(?:\s+to\s+(?:call|text|contact|reach|talk\s+to))?|(?:how|where)\s+(?:can|do|could|should)\s+i\s+(?:find|get|call|text|contact|reach)|give\s+me|get\s+me|send\s+me|tell\s+me|what(?:'s|\s+is)|where(?:'s|\s+is)|(?:phone\s+)?number\s+(?:for|of))\s+(?:a|an|the|your)?\s*${LINE_NAME}s?\b|(?:suicide|crisis)(?:\s+prevention)?\s+(?:hot|life)line\s+(?:phone\s+)?number\b`;
+//
+// What follows the line's name tells a request from an activity. The first
+// request patterns stopped at the name, and a bare "suicide hotline number"
+// fired anywhere, so "How do I get a suicide hotline volunteer position?",
+// "What is the suicide hotline's role in my essay?" and "We added the crisis
+// hotline number to every locker" got the crisis reply instead of an answer.
+// A role at the line, its possessive (other than its number) and its number
+// put up somewhere are activities. "A suicide hotline volunteer to talk to"
+// and "the suicide hotline's number" are still asked for.
+const LINE_NAME = String.raw`(?:988\s+|national\s+)?(?:suicide|crisis|self[\s-]?harm)(?:\s+prevention)?(?:\s*(?:&|and)\s*crisis)?\s+(?:hot|life|text\s+)line`;
+const LINE_PLACE = String.raw`(?:posters?|flyers?|fliers?|(?:student\s+)?ids?|id\s+cards?|lockers?|badges?|stickers?|banners?|bookmarks?|wristbands?|lanyards?|t-?shirts?|magnets?|bulletin\s+boards?|stalls?|mirrors?|hallways?|classrooms?)`;
+const LINE_TAIL = String.raw`(?!\s+(?:volunteer(?:s|ing|ed)?\b(?!\s+(?:to\s+)?(?:talk|call|text|chat|speak)\b)|positions?\b|jobs?\b|roles?\b|trainings?\b|internships?\b|interns?\b|shifts?\b|clubs?\b|projects?\b|essays?\b|fundraisers?\b|campaigns?\b|research\b)|'s\s+(?!(?:phone\s+|text\s+|contact\s+)?(?:numbers?|phone|contact)\b)|(?:\s+(?:phone\s+)?numbers?)?\s+(?:on|onto|to|in|into|across|around|throughout|inside)\s+(?:[\w'-]+\s+){0,3}?${LINE_PLACE}\b)`;
+// The student asks for the line: "I need", "give me", "do you know", "is
+// there", "how do I call". First person or addressed to the counselor, so a
+// specialist's draft ("if you're looking for a crisis line") does not ask.
+const LINE_ASK = String.raw`(?:i\s+(?:(?:really|just|urgently|desperately|seriously)\s+)?(?:need|want)(?:\s+to\s+(?:call|text|contact|reach|talk\s+to))?|(?:how|where)\s+(?:can|do|could|should)\s+i\s+(?:find|get|call|text|contact|reach)|can\s+i\s+(?:have|get|call|text|reach)|(?:can|could|would|will)\s+you\s+(?:please\s+)?(?:find|get|send|share|text|look\s+up)|(?:i'm|im|i\s+am)\s+looking\s+for|do\s+you\s+(?:have|know)|is\s+there|(?:give|get|send|tell|show|find|text)\s+me|what(?:'s|\s+is)|where(?:'s|\s+is)|(?:phone\s+)?number\s+(?:for|of))`;
+// With no asking words, the line's number is a request at the start of a
+// sentence ("Suicide hotline number please", "the suicide hotline number")
+// or with a question mark or please after it, and the line's name alone is
+// one when it is the whole sentence ("Suicide hotline?"). "Our club printed
+// the suicide hotline number on posters" describes a project.
+const LINE_ALONE = String.raw`(?=(?:\s*(?:please|pls|plz|now|asap))*\s*(?:[?!]|\.?\s*$)|\s*(?:please|pls|plz)\b)`;
+const LINE_BARE = String.raw`(?:^|[.!?;:]+\s*)(?:(?:please|pls|plz)\s+)?(?:need\s+)?(?:(?:the|a|an|your)\s+)?${LINE_NAME}(?:\s+(?:phone\s+)?number\b${LINE_TAIL}|s?${LINE_ALONE})|${LINE_NAME}\s+(?:phone\s+)?number(?=\s*(?:\?|(?:please|pls|plz|asap)\b))`;
+const LINE_REQUEST = String.raw`${LINE_ASK}\s+(?:a|an|the|your)?\s*${LINE_NAME}s?\b${LINE_TAIL}|${LINE_BARE}`;
 // "I hurt myself playing soccer" and "I cut myself off from social media"
 // are about a sports injury and a phone, and both got the hotlines. The
 // sports carve-out holds only while nothing later in the sentence says the
@@ -176,8 +198,10 @@ const PATTERNS = {
     // Colloquial hyperbole ("화학 때문에 죽겠어요", "죽을 것 같이 바빠요")
     // does not match. Asking for a crisis line's number ("자살 상담전화 번호
     // 알려주세요") is a safety statement, as in English; volunteering at one
-    // ("자살예방상담전화에서 봉사했어요") stays a topic.
-    /(자살(?!\s*(?:예방|방지|률|율|통계|연구|인식|캠페인|동아리|프로그램|교육|상담전화))|자해(?!\s*(?:예방|방지|인식|연구|통계|캠페인|동아리|프로그램|교육))|죽고\s*싶|목숨을\s*끊|극단적\s*선택|살기\s*싫|죽어\s*버리고\s*싶|살고\s*싶지\s*않|살\s*이유가\s*없|살\s*가치가\s*없|사라지고\s*싶|없어지고\s*싶|삶을\s*끝내|인생을\s*끝내|손목을\s*(?:긋|그었|그어)|(?:^|[^가-힣])(?:나|내가|제가|저)\s*(?:없으면|없는\s*게|없어지면)\s*(?:다들\s*|모두\s*|가족도\s*)?(?:더\s*)?(?:나을|낫|행복할)|(?:자살|자해)\s*(?:예방\s*)?(?:상담\s*)?(?:전화\s*)?번호|(?:자살|자해)\s*(?:예방\s*)?상담\s*(?:전화|센터)\s*(?:좀\s*)?(?:알려|가르쳐))/,
+    // ("자살예방상담전화에서 봉사했어요") stays a topic, and so does putting the
+    // number up ("번호를 사물함마다 붙였어요", "학생증에 번호를 넣자고"), which
+    // in Korean is said after the number.
+    /(자살(?!\s*(?:예방|방지|률|율|통계|연구|인식|캠페인|동아리|프로그램|교육|상담전화))|자해(?!\s*(?:예방|방지|인식|연구|통계|캠페인|동아리|프로그램|교육))|죽고\s*싶|목숨을\s*끊|극단적\s*선택|살기\s*싫|죽어\s*버리고\s*싶|살고\s*싶지\s*않|살\s*이유가\s*없|살\s*가치가\s*없|사라지고\s*싶|없어지고\s*싶|삶을\s*끝내|인생을\s*끝내|손목을\s*(?:긋|그었|그어)|(?:^|[^가-힣])(?:나|내가|제가|저)\s*(?:없으면|없는\s*게|없어지면)\s*(?:다들\s*|모두\s*|가족도\s*)?(?:더\s*)?(?:나을|낫|행복할)|(?:자살|자해)\s*(?:예방\s*)?(?:상담\s*)?(?:전화\s*)?번호(?![^.?!]{0,30}?(?:붙였|붙이자|붙여\s*놓|넣었|넣자|인쇄했|인쇄하자|새겼|게시했|배포했|나눠\s*줬|홍보했))|(?:자살|자해)\s*(?:예방\s*)?상담\s*(?:전화|센터)\s*(?:좀\s*)?(?:알려|가르쳐))/,
     /((?:학대|성추행|성폭행|폭행|가정폭력)(?:을|를)?\s*(?:당하|당했|당하고|받고|받았|겪|겪고)|(?:아빠|엄마|아버지|어머니|부모님|새아빠|새엄마|계부|계모|오빠|형|누나|언니|삼촌|이모|고모|할아버지|할머니|선생님|코치|남자\s*친구|남친|여자\s*친구|여친)(?:가|이|께서|는|은)?\s*(?:저를|나를|절|날)?\s*(?:자꾸\s*|계속\s*|매일\s*|또\s*)?(?:때려|때렸|때린|때리|해칠|해치려|만져|만졌|만지)|(?:아빠|엄마|아버지|어머니|부모님|새아빠|새엄마|계부|계모|오빠|형|누나|언니|삼촌|선생님|코치|남자\s*친구|남친|여자\s*친구|여친)(?:한테|에게|께)\s*(?:자꾸\s*|계속\s*|매일\s*|또\s*)?(?:맞고\s*있|맞았|맞아요|맞는다|맞아))/,
     /(위험에\s*처|안전하지\s*않|저는\s*위험해|집에\s*가(?:기|는\s*(?:게|것이))\s*(?:무서|두려))/,
   ],
@@ -329,10 +353,12 @@ export function isCrisisText(text) {
 // Read by the parity test against the client's copy; not for matching.
 export const CRISIS_PATTERNS = Object.freeze([...PATTERNS.crisis]);
 
-// Suicide, self-harm or overdose named anywhere. Checked only after the
-// crisis patterns have said no, so a match marks a topic mention ("our
-// suicide prevention club"): answered normally, with the resource footer.
-export const CRISIS_TOPIC_RE = /\b(?:suicid\w*|self[\s-]?harm\w*|overdos\w*)\b|자살|자해/i;
+// Suicide, self-harm, overdose or a crisis line named anywhere. Checked only
+// after the crisis patterns have said no, so a match marks a topic mention
+// ("our suicide prevention club"): answered normally, with the resource
+// footer. "We added the crisis hotline number to every locker" names no
+// suicide, and without the line here it would be answered with no lines.
+export const CRISIS_TOPIC_RE = /\b(?:suicid\w*|self[\s-]?harm\w*|overdos\w*|crisis\s+(?:hot|life|text\s+)lines?)\b|자살|자해/i;
 
 export function isCrisisTopicMention(text) {
   const s = normalizeForLexicon(text);

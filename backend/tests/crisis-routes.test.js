@@ -207,7 +207,7 @@ test("a Korean student gets the Korean lines first, then the US lines, from any 
 test("asking for the suicide hotline gets the crisis reply before consent and with no model call", async () => {
   const token = await registerStudent("crisis-hotline");
   const calls = modelCallCount();
-  for (const content of ["I need the suicide hotline number", "what’s the suicide hotline? I need it now", "can you give me the suicide lifeline number"]) {
+  for (const content of ["I need the suicide hotline number", "what’s the suicide hotline? I need it now", "can you give me the suicide lifeline number", "give me the crisis hotline", "how do I call the suicide lifeline", "Suicide hotline?"]) {
     const turn = await chat(token, content);
     assert.equal(turn.status, 200, `${content}\n${JSON.stringify(turn.data)}`);
     assertCrisisReply(turn.data, US_LINES);
@@ -281,6 +281,32 @@ test("a question naming suicide as a topic gets a normal answer with the 988 / 7
   });
   assert.equal(utility.status, 200, JSON.stringify(utility.data));
   assert.ok(!String(utility.data.answer).includes("741741"));
+});
+
+// The request patterns once stopped at the line's name, and a bare "crisis
+// hotline number" fired anywhere: a student asking about a hotline volunteer
+// position or describing the number on every locker got the crisis reply,
+// lost the question and had the thread retitled. They are answered, with the
+// lines in the footer.
+test("a crisis line named as an activity is answered with the footer, not the crisis reply", async () => {
+  const token = await registerStudent("crisis-line-topic");
+  await grantConsents(token);
+  const calls = modelCallCount();
+  const asked = [
+    "How do I get a suicide hotline volunteer position?",
+    "What is the suicide hotline’s role in my essay about my volunteer work?",
+    "We added the crisis hotline number to every locker",
+    "I petitioned to put the suicide hotline number on our student IDs",
+  ];
+  for (const [index, content] of asked.entries()) {
+    const turn = await chat(token, content, { requestId: `crisis-line-topic-${index}` });
+    assert.equal(turn.status, 200, `${content}\n${JSON.stringify(turn.data)}\n${serverOutput}`);
+    assert.notEqual(turn.data.crisisSafe, true, content);
+    assert.notEqual(turn.data.topic_type, "crisis", content);
+    assert.match(turn.data.answer, /Junior Year Course Plan/, content);
+    assert.match(turn.data.answer, /call or text 988, or text HOME to 741741/, content);
+  }
+  assert.equal(modelCallCount(), calls + asked.length);
 });
 
 test("an idiom that only looks like danger is answered without the crisis reply or the footer", async () => {
