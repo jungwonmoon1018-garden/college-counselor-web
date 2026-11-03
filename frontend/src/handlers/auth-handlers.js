@@ -3,8 +3,39 @@
 // render's bindings as `ctx`. Moved out of App.jsx on 2026-09-20.
 import { storageKeyFor, storageApi, decrypt, readVaultIdentity, readVaultData, readVaultSync, encrypt, buildVaultBlob } from "../session/vault-storage.js";
 import { establishServerSession, healMissingConsents, fetchServerIdentity, grantOnboardingConsents } from "../session/server-session.js";
+import { closeStudentSession } from "../session/end-session.js";
 import { baseFromData, describeProfileConflict, readServerProfile, reconcileProfile } from "../profile/profile-reconcile.js";
+import { detectLocale } from "../i18n.js";
 import { S } from "../app-shared.js";
+
+// What a student reads when sign-in could not read her saved profile, even
+// on the second try. She stays on the sign-in screen: the empty survey she
+// used to be sent to told a returning student she was new, and she retyped
+// her record into it.
+export const PROFILE_LOAD_FAILED = Object.freeze({
+  "en-US": "Couldn't load your saved profile. Try signing in again.",
+  ko: "저장된 프로필을 불러오지 못했습니다. 다시 로그인해 주세요.",
+});
+
+// A failed read is tried once more after a pause long enough for a cold
+// start or a burst limit to clear.
+const PROFILE_RETRY_DELAY_MS = 500;
+
+// The server's profile for sign-in, or null when the read failed twice (a
+// non-ok answer, a network error, a body that is not JSON). An answer with
+// no profile in it is a read, not a failure: it is how a student with
+// nothing saved yet looks.
+async function readProfileForLogin(base, token) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    if (attempt) await new Promise((resolve) => setTimeout(resolve, PROFILE_RETRY_DELAY_MS));
+    try {
+      const pr = await fetch(`${base}/students/profile`, { headers: { Authorization: `Bearer ${token}` } });
+      if (pr.ok) return readServerProfile(await pr.json());
+      console.warn(`[login-recover] profile read answered ${pr.status}`);
+    } catch (err) { console.warn("[login-recover] failed:", err?.message); }
+  }
+  return null;
+}
 
 export async function handleLogin(ctx) {
   const {
@@ -118,6 +149,29 @@ export async function handleLogin(ctx) {
     return;
   }
 
+  // ─── Read the server's profile before the student enters ───
+  // Same convention as api.js: __CC_PROXY_URL__ is the chat endpoint, and
+  // the same-origin default keeps this working on the deployed website.
+  // (`proxyUrl` was previously read here without ever being declared — the
+  // second dangling reference that crashed every returning login.)
+  // A failed read used to count as "the server has no profile", so a device
+  // with no finished survey of its own sent a returning student to an empty
+  // survey as if she were new. The read is tried twice; when both fail and
+  // the survey is where she would land, she stays signed out on this screen
+  // with the reason, the session just opened is closed, and nothing is
+  // saved. A device that finished the survey opens the chat on its own copy
+  // as before: the auto-save waits for the join, which the chat retries.
+  const surveyCompleted = Boolean(vaultData?.surveyCompleted);
+  const proxyUrl = window.__CC_PROXY_URL__ || "/api/chat";
+  const readsProfile = Boolean(sess.ok && window.__CC_SESSION_TOKEN__ && proxyUrl);
+  const server = readsProfile ? await readProfileForLogin(proxyUrl.replace(/\/chat\/?$/,""), window.__CC_SESSION_TOKEN__) : null;
+  if (readsProfile && !server && !surveyCompleted) {
+    await closeStudentSession();
+    const locale = ctx.locale || detectLocale();
+    setLError(PROFILE_LOAD_FAILED[locale] || PROFILE_LOAD_FAILED["en-US"]);
+    return;
+  }
+
   const u = { name: identity.name, email, grade: identity.grade };
   setUser(u);
   setPassphrase(lPass);
@@ -136,28 +190,18 @@ export async function handleLogin(ctx) {
   // deleted activities back over a newer record.
   let backendHasProfile = false;
   setSyncBase?.(vaultBase);
-  // Same convention as api.js: __CC_PROXY_URL__ is the chat endpoint, and
-  // the same-origin default keeps this working on the deployed website.
-  // (`proxyUrl` was previously read here without ever being declared — the
-  // second dangling reference that crashed every returning login.)
-  const proxyUrl = window.__CC_PROXY_URL__ || "/api/chat";
-  if (window.__CC_SESSION_TOKEN__ && proxyUrl) {
+  if (server) {
     try {
-      const base = proxyUrl.replace(/\/chat\/?$/,"");
-      const pr = await fetch(`${base}/students/profile`, { headers: { Authorization: `Bearer ${window.__CC_SESSION_TOKEN__}` } });
-      if (pr.ok) {
-        const server = readServerProfile(await pr.json());
-        const result = reconcileProfile({ local: vaultData, server, base: vaultBase });
-        if (result.changed || !vaultData) setData(result.data);
-        setSyncBase?.(result.base);
-        setProfileReady?.(true);
-        if (result.conflicts.length && setSyncNote) {
-          setSyncNote(describeProfileConflict(result));
-          setSyncStatus?.("partial");
-        }
-        backendHasProfile = server.exists && ((server.view.courses || []).length > 0 || (server.view.activities || []).length > 0);
-        if (result.adopted.length) console.info(`[login-recover] Took the server's ${result.adopted.join(", ")}.`);
+      const result = reconcileProfile({ local: vaultData, server, base: vaultBase });
+      if (result.changed || !vaultData) setData(result.data);
+      setSyncBase?.(result.base);
+      setProfileReady?.(true);
+      if (result.conflicts.length && setSyncNote) {
+        setSyncNote(describeProfileConflict(result));
+        setSyncStatus?.("partial");
       }
+      backendHasProfile = server.exists && ((server.view.courses || []).length > 0 || (server.view.activities || []).length > 0);
+      if (result.adopted.length) console.info(`[login-recover] Took the server's ${result.adopted.join(", ")}.`);
     } catch (err) { console.warn("[login-recover] failed:", err?.message); }
   }
 
@@ -171,7 +215,6 @@ export async function handleLogin(ctx) {
   // server session was established, so the screen never advanced past LOGIN
   // and the deployed site appeared to lock users out after their first
   // visit. Route on `sess.offline` and the decrypted vault data instead.
-  const surveyCompleted = Boolean(vaultData?.surveyCompleted);
   if (sess.offline) {
     if (surveyCompleted) {
       setMessages([{ role:"assistant", content:`Hey ${identity.name}! You're offline right now — your data is here and safe. Chat resumes once your connection's back.` }]);

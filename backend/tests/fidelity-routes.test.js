@@ -1,6 +1,7 @@
 // The chat's profile-fidelity check through POST /api/chat (2026-11-03): a
-// true comparison with a school's verified figure, a hedged piece of advice
-// and a retaker's newer score make no corrective retry, while a real
+// true comparison with a school's verified figure, a hedged piece of advice,
+// a retaker's newer score and a target or a school's figure listed after the
+// student's own make no corrective retry, while a real
 // misstatement, including a score invented for an AP exam with none on
 // record, still gets one; the footnote is Korean under the Korean locale;
 // and a school named in lower case or in Hangul reaches the VERIFIED DATA
@@ -243,6 +244,21 @@ test("an invented score later in a list of the student's numbers is corrected", 
   const calls = callsFor(marker);
   assert.equal(calls.length, 2, "one draft call plus one corrective retry");
   assert.match(JSON.stringify(calls[1].messages), /- SAT: recorded 1450 \(the reply said 1520\)/);
+});
+
+// Reading a list on from the student's score took a goal or a school's
+// figure after it for the student's own, and the retry told the model
+// "recorded 1450 (the reply said 1520)", pushing it to overwrite the target.
+test("a target or a school's figure listed after the student's score makes no corrective retry", async () => {
+  const token = await registerWithProfile("fidelity-list-target");
+  const reply = "Your 1450 SAT and 1520 SAT goal are 70 points apart. Your 3.82 GPA and 1450 SAT — 1530 SAT would be ideal for Michigan, and your 1450 SAT and 1500 SAT is Michigan's median.";
+  const marker = `MOCKREPLY:${b64(reply)}:`;
+  const turn = await chat(token, "Am I competitive for Michigan?", marker, "fidelity-list-target-1");
+  assert.equal(turn.data._meta.profileFidelity, null);
+  assert.equal(turn.data.answer, reply);
+  const calls = callsFor(marker);
+  assert.equal(calls.length, 1, "no corrective retry");
+  assert.doesNotMatch(JSON.stringify(calls), /FIDELITY CORRECTION/);
 });
 
 // An AP exam with no score on record was never checked, and the profile

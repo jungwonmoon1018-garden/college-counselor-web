@@ -456,6 +456,10 @@ test("every value in a list tied to the student is checked, not only the first",
     // A modal after a "your" list still states the record, as it does after
     // a single "your 1500 SAT".
     ["Your 3.95 GPA and 1520 SAT should help.", ["gpa:3.95", "sat:1520"]],
+    ["Your 3.72 GPA and 1520 SAT would be competitive at Duke.", ["sat:1520"]],
+    // A later item is read as well as the second.
+    ["Your 3.72 GPA, 1380 SAT and 34 ACT are solid.", ["act:34"]],
+    ["Your profile — 3.72 GPA, 1520 SAT, 31 ACT — is strong.", ["sat:1520", "act:31"]],
     ["학생의 GPA 3.95와 SAT 1520점은 훌륭합니다.", ["gpa:3.95", "sat:1520"]],
     // The recorded values.
     ["With your 3.72 GPA and 1380 SAT, you're a strong candidate.", []],
@@ -478,6 +482,53 @@ test("every value in a list tied to the student is checked, not only the first",
     "Your 1380 SAT (about a 29 ACT) is solid.",
     "학생의 SAT 1380점과 스탠퍼드의 SAT 1520점은 차이가 큽니다.",
   ]) assert.deepEqual(kinds(text, record), [], text);
+});
+
+// The list walker read a bare item after the student's score as the
+// student's even when the reply went on to call it a goal or a school's
+// figure, so "Your 1380 SAT and 1520 SAT goal" got a retry saying "recorded
+// 1380 (the reply said 1520)", which pushes the model to overwrite the
+// target. A dash, or a goal word or a school's name after the item, ends the
+// student's list; the student's own items before it are still checked.
+test("a target or a school's figure listed after the student's score is not the student's", () => {
+  const record = { gpaUnweighted: 3.72, testScores: [{ test: "sat", totalScore: 1380 }] };
+  for (const text of [
+    "Your 1380 SAT and 1520 SAT goal.",
+    "Your 1380 SAT and 1520 SAT target are 140 points apart.",
+    "Your 1380 SAT — 1520 SAT is Duke's median.",
+    "Your 3.72 GPA and 1380 SAT — 1520 SAT would be ideal.",
+    "Your 1380 SAT and 1520 SAT admits at Duke.",
+    "Your 1380 SAT, 1450 SAT superscore goal.",
+    "Your 1380 SAT, 1520 SAT would be ideal.",
+    "Your 1380 SAT and 1520 SAT is Duke's median.",
+    "Your 1380 SAT and 1520 SAT is the University of Michigan's median.",
+    "Your 1380 SAT and 1520 SAT benchmark for Duke.",
+    "Your 3.72 GPA and 3.95 GPA goal are close.",
+    "Your stats (3.72 GPA, 1380 SAT, 1520 SAT target) are solid.",
+  ]) assert.deepEqual(kinds(text, record), [], text);
+  // What came before the target is still the student's and still checked.
+  for (const [text, want] of [
+    ["Your 3.95 GPA, 1380 SAT and 1520 SAT goal.", ["gpa:3.95"]],
+    ["Your 3.72 GPA, 1450 SAT and 1520 SAT target.", ["sat:1450"]],
+    ["Your 3.72 GPA and 1450 SAT — 1520 SAT would be ideal.", ["sat:1450"]],
+  ]) assert.deepEqual(kinds(text, record), want, text);
+});
+
+// Every bound value and list item reads its clause, and the clause used to
+// be found by scanning the reply from the start each time, so a long reply
+// took quadratic time (a 60k-character reply, 150-650 ms; this 200k one,
+// over 2.5 s). The boundaries are now found once per reply, and this one
+// takes tens of milliseconds.
+test("the fidelity check stays linear on a long reply", () => {
+  const record = { gpaUnweighted: 3.72, testScores: [{ test: "sat", totalScore: 1380 }], apScores: [{ exam: "Statistics", score: 4 }] };
+  const sentence = "Your stats (3.72 GPA, 1380 SAT) and your 1380 SAT and 1520 SAT goal, plus a 4 on AP Statistics, make you competitive; many admits have a 3.9 GPA. ";
+  const reply = sentence.repeat(Math.ceil(200_000 / sentence.length));
+  checkProfileFidelity(reply.slice(0, 2000), record);
+  const started = performance.now();
+  const { contradictions } = checkProfileFidelity(reply, record);
+  const elapsed = performance.now() - started;
+  assert.deepEqual(contradictions, []);
+  assert.ok(elapsed < 1_000, `a ${reply.length}-character reply took ${Math.round(elapsed)} ms`);
 });
 
 // Every recorded sitting is a true score: the check read only the first

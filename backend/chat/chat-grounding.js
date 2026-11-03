@@ -288,16 +288,46 @@ const HANGUL_RE = /[가-힣]/;
 // 1350" keeps 1350 out of the student's clause.
 const CLAUSE_BOUNDARY_SOURCE = String.raw`[.!?](?=\s|$)|[;\n]|,|\s(?:but|while|whereas|although|though|yet|compared (?:with|to)|versus|vs|than|unlike|except)(?=[\s.])`;
 
-function clauseAround(text, start, end) {
-  const re = new RegExp(CLAUSE_BOUNDARY_SOURCE, "gi");
-  let from = 0;
-  let to = text.length;
-  let m;
-  while ((m = re.exec(text))) {
-    const close = m.index + m[0].length;
-    if (close <= start) from = close;
-    else if (m.index >= end) { to = m.index; break; }
+// Every bound value, list item and course grade asks for its clause, and the
+// clause used to be found by scanning the reply from its start each time:
+// quadratic, 150-650 ms on a 60k-character reply. The boundaries of the last
+// text asked about are kept, so a check finds them once and then looks each
+// clause up by binary search.
+let clauseIndex = { text: null, starts: [], closes: [] };
+
+function clauseBoundaries(text) {
+  if (clauseIndex.text === text) return clauseIndex;
+  const starts = [];
+  const closes = [];
+  for (const m of text.matchAll(new RegExp(CLAUSE_BOUNDARY_SOURCE, "gi"))) {
+    starts.push(m.index);
+    closes.push(m.index + m[0].length);
   }
+  clauseIndex = { text, starts, closes };
+  return clauseIndex;
+}
+
+// The first index in a sorted list whose value passes `ok`, or its length.
+function firstIndex(list, ok) {
+  let lo = 0;
+  let hi = list.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (ok(list[mid])) hi = mid;
+    else lo = mid + 1;
+  }
+  return lo;
+}
+
+// The clause opens after the last boundary that closes at or before `start`
+// and runs to the first boundary that starts at or after `end`; a boundary
+// inside the span does not split it.
+function clauseAround(text, start, end) {
+  const { starts, closes } = clauseBoundaries(text);
+  const before = firstIndex(closes, (close) => close > start) - 1;
+  const after = firstIndex(starts, (at) => at >= end);
+  const from = before >= 0 ? closes[before] : 0;
+  const to = after < starts.length ? starts[after] : text.length;
   return { lead: text.slice(from, start), tail: text.slice(end, to), whole: text.slice(from, to) };
 }
 
@@ -687,8 +717,20 @@ function boundValueMentions(text, patterns, { section = null } = {}) {
 // student's: "your 3.95 GPA and 1520 SAT" shares the "your", and "you have
 // a 3.95 GPA, a 1520 SAT" repeats the binder's article, but "your 3.72 GPA
 // and a 1520 SAT" gives the second noun a determiner of its own, which is
-// how a reply names a target ("…, you'd be competitive").
-const LIST_JOINER_RE = /\s*,\s*(?:and\s+|plus\s+|as\s+well\s+as\s+)?|\s+(?:and|plus|&|as\s+well\s+as)\s+|\s*[—–]\s*|\s*점?\s*(?:와|과|및)\s*/y;
+// how a reply names a target ("…, you'd be competitive"). A dash is not a
+// joiner: what follows it is a new thought ("Your 1380 SAT — 1520 SAT is
+// Duke's median"), and reading on across it turned a target into a
+// contradiction whose retry told the model to overwrite it.
+const LIST_JOINER_RE = /\s*,\s*(?:and\s+|plus\s+|as\s+well\s+as\s+)?|\s+(?:and|plus|&|as\s+well\s+as)\s+|\s*점?\s*(?:와|과|및)\s*/y;
+// After an item: a goal or a group's figure ("1520 SAT goal", "1450 SAT
+// superscore target", "1520 SAT admits at Duke"), a school's figure ("1520
+// SAT is Duke's median", "is the University of Michigan's"), or a value it
+// "would be ideal" to reach or that "would be needed". The item is not the
+// student's, and the list ends there; what came before it is still checked.
+// "Would be" alone does not end it: "your 3.72 GPA and 1520 SAT would be
+// competitive" states the record, as "your 3.95 GPA would make you
+// competitive" does, and an invented 1520 there still gets its retry.
+const LIST_ITEM_NOT_OWN_AFTER_RE = new RegExp(String.raw`^(?:\s+(?:superscore|super-score|score|scores|total|composite|combined|result|results))*\s+(?:(?:goals?|targets?|aims?|benchmarks?|medians?|averages?|range|ranges|band|cutoffs?|thresholds?|minimums?|admits?|admitted|applicants?|enrollees|matriculants|students)(?![A-Za-z])|(?:is|was)\s+(?:(?:the\s+)?(?:[A-Z][\w.&-]*\s+(?:(?:of|at|for)\s+)?){0,5}[A-Z][\w.&-]*(?:['’]s|s['’])(?![A-Za-z])|the\s+(?:school|college|university|program|class)['’]s(?![A-Za-z])|(?:its|their)(?![A-Za-z]))|would\s+be\s+(?:ideal|needed|necessary|required|(?:an?|the|your)\s+(?:[a-z]+\s+)?(?:target|goal|aim|benchmark))(?![A-Za-z]))`);
 // An aside after an item ("your 3.82 GPA (4.31 weighted) and 1450 SAT").
 const LIST_ASIDE_RE = /\s*\([^()\n]{1,40}\)/y;
 // "your stats (…)", "your numbers — …", "your profile: …": the student's
@@ -780,6 +822,7 @@ function walkList(text, from, pos, { owned = false, parallel = false, first = fa
       if (VALUE_TAIL_BLOCK_RE.test(text.slice(item.vEnd, item.vEnd + 20))) return;
       if (item.form === "numberFirst" && COUNTED_AFTER_LABEL_RE.test(text.slice(item.end, item.end + 24))) return;
     }
+    if (LIST_ITEM_NOT_OWN_AFTER_RE.test(text.slice(item.end, item.end + 80))) return;
     // An item with an article of its own is a fresh noun phrase: a modal
     // after it ("…, and a 1520 SAT would make you competitive") makes it a
     // plan, as it does for an unbound value.
