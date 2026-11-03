@@ -65,6 +65,23 @@ describe("safe-storage with working storage", () => {
     expect(safeGet("k")).toBe("second");
   });
 
+  // Storage that still reads but refuses writes (a full quota) held the new
+  // value in memory while safeGet went on returning the old stored one, so
+  // the API kept sending en-US after the student switched to Korean.
+  it("reads a write storage refused ahead of the stale stored value", () => {
+    window.localStorage.setItem("cc_locale", "en-US");
+    const setItem = window.localStorage.setItem;
+    window.localStorage.setItem = () => { throw new DOMException("Quota exceeded", "QuotaExceededError"); };
+    expect(safeSet("cc_locale", "ko")).toBe(false);
+    expect(safeGet("cc_locale")).toBe("ko");
+    expect(getLocale()).toBe("ko");
+    // Once a write lands again, storage is the authority once more.
+    window.localStorage.setItem = setItem;
+    expect(safeSet("cc_locale", "en-US")).toBe(true);
+    window.localStorage.setItem("cc_locale", "ko");
+    expect(safeGet("cc_locale")).toBe("ko");
+  });
+
   it("returns the fallback for unreadable JSON", () => {
     window.localStorage.setItem("j", "{not json");
     expect(safeGetJson("j", [])).toEqual([]);

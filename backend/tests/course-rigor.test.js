@@ -138,6 +138,17 @@ test("the two semesters of one course are one course", () => {
   assert.equal(rigor.apExamsWithoutCourse, 0);
   assert.equal(rigor.honors, 1);
   assert.equal(rigor.units, 1.2 + 0.5);
+  // A name with no Latin letters is still its own course: the subject
+  // normalizer keeps only [a-z0-9], so three Korean honors courses once
+  // collapsed into one course and half a unit.
+  const korean = readCourseRigor([
+    { name: "고급수학", type: "honors", semester: "fall", year: "senior" },
+    { name: "고급화학", type: "honors", semester: "fall", year: "senior" },
+    { name: "고급물리", type: "honors", semester: "fall", year: "senior" },
+    { name: "고급물리", type: "honors", semester: "spring", year: "senior" },
+  ], []);
+  assert.equal(korean.honors, 3);
+  assert.equal(korean.units, 1.5);
   // The same course in two different years, and full-year rows, still count apart.
   const twoYears = readCourseRigor([
     { name: "Honors Chemistry", type: "honors", semester: "fall", year: "sophomore" },

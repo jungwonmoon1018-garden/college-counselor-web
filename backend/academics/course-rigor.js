@@ -136,6 +136,16 @@ function distinctExams(apScores) {
 // used to count as one more course, so a year of AP Biology read as two
 // APs and two units. Rows of the same year, level and subject whose term
 // is fall or spring are one course; a full-year row stands on its own.
+// The course's identity for that pairing. normalizeApSubject keeps only
+// [a-z0-9], so names with no Latin letters (고급수학, 고급화학, 고급물리)
+// all came out empty and three Korean courses counted as one; letters and
+// digits of any script now keep them apart.
+function courseIdentity(name) {
+  return apExamKey(name)
+    || normalizeApSubject(name)
+    || String(name || "").normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+
 function distinctCourses(courses) {
   const out = [];
   const halves = new Set();
@@ -145,7 +155,7 @@ function distinctCourses(courses) {
     if (!level || (semester !== "fall" && semester !== "spring")) { out.push(course); continue; }
     const name = String(course?.name || "");
     const year = String(course?.year || course?.gradeLevel || "").trim().toLowerCase();
-    const key = [year, level, apExamKey(name) || normalizeApSubject(name)].join("|");
+    const key = [year, level, courseIdentity(name)].join("|");
     if (halves.has(key)) continue;
     halves.add(key);
     out.push(course);

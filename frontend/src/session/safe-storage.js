@@ -23,21 +23,26 @@ function storage() {
   }
 }
 
+// A write storage refused is newer than whatever storage still holds: when
+// storage reads but will not write (a full quota), the stored value is the
+// old one, and reading it first kept the API on en-US after the student
+// switched to Korean. Memory holds only refused writes and is cleared by
+// the next write that lands, so otherwise storage is read, including a
+// value another tab changed.
 export function safeGet(key) {
+  if (memory.has(key)) return memory.get(key);
   const s = storage();
   if (s) {
     try {
       const value = s.getItem(key);
       if (value !== null && value !== undefined) return value;
-    } catch { /* fall through to memory */ }
+    } catch { /* nothing stored that can be read */ }
   }
-  return memory.has(key) ? memory.get(key) : null;
+  return null;
 }
 
 // True when the value reached localStorage; false when it is held in memory
 // only, so a caller that needs to know can say so.
-// Memory holds only what storage refused, so a value another tab or a
-// direct write changed later is read from storage, not from a stale copy.
 export function safeSet(key, value) {
   const text = String(value);
   const s = storage();
