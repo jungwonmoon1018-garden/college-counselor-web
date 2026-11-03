@@ -63,6 +63,9 @@ describe("classifyTopic", () => {
       ["I need to cut myself some slack this semester", "I'm cutting myself again"],
       ["I hurt myself playing soccer and missed junior season", "I want to hurt myself"],
       ["I hurt myself at practice", "I keep hurting myself"],
+      // The sports carve-out used to hide intent stated later in the sentence.
+      ["I hurt myself at practice", "I hurt myself at practice on purpose"],
+      ["I hurt myself during the season so I couldn't play junior year", "I hurt myself during the game yesterday because I wanted to feel something"],
       ["They threatened me with detention for being late", "he threatened me with a knife"],
       ["My teacher threatened me with a zero", "he threatened to kill me"],
       ["It's an emergency, my Common App won't submit and the deadline is tonight!", "This is an emergency, I need help right now"],
@@ -83,6 +86,18 @@ describe("classifyTopic", () => {
       assert.equal(isCrisisTopicMention(text), false, text);
     }
     assert.equal(isCrisisTopicMention("Which APs should I take?"), false);
+  });
+
+  // Hotline and lifeline are topic nouns, which made a request for the number
+  // a topic mention that waited on consent, the budget and a model call.
+  it("treats a request for a crisis line as CRISIS, and the line named as an activity as a topic", () => {
+    for (const text of ["I need the suicide hotline number", "what's the suicide hotline? I need it now", "can you give me the suicide lifeline number", "How do I call the suicide hotline?", "자살 상담전화 번호 알려주세요"]) {
+      assert.equal(classifyTopic(text).topicType, TOPIC_TYPES.CRISIS, text);
+    }
+    for (const text of ["I trained as a volunteer for the 988 Suicide & Crisis Lifeline", "I answered calls at a suicide hotline for two summers", "자살예방상담전화에서 1년 동안 봉사했어요"]) {
+      assert.notEqual(classifyTopic(text).topicType, TOPIC_TYPES.CRISIS, text);
+      assert.equal(isCrisisTopicMention(text), true, text);
+    }
   });
 
   it("classifies Korean first-person statements as CRISIS and Korean hyperbole as coaching", () => {

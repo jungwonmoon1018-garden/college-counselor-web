@@ -9,7 +9,7 @@ import { buildCalendarPreamble, buildMemoryPreamble, orchestrate, rememberExchan
 import { looksLikeTranscript } from "../profile/transcript-utils.js";
 import { filedChatDocuments, mergeDocuments } from "../chat/chat-documents.js";
 import { COUNCIL_CLIENT_TIMEOUT_MS, councilTimeoutMessage, reconcileCouncilFailureMessages } from "../profile/strategy-council.js";
-import { crisisResponseText, crisisTurnResult, isCrisisStatement } from "../chat/crisis-lexicon.js";
+import { crisisResponseText, crisisTurnResult, isCrisisStatement, isCrisisTopicMention, withResourceFooter } from "../chat/crisis-lexicon.js";
 
 // ─── SEND MESSAGE ───
 export async function send(ctx) {
@@ -23,7 +23,14 @@ export async function send(ctx) {
   } = ctx;
   if ((!input.trim() && !pendingFile && chatFiles.length === 0) || loading) return;
   const councilTypeForTurn = councilDecisionType;
-  if (councilTypeForTurn && (pendingFile || chatFiles.length > 0)) {
+  // Crisis first: a safety statement skips the Council's attachment and
+  // length rules and the burst guard below, which all used to return before
+  // the lexicon ran, so a long Council message or a fourth send in ten
+  // seconds that said "I want to kill myself" got a limit note and no
+  // hotline. It goes on to the Council crisis branch or orchestrate(), which
+  // answer it without a model call.
+  const crisisNow = isCrisisStatement(input);
+  if (!crisisNow && councilTypeForTurn && (pendingFile || chatFiles.length > 0)) {
     setMessages((prev) => [...prev, {
       role: "assistant",
       content: locale === "ko"
@@ -32,7 +39,7 @@ export async function send(ctx) {
     }]);
     return;
   }
-  if (councilTypeForTurn && input.trim().length > 2000) {
+  if (!crisisNow && councilTypeForTurn && input.trim().length > 2000) {
     setMessages((prev) => [...prev, {
       role: "assistant",
       content: locale === "ko"
@@ -44,7 +51,7 @@ export async function send(ctx) {
 
   // Burst guard only (3 requests / 10s). Catches stuck-button
   // double-fires; not a per-minute cost cap.
-  if (!rateLimiter.check()) {
+  if (!crisisNow && !rateLimiter.check()) {
     setMessages(prev => [...prev, { role:"assistant", content:"Three messages in 10 seconds — give it a beat. (This is just a burst guard against accidental double-clicks; there's no per-minute cap.)" }]);
     return;
   }
@@ -65,6 +72,11 @@ export async function send(ctx) {
   const textChatFiles = chatFiles.filter(f => f.kind === "text");
   const binaryChatFiles = chatFiles.filter(f => f.kind === "binary");
   const baseMsg = input.trim();
+  // A question that names suicide, self-harm or overdose as a topic keeps the
+  // 988 / 741741 footer however the turn ends. orchestrate() puts it on an
+  // answer; a spent budget, a withdrawn consent, an outage, a redirect or a
+  // try-again upload used to show its note with no line at all.
+  const topicLines = isCrisisTopicMention(baseMsg);
   let filePreface = "";
   if (textChatFiles.length > 0) {
     const lines = [
@@ -101,10 +113,14 @@ export async function send(ctx) {
   // It used to be cleared for good: after a timeout, a 429 or a used-up
   // budget the student retyped the question and picked every file again,
   // and only the Council path gave the text back. The snapshot is the
-  // values of this render, not React state read later.
+  // values of this render, not React state read later. A Council question
+  // gets its Council mode back too: without it, "try again" sent the
+  // question through ordinary chat and spent the budget on a turn with no
+  // recommendation.
   const draft = { input, pendingFile, chatFiles };
   const restoreDraft = ({ files = true } = {}) => {
     setInput(draft.input);
+    if (councilTypeForTurn) setCouncilDecisionType(councilTypeForTurn);
     if (files) {
       setPendingFile(draft.pendingFile);
       setChatFiles(draft.chatFiles);
@@ -194,7 +210,7 @@ export async function send(ctx) {
     // turn is undone like a failed one and the files go back.
     if (result?.uploadTransient) {
       restoreDraft();
-      setMessages((prev) => reconcileCouncilFailureMessages(prev, clientTurnId, result.text));
+      setMessages((prev) => reconcileCouncilFailureMessages(prev, clientTurnId, withResourceFooter(result.text, topicLines, locale)));
       return;
     }
     if (!threadIdForTurn && councilTypeForTurn) {
@@ -205,7 +221,8 @@ export async function send(ctx) {
     // a file refused as unsafe does not come back. A crisis reply never
     // puts anything back.
     if (result?.blocked && !result.crisisSafe) restoreDraft({ files: !result.uploadRejected });
-    setMessages(prev => [...prev, { role:"assistant", content:result.text }]);
+    const replyText = result?.crisisSafe ? result.text : withResourceFooter(result?.text, topicLines, locale);
+    setMessages(prev => [...prev, { role:"assistant", content:replyText }]);
     // An attached transcript can go straight into the profile — offer the
     // deterministic import so grades come from the document, not the model.
     if (!result.blocked && !result.uploadRejected) {
@@ -220,8 +237,8 @@ export async function send(ctx) {
     if (threadIdForTurn && !result.blocked && !result.uploadRejected) {
       await persistTurn(threadIdForTurn, "user", persistedContent, attachLabel, msg);
     }
-    if (threadIdForTurn && result?.text) {
-      await persistTurn(threadIdForTurn, "assistant", result.text);
+    if (threadIdForTurn && replyText) {
+      await persistTurn(threadIdForTurn, "assistant", replyText);
     }
     // ── Counselor memory capture ──
     // Cache the substantive part of this exchange in the encrypted vault,
@@ -282,7 +299,7 @@ export async function send(ctx) {
     // wrong" under no question and the next turn sent it to the model as its
     // own earlier answer.
     const ko = locale === "ko";
-    const text = isAbortError(err)
+    const note = isAbortError(err)
       ? (ko ? "취소했어요. 질문은 입력창에 다시 넣어 두었어요." : "Cancelled. Your question is back in the message box.")
       : err?.blocked && err.message
         ? err.message
@@ -291,6 +308,7 @@ export async function send(ctx) {
           : councilTypeForTurn && err?.status && err.message
             ? err.message // councilErrorMessage, already in the student's language
             : formatChatError(err, locale);
+    const text = withResourceFooter(note, topicLines, locale);
     restoreDraft();
     setMessages((prev) => reconcileCouncilFailureMessages(prev, clientTurnId, text));
   } finally {

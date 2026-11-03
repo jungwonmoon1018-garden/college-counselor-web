@@ -160,6 +160,26 @@ test("Council crisis handling bypasses malformed metadata, budget, and models", 
   assert.equal(harness.calls.release.length, 0);
 });
 
+// Crisis first: the 2,000-character check used to answer a long question
+// that carried a safety statement with COUNCIL_QUESTION_TOO_LONG and no
+// hotline. A long question without one is still refused.
+test("Council answers a crisis statement in an over-long question before the length check", async (t) => {
+  const harness = await startHarness(t);
+  const padding = "I keep second-guessing every school on my list. ".repeat(50);
+  for (const question of [`${padding}I want to kill myself.`, `I want to kill myself. ${padding}`]) {
+    assert.ok(question.length > 2000);
+    const response = await postCouncil(harness, explicitRequest({ question }));
+    assert.equal(response.status, 200, JSON.stringify(response.body));
+    assert.equal(response.body.crisisSafe, true);
+    assert.ok(response.body.answer.includes("988"));
+  }
+  const ordinary = await postCouncil(harness, explicitRequest({ question: padding }));
+  assert.equal(ordinary.status, 400);
+  assert.equal(ordinary.body.code, "COUNCIL_QUESTION_TOO_LONG");
+  assert.equal(harness.calls.begin.length, 0);
+  assert.equal(harness.calls.convene.length, 0);
+});
+
 test("Council screens provider input and every user-visible recommendation", async (t) => {
   const harness = await startHarness(t);
   const response = await postCouncil(harness, explicitRequest({

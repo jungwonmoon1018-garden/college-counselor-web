@@ -170,7 +170,7 @@ after(async () => {
 test("an English safety statement gets every US line in the answer text, with no model call", async () => {
   const token = await registerStudent("crisis-en");
   const calls = modelCallCount();
-  for (const content of ["I don't feel safe at home", "I’m not safe at home", "everyone would be better off without me"]) {
+  for (const content of ["I don't feel safe at home", "I’m not safe at home", "everyone would be better off without me", "I hurt myself at practice on purpose"]) {
     const turn = await chat(token, content);
     assert.equal(turn.status, 200, `${JSON.stringify(turn.data)}\n${serverOutput}`);
     assertCrisisReply(turn.data, US_LINES);
@@ -197,6 +197,24 @@ test("a Korean student gets the Korean lines first, then the US lines, from any 
   const english = await chat(token, message, { headers: { "Accept-Language": "en-US" } });
   assertCrisisReply(english.data, US_LINES);
   assert.ok(!english.data.answer.includes("1388"));
+  assert.equal(modelCallCount(), calls);
+});
+
+// With hotline and lifeline among the topic nouns, asking for the number was
+// a topic mention: it waited on the consent check, the budget and a model
+// call, and a student with no consent or no budget left got an error and no
+// number. A student who has not granted consent asks here.
+test("asking for the suicide hotline gets the crisis reply before consent and with no model call", async () => {
+  const token = await registerStudent("crisis-hotline");
+  const calls = modelCallCount();
+  for (const content of ["I need the suicide hotline number", "what’s the suicide hotline? I need it now", "can you give me the suicide lifeline number"]) {
+    const turn = await chat(token, content);
+    assert.equal(turn.status, 200, `${content}\n${JSON.stringify(turn.data)}`);
+    assertCrisisReply(turn.data, US_LINES);
+  }
+  const korean = await chat(token, "자살 상담전화 번호 알려주세요", { headers: { "X-CollegeApp-Locale": "ko" } });
+  assert.equal(korean.status, 200, JSON.stringify(korean.data));
+  assertCrisisReply(korean.data, [...KO_LINES, ...US_LINES]);
   assert.equal(modelCallCount(), calls);
 });
 

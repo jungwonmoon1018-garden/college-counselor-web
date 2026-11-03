@@ -101,9 +101,25 @@ export function normalizeForLexicon(text) {
 const TOPIC_NOUNS = String.raw`(?:prevention|awareness|research|rates?|statistics?|stats|clubs?|walks?|training|programs?|weeks?|months?|hotlines?|lifelines?)`;
 const TOPIC_PAIR = String.raw`(?:suicide|self[\s-]?harm|overdose|crisis|mental[\s-]health|substance[\s-](?:use|abuse)|drug|opioid)s?`;
 const TOPIC_TAIL = String.raw`(?![\s/&-]+(?:(?:and|or)[\s/&-]+)?${TOPIC_PAIR}[\s-]+${TOPIC_NOUNS}\b|[\s-]+${TOPIC_NOUNS}\b)`;
+// Asking for a crisis line is a safety statement. With hotline and lifeline
+// among the topic nouns, "I need the suicide hotline number" became a topic
+// mention: it went to the gatekeeper and a paid model call, and a spent
+// budget, a withdrawn consent or an outage left the student who asked for the
+// number with an error note and no number. A lifeline named as an activity
+// ("a volunteer for the 988 Suicide & Crisis Lifeline") stays a topic.
+const LINE_NAME = String.raw`(?:988\s+|national\s+)?(?:suicide|crisis|self[\s-]?harm)(?:\s+prevention)?(?:\s*(?:&|and)\s*crisis)?\s+(?:hot|life)line`;
+const LINE_REQUEST = String.raw`(?:i\s+(?:need|want)(?:\s+to\s+(?:call|text|contact|reach|talk\s+to))?|(?:how|where)\s+(?:can|do|could|should)\s+i\s+(?:find|get|call|text|contact|reach)|give\s+me|get\s+me|send\s+me|tell\s+me|what(?:'s|\s+is)|where(?:'s|\s+is)|(?:phone\s+)?number\s+(?:for|of))\s+(?:a|an|the|your)?\s*${LINE_NAME}s?\b|(?:suicide|crisis)(?:\s+prevention)?\s+(?:hot|life)line\s+(?:phone\s+)?number\b`;
 // "I hurt myself playing soccer" and "I cut myself off from social media"
-// are about a sports injury and a phone, and both got the hotlines.
-const HURT_IDIOM = String.raw`(?!\s+(?:playing|at\s+(?:practice|tryouts?|the\s+gym|(?:a|the)\s+(?:game|match|meet|race|tournament))|during\s+(?:practice|tryouts?|(?:a|the|my|our)\s+(?:\w+\s+)?(?:game|match|meet|race|season|tournament|practice|scrimmage))|in\s+(?:a|the|my)\s+(?:game|match|race|meet|tournament)|skiing|snowboarding|skating|running|lifting|training|practicing|working\s+out|dancing))`;
+// are about a sports injury and a phone, and both got the hotlines. The
+// sports carve-out holds only while nothing later in the sentence says the
+// injury was meant: it used to skip "I hurt myself at practice on purpose"
+// and "… during the game because I wanted to feel something" on both sides.
+// "So I couldn't play junior season" is what an injury did, not a purpose,
+// and stays answered. The look ahead stops at the end of the sentence and
+// after 160 characters, so a long run of sports phrases stays linear.
+const SPORT_CONTEXT = String.raw`(?:playing|at\s+(?:practice|tryouts?|the\s+gym|(?:a|the)\s+(?:game|match|meet|race|tournament))|during\s+(?:practice|tryouts?|(?:a|the|my|our)\s+(?:\w+\s+)?(?:game|match|meet|race|season|tournament|practice|scrimmage))|in\s+(?:a|the|my)\s+(?:game|match|race|meet|tournament)|skiing|snowboarding|skating|running|lifting|training|practicing|working\s+out|dancing)`;
+const HARM_INTENT = String.raw`(?:on\s+purpose|purposely|purposefully|intentionally|deliberately|to\s+(?:feel\s+(?:something|anything|better|pain|real|numb|in\s+control)|punish\s+myself)|because\s+i\s+(?:want|wanted|needed)\s+to\s+(?:feel|hurt|punish|die|disappear|escape|get\s+out|skip|miss|stop)|so\s+(?:that\s+)?i\s+(?:(?:wouldn'?t|won'?t|don'?t|didn'?t)\s+have\s+to|could\s+(?:skip|miss|stay\s+home|get\s+out|avoid)))\b`;
+const HURT_IDIOM = String.raw`(?!\s+${SPORT_CONTEXT}(?![^.!?]{0,160}?\b${HARM_INTENT}))`;
 const CUT_IDIOM = String.raw`(?!\s+(?:off|some\s+slack|short))`;
 // "No reason to keep going with robotics" is about an activity; "no reason
 // to keep going", "… with my life" and "… with any of this" are not.
@@ -139,7 +155,7 @@ function withKorean(pattern, korean) {
 const PATTERNS = {
   crisis: [
     // Self-harm / suicidal ideation, first person.
-    new RegExp(String.raw`\b(?:suicid\w*\b${TOPIC_TAIL}|kill(?:ing)?\s+myself|self[\s-]?harm(?:ing|ed)?\b${TOPIC_TAIL}|(?:want|wanted|wanting|going|ready)\s+to\s+die|wanna\s+die|end(?:ing)?\s+my\s+(?:own\s+)?life|end\s+it\s+all|take\s+my\s+(?:own\s+)?life|hurt(?:ing)?\s+myself\b${HURT_IDIOM}|cut(?:ting)?\s+myself\b${CUT_IDIOM}|don'?t\s+want\s+to\s+(?:live|be\s+alive|wake\s+up|exist|be\s+here)|no\s+reason\s+to\s+(?:live|(?:go\s+on|keep\s+going)\b${ACTIVITY_TAIL})|better\s+off\s+dead|not\s+worth\s+living|wish\s+i\s+(?:was|were)\s+dead|overdos(?:e|ed|es|ing)\b${TOPIC_TAIL}|took\s+(?:too\s+many|a\s+(?:bunch|handful)\s+of|all\s+(?:of\s+)?(?:my|the))\s+(?:pills|meds|medications?|tablets))\b`, "i"),
+    new RegExp(String.raw`\b(?:suicid\w*\b${TOPIC_TAIL}|kill(?:ing)?\s+myself|self[\s-]?harm(?:ing|ed)?\b${TOPIC_TAIL}|(?:want|wanted|wanting|going|ready)\s+to\s+die|wanna\s+die|end(?:ing)?\s+my\s+(?:own\s+)?life|end\s+it\s+all|take\s+my\s+(?:own\s+)?life|hurt(?:ing)?\s+myself\b${HURT_IDIOM}|cut(?:ting)?\s+myself\b${CUT_IDIOM}|don'?t\s+want\s+to\s+(?:live|be\s+alive|wake\s+up|exist|be\s+here)|no\s+reason\s+to\s+(?:live|(?:go\s+on|keep\s+going)\b${ACTIVITY_TAIL})|better\s+off\s+dead|not\s+worth\s+living|wish\s+i\s+(?:was|were)\s+dead|overdos(?:e|ed|es|ing)\b${TOPIC_TAIL}|took\s+(?:too\s+many|a\s+(?:bunch|handful)\s+of|all\s+(?:of\s+)?(?:my|the))\s+(?:pills|meds|medications?|tablets)|${LINE_REQUEST})\b`, "i"),
     // Abuse, assault, grooming — the student says it is happening to them.
     new RegExp(String.raw`\b(?:(?:my|our)\s+${RELATION}\s+(?:is\s+|keeps\s+|has\s+been\s+|always\s+|still\s+)?${HARM_VERB}\s+me|i(?:'?m|\s+am|\s+was|\s+have\s+been|'ve\s+been|\s+get|\s+got|\s+keep\s+getting)\s+(?:being\s+)?(?:(?:physically|sexually|emotionally|verbally)\s+)?(?:abused|molested|assaulted|raped|groomed|beaten)|(?:he|she|they|someone|somebody|an?\s+adult)\s+(?:is\s+|are\s+|keeps\s+|has\s+been\s+)?${THIRD_PARTY_VERB}\s+me|domestic\s+violence\s+(?:at|in)\s+(?:my\s+)?home)\b`, "i"),
     // A threat of harm. "They threatened me with detention" and "my teacher
@@ -158,8 +174,10 @@ const PATTERNS = {
     // Korean (a first-class locale here, with Korean crisis hotlines). No \b —
     // word boundaries behave poorly for CJK; match the lexemes directly.
     // Colloquial hyperbole ("화학 때문에 죽겠어요", "죽을 것 같이 바빠요")
-    // does not match.
-    /(자살(?!\s*(?:예방|방지|률|율|통계|연구|인식|캠페인|동아리|프로그램|교육|상담전화))|자해(?!\s*(?:예방|방지|인식|연구|통계|캠페인|동아리|프로그램|교육))|죽고\s*싶|목숨을\s*끊|극단적\s*선택|살기\s*싫|죽어\s*버리고\s*싶|살고\s*싶지\s*않|살\s*이유가\s*없|살\s*가치가\s*없|사라지고\s*싶|없어지고\s*싶|삶을\s*끝내|인생을\s*끝내|손목을\s*(?:긋|그었|그어)|(?:^|[^가-힣])(?:나|내가|제가|저)\s*(?:없으면|없는\s*게|없어지면)\s*(?:다들\s*|모두\s*|가족도\s*)?(?:더\s*)?(?:나을|낫|행복할))/,
+    // does not match. Asking for a crisis line's number ("자살 상담전화 번호
+    // 알려주세요") is a safety statement, as in English; volunteering at one
+    // ("자살예방상담전화에서 봉사했어요") stays a topic.
+    /(자살(?!\s*(?:예방|방지|률|율|통계|연구|인식|캠페인|동아리|프로그램|교육|상담전화))|자해(?!\s*(?:예방|방지|인식|연구|통계|캠페인|동아리|프로그램|교육))|죽고\s*싶|목숨을\s*끊|극단적\s*선택|살기\s*싫|죽어\s*버리고\s*싶|살고\s*싶지\s*않|살\s*이유가\s*없|살\s*가치가\s*없|사라지고\s*싶|없어지고\s*싶|삶을\s*끝내|인생을\s*끝내|손목을\s*(?:긋|그었|그어)|(?:^|[^가-힣])(?:나|내가|제가|저)\s*(?:없으면|없는\s*게|없어지면)\s*(?:다들\s*|모두\s*|가족도\s*)?(?:더\s*)?(?:나을|낫|행복할)|(?:자살|자해)\s*(?:예방\s*)?(?:상담\s*)?(?:전화\s*)?번호|(?:자살|자해)\s*(?:예방\s*)?상담\s*(?:전화|센터)\s*(?:좀\s*)?(?:알려|가르쳐))/,
     /((?:학대|성추행|성폭행|폭행|가정폭력)(?:을|를)?\s*(?:당하|당했|당하고|받고|받았|겪|겪고)|(?:아빠|엄마|아버지|어머니|부모님|새아빠|새엄마|계부|계모|오빠|형|누나|언니|삼촌|이모|고모|할아버지|할머니|선생님|코치|남자\s*친구|남친|여자\s*친구|여친)(?:가|이|께서|는|은)?\s*(?:저를|나를|절|날)?\s*(?:자꾸\s*|계속\s*|매일\s*|또\s*)?(?:때려|때렸|때린|때리|해칠|해치려|만져|만졌|만지)|(?:아빠|엄마|아버지|어머니|부모님|새아빠|새엄마|계부|계모|오빠|형|누나|언니|삼촌|선생님|코치|남자\s*친구|남친|여자\s*친구|여친)(?:한테|에게|께)\s*(?:자꾸\s*|계속\s*|매일\s*|또\s*)?(?:맞고\s*있|맞았|맞아요|맞는다|맞아))/,
     /(위험에\s*처|안전하지\s*않|저는\s*위험해|집에\s*가(?:기|는\s*(?:게|것이))\s*(?:무서|두려))/,
   ],

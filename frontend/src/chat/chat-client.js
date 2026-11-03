@@ -305,30 +305,36 @@ export function endSessionReauth() {
   _reauthCredentialProvider = null;
 }
 
-function notifyReauth(status) { try { _reauthListener?.(status); } catch { /* ignore */ } }
-
 // Re-authentication uses the password already held in component memory after
 // the student unlocks. Passwords and bearer tokens are never read from or
 // written to browser storage.
+//
+// Every status goes to the listener registered when the attempt began, and an
+// attempt that outlived its session reports nothing. It used to report
+// "failed" through whichever listener was registered when the request came
+// back: after a logout or the inactivity expiry that was the next student's
+// tree, which then showed "Session expired — sign out and sign in again."
 export async function _tryReAuth() {
-  notifyReauth("attempting");
+  const listener = _reauthListener;
+  const notify = (status) => { try { listener?.(status); } catch { /* ignore */ } };
+  notify("attempting");
   const epoch = _reauthEpoch;
   try {
     const credentials = _reauthCredentialProvider?.();
-    if (!credentials?.email || !credentials?.password) { notifyReauth("failed"); return false; }
+    if (!credentials?.email || !credentials?.password) { notify("failed"); return false; }
     const r = await fetch("/api/students/auth", {
       method: "POST", headers: { "Content-Type": "application/json" },
       credentials: "same-origin",
       body: JSON.stringify({ email: credentials.email, password: credentials.password })
     });
     const d = await r.json().catch(() => ({}));
-    if (epoch !== _reauthEpoch) { notifyReauth("failed"); return false; } // the session ended while this was in flight
-    if (d.token) { window.__CC_SESSION_TOKEN__ = d.token; notifyReauth("ok"); console.info("[ReAuth] Session restored via auth"); return true; }
-    notifyReauth("failed");
+    if (epoch !== _reauthEpoch) return false; // the session ended while this was in flight
+    if (d.token) { window.__CC_SESSION_TOKEN__ = d.token; notify("ok"); console.info("[ReAuth] Session restored via auth"); return true; }
+    notify("failed");
     return false;
   } catch (err) {
     console.warn("[ReAuth] Failed:", err?.message);
-    notifyReauth("failed");
+    if (epoch === _reauthEpoch) notify("failed");
     return false;
   }
 }

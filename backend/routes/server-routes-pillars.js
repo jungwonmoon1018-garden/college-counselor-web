@@ -97,22 +97,25 @@ export function mountPillarRoutes(app, deps) {
     const rawQuestion = questionValue || "";
     const question = rawQuestion.trim();
     if (!question) return res.status(400).json({ error: "missing question", code: "COUNCIL_QUESTION_MISSING" });
+
+    // Crisis support is deterministic and must not be suppressed by malformed
+    // Council metadata. It runs after authentication but before the size,
+    // explicit-action, consent, budget, or model checks: the 2,000-character
+    // check used to come first and answer a long question that carried a
+    // safety statement with a length error and no hotline. The lexicon reads
+    // the first 12,000 characters, as /api/chat's classifier does.
+    // The same deterministic reply as /api/chat (one builder), with the same
+    // locale resolution, so a Council question and a chat message that say
+    // the same thing get the same hotlines.
+    const locale = resolveLocale(req) === "ko" ? "ko" : "en-US";
+    if (isCouncilCrisisText(rawQuestion.slice(0, 12_000).trim())) {
+      return res.json(buildCouncilCrisisReply(locale));
+    }
     if (rawQuestion.length > 2000) {
       return res.status(400).json({
         error: "question must be 2,000 characters or fewer",
         code: "COUNCIL_QUESTION_TOO_LONG",
       });
-    }
-
-    // Crisis support is deterministic and must not be suppressed by malformed
-    // Council metadata. It runs after authentication/size checks but before
-    // explicit-action, consent, budget, or model validation.
-    // The same deterministic reply as /api/chat (one builder), with the same
-    // locale resolution, so a Council question and a chat message that say
-    // the same thing get the same hotlines.
-    const locale = resolveLocale(req) === "ko" ? "ko" : "en-US";
-    if (isCouncilCrisisText(question)) {
-      return res.json(buildCouncilCrisisReply(locale));
     }
     // A question that names suicide, self-harm or overdose as a topic is
     // reviewed, and the recommendation carries the resource footer.

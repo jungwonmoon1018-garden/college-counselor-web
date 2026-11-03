@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { _tryReAuth, endSessionReauth, isCrisisReplyError, parseUtilityJson, requestChat, sanitizeInput, screenUploadForSafety, setReauthCredentialProvider } from "./chat-client.js";
+import { _tryReAuth, endSessionReauth, isCrisisReplyError, parseUtilityJson, requestChat, sanitizeInput, screenUploadForSafety, setReauthCredentialProvider, setReauthListener } from "./chat-client.js";
 import { GATEKEEPER, OUTPUT_VALIDATOR } from "./agent-prompts.js";
 
 function stubBody(body) {
@@ -311,7 +311,7 @@ describe("requestChat reply handling", () => {
 // installed a fresh session token behind the login screen.
 describe("silent re-authentication ends with the session", () => {
   beforeEach(() => { window.__CC_SESSION_TOKEN__ = null; });
-  afterEach(() => { vi.unstubAllGlobals(); setReauthCredentialProvider(null); window.__CC_SESSION_TOKEN__ = null; });
+  afterEach(() => { vi.unstubAllGlobals(); setReauthCredentialProvider(null); setReauthListener(null); window.__CC_SESSION_TOKEN__ = null; });
 
   it("restores a token while the student is signed in", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ token: "tok_restored" }) })));
@@ -340,6 +340,43 @@ describe("silent re-authentication ends with the session", () => {
     answer({ ok: true, status: 200, json: async () => ({ token: "tok_late" }) });
     expect(await pending).toBe(false);
     expect(window.__CC_SESSION_TOKEN__).toBeNull();
+  });
+
+  // The status went to whichever listener was registered when the request
+  // came back: the next student's tree, which then showed "Session expired —
+  // sign out and sign in again." until a later re-auth succeeded.
+  it("tells the next student's tree nothing about a re-auth that outlived its session", async () => {
+    for (const settle of [
+      (answer) => answer.resolve({ ok: true, status: 200, json: async () => ({ token: "tok_late" }) }),
+      (answer) => answer.reject(new TypeError("Failed to fetch")),
+    ]) {
+      const answer = {};
+      vi.stubGlobal("fetch", vi.fn(() => new Promise((resolve, reject) => { Object.assign(answer, { resolve, reject }); })));
+      const first = [];
+      const next = [];
+      setReauthListener((status) => first.push(status));
+      setReauthCredentialProvider(() => ({ email: "jiyeon@school.edu", password: "correct-horse-battery" }));
+      const pending = _tryReAuth();
+      await vi.waitFor(() => expect(answer.resolve).toBeTypeOf("function"));
+      endSessionReauth(); // the student logs out while the request is out
+      setReauthListener((status) => next.push(status)); // the next student's tree mounts
+      settle(answer);
+      expect(await pending).toBe(false);
+      expect(next).toEqual([]);
+      expect(first).toEqual(["attempting"]);
+      expect(window.__CC_SESSION_TOKEN__).toBeNull();
+    }
+  });
+
+  it("still reports the outcome of a re-auth within one session", async () => {
+    const seen = [];
+    setReauthListener((status) => seen.push(status));
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ token: "tok_ok" }) })));
+    setReauthCredentialProvider(() => ({ email: "jiyeon@school.edu", password: "correct-horse-battery" }));
+    expect(await _tryReAuth()).toBe(true);
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, status: 200, json: async () => ({}) })));
+    expect(await _tryReAuth()).toBe(false);
+    expect(seen).toEqual(["attempting", "ok", "attempting", "failed"]);
   });
 
   it("works again after the next sign-in registers credentials", async () => {

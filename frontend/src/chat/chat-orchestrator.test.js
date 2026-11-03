@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { orchestrate } from "./chat-orchestrator.js";
+import { buildCalendarPreamble, orchestrate } from "./chat-orchestrator.js";
 
 // The real orchestrator against a fetch stub shaped like /api/chat. `reply`
 // returns { status, body } or a bare body (200).
@@ -203,5 +203,27 @@ describe("the test-score quick replies name each score's scale", () => {
   it("in the profile summary", async () => {
     const result = await run("my profile", { data: { profile: { testScores: tests }, activities: [] } });
     expect(result.text).toContain("Test scores: TOEFL (1-6 band): 5.5, PSAT 8/9: 900, SAT: 1450");
+  });
+});
+
+// The calendar appendix is the only "today" the chat model gets, and it was
+// the UTC date: at 6:30 PM in Los Angeles on a deadline day the model was
+// told it was tomorrow and called a live deadline past-due, while the
+// tracker said due today. The clock is passed in, and each zone is set for
+// its own case, so the test does not depend on the day or the machine.
+describe("the calendar preamble", () => {
+  it("stamps the student's local date, not the UTC one", () => {
+    const saved = process.env.TZ;
+    try {
+      process.env.TZ = "America/Los_Angeles";
+      // 7:30 PM on Dec 15 in Los Angeles, already Dec 16 in UTC.
+      expect(buildCalendarPreamble(null, [], new Date("2026-12-16T03:30:00Z"))).toContain("Today's date: 2026-12-15.");
+      process.env.TZ = "Asia/Seoul";
+      // 8:30 AM on Dec 15 in Seoul, still Dec 14 in UTC.
+      expect(buildCalendarPreamble(null, [], new Date("2026-12-14T23:30:00Z"))).toContain("Today's date: 2026-12-15.");
+    } finally {
+      if (saved === undefined) delete process.env.TZ;
+      else process.env.TZ = saved;
+    }
   });
 });

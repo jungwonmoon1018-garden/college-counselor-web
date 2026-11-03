@@ -94,27 +94,52 @@ describe("a crisis reply from the server ends the turn at the call it lands on",
     expect(calls.some(isSupervisor)).toBe(false);
   });
 
-  it("on the supervisor merge", async () => {
-    const { calls } = stubChat((call) => (isSupervisor(call) ? serverCrisisBody() : answer("Advice for this part.")));
-    const result = await run("What GPA do I need and which club should I join?");
-    expectCrisisTurn(result);
-    expect(calls.filter(isSupervisor)).toHaveLength(1);
-    expect(calls.some(isValidator)).toBe(false);
-  });
-
-  it("on the validator call", async () => {
-    const { calls } = stubChat((call) => (isValidator(call) ? serverCrisisBody() : answer("You are guaranteed a spot if you keep this up.")));
-    const result = await run("Which robotics club activities should I list first?");
-    expectCrisisTurn(result);
-    expect(calls.filter(isValidator)).toHaveLength(1);
-  });
-
   it("on the upload screener call", async () => {
     const { calls } = stubChat((call) => (isScreener(call) ? serverCrisisBody() : answer("Your transcript shows strong grades.")));
     const result = await run("Summarize my transcript", { pendingFile: { name: "t.pdf", type: "application/pdf", base64: "JVBERi0=", mediaType: "application/pdf" } });
     expectCrisisTurn(result);
     expect(calls).toHaveLength(1);
     expect(isScreener(calls[0])).toBe(true);
+  });
+});
+
+// The supervisor and the validator send model text, the specialists' drafts,
+// not the student's question, which the client lexicon and the specialist
+// calls had already read. A draft about recovering from self-harm or about a
+// suicide-prevention club tripped the server lexicon on those calls, and the
+// finished answer was swapped for the crisis reply, the question went unsaved
+// and the thread was retitled "Support resources". The answer goes out now,
+// with the resource lines, since the draft is about those topics.
+describe("a crisis reply on a call that carries only model text keeps the answer", () => {
+  it("on the validator call: the draft goes out, marked unverified, with the resource lines", async () => {
+    const draft = "Your essay describes how you stopped self-harming; open with that moment.";
+    const { calls } = stubChat((call) => (isValidator(call) ? serverCrisisBody() : answer(draft)));
+    const result = await run("Can you give me feedback on my college essay about robotics club?");
+    expect(result.crisisSafe).toBeUndefined();
+    expect(result.blocked).toBe(false);
+    expect(result.text).toContain(draft);
+    expect(result.text).toMatch(/could not be fully verified/);
+    expect(result.text.split("741741").length - 1).toBe(1);
+    expect(calls.filter(isValidator)).toHaveLength(1);
+  });
+
+  it("on the supervisor merge: the unmerged drafts go out", async () => {
+    const { calls } = stubChat((call) => (isSupervisor(call)
+      ? serverCrisisBody()
+      : answer(/ACADEMICS/i.test(call.body.messages?.at(-1)?.content || "") ? "Aim for a 3.9 unweighted." : "Join the suicide prevention club you mentioned.")));
+    const result = await run("What GPA do I need and which club should I join?", { locale: "ko" });
+    expect(result.crisisSafe).toBeUndefined();
+    expect(result.blocked).toBe(false);
+    expect(result.text).toMatch(/Aim for a 3\.9 unweighted\.[\s\S]*Join the suicide prevention club/);
+    expect(result.text).toContain("109");
+    expect(calls.filter(isSupervisor)).toHaveLength(1);
+  });
+
+  it("but a crisis reply on the student's own words still ends the turn, whatever the later calls say", async () => {
+    const { calls } = stubChat((call) => (isGatekeeper(call) || isSupervisor(call) || isValidator(call) ? answer("{}") : serverCrisisBody()));
+    const result = await run("Which robotics club activities should I list first?");
+    expectCrisisTurn(result);
+    expect(calls.some(isSupervisor) || calls.some(isValidator)).toBe(false);
   });
 });
 
@@ -140,8 +165,8 @@ describe("the client lexicon ends the turn before any call", () => {
 
 describe("the UI locale reaches every call", () => {
   it("sends ko on the query, Accept-Language and X-CollegeApp-Locale, and shows the Korean reply", async () => {
-    const { calls } = stubChat((call, n) => (n === 1 ? answer("좋은 활동이에요. You are guaranteed nothing.") : serverCrisisBody("ko")));
-    const result = await run("Which robotics club activities should I list first?", { locale: "ko" });
+    const { calls } = stubChat((call) => (isGatekeeper(call) ? answer(JSON.stringify({ category: "safe_ec", reason: "x", route_to: ["ec"] })) : serverCrisisBody("ko")));
+    const result = await run("Can we talk about something?", { locale: "ko" });
     expect(calls.length).toBeGreaterThanOrEqual(2);
     for (const call of calls) {
       expect(call.url).toContain("?locale=ko");

@@ -5,6 +5,7 @@ import { execTool } from "./agent-tools.js";
 import { requestChat, sanitizeInput, screenUploadForSafety, auditLog, isCrisisReplyError, parseUtilityJson } from "./chat-client.js";
 import { cancelledError, formatChatError, isAbortError } from "./chat-errors.js";
 import { formatGpa, hasGpa } from "../profile/gpa.js";
+import { localDateString } from "../profile/dates.js";
 import { ACADEMICS_AGENT, EC_AGENT, COLLEGE_AGENT, STRATEGY_AGENT, GATEKEEPER, OUTPUT_VALIDATOR } from "./agent-prompts.js";
 import { entryLabel, formatSections, formatClassRank } from "../profile/test-scores.js";
 import { crisisResponseText, crisisTurnResult, isCrisisStatement, isCrisisTopicMention, isDistressed, stripResourceFooters, withResourceFooter, withSupport } from "./crisis-lexicon.js";
@@ -60,8 +61,13 @@ function buildHistoryMsgs(history) {
 // the model-facing message each turn. `today` is stamped fresh here so the
 // agent's date is correct every day, independent of when calendarCtx was
 // fetched. Returns "" only in the impossible case of no Date.
-export function buildCalendarPreamble(cal, targetSchools = []) {
-  const today = new Date().toISOString().slice(0, 10);
+// It is the student's local calendar date, as the deadline tracker uses
+// (daysUntilDue). It was the UTC date, the only "today" the model gets: at
+// 6:30 PM in Los Angeles on a deadline day the model was told it was
+// tomorrow and called the deadline past-due, and a morning in Seoul read as
+// yesterday.
+export function buildCalendarPreamble(cal, targetSchools = [], now = new Date()) {
+  const today = localDateString(now);
   const lines = [
     `[REFERENCE — current dates & deadlines, not part of the student's question]`,
     `Today's date: ${today}.`,
@@ -402,12 +408,12 @@ export async function orchestrate(userMsg,data,setData,setStatus,signal,pendingF
   try {
     result = await orchestrateStages(userMsg,data,setData,setStatus,signal,pendingFileData,history,clock,locale);
   } catch (err) {
-    // The server's deterministic crisis reply can arrive on any call of the
-    // turn: the gatekeeper, a specialist (allSettled included), the
-    // supervisor, the off-theme retry, the validator or the upload screener.
-    // Wherever it lands, the turn ends with it at once: no merge, no
-    // validation, and (blocked) no persistence of the student's words and
-    // no counseling memory.
+    // The server's deterministic crisis reply on a call that carries the
+    // student's words (the gatekeeper, a specialist, allSettled included,
+    // the off-theme retry or the upload screener) ends the turn at once: no
+    // merge, no validation, and (blocked) no persistence of the student's
+    // words and no counseling memory. The supervisor and the validator send
+    // only model text and handle their own (crisisOnModelText).
     if (isCrisisReplyError(err)) {
       auditLog.log("crisis_detected_server");
       result = crisisTurnResult(err.text, locale);
@@ -459,7 +465,21 @@ async function orchestrateStages(userMsg,data,setData,setStatus,signal,pendingFi
   // Suicide, self-harm or overdose named as a topic: answered, and the
   // resource footer goes on the final text whatever the merge and the
   // validator did with the server's copy.
-  const topicFooterNeeded = isCrisisTopicMention(lexiconInput);
+  let topicFooterNeeded = isCrisisTopicMention(lexiconInput);
+  // The supervisor and the validator send model text, the specialists'
+  // drafts, not the student's question, which the lexicon above and the
+  // server's on every specialist call have already read. A crisis reply on
+  // either is the server reading a draft about recovering from self-harm or
+  // about a prevention club; it used to replace the finished answer with the
+  // crisis reply, leave the question unsaved and retitle the thread "Support
+  // resources". The answer goes out instead, with the resource lines, since
+  // the draft is about those topics.
+  const crisisOnModelText = (err, stage) => {
+    if (!isCrisisReplyError(err)) return false;
+    auditLog.log(`${stage}_crisis_on_draft`);
+    topicFooterNeeded = true;
+    return true;
+  };
 
   const quickReply = (!pendingFileData && !msgHasFilePreface) ? maybeHandleQuickQuery(coreMsg, data) : null;
   clock.mark("quick_query");
@@ -803,9 +823,11 @@ SOURCES (required):
       // The merge call carries the specialists' own drafts, which the
       // student's question already passed; a policy block on it is the
       // screen reading model text, not a refusal of the student. The
-      // unmerged answers go out instead of a block the student never caused.
-      if (!err?.blocked) throw err;
-      auditLog.log("supervisor_blocked");
+      // unmerged answers go out instead of a block the student never caused,
+      // and the same for a crisis reply on those drafts.
+      if (crisisOnModelText(err, "supervisor")) { /* logged */ }
+      else if (err?.blocked) auditLog.log("supervisor_blocked");
+      else throw err;
       draft = results.map((r) => r.result).filter(Boolean).join("\n\n");
     }
     clock.mark("supervisor");}
@@ -888,11 +910,13 @@ SOURCES (required):
     else if(vj.cleaned_response) { final=vj.cleaned_response; validationPassed = true; auditLog.log("validation_cleaned", vj.issues?.join("; ") || "Response cleaned by validator"); }
     else { auditLog.log("validation_failed", vj.issues?.join("; ") || "Response failed validation"); }
   }catch(err){
-    // A crisis reply on the validator call ends the turn like any other, and
-    // a Cancel is the student's. Anything else (a block on the draft text, an
-    // outage, a reply with no verdict) keeps the draft, marked unverified.
-    if (isCrisisReplyError(err) || isAbortError(err)) throw err;
-    console.warn("Output validation failed:", err?.message); auditLog.log("validation_error", err?.message || "Validator parse error");
+    // A Cancel is the student's. Anything else (a crisis reply or a block on
+    // the draft text, an outage, a reply with no verdict) keeps the draft,
+    // marked unverified.
+    if (isAbortError(err)) throw err;
+    if (!crisisOnModelText(err, "validator")) {
+      console.warn("Output validation failed:", err?.message); auditLog.log("validation_error", err?.message || "Validator parse error");
+    }
   }
   if(!validationPassed){
     final = draft + "\n\n_Note: This response could not be fully verified. Statistics may need independent confirmation._";
