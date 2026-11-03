@@ -28,6 +28,22 @@ export function apExamsWithScores(now = new Date()) {
   return AP_EXAM_LIST.filter((name) => (AP_FIRST_EXAM_YEAR[name] ?? 0) <= latest);
 }
 
+// The school year under way, named by the year it starts (August 1, local
+// time): 2026 from August 2026 through July 2027.
+export function currentSchoolYearStart(now = new Date()) {
+  return now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
+}
+
+// The AP courses a student can be taking now: every course whose first
+// exam falls in this school year or earlier, since a course is taught the
+// year before its first exam. The survey's course picker used the score
+// list above, so a junior in AP Cybersecurity during 2026-27 could not
+// record it as an AP course until July 2027.
+export function apCoursesOffered(now = new Date()) {
+  const lastExamYear = currentSchoolYearStart(now) + 1;
+  return AP_EXAM_LIST.filter((name) => (AP_FIRST_EXAM_YEAR[name] ?? 0) <= lastExamYear);
+}
+
 const bareName = (value) => String(value || "").trim().replace(/^AP\s+/i, "");
 const sameExamName = (a, b) => bareName(a).toLowerCase() === bareName(b).toLowerCase();
 

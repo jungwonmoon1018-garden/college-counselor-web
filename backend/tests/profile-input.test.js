@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { GPA_LIMITS, normalizeSyncInput, previousFromSnapshot } from "../academics/profile-input.js";
+import { GPA_LIMITS, latestApScoreYear, normalizeSyncInput, previousFromSnapshot } from "../academics/profile-input.js";
 import { GPA_LIMITS as FRONTEND_GPA_LIMITS, validateGpa } from "../../frontend/src/profile/gpa.js";
+import { latestApScoreYear as clientLatestApScoreYear, validateApEntry } from "../../frontend/src/profile/ap-entry.js";
 
 test("the app's GPA check and the server's agree", () => {
   assert.deepEqual(JSON.parse(JSON.stringify(FRONTEND_GPA_LIMITS)), JSON.parse(JSON.stringify(GPA_LIMITS)));
@@ -179,6 +180,109 @@ test("the stored values are read back from a snapshot row", () => {
     gpa_unweighted: 3.7, gpa_weighted: null,
     courses_json: '[{"name":"Biology"}]', activities_json: "not json", goals_json: null, major_interest: "Biology",
   });
-  assert.deepEqual(prev, { gpaUnweighted: 3.7, gpaWeighted: null, courses: [{ name: "Biology" }], activities: [], goals: [], majorInterest: "Biology" });
+  assert.deepEqual(prev, { gpaUnweighted: 3.7, gpaWeighted: null, courses: [{ name: "Biology" }], activities: [], goals: [], majorInterest: "Biology", testScores: [], apScores: [], classRank: null });
+  const withScores = previousFromSnapshot({
+    test_scores_json: '[{"test":"sat","totalScore":1500}]', ap_scores_json: '[{"exam":"Biology","score":5,"year":2026}]', class_rank_json: '{"rank":5,"size":400}',
+  });
+  assert.deepEqual(withScores.testScores, [{ test: "sat", totalScore: 1500 }]);
+  assert.deepEqual(withScores.apScores, [{ exam: "Biology", score: 5, year: 2026 }]);
+  assert.deepEqual(withScores.classRank, { rank: 5, size: 400 });
   assert.deepEqual(previousFromSnapshot(undefined), {});
+});
+
+// "Set aside" means "keep the stored version": a stale vault copy of a
+// score, a score list sent as something else, or a rank typo used to wipe
+// what the student already had, and the note never said which entry.
+const STORED = {
+  ...PREVIOUS,
+  testScores: [
+    { test: "sat", totalScore: 1500, sections: { readingWriting: 720, math: 780 }, date: "2026-03" },
+    { test: "act", totalScore: 33 },
+  ],
+  apScores: [{ exam: "Biology", score: 5, year: 2026 }, { exam: "Chemistry", score: 4, year: 2025 }],
+  classRank: { rank: 5, size: 400 },
+};
+
+test("a score list that is not a list, or a rank that reads as nothing, keeps the stored one", () => {
+  const out = normalizeSyncInput({ profile: { testScores: "1500", apScores: 5, classRank: { rank: 500, size: 400 } } }, STORED);
+  assert.deepEqual(out.profile.testScores, STORED.testScores);
+  assert.deepEqual(out.profile.apScores, STORED.apScores);
+  assert.deepEqual(out.profile.classRank, { topPercent: 1.3, rank: 5, size: 400 });
+  assert.deepEqual(out.setAside.find((s) => s.field === "classRank"), { field: "classRank", reason: "out_of_range", kept: true });
+  // With nothing stored the rank is still named, and nothing is invented.
+  const fresh = normalizeSyncInput({ profile: { classRank: { rank: 500, size: 400 } } });
+  assert.equal(fresh.profile.classRank, null);
+  assert.deepEqual(fresh.setAside, [{ field: "classRank", reason: "out_of_range" }]);
+  // An absent rank is a clear, not a set-aside.
+  assert.equal(normalizeSyncInput({ profile: {} }, STORED).profile.classRank, undefined);
+});
+
+test("a bad entry is replaced by its stored twin and named by place, label and reason", () => {
+  const now = new Date("2026-11-03T12:00:00Z");
+  const out = normalizeSyncInput({
+    profile: {
+      testScores: [
+        { test: "sat", totalScore: 1700, date: "2026-03" }, // the stored 1500 stands in
+        { test: "act", totalScore: 34 },
+        { test: "sat", totalScore: 1700 }, // no stored twin: dropped
+      ],
+      apScores: [{ exam: "Biology", score: 9, year: 2026 }, { exam: "Chemistry", score: 4, year: 2025 }],
+    },
+  }, STORED, { now });
+  assert.deepEqual(out.profile.testScores, [STORED.testScores[0], { test: "act", totalScore: 34 }]);
+  assert.deepEqual(out.profile.apScores, [{ exam: "Biology", score: 5, year: 2026 }, { exam: "Chemistry", score: 4, year: 2025 }]);
+  assert.deepEqual(out.setAside, [
+    {
+      field: "testScores", reason: "invalid_entry", count: 2,
+      entries: [
+        { index: 0, label: "SAT 1700 (2026-03)", message: "SAT scores must be 400-1600 in steps of 10.", kept: true },
+        { index: 2, label: "SAT 1700", message: "SAT scores must be 400-1600 in steps of 10." },
+      ],
+    },
+    {
+      field: "apScores", reason: "invalid_entry", count: 1,
+      entries: [{ index: 0, label: "AP Biology 9 (2026)", message: "AP scores run 1-5.", kept: true }],
+    },
+  ]);
+});
+
+test("a TOEFL band score typed on the 0-120 scale asks for the scale; an odd date is read or named", () => {
+  const out = normalizeSyncInput({
+    profile: {
+      testScores: [
+        { test: "toefl", totalScore: 5 },
+        { test: "toefl", scale: "band", totalScore: 5.5 },
+        { test: "sat", totalScore: 1450, date: "March 2026" },
+        { test: "act", totalScore: 30, date: "spring" },
+      ],
+    },
+  });
+  assert.deepEqual(out.profile.testScores, [
+    { test: "toefl", totalScore: 5.5, scale: "band" },
+    { test: "sat", totalScore: 1450, date: "2026-03" },
+    { test: "act", totalScore: 30 },
+  ]);
+  const scale = out.setAside.find((s) => s.reason === "scale_needed");
+  assert.equal(scale.field, "testScores");
+  assert.deepEqual(scale.entries.map((e) => [e.index, e.label]), [[0, "TOEFL 5"]]);
+  assert.match(scale.entries[0].message, /looks like a TOEFL \(1-6 band\) score/);
+  const date = out.setAside.find((s) => s.reason === "date_unreadable");
+  assert.deepEqual(date.entries.map((e) => [e.index, e.label]), [[3, "ACT 30 (spring)"]]);
+});
+
+// The app refuses an AP year whose scores are not out (they come in July);
+// the server used the calendar year, so from January to June it kept a year
+// the app refused on the next edit.
+test("the server's AP score-year rule matches the app's", () => {
+  for (const iso of ["2026-11-03T12:00:00Z", "2027-01-15T12:00:00Z", "2027-03-15T12:00:00Z", "2027-06-15T12:00:00Z", "2027-07-15T12:00:00Z", "2027-12-15T12:00:00Z"]) {
+    const now = new Date(iso);
+    assert.equal(latestApScoreYear(now), clientLatestApScoreYear(now), iso);
+    for (const year of [now.getUTCFullYear() - 1, now.getUTCFullYear()]) {
+      const app = validateApEntry({ exam: "Biology", score: 4, year }, { now }).ok;
+      const server = normalizeSyncInput({ profile: { apScores: [{ exam: "Biology", score: 4, year }] } }, {}, { now }).profile.apScores[0].year === year;
+      assert.equal(server, app, `${iso} year ${year}`);
+    }
+  }
+  const spring = normalizeSyncInput({ profile: { apScores: [{ exam: "Biology", score: 4, year: 2027 }] } }, {}, { now: new Date("2027-03-15T12:00:00Z") });
+  assert.deepEqual(spring.profile.apScores, [{ exam: "Biology", score: 4 }]);
 });

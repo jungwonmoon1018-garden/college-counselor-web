@@ -122,3 +122,29 @@ test("an exam is matched to one course only, and an empty record reads as no loa
   assert.equal(unscored.apScored, 0);
   assert.equal(unscored.units, 1);
 });
+
+// The transcript import keeps a semester-graded course as a fall row and a
+// spring row; each row used to count as one more AP and one more unit.
+test("the two semesters of one course are one course", () => {
+  const rows = [
+    { name: "AP Biology", type: "ap", grade: "A", semester: "fall", year: "junior" },
+    { name: "AP Biology", type: "ap", grade: "B", semester: "spring", year: "junior" },
+    { name: "Honors English 11", type: "honors", grade: "A", semester: "fall", year: "junior" },
+    { name: "Honors English 11", type: "honors", grade: "A-", semester: "spring", year: "junior" },
+  ];
+  const rigor = readCourseRigor(rows, [{ exam: "Biology", score: 5 }]);
+  assert.equal(rigor.apCourses, 1);
+  assert.equal(rigor.apTaken, 1);
+  assert.equal(rigor.apExamsWithoutCourse, 0);
+  assert.equal(rigor.honors, 1);
+  assert.equal(rigor.units, 1.2 + 0.5);
+  // The same course in two different years, and full-year rows, still count apart.
+  const twoYears = readCourseRigor([
+    { name: "Honors Chemistry", type: "honors", semester: "fall", year: "sophomore" },
+    { name: "Honors Chemistry", type: "honors", semester: "fall", year: "junior" },
+    { name: "AP Statistics", type: "ap", semester: "full_year", year: "senior" },
+  ], []);
+  assert.equal(twoYears.honors, 2);
+  assert.equal(twoYears.apCourses, 1);
+});
+

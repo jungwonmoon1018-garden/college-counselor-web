@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { AP_FIRST_EXAM_YEAR, apExamsWithScores, latestApScoreYear, validateApEntry } from "./ap-entry.js";
+import { AP_EXAM_LIST } from "../app-shared.js";
+import { AP_FIRST_EXAM_YEAR, apCoursesOffered, apExamsWithScores, currentSchoolYearStart, latestApScoreYear, validateApEntry } from "./ap-entry.js";
 
 // One check for an AP score in the survey and the sidebar: the survey took
 // any year and the same exam and year twice.
@@ -46,5 +47,27 @@ describe("validateApEntry", () => {
     expect(validateApEntry({ exam: "Calculus AB", score: 4, year: 2026 }, { others, now: OCT_2026 }).ok).toBe(true);
     // The survey's own rows name the exam `subject`.
     expect(validateApEntry({ exam: "Biology", score: 4, year: 2026 }, { others: [{ subject: "Biology", year: "2026" }], now: OCT_2026 }).ok).toBe(false);
+  });
+});
+
+// A course is taught the school year before its first exam. The survey's
+// course picker used the exam-score list, so AP Cybersecurity and AP
+// Business with Personal Finance could not be recorded as AP courses during
+// 2026-27, the year students are taking them.
+describe("apCoursesOffered", () => {
+  it("lists a new course from the August before its first exam, while the score picker waits for July", () => {
+    const NOV_2026 = new Date(2026, 10, 3);
+    const JUN_2027 = new Date(2027, 5, 30);
+    const JUL_2026 = new Date(2026, 6, 15);
+    for (const now of [NOV_2026, JUN_2027]) {
+      expect(apCoursesOffered(now)).toEqual(expect.arrayContaining(["Cybersecurity", "Business with Personal Finance"]));
+      expect(apExamsWithScores(now)).not.toContain("Cybersecurity");
+      expect(apExamsWithScores(now)).not.toContain("Business with Personal Finance");
+    }
+    expect(apCoursesOffered(NOV_2026)).toEqual(AP_EXAM_LIST);
+    // Before the course's first school year it is not offered yet.
+    expect(currentSchoolYearStart(JUL_2026)).toBe(2025);
+    expect(apCoursesOffered(JUL_2026)).not.toContain("Cybersecurity");
+    expect(apCoursesOffered(JUL_2026)).toContain("Precalculus");
   });
 });

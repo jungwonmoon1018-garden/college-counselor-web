@@ -3,6 +3,7 @@
 // recompute. Moved out of ec-vectorizer.js on 2026-09-20, which re-exports
 // them so its importers are unchanged.
 import { courseLevel } from "./course-rigor.js";
+import { chooseTestSitting } from "./test-sittings.js";
 import { matchMajorBucket, normalizeText, clamp01, round2, safeArray } from "../activities/vector-utils.js";
 
 // Student directionality vectorization
@@ -77,6 +78,16 @@ export function prepareDirectionalityStatements(db) {
         overall_academic_standing = excluded.overall_academic_standing,
         directionality_label = excluded.directionality_label,
         gpa_percentile_t20 = excluded.gpa_percentile_t20,
+        -- The record's own figures are refreshed with the scores: a cleared
+        -- SAT 1600 used to stay here and in /api/context/bundle, because
+        -- only the derived factors were updated on conflict.
+        gpa_unweighted = excluded.gpa_unweighted,
+        ap_count = excluded.ap_count,
+        sat_total = excluded.sat_total,
+        sat_percentile_t20 = excluded.sat_percentile_t20,
+        act_total = excluded.act_total,
+        act_percentile_t20 = excluded.act_percentile_t20,
+        major_interest = excluded.major_interest,
         reasoning_json = excluded.reasoning_json,
         updated_at = datetime('now')
     `),
@@ -185,7 +196,9 @@ export function vectorizeDirectionality({
   let satScore = null;
   let actScore = null;
 
-  const satEntry = testScores.find(t => t.test === "sat");
+  // The best sitting, as College Fit reads it (academics/test-sittings.js);
+  // the first entry was the oldest score, so a retaker kept her first SAT.
+  const satEntry = chooseTestSitting(testScores, "sat", { mode: "best" });
   if (satEntry) {
     satScore = satEntry.totalScore;
     // Simple percentile: SAT ranges 400-1600; T20 is roughly 1450-1570
@@ -198,7 +211,7 @@ export function vectorizeDirectionality({
     testStrength = satPercentile;
   }
 
-  const actEntry = testScores.find(t => t.test === "act");
+  const actEntry = chooseTestSitting(testScores, "act", { mode: "best" });
   if (actEntry) {
     actScore = actEntry.totalScore;
     // ACT ranges 1-36; T20 is roughly 33-35

@@ -11,6 +11,24 @@
 // A section marked `composite: false` (ACT Writing) is reported but never
 // folded into the total; `derive` says how a total follows from the
 // sections when the student enters those first.
+//
+// The ACT has two formats. The enhanced ACT (online from April 2025, every
+// national date from September 2025) makes the composite the rounded mean
+// of English, Math and Reading and reports the optional Science section on
+// its own, so Science is `composite: false` like Writing. A sitting dated
+// before `legacy.before` used the old four-section mean. Until this rule
+// existed the form averaged all four for every sitting, auto-filled a
+// current student's 35 as 33 and then refused the real 35.
+//
+// `scales` are other score scales of the same test, chosen by the entry's
+// `scale` field: TOEFL iBT's 1-6 band (reported from January 2026, with the
+// 0-120 score alongside during the transition) and PSAT 8/9 (240-1440).
+// They stay under the test's own key so every reader that groups sittings
+// by test, the fidelity check among them, still finds them. Before they
+// existed a band 5 was stored as a failing 5 of 120, a 5.5 was refused and
+// a ninth grader's PSAT 8/9 below 320 could not be saved. A TOEFL total of
+// 6 or below with no scale is ambiguous (`ambiguousAtOrBelow`), so it is
+// refused with a request for the scale rather than guessed at.
 
 export const TEST_CATALOG = Object.freeze({
   sat: {
@@ -30,16 +48,27 @@ export const TEST_CATALOG = Object.freeze({
       { key: "readingWriting", label: "Reading & Writing", min: 160, max: 760, step: 10 },
       { key: "math", label: "Math", min: 160, max: 760, step: 10 },
     ],
+    scales: {
+      "8/9": {
+        label: "PSAT 8/9",
+        total: { min: 240, max: 1440, step: 10 },
+        sections: [
+          { key: "readingWriting", label: "Reading & Writing", min: 120, max: 720, step: 10 },
+          { key: "math", label: "Math", min: 120, max: 720, step: 10 },
+        ],
+      },
+    },
   },
   act: {
     label: "ACT",
     total: { min: 1, max: 36, step: 1 },
     derive: "mean",
+    legacy: { before: "2025-04", composite: ["english", "math", "reading", "science"], note: "with Science, as the ACT counted it before April 2025" },
     sections: [
       { key: "english", label: "English", min: 1, max: 36, step: 1 },
       { key: "math", label: "Math", min: 1, max: 36, step: 1 },
       { key: "reading", label: "Reading", min: 1, max: 36, step: 1 },
-      { key: "science", label: "Science", min: 1, max: 36, step: 1 },
+      { key: "science", label: "Science", min: 1, max: 36, step: 1, composite: false },
       { key: "writing", label: "Writing", min: 2, max: 12, step: 1, composite: false },
     ],
   },
@@ -53,6 +82,20 @@ export const TEST_CATALOG = Object.freeze({
       { key: "speaking", label: "Speaking", min: 0, max: 30, step: 1 },
       { key: "writing", label: "Writing", min: 0, max: 30, step: 1 },
     ],
+    ambiguousAtOrBelow: 6,
+    scales: {
+      band: {
+        label: "TOEFL (1-6 band)",
+        total: { min: 1, max: 6, step: 0.5 },
+        derive: "mean-half",
+        sections: [
+          { key: "reading", label: "Reading", min: 1, max: 6, step: 0.5 },
+          { key: "listening", label: "Listening", min: 1, max: 6, step: 0.5 },
+          { key: "speaking", label: "Speaking", min: 1, max: 6, step: 0.5 },
+          { key: "writing", label: "Writing", min: 1, max: 6, step: 0.5 },
+        ],
+      },
+    },
   },
   ielts: {
     label: "IELTS",
@@ -91,8 +134,29 @@ export function testLabel(test) {
   return TEST_CATALOG[key]?.label || (key ? key.toUpperCase() : "test");
 }
 
-export function sectionDefs(test) {
-  return TEST_CATALOG[testKey(test)]?.sections || [];
+// The scale an entry names when its test has one by that name, else null
+// (the test's own scale).
+export function scaleKey(test, scale) {
+  const key = String(scale ?? "").trim();
+  return key && TEST_CATALOG[testKey(test)]?.scales?.[key] ? key : null;
+}
+
+// The spec an entry is scored on: the test's own, or the named scale laid
+// over it (its label, ranges, sections and derive rule).
+export function testSpec(test, scale) {
+  const base = TEST_CATALOG[testKey(test)];
+  if (!base) return null;
+  const variant = scaleKey(test, scale) ? base.scales[String(scale).trim()] : null;
+  return variant ? { ...base, ...variant } : base;
+}
+
+// "TOEFL (1-6 band)", "PSAT 8/9", or the test's own label.
+export function entryLabel(entry) {
+  return testSpec(entry?.test, entry?.scale)?.label || testLabel(entry?.test);
+}
+
+export function sectionDefs(test, scale) {
+  return testSpec(test, scale)?.sections || [];
 }
 
 function numberOrNull(value) {
@@ -104,7 +168,7 @@ function numberOrNull(value) {
 // The sections an entry actually carries, in catalog order, with labels.
 // Unknown keys are ignored so a stray field never reaches the model.
 export function sectionEntries(entry) {
-  const defs = sectionDefs(entry?.test);
+  const defs = sectionDefs(entry?.test, entry?.scale);
   const sections = entry?.sections && typeof entry.sections === "object" ? entry.sections : {};
   const out = [];
   for (const def of defs) {
@@ -125,15 +189,20 @@ function onStep(value, step) {
   return Math.abs(value / step - Math.round(value / step)) < 1e-6;
 }
 
-// The total the sections imply, or null when a section is missing or the
-// test has no rule. ACT rounds the mean of the four subject scores to the
-// nearest whole number (halves up); IELTS rounds the mean to the nearest
-// half band (.25 and .75 round up, as the test does).
-export function deriveTotal(test, sections) {
-  const spec = TEST_CATALOG[testKey(test)];
-  if (!spec || !spec.derive) return null;
-  const composite = spec.sections.filter((s) => s.composite !== false);
-  const values = composite.map((s) => numberOrNull(sections?.[s.key]));
+function datedBefore(date, month) {
+  const text = String(date || "");
+  return /^\d{4}-\d{2}/.test(text) && text.slice(0, 7) < month;
+}
+
+// The sections a composite is the mean or sum of: the ACT's three since the
+// enhanced format, its four for a sitting dated before it.
+function compositeKeys(spec, date) {
+  if (spec.legacy && datedBefore(date, spec.legacy.before)) return spec.legacy.composite;
+  return spec.sections.filter((s) => s.composite !== false).map((s) => s.key);
+}
+
+function totalFrom(spec, keys, sections) {
+  const values = keys.map((key) => numberOrNull(sections?.[key]));
   if (!values.length || values.some((v) => v == null)) return null;
   if (spec.derive === "sum") return values.reduce((a, b) => a + b, 0);
   const mean = values.reduce((a, b) => a + b, 0) / values.length;
@@ -142,20 +211,59 @@ export function deriveTotal(test, sections) {
   return null;
 }
 
+// The total the sections imply, or null when a section is missing or the
+// test has no rule. The ACT rounds the mean of English, Math and Reading
+// (of all four with Science for a sitting dated before April 2025) to the
+// nearest whole number, halves up; IELTS and the TOEFL band round the mean
+// to the nearest half band (.25 and .75 round up, as the tests do).
+export function deriveTotal(test, sections, { date = null, scale = null } = {}) {
+  const spec = testSpec(test, scale);
+  if (!spec || !spec.derive) return null;
+  return totalFrom(spec, compositeKeys(spec, date), sections);
+}
+
+// Every total the sections can stand for, the one the date implies first.
+// An undated or recent ACT sitting may still be an old-format one (a school
+// day or a spring 2025 paper sitting), so its four-section mean is accepted
+// beside the three-section one.
+export function acceptedTotals(test, sections, { date = null, scale = null } = {}) {
+  const spec = testSpec(test, scale);
+  if (!spec || !spec.derive) return [];
+  const out = [];
+  const primary = totalFrom(spec, compositeKeys(spec, date), sections);
+  if (primary != null) out.push(primary);
+  if (spec.legacy && !datedBefore(date, spec.legacy.before)) {
+    const legacy = totalFrom(spec, spec.legacy.composite, sections);
+    if (legacy != null && !out.includes(legacy)) out.push(legacy);
+  }
+  return out;
+}
+
 // Range and step checks for a whole entry, plus the consistency rule
 // between sections and total. Returns the problems as short sentences so a
-// form can show them verbatim.
+// form can show them verbatim, and a `reason` code when the entry needs a
+// choice rather than a fix (`scale_needed`).
 export function validateTestEntry(entry) {
   const errors = [];
   const key = testKey(entry?.test);
-  const spec = TEST_CATALOG[key];
-  if (!spec) return { ok: false, errors: [`Unknown test "${entry?.test}".`] };
+  if (!TEST_CATALOG[key]) return { ok: false, errors: [`Unknown test "${entry?.test}".`] };
+  const rawScale = String(entry?.scale ?? "").trim();
+  if (rawScale && !scaleKey(key, rawScale)) return { ok: false, errors: [`Unknown ${testLabel(key)} scale "${rawScale}".`] };
+  const scale = scaleKey(key, rawScale);
+  const spec = testSpec(key, scale);
   const total = numberOrNull(entry?.totalScore);
   const label = spec.label;
   const range = (r) => `${r.min}-${r.max}${r.step && r.step !== 1 ? ` in steps of ${r.step}` : ""}`;
   if (total == null) errors.push(`Enter a ${label} score.`);
   else if (total < spec.total.min || total > spec.total.max || !onStep(total, spec.total.step)) {
     errors.push(`${label} scores must be ${range(spec.total)}.`);
+  } else if (!scale && spec.ambiguousAtOrBelow != null && total <= spec.ambiguousAtOrBelow) {
+    const band = Object.values(spec.scales || {})[0];
+    return {
+      ok: false,
+      reason: "scale_needed",
+      errors: [`A ${label} score of ${total} looks like a ${band?.label || "band"} score. Choose that scale, or enter the ${range(spec.total)} score.`],
+    };
   }
   const sections = entry?.sections && typeof entry.sections === "object" ? entry.sections : {};
   for (const def of spec.sections) {
@@ -167,47 +275,87 @@ export function validateTestEntry(entry) {
     if (value == null) continue;
     if (value < def.min || value > def.max || !onStep(value, def.step)) errors.push(`${label} ${def.label} must be ${range(def)}.`);
   }
-  const derived = deriveTotal(key, sections);
-  if (derived != null && total != null && !errors.length) {
+  const accepted = acceptedTotals(key, sections, { date: entry?.date, scale });
+  if (accepted.length && total != null && !errors.length) {
     const tolerance = spec.derive === "sum" ? 0 : (spec.derive === "mean" ? 1 : 0.5);
-    if (Math.abs(derived - total) > tolerance) {
-      const names = spec.sections.filter((s) => s.composite !== false).map((s) => s.label).join(", ");
+    if (!accepted.some((derived) => Math.abs(derived - total) <= tolerance)) {
+      const labels = Object.fromEntries(spec.sections.map((s) => [s.key, s.label]));
+      const names = compositeKeys(spec, entry?.date).map((k) => labels[k] || k).join(", ");
+      const other = accepted.length > 1 && spec.legacy ? ` (${accepted[1]} ${spec.legacy.note})` : "";
       errors.push(spec.derive === "sum"
         ? `${label} ${names} must add up to the total.`
-        : `${label} ${names} average to ${derived}, not ${total}.`);
+        : `${label} ${names} average to ${accepted[0]}${other}, not ${total}.`);
     }
   }
   return { ok: errors.length === 0, errors };
 }
 
-// The stored shape of a test-score list: known tests only, numeric totals,
-// numeric sections from the catalog, a trimmed subject, a YYYY-MM date.
-// Entries that fail the range checks are dropped rather than guessed at —
-// the client validates before it saves, so a bad entry here came from an
-// older build or a hand-written request.
+// A sitting is kept by month. The forms send YYYY-MM, but older builds and
+// hand-written requests sent "2026-3", "3/2026", "March 2026" or a full
+// date, and those used to vanish without a word. Returns "YYYY-MM", "" for
+// no date, or null for a date that cannot be read (the caller says so).
+const MONTH_NAMES = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+export function normalizeTestDate(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+  let year = null;
+  let month = null;
+  let m;
+  if ((m = text.match(/^(\d{4})[-/.](\d{1,2})(?:[-/.]\d{1,2}(?:[T ].*)?)?$/))) { year = Number(m[1]); month = Number(m[2]); }
+  else if ((m = text.match(/^(\d{1,2})[-/.](\d{4})$/))) { month = Number(m[1]); year = Number(m[2]); }
+  else if ((m = text.match(/^(\d{4})\s*년\s*(\d{1,2})\s*월$/))) { year = Number(m[1]); month = Number(m[2]); }
+  else if ((m = text.match(/^([A-Za-z]{3,9})\.?,?\s+(\d{4})$/))) {
+    const word = m[1].toLowerCase();
+    const index = MONTH_NAMES.findIndex((name) => name.startsWith(word));
+    if (index < 0) return null;
+    month = index + 1;
+    year = Number(m[2]);
+  } else return null;
+  if (!(month >= 1 && month <= 12) || !(year >= 1990 && year <= 2100)) return null;
+  return `${year}-${String(month).padStart(2, "0")}`;
+}
+
+// One entry in its stored shape, or null when it is not a known test: a
+// numeric total, numeric sections from the catalog, a known scale, a
+// trimmed subject, a YYYY-MM date. `dateUnreadable` is set (and the date
+// left off) when a date was sent that could not be read.
+export function normalizeTestEntry(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const key = testKey(raw.test);
+  if (!TEST_CATALOG[key]) return null;
+  const scale = scaleKey(key, raw.scale);
+  const sections = {};
+  for (const def of sectionDefs(key, scale)) {
+    const value = numberOrNull(raw.sections?.[def.key]);
+    if (value != null) sections[def.key] = value;
+  }
+  const date = normalizeTestDate(raw.date);
+  let total = numberOrNull(raw.totalScore ?? raw.total ?? raw.score);
+  if (total == null) total = deriveTotal(key, sections, { date, scale });
+  const entry = { test: key, totalScore: total };
+  if (scale) entry.scale = scale;
+  if (Object.keys(sections).length) entry.sections = sections;
+  const subject = String(raw.subject || "").trim().slice(0, 60);
+  if (subject) entry.subject = subject;
+  if (date) entry.date = date;
+  // A scale this catalog does not know is kept for validation to refuse,
+  // never silently read on the test's own scale.
+  const rawScale = String(raw.scale ?? "").trim();
+  if (rawScale && !scale) entry.scale = rawScale;
+  return { entry, dateUnreadable: date === null };
+}
+
+// The stored shape of a test-score list. Entries that fail the range checks
+// are dropped rather than guessed at — the client validates before it
+// saves, so a bad entry here came from an older build or a hand-written
+// request. profile-input.js reports what it drops.
 export function normalizeTestScores(list) {
   if (!Array.isArray(list)) return [];
   const out = [];
   for (const raw of list) {
-    if (!raw || typeof raw !== "object") continue;
-    const key = testKey(raw.test);
-    const spec = TEST_CATALOG[key];
-    if (!spec) continue;
-    const sections = {};
-    for (const def of spec.sections) {
-      const value = numberOrNull(raw.sections?.[def.key]);
-      if (value != null) sections[def.key] = value;
-    }
-    let total = numberOrNull(raw.totalScore ?? raw.total ?? raw.score);
-    if (total == null) total = deriveTotal(key, sections);
-    const entry = { test: key, totalScore: total };
-    if (Object.keys(sections).length) entry.sections = sections;
-    const subject = String(raw.subject || "").trim().slice(0, 60);
-    if (subject) entry.subject = subject;
-    const date = String(raw.date || "").trim();
-    if (/^\d{4}-\d{2}$/.test(date)) entry.date = date;
-    if (!validateTestEntry(entry).ok) continue;
-    out.push(entry);
+    const normalized = normalizeTestEntry(raw);
+    if (!normalized || !validateTestEntry(normalized.entry).ok) continue;
+    out.push(normalized.entry);
   }
   return out;
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { looksLikeTranscript, currentYearKey, mergeImportedCourses, summarizeParsedTranscript } from "./transcript-utils.js";
+import { looksLikeTranscript, currentYearKey, countDistinctCourses, mergeImportedCourses, mergeSurveyImport, summarizeParsedTranscript } from "./transcript-utils.js";
 
 const TRANSCRIPT = `Official Transcript — Springfield High School
 Student: [redacted]   Grade Level: 11   Cumulative GPA: 3.82
@@ -59,6 +59,66 @@ describe("mergeImportedCourses", () => {
   it("summarizes parsed years for display with in-progress grades", () => {
     const groups = summarizeParsedTranscript(parsed);
     expect(groups.map((g) => g.year)).toEqual(["junior", "unknown"]);
-    expect(groups[0].courses[2]).toEqual({ name: "AP Calculus BC", type: "ap", grade: "IP" });
+    expect(groups[0].courses[2]).toEqual({ name: "AP Calculus BC", type: "ap", grade: "IP", semester: "full_year" });
+  });
+});
+
+// A Korean 학교생활기록부 has no English keyword and its rows end in a
+// 성취도 letter with the cohort size, or a 석차등급 digit; the chat never
+// offered to import one.
+const KOREAN_RECORD = `학교생활기록부
+7. 교과학습발달상황
+[2학년]
+학기 교과 과목 단위수 원점수/과목평균(표준편차) 성취도(수강자수) 석차등급
+1 국어 문학 4 91/72.5(14.1) A(250) 2
+1 수학 수학II 4 88/70.1(15.2) A(250) 2
+1 영어 영어II 4 79/68.0(16.3) C(250) 4
+2 과학 물리학I 3 55/61.2(18.0) E(120) 7
+2 사회 진로탐구 2 A(120)`;
+
+describe("Korean school records", () => {
+  it("recognizes a 학생부 excerpt, and not an essay that mentions 학기 once", () => {
+    expect(looksLikeTranscript(KOREAN_RECORD)).toBe(true);
+    const essay = "이번 1학기에는 동아리 활동을 하면서 친구들과 함께 많은 것을 배웠다. 특히 과학 실험을 준비하면서 실패를 견디는 법을 배웠고, 그 경험이 나를 바꾸었다. 앞으로도 꾸준히 노력하고 싶다.";
+    expect(looksLikeTranscript(essay)).toBe(false);
+    // English text with a stray "E" or digit at line ends needs an English keyword and letter grades.
+    expect(looksLikeTranscript("Notes from class\nPlan A\nPlan B is option E\nStep 1\nStep 2\nStep 3\n".repeat(3))).toBe(false);
+    expect(looksLikeTranscript(TRANSCRIPT)).toBe(true);
+  });
+  it("reads a Korean grade level", () => {
+    expect(currentYearKey("고2")).toBe("junior");
+    expect(currentYearKey("고1")).toBe("sophomore");
+    expect(currentYearKey("고3")).toBe("senior");
+  });
+  it("keeps a 성취도 E as a final grade on its scale", () => {
+    const merged = mergeImportedCourses([], { sophomore: [{ name: "물리학I", type: "regular", grade: "E", semester: "spring", gradeScale: "kr_achievement" }] });
+    expect(merged.courses[0]).toEqual({ name: "물리학I", type: "regular", grade: "E", semester: "spring", gradeScale: "kr_achievement", year: "sophomore" });
+  });
+});
+
+// The spring row of a semester-graded course was skipped as a duplicate of
+// the fall row, and its grade was lost; the note blamed duplicates even for
+// rows over the course cap.
+describe("semester rows", () => {
+  const parsed = {
+    junior: [
+      { name: "AP Biology", type: "ap", grade: "A", semester: "fall" },
+      { name: "AP Biology", type: "ap", grade: "B", semester: "spring" },
+    ],
+  };
+  it("keeps both semesters of a course and skips only an exact repeat", () => {
+    const merged = mergeImportedCourses([{ name: "AP Biology", type: "ap", grade: "A", semester: "fall", year: "junior" }], parsed);
+    expect(merged.added).toBe(1);
+    expect(merged.duplicates).toBe(1);
+    expect(merged.overCap).toBe(0);
+    expect(merged.courses.map((c) => `${c.semester}:${c.grade}`)).toEqual(["fall:A", "spring:B"]);
+    expect(countDistinctCourses(merged.courses)).toBe(1);
+  });
+  it("merges into the survey's year tabs and says why rows were skipped", () => {
+    const out = mergeSurveyImport({ junior: [{ name: "AP Biology", type: "ap", grade: "A", semester: "fall" }] }, parsed, { fallbackYear: "junior" });
+    expect(out.merged.junior.map((c) => c.grade)).toEqual(["A", "B"]);
+    expect(out.note).toBe("Imported 1 course (skipped: 1 already on your list).");
+    const capped = mergeSurveyImport({}, parsed, { fallbackYear: "junior", maxCourses: 1 });
+    expect(capped.note).toBe("Imported 1 course (skipped: 1 over the 1-course limit).");
   });
 });

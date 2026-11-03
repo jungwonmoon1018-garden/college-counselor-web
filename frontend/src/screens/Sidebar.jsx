@@ -2,10 +2,10 @@
 // the helpers, styles and in-place editors only it uses. App passes the
 // state and callbacks it reads as one props object (sidebarProps in
 // App.jsx); nothing here writes App state except through those callbacks.
-import { TEST_ORDER, TEST_SCORE_LIMITS, blankTestForm, entryToForm, formToEntry, formatClassRank, formatSections, normalizeClassRank, sectionDefs, testLabel, validateTestEntry, withSection } from "../profile/test-scores.js";
+import { TEST_ORDER, blankTestForm, entryLabel, entryToForm, formToEntry, formatClassRank, formatSections, normalizeClassRank, scaleChoices, scoreLimits, sectionDefs, testLabel, validateTestEntry, withScale, withSection } from "../profile/test-scores.js";
 import { t as tt } from "../i18n.js";
 import { formatServerDate } from "../profile/dates.js";
-import { gpaNumber, validateGpa } from "../profile/gpa.js";
+import { formatGpa, gpaNumber, hasGpa, validateGpa } from "../profile/gpa.js";
 import { useState } from "react";
 import SidebarSection from "../components/SidebarSection.jsx";
 import CloseButton from "../components/CloseButton.jsx";
@@ -111,8 +111,11 @@ const EDITOR_ERROR = { fontSize:11, color:"#fc8181", marginBottom:6 };
 function TestScoreEditor({ initial, onSave, onCancel, onDelete }) {
   const [form, setForm] = useState(() => (initial ? entryToForm(initial) : blankTestForm("sat")));
   const [error, setError] = useState("");
-  const defs = sectionDefs(form.test);
-  const limit = TEST_SCORE_LIMITS[form.test];
+  // The chosen scale (TOEFL's 1-6 band, PSAT 8/9) sets the ranges.
+  const defs = sectionDefs(form.test, form.scale);
+  const limit = scoreLimits(form.test, form.scale);
+  const scales = scaleChoices(form.test);
+  const name = entryLabel(form);
   const save = () => {
     const entry = formToEntry(form);
     const check = validateTestEntry(entry);
@@ -125,16 +128,21 @@ function TestScoreEditor({ initial, onSave, onCancel, onDelete }) {
         <select aria-label="Test" value={form.test} onChange={(e) => { setError(""); setForm(blankTestForm(e.target.value)); }} style={{ ...EDITOR_SELECT, flex:1 }}>
           {TEST_ORDER.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
         </select>
-        <input aria-label={`${testLabel(form.test)} total`} type="number" min={limit?.min} max={limit?.max} step={limit?.step ?? "any"} value={form.totalScore}
+        <input aria-label={`${name} total`} type="number" min={limit?.min} max={limit?.max} step={limit?.step ?? "any"} value={form.totalScore}
           onChange={(e) => setForm((p) => ({ ...p, totalScore: e.target.value }))} placeholder={`Total (${limit?.label || ""})`} style={{ ...EDITOR_INPUT, flex:1 }} />
       </div>
+      {scales.length > 0 && (
+        <select aria-label={`${testLabel(form.test)} score scale`} value={form.scale || ""} onChange={(e) => { setError(""); setForm((p) => withScale(p, e.target.value)); }} style={{ ...EDITOR_SELECT, marginBottom:6 }}>
+          {scales.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+        </select>
+      )}
       {form.test === "sat_subject" && (
         <input aria-label="Subject" value={form.subject} onChange={(e) => setForm((p) => ({ ...p, subject: e.target.value }))} placeholder="Subject (e.g. Math Level 2)" style={{ ...EDITOR_INPUT, marginBottom:6 }} />
       )}
       {defs.length > 0 && (
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:6 }}>
           {defs.map((d) => (
-            <input key={d.key} aria-label={`${testLabel(form.test)} ${d.label}`} type="number" min={d.min} max={d.max} step={d.step} value={form.sections[d.key] ?? ""}
+            <input key={d.key} aria-label={`${name} ${d.label}`} type="number" min={d.min} max={d.max} step={d.step} value={form.sections[d.key] ?? ""}
               onChange={(e) => setForm((p) => withSection(p, d.key, e.target.value))} placeholder={`${d.label} (${d.min}-${d.max})`} style={EDITOR_INPUT} />
           ))}
         </div>
@@ -157,7 +165,9 @@ function ApScoreEditor({ initial, others = [], onSave, onCancel, onDelete }) {
   const [form, setForm] = useState({
     exam: initial?.exam || initial?.subject || initial?.name || "",
     score: String(initial?.score ?? 5),
-    year: String(initial?.year || latestApScoreYear()),
+    // A stored exam with no year opens with the year blank: the editor used
+    // to stamp it with this year, which the student never said.
+    year: initial ? (initial.year != null && initial.year !== "" ? String(initial.year) : "") : String(latestApScoreYear()),
   });
   const [error, setError] = useState("");
   const save = () => {
@@ -552,11 +562,11 @@ export default function Sidebar(props) {
           <GpaEditor initial={profile.gpa || null}
             onSave={(gpa)=>commitProfile(p=>{ p.gpa = gpa; if (gpa) p.gpaStatus = undefined; })}
             onCancel={()=>setEditingField(null)} />
-        ) : profile.gpa ? (
+        ) : hasGpa(profile.gpa) ? (
           <div onDoubleClick={()=>beginEdit("gpa", profile.gpa.unweighted ?? "", profile.gpa.weighted ?? "")} title="Double-click to edit"
             style={{ background:"rgba(55,138,221,0.08)",borderRadius:10,padding:12,marginBottom:12,border:"1px solid rgba(55,138,221,0.15)",cursor:"pointer",userSelect:"none" }}>
             <div style={{ fontSize:11,color:"#6a8ab5" }}>GPA</div>
-            <div style={{ fontSize:22,fontWeight:700,color:"#63b3ed" }}>{profile.gpa.unweighted}{profile.gpa.weighted?` / ${profile.gpa.weighted}w`:""}</div>
+            <div style={{ fontSize:22,fontWeight:700,color:"#63b3ed" }}>{formatGpa(profile.gpa)}</div>
           </div>
         ) : <p onDoubleClick={()=>beginEdit("gpa","","")} title="Double-click to add" style={{ fontSize:12,color:"#444",margin:"0 0 12px",cursor:"pointer" }}>{profile.gpaStatus === "pending" ? "GPA not available yet." : "Tell the agent your GPA."}</p>}
 
@@ -609,8 +619,8 @@ export default function Sidebar(props) {
             <div key={i} onDoubleClick={()=>beginEdit(`test:${i}`)} title="Double-click or use the pencil to edit"
               style={{ background:"rgba(127,119,221,0.08)",borderRadius:10,padding:12,marginBottom:12,border:"1px solid rgba(127,119,221,0.15)",cursor:"pointer",userSelect:"none" }}>
               <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-                <div style={{ fontSize:11,color:"#9a94d4" }}>{testLabel(t.test)}{t.subject?` · ${t.subject}`:""}{t.date?` · ${t.date}`:""}</div>
-                <button type="button" aria-label={`Edit ${testLabel(t.test)} score`} onClick={()=>beginEdit(`test:${i}`)} style={{ background:"none",border:"none",color:"#9a94d4",cursor:"pointer",fontSize:12,padding:"0 2px" }}>✎</button>
+                <div style={{ fontSize:11,color:"#9a94d4" }}>{entryLabel(t)}{t.subject?` · ${t.subject}`:""}{t.date?` · ${t.date}`:""}</div>
+                <button type="button" aria-label={`Edit ${entryLabel(t)} score`} onClick={()=>beginEdit(`test:${i}`)} style={{ background:"none",border:"none",color:"#9a94d4",cursor:"pointer",fontSize:12,padding:"0 2px" }}>✎</button>
               </div>
               <div style={{ fontSize:22,fontWeight:700,color:"#afa9ec" }}>{t.totalScore}</div>
               {formatSections(t, { short: true }) && (

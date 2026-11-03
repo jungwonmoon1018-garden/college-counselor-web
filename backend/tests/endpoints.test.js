@@ -229,12 +229,13 @@ describe("POST /api/students/sync input", () => {
     assert.deepEqual(typo.data.setAside, [{ field: "gpa.unweighted", reason: "out_of_range" }]);
     assert.equal((await stored()).gpa.unweighted, 3.71);
 
-    // Out-of-range scores are dropped, valid ones kept, and counted.
+    // Out-of-range scores are dropped, valid ones kept, counted, and named, so
+    // the student can find the entry that did not save.
     const scores = await sync({ ...base, testScores: [{ test: "sat", totalScore: 1700 }, { test: "act", totalScore: 34 }], apScores: [{ exam: "Biology", score: 9 }, { exam: "Calculus BC", score: 5, year: 2026 }] });
     assert.equal(scores.status, 200);
     assert.deepEqual(scores.data.setAside, [
-      { field: "testScores", reason: "invalid_entry", count: 1 },
-      { field: "apScores", reason: "invalid_entry", count: 1 },
+      { field: "testScores", reason: "invalid_entry", count: 1, entries: [{ index: 0, label: "SAT 1700", message: "SAT scores must be 400-1600 in steps of 10." }] },
+      { field: "apScores", reason: "invalid_entry", count: 1, entries: [{ index: 0, label: "AP Biology 9", message: "AP scores run 1-5." }] },
     ]);
     const after = await stored();
     assert.deepEqual(after.testScores, [{ test: "act", totalScore: 34 }]);

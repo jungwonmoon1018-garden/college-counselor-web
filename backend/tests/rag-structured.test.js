@@ -79,3 +79,23 @@ test("getDirectStructuredStudentData reads GPA/test scores directly from DB tabl
   assert.equal(data.metrics.act_total.percentileNational, 98);
   assert.equal(data.metrics.ap_rigor_index, undefined);
 });
+
+// Every reader takes the best sitting, as College Fit does; the first entry
+// was the oldest, so a retaker read as her first score.
+test("the structured read takes the best SAT and ACT sitting, not the first", () => {
+  const stmts = freshStmts();
+  stmts.insertSnapshot.run(
+    "snap_r", "student_r", "sync", 3.7, null, "[]", "[]",
+    JSON.stringify([
+      { test: "sat", totalScore: 1250, date: "2025-10" },
+      { test: "act", totalScore: 26 },
+      { test: "sat", totalScore: 1480, date: "2026-03" },
+      { test: "act", totalScore: 31 },
+    ]),
+    "[]", "Biology", "[]", "test",
+  );
+  const data = getDirectStructuredStudentData(stmts, "student_r");
+  assert.equal(data.profile.satTotal, 1480);
+  assert.equal(data.profile.actComposite, 31);
+});
+

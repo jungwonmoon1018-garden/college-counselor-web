@@ -14,6 +14,10 @@
 import crypto from "node:crypto";
 import { computePercentile, computeAPRigorIndex } from "../chat/rules-engine.js";
 import { normalizeClassRank } from "../academics/test-catalog.js";
+// Every reader here takes the best SAT and ACT sitting, as College Fit
+// does: the first entry was the oldest, so a retaker's 1480 read as her
+// first 1250 in the percentiles, the profile summary and the matches.
+import { chooseTestSitting } from "../academics/test-sittings.js";
 import { getCollegeHistory, summarizeCollegeHistory } from "../colleges/college-scorecard.js";
 import { recomputeStudentDirectionality } from "../activities/ec-vectorizer.js";
 import { recomputeStudentECStrengthVectors, buildDefaultLLMClient, toPublicShape as toStrengthPublicShape } from "../activities/ec-strength-vectorizer.js";
@@ -518,7 +522,7 @@ function capabilityMetrics(stmts, profile, activities) {
   }
 
   // SAT percentile
-  const satScore = (profile?.testScores || []).find(t => t.test === "sat");
+  const satScore = chooseTestSitting(profile?.testScores, "sat", { mode: "best" });
   if (satScore?.totalScore) {
     const natl = computePercentile(stmts.getSATBaseline.all("national"), satScore.totalScore, "score");
     const cohort = computePercentile(stmts.getSATBaseline.all("college_bound"), satScore.totalScore, "score");
@@ -526,7 +530,7 @@ function capabilityMetrics(stmts, profile, activities) {
   }
 
   // ACT percentile
-  const actScore = (profile?.testScores || []).find(t => t.test === "act");
+  const actScore = chooseTestSitting(profile?.testScores, "act", { mode: "best" });
   if (actScore?.totalScore) {
     const natl = computePercentile(stmts.getACTBaseline.all("national"), actScore.totalScore, "score");
     metrics.push({ metric: "act_total", value: actScore.totalScore, pNat: natl, pCoh: null });
@@ -677,8 +681,8 @@ export function getDirectStructuredStudentData(stmts, studentId, options = {}) {
   const testScores = safeParseJSON(snapshot.test_scores_json, []);
   const activities = safeParseJSON(snapshot.activities_json, []);
 
-  const sat = testScores.find((t) => String(t?.test || "").toLowerCase() === "sat");
-  const act = testScores.find((t) => String(t?.test || "").toLowerCase() === "act");
+  const sat = chooseTestSitting(testScores, "sat", { mode: "best" });
+  const act = chooseTestSitting(testScores, "act", { mode: "best" });
   const apCourses = courses.filter((c) => {
     const type = String(c?.type || c?.level || "").toLowerCase();
     return type === "ap" || /^ap\b/i.test(String(c?.name || ""));
@@ -793,10 +797,10 @@ function buildTextSummary(profile, capabilities, majorInterest) {
 
   if (profile.gpa?.unweighted) parts.push(`GPA: ${profile.gpa.unweighted}`);
 
-  const sat = profile.testScores?.find(t => t.test === "sat");
+  const sat = chooseTestSitting(profile.testScores, "sat", { mode: "best" });
   if (sat?.totalScore) parts.push(`SAT: ${sat.totalScore}`);
 
-  const act = profile.testScores?.find(t => t.test === "act");
+  const act = chooseTestSitting(profile.testScores, "act", { mode: "best" });
   if (act?.totalScore) parts.push(`ACT: ${act.totalScore}`);
 
   const apCount = (profile.courses || []).filter(c => c.type === "ap").length;
@@ -927,8 +931,8 @@ export function enhancedCollegeMatch(stmts, studentId, filters) {
   if (!snap) return { error: "No profile data", results: [] };
 
   const testScores = safeParseJSON(snap.test_scores_json, []);
-  const satEntry = testScores.find(t => t.test === "sat");
-  const actEntry = testScores.find(t => t.test === "act");
+  const satEntry = chooseTestSitting(testScores, "sat", { mode: "best" });
+  const actEntry = chooseTestSitting(testScores, "act", { mode: "best" });
   const sat = satEntry?.totalScore || (actEntry ? actToSat(actEntry.totalScore) : null);
   const gpa = snap.gpa_unweighted;
   const apCourses = safeParseJSON(snap.courses_json, []).filter(c => c.type === "ap");

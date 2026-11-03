@@ -449,3 +449,40 @@ describe("initDirectionalityTable & prepareDirectionalityStatements", () => {
     db.close();
   });
 });
+
+// The upsert refreshed only the derived factors on conflict, so a cleared
+// SAT 1600 stayed in student_directionality and in /api/context/bundle; and
+// the first SAT entry (the oldest sitting) was read instead of the best one.
+describe("directionality record follows the profile", () => {
+  it("reads the best SAT and ACT sitting, not the first", () => {
+    const result = vectorizeDirectionality({
+      academics: { gpaUnweighted: 3.8, apCourses: [], courses: [] },
+      testScores: [
+        { test: "sat", totalScore: 1250, date: "2025-10" },
+        { test: "sat", totalScore: 1480, date: "2026-03" },
+        { test: "act", totalScore: 27 },
+        { test: "act", totalScore: 33 },
+      ],
+      majorInterest: "Biology",
+    });
+    assert.equal(result.metrics.satTotal, 1480);
+    assert.equal(result.metrics.actTotal, 33);
+  });
+
+  it("a recompute after the SAT is cleared clears the stored SAT", () => {
+    const db = new Database(":memory:");
+    initDirectionalityTable(db);
+    const stmts = prepareDirectionalityStatements(db);
+    const studentId = crypto.randomUUID();
+    const snapshot = (tests, major) => ({ gpa_unweighted: 3.9, ap_scores_json: "[]", courses_json: "[]", test_scores_json: JSON.stringify(tests), major_interest: major });
+    recomputeStudentDirectionality(stmts, studentId, snapshot([{ test: "sat", totalScore: 1600 }], "Physics"), null, [], [], [], [], []);
+    assert.equal(stmts.getByStudent.get(studentId).sat_total, 1600);
+    recomputeStudentDirectionality(stmts, studentId, snapshot([], "Chemistry"), null, [], [], [], [], []);
+    const row = stmts.getByStudent.get(studentId);
+    assert.equal(row.sat_total, null);
+    assert.equal(row.sat_percentile_t20, null);
+    assert.equal(row.major_interest, "Chemistry");
+    db.close();
+  });
+});
+

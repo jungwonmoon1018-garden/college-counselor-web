@@ -96,3 +96,49 @@ describe("parseTranscriptModelReply", () => {
     assert.throws(() => parseTranscriptModelReply("I cannot parse this document."));
   });
 });
+
+// A semester-graded course is two rows. The import keyed a course on its
+// year and name, so the spring grade vanished (AP Biology fall A kept,
+// spring B gone) with no warning; and a Korean 성취도 E was saved as
+// "in progress".
+describe("semester grades and Korean records", () => {
+  it("keeps both semesters of one course and still merges a repeated row, saying so", () => {
+    const result = sanitizeParsedTranscript({
+      years: {
+        junior: [
+          { name: "AP Biology", type: "ap", grade: "A", semester: "fall" },
+          { name: "AP Biology", type: "ap", grade: "B", semester: "spring" },
+          { name: "수학 II", type: "regular", grade: "A", semester: "fall" },
+          { name: "수학 II", type: "regular", grade: "C+", semester: "spring" },
+          { name: "AP Biology", type: "ap", grade: "A", semester: "fall" },
+        ],
+      },
+    });
+    assert.equal(result.courseCount, 4);
+    assert.deepEqual(result.years.junior.map((c) => [c.name, c.semester, c.grade]), [
+      ["AP Biology", "fall", "A"], ["AP Biology", "spring", "B"], ["수학 II", "fall", "A"], ["수학 II", "spring", "C+"],
+    ]);
+    assert.ok(result.warnings.some((w) => w.startsWith("1 repeated row(s) were merged")), JSON.stringify(result.warnings));
+  });
+
+  it("keeps a Korean achievement E as a final grade on its scale", () => {
+    const result = sanitizeParsedTranscript({
+      years: { sophomore: [
+        { name: "물리학 I", type: "regular", grade: "E", semester: "fall", gradeScale: "kr_achievement" },
+        { name: "화학 I", type: "regular", grade: "B", semester: "fall", gradeScale: "made_up" },
+      ] },
+    });
+    assert.deepEqual(result.years.sophomore[0], { name: "물리학 I", type: "regular", grade: "E", semester: "fall", gradeScale: "kr_achievement" });
+    assert.deepEqual(result.years.sophomore[1], { name: "화학 I", type: "regular", grade: "B", semester: "fall" });
+    assert.ok(!result.warnings.some((w) => w.includes("in progress")));
+  });
+
+  it("tells the model to list each semester and how to read a Korean record", () => {
+    const { system } = buildTranscriptParseMessages("교과학습발달상황");
+    assert.match(system, /TWO entries with the same name/);
+    assert.match(system, /1학기 → \"fall\", 2학기 → \"spring\"/);
+    assert.match(system, /1학년 → sophomore/);
+    assert.match(system, /kr_achievement/);
+  });
+});
+

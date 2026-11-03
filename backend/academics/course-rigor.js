@@ -131,6 +131,28 @@ function distinctExams(apScores) {
   return out;
 }
 
+// One row per course: a course graded by semester is stored as a fall row
+// and a spring row (the transcript import keeps both grades), and each row
+// used to count as one more course, so a year of AP Biology read as two
+// APs and two units. Rows of the same year, level and subject whose term
+// is fall or spring are one course; a full-year row stands on its own.
+function distinctCourses(courses) {
+  const out = [];
+  const halves = new Set();
+  for (const course of Array.isArray(courses) ? courses : []) {
+    const level = courseLevel(course);
+    const semester = String(course?.semester || "").trim().toLowerCase();
+    if (!level || (semester !== "fall" && semester !== "spring")) { out.push(course); continue; }
+    const name = String(course?.name || "");
+    const year = String(course?.year || course?.gradeLevel || "").trim().toLowerCase();
+    const key = [year, level, apExamKey(name) || normalizeApSubject(name)].join("|");
+    if (halves.has(key)) continue;
+    halves.add(key);
+    out.push(course);
+  }
+  return out;
+}
+
 /**
  * Read the rigor of a transcript.
  *
@@ -154,7 +176,7 @@ export function readCourseRigor(courses, apScores) {
   const items = [];
   const counts = { ap: 0, ib: 0, dual_enrollment: 0, a_level: 0, honors: 0 };
   let seniorCollegeLevel = 0;
-  for (const course of Array.isArray(courses) ? courses : []) {
+  for (const course of distinctCourses(courses)) {
     const level = courseLevel(course);
     if (!level) continue;
     counts[level] += 1;
