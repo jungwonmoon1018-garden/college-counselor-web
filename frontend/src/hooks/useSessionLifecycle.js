@@ -9,6 +9,9 @@ import { S } from "../app-shared.js";
 import { sessionTimer } from "../session/server-session.js";
 import { describeSetAside, syncFailureMessage } from "../profile/sync-result.js";
 import { baseFromPayload, buildSyncPayload, describeProfileConflict, isDirty, readServerProfile, reconcileProfile, vaultSyncRecord } from "../profile/profile-reconcile.js";
+import { localDateString } from "../profile/dates.js";
+import { schoolsDueForNewCycle } from "../profile/deadline-cycle-refresh.js";
+import { setAsideRowsFrom } from "../profile/set-aside-rows.js";
 
 // A 409 is answered by joining the server's profile and sending again; a
 // server that keeps refusing must not be retried in a loop every second.
@@ -21,6 +24,7 @@ export function useSessionLifecycle(ctx) {
     setOfflineMode, setReauthStatus, setScreen, setSyncNote, setSyncStatus,
     targetSchools, user,
     endSession, initialScreen, profileReady, setSyncBase, syncBase, syncInFlightRef,
+    recreateDeadlines, locale, setSetAsideRows,
   } = ctx;
   // The inactivity notice, shown as a toast in both the survey and the chat.
   const EXPIRY_NOTICE = "Still there? You'll be signed out in about a minute of inactivity — click or type to stay signed in.";
@@ -133,7 +137,9 @@ export function useSessionLifecycle(ctx) {
         const body = await response.json().catch(() => ({}));
         // The server now holds what was sent: that is the next save's base.
         setSyncBase(baseFromPayload(payload, body?.revision ?? syncBase?.serverRevision ?? null));
-        const setAsideNote = describeSetAside(body?.setAside);
+        const setAsideNote = describeSetAside(body?.setAside, { locale });
+        // The sidebar marks each score the server set aside, where it is.
+        setSetAsideRows?.(setAsideRowsFrom(body?.setAside, payload.profile));
         if (setAsideNote) {
           // Saved, but a field the server could not store was left out.
           conflictNoticeRef.current = false;
@@ -173,6 +179,8 @@ export function useSessionLifecycle(ctx) {
   // server resolves the saved schools itself when none are sent, so when
   // its answer already names the list, nothing is fetched again.
   const calendarTunedForRef = useRef(null);
+  // The cycle this student applies in, as the calendar read reports it.
+  const [studentCycle, setStudentCycle] = useState(null);
   useEffect(() => {
     if (screen !== S.CHAT || !user) return;
     if (calendarTunedForRef.current != null && calendarTunedForRef.current === calTargetsKey) return;
@@ -191,11 +199,48 @@ export function useSessionLifecycle(ctx) {
         if (!alive) return;
         calendarTunedForRef.current = Array.isArray(body?.targetSchools) ? body.targetSchools.join("|") : calTargetsKey;
         setCalendarCtx(body);
+        if (Number.isInteger(body?.studentCycle?.startYear)) {
+          setStudentCycle((prev) => (prev?.startYear === body.studentCycle.startYear && prev?.classOf === body.studentCycle.classOf ? prev : body.studentCycle));
+        }
       } catch (err) { if (alive) console.warn("[CALENDAR] fetch failed:", err?.message); }
     })();
     return () => { alive = false; ctrl.abort(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [calTargetsKey, screen, user?.email]);
+
+  // ─── A new cycle's reminders (input-8) ───
+  // A school's reminders are made once, when it joins the target list, so
+  // after a cycle rollover (or for rows made before reminders followed the
+  // student's class year) the school kept only an earlier cycle's dates and
+  // the ones the student applies by never appeared. Each school on the list
+  // is checked once a session: when every reminder it has belongs to an
+  // earlier cycle than the student's (profile/deadline-cycle-refresh.js), its
+  // reminders are made again for the student's cycle. The old rows stay; the
+  // bulk route de-duplicates within a cycle, so a second session adds nothing.
+  const cycleCheckedRef = useRef(new Set());
+  const recreateRef = useRef(recreateDeadlines);
+  recreateRef.current = recreateDeadlines;
+  useEffect(() => {
+    if (screen !== S.CHAT || !user || !studentCycle || typeof recreateRef.current !== "function") return;
+    const unchecked = targetSchools.filter((s) => !cycleCheckedRef.current.has(String(s).toLowerCase()));
+    if (!unchecked.length) return;
+    unchecked.forEach((s) => cycleCheckedRef.current.add(String(s).toLowerCase()));
+    const list = targetSchools.slice();
+    (async () => {
+      try {
+        const r = await authedFetch(`/api/students/deadlines?today=${encodeURIComponent(localDateString())}`);
+        if (!r?.ok) return;
+        const body = await r.json().catch(() => ({}));
+        const due = schoolsDueForNewCycle({ targetSchools: unchecked, deadlines: body?.deadlines, studentCycle });
+        // One school at a time: each one is a calendar read and a bulk write,
+        // and the rate limiter counts both.
+        for (const school of due) await recreateRef.current?.(school, { targetSchools: list });
+      } catch (err) {
+        if (err?.name !== "AbortError") console.warn("[DEADLINES] cycle check failed:", err?.message);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calTargetsKey, screen, user?.email, studentCycle]);
 
   // ─── SPONTANEOUS BACKEND → FRONTEND PULL ───
   // Poll /api/students/profile every 30s while on CHAT to surface server-side updates

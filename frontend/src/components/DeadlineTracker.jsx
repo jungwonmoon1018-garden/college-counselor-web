@@ -22,15 +22,13 @@ import { DEADLINE_CATEGORIES, DEADLINE_EARLIEST_DATE, DEADLINE_TITLE_MAX, latest
 const STATUS_NEXT = { open: "done", done: "open", snoozed: "done" };
 
 // The server's categories, offered as a choice: free text outside these
-// used to be replaced with "personal" without a word.
-const CATEGORY_LABELS = {
-  en: { personal: "Personal", admissions: "Applications", financial_aid: "Financial aid", test: "Testing", other: "Other" },
-  ko: { personal: "개인", admissions: "지원서", financial_aid: "학자금 지원", test: "시험", other: "기타" },
-};
-
+// used to be replaced with "personal" without a word. Their labels live in
+// i18n.js with the tracker's other strings; a stored category the app has
+// no label for is shown as stored.
 function categoryLabel(locale, category) {
-  const labels = String(locale || "").toLowerCase().startsWith("ko") ? CATEGORY_LABELS.ko : CATEGORY_LABELS.en;
-  return labels[category] || category;
+  const key = `deadlines.category.${category}`;
+  const label = t(locale, key);
+  return label === key ? category : label;
 }
 
 export default function DeadlineTracker({ locale = "en-US", compact = false, refreshKey = 0 }) {

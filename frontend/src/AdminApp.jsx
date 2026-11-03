@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { formatServerDateTime } from "./profile/dates.js";
 
 const COPY = {
   en: {
@@ -203,9 +204,13 @@ function fill(template, vars) {
   return String(template).replace(/\{(\w+)\}/g, (_, key) => (vars[key] === undefined || vars[key] === null ? "" : String(vars[key])));
 }
 
-function formatWhen(iso) {
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? String(iso) : date.toLocaleString();
+// A scout run's time in the counselor's own zone. The status routes send some
+// times as SQLite's "YYYY-MM-DD HH:MM:SS", which is UTC with no zone: new
+// Date() read it as local time in Chrome (nine hours early in Seoul) and as
+// Invalid Date in Safari (ui-11). profile/dates.js reads every server time
+// as UTC; a value it cannot read is shown as sent.
+function formatWhen(value) {
+  return formatServerDateTime(value) || String(value ?? "");
 }
 
 function formatPrice(value) {

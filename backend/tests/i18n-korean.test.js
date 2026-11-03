@@ -368,7 +368,9 @@ test("frontend API sends the persisted Korean locale on authenticated requests",
   await deadlineApi.list();
 
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].url, "/api/students/deadlines?locale=ko");
+  // The list sends the student's own date so the server's due-soon summary
+  // counts on the student's calendar, then the locale.
+  assert.match(calls[0].url, /^\/api\/students\/deadlines\?today=\d{4}-\d{2}-\d{2}&locale=ko$/);
   assert.equal(calls[0].options.headers["X-CollegeApp-Locale"], "ko");
   assert.equal(calls[0].options.headers.Authorization, "Bearer test-session");
 });

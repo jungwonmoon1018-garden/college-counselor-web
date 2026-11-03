@@ -211,6 +211,59 @@ describe("Dashboard profile editing", () => {
     expect(await screen.findByText("Saved, except 1 test score, which couldn't be read — check it in your profile.", {}, { timeout: 5000 })).toBeInTheDocument();
   }, 30000);
 
+  // input-12: the note named the set-aside score, but the sidebar showed
+  // every score alike. The row the server set aside is marked where it is,
+  // in the student's language, with a way to fix or remove it.
+  it("marks the exact score a save set aside and offers to fix or remove it", async () => {
+    syncReply = (json) => {
+      const sent = syncBodies[syncBodies.length - 1];
+      const actAt = (sent.profile.testScores || []).findIndex((t) => t.test === "act");
+      if (actAt < 0) return json({ synced: true, changes: [], setAside: [] });
+      return json({ synced: true, changes: [], setAside: [{ field: "testScores", reason: "invalid_entry", count: 1, entries: [{ index: actAt, label: "ACT 33", message: "ACT English must be 1-36.", kept: true }] }] });
+    };
+    await signIn();
+    // Korean first: the save's note and the row's mark follow the app's language.
+    fireEvent.click(screen.getByRole("button", { name: "한국어" }));
+    fireEvent.click(screen.getByRole("button", { name: "+ Add class rank" }));
+    let editor = screen.getByTestId("class-rank-editor");
+    fireEvent.change(within(editor).getByLabelText("Top percent"), { target: { value: "5" } });
+    fireEvent.click(within(editor).getByRole("button", { name: "Save" }));
+    expect(await screen.findByText(/저장했어요\. 다만 다음 항목은 저장하지 못했어요: ACT 33/, {}, { timeout: 5000 })).toBeInTheDocument();
+    const marked = await screen.findByTestId("set-aside-row");
+    expect(marked).toHaveTextContent("E 35 · M 31 · R 34 · S 32");
+    expect(within(marked).getByRole("note")).toHaveTextContent("저장하지 못했어요: 범위를 벗어났거나 읽을 수 없는 값이에요. 이전에 저장된 값을 그대로 쓰고 있어요.");
+    // Only that row: the AP score that saved is not marked.
+    expect(screen.getAllByTestId("set-aside-row")).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "English" }));
+    expect(within(screen.getByTestId("set-aside-row")).getByRole("note")).toHaveTextContent("Not saved: ACT English must be 1-36. Your saved version is still the one used.");
+    // Fix opens that row's editor.
+    fireEvent.click(within(screen.getByTestId("set-aside-row")).getByRole("button", { name: "Fix" }));
+    editor = screen.getByTestId("test-score-editor");
+    fireEvent.click(within(editor).getByRole("button", { name: "Cancel" }));
+    // Remove takes it off, the next save carries no ACT, and the mark goes.
+    fireEvent.click(within(screen.getByTestId("set-aside-row")).getByRole("button", { name: "Remove" }));
+    await waitFor(() => expect(lastSync()?.profile?.testScores).toEqual([]), { timeout: 5000 });
+    await waitFor(() => expect(screen.queryByTestId("set-aside-row")).not.toBeInTheDocument());
+    expect(screen.queryByText("E 35 · M 31 · R 34 · S 32")).not.toBeInTheDocument();
+  }, 40000);
+
+  // ui-12: the evidence line under an expanded activity was English in a
+  // Korean session, because the sidebar never passed it the locale.
+  it("shows an activity's evidence in the app's language", async () => {
+    routeReply = (path, method, options, json) => {
+      if (path.includes("/api/students/profile")) {
+        return json({ profile: { ...backendProfile, activities: [{ id: "a1", name: "Robotics Club", role: "Captain", category: "stem" }] }, metrics: [], milestoneCount: 0 });
+      }
+      return null;
+    };
+    await signIn();
+    fireEvent.click(screen.getByRole("button", { name: "한국어" }));
+    fireEvent.click(await screen.findByText("Robotics Club"));
+    expect(await screen.findByText(/증빙 자료/, {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.queryByText(/^Evidence/)).not.toBeInTheDocument();
+  }, 40000);
+
   it("folds a sidebar section from its heading and remembers the fold on the device", async () => {
     await signIn();
     // The AP exam scores section holds the recovered Statistics 4.
@@ -351,6 +404,41 @@ describe("Dashboard profile editing", () => {
     await waitFor(() => expect(calls.some((c) => c.path.includes("/api/positioning/verify"))).toBe(true));
     const verify = calls.find((c) => c.path.includes("/api/positioning/verify"));
     expect(JSON.parse(verify.body).schoolName).toBe("The University of Texas at Austin");
+  }, 40000);
+
+  // ui-8: "Clear cached college values" deleted every school's read for
+  // every student. The sidebar now offers a re-read of the school on the
+  // card, which posts that one school with force and says how it went.
+  it("re-reads the school on the card instead of clearing every school's values", async () => {
+    let valuesPosts = 0;
+    routeReply = (path, method, options, json) => {
+      if (path.includes("/api/colleges/values") && method === "POST") {
+        valuesPosts += 1;
+        const body = JSON.parse(options.body);
+        if (body.force && valuesPosts > 2) return json({ error: "The AI provider request failed.", code: "provider_error" }, 502);
+        return json({ displayName: "Rice University", values: [], fit: null });
+      }
+      if (path.includes("/api/positioning/targets")) return json({ targets: [] });
+      return null;
+    };
+    await signIn();
+    expect(screen.queryByRole("button", { name: /Re-read this school/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Clear cached college values/)).not.toBeInTheDocument();
+    const search = screen.getByPlaceholderText(/e\.g\. UC Berkeley/);
+    fireEvent.change(search, { target: { value: "Rice" } });
+    fireEvent.keyDown(search, { key: "Enter" });
+    await screen.findByTestId("fit-card", {}, { timeout: 5000 });
+    const reread = await screen.findByRole("button", { name: "↺ Re-read this school" });
+    expect(reread).toHaveAttribute("title", "Read this school's official pages again instead of using the saved read. Uses your AI budget.");
+    fireEvent.click(reread);
+    expect(await screen.findByText("Re-read from the school's official pages.")).toBeInTheDocument();
+    const forced = calls.filter((c) => c.path.includes("/api/colleges/values") && c.method === "POST").map((c) => JSON.parse(c.body));
+    expect(forced[1]).toEqual({ collegeName: "Rice University", force: true });
+    // A failed re-read keeps the card and says so.
+    fireEvent.click(screen.getByRole("button", { name: "↺ Re-read this school" }));
+    expect(await screen.findByText("The re-read didn't finish, so the saved read is still shown. Try again later.")).toBeInTheDocument();
+    expect(screen.getByTestId("fit-card")).toBeInTheDocument();
+    expect(calls.some((c) => c.method === "DELETE" && c.path.includes("/api/colleges/values"))).toBe(false);
   }, 40000);
 
   it("shows only the localized error when neither read answered", async () => {

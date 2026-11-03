@@ -35,8 +35,8 @@ export function useCollegeFit(ctx) {
   // Web double-check of the fit read (live Scorecard + official pages).
   const [collegeVerification, setCollegeVerification] = useState(null);
   const [collegeVerifying, setCollegeVerifying] = useState(false);
-  // What the sidebar calls to clear the card (typing a new query, ✕, the
-  // cache clear). Clearing clears the whole read: the card also stands on a
+  // What the sidebar calls to clear the card (typing a new query, ✕).
+  // Clearing clears the whole read: the card also stands on a
   // positioning read alone when the values part failed (fit-7), and a
   // lookup still in flight would otherwise paint the school just cleared.
   const setCollegeValues = useCallback((next) => {
@@ -60,6 +60,9 @@ export function useCollegeFit(ctx) {
   // Bumped when a school is removed so the Deadline tracker reloads and drops
   // that school's (now-deleted) deadlines.
   const [deadlineRefreshKey, setDeadlineRefreshKey] = useState(0);
+  // And when a school's deadlines were made, so the tracker and the chat-top
+  // chip show them without a reload.
+  const refreshDeadlines = useCallback(() => setDeadlineRefreshKey((k) => k + 1), []);
   // Load the saved target schools when the signed-in user is known.
   useEffect(() => {
     if (!user?.email) return;
@@ -196,7 +199,7 @@ export function useCollegeFit(ctx) {
   return {
     addTargetSchool, authedFetchRef, collegePositioning, collegePositioningLoading, collegeValues, collegeValuesHint,
     collegeValuesLoading, collegeValuesQuery, collegeVerification, collegeVerifying, createDeadlinesRef, deadlineRefreshKey,
-    lookupCollege, lookupCollegeRef, refreshCollegeFit, removeTargetSchool, rereadCollegeValues, setCollegeValues, setCollegeValuesHint,
+    lookupCollege, lookupCollegeRef, refreshCollegeFit, refreshDeadlines, removeTargetSchool, rereadCollegeValues, setCollegeValues, setCollegeValuesHint,
     setCollegeValuesQuery, setTargetSchoolInput, targetSchoolInput, targetSchools, verifyCollegeFit,
   };
 }

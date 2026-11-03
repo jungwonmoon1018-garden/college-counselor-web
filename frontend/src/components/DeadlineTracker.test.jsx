@@ -105,6 +105,24 @@ describe("DeadlineTracker reads what the server sends", () => {
     expect(within(row("Scholarship essay")).getByText(/Financial aid/)).toBeInTheDocument();
   }, 20_000);
 
+  // The server's summary counts from the date the list sends, so the chip
+  // agrees with the rows' own local count; the category labels come from
+  // i18n.js, and a category the app has no label for reads as stored.
+  it("asks for the list as of the local date and labels categories in Korean", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 10, 3, 23, 30));
+    stubList({ ...LIST_FIXTURE, deadlines: [...LIST_FIXTURE.deadlines, { ...LIST_FIXTURE.deadlines[1], id: "d-odd", title: "Odd row", category: "visa" }] });
+    render(<DeadlineTracker locale="ko" />);
+    const row = (title) => screen.getByText(title).parentElement.parentElement;
+    await screen.findByText("Scholarship essay");
+    expect(within(row("Scholarship essay")).getByText(/학자금 지원/)).toBeInTheDocument();
+    expect(within(row("MIT — Early Action")).getByText(/지원서/)).toBeInTheDocument();
+    expect(within(row("Odd row")).getByText(/visa/)).toBeInTheDocument();
+    const get = globalThis.fetch.mock.calls.map(([url]) => String(url)).find((url) => url.startsWith("/api/students/deadlines"));
+    expect(get).toContain("today=2026-11-03");
+    expect(get).toContain("locale=");
+  }, 20_000);
+
   it("sends the picked date as a date and a category from the server's list", async () => {
     const posts = [];
     stubList({ ...LIST_FIXTURE, deadlines: [] }, posts);

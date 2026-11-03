@@ -15,13 +15,13 @@ export const STRINGS = {
   "en-US": {
     // ─── Narrative editor ──
     "narrative.title": "Your story",
-    "narrative.subtitle": "What do you care about, and how have you shown it? 100–1500 characters.",
+    "narrative.subtitle": "What do you care about, and how have you shown it? {minChars}–{maxChars} characters.",
     "narrative.placeholder": "I care deeply about... and I've shown it by...",
     "narrative.save": "Save narrative",
     "narrative.delete": "Delete narrative",
     "narrative.saved_at": "Saved {when}",
-    "narrative.too_short": "{chars}/100 characters minimum. {words}/20 words minimum.",
-    "narrative.too_long": "{chars}/1500 — please tighten the story.",
+    "narrative.too_short": "{chars}/{minChars} characters minimum. {words}/{minWords} words minimum.",
+    "narrative.too_long": "{chars}/{maxChars} — please tighten the story.",
     "narrative.empty_hint": "Write a draft about your motivations and proof points before we rank your activities.",
     "narrative.why_required": "Your story is the baseline we use to rank activities, score candidate ECs, and detect drift. Save it once here, then revisit anytime from the sidebar.",
 
@@ -96,6 +96,12 @@ export const STRINGS = {
     "deadlines.empty": "No deadlines yet. Add Common App, Early Decision, scholarships.",
     "deadlines.overdue_chip": "Overdue",
     "deadlines.due_chip": "Due in {days}d",
+    // The server's five categories (profile/deadline-limits.js).
+    "deadlines.category.personal": "Personal",
+    "deadlines.category.admissions": "Applications",
+    "deadlines.category.financial_aid": "Financial aid",
+    "deadlines.category.test": "Testing",
+    "deadlines.category.other": "Other",
 
     // ─── Prestige card ──
     "prestige.title": "Prestige rationale",
@@ -362,6 +368,27 @@ export const STRINGS = {
     "targets.cap_reached": "Your target list holds {max} schools, the most it can. Remove one to add another.",
     "targets.cap_short": "list full ({max})",
 
+    // ─── A score a profile save set aside (profile/set-aside-rows.js) ──
+    "profile.set_aside.row": "Not saved: {why}.{kept}",
+    "profile.set_aside.row_undated": "Saved without its test date: pick the month again.",
+    "profile.set_aside.kept": " Your saved version is still the one used.",
+    "profile.set_aside.fix": "Fix",
+    "profile.set_aside.remove": "Remove",
+    "profile.set_aside.reason.scale_needed": "pick the score's scale (0-120 or the 1-6 band)",
+    "profile.set_aside.reason.invalid_entry": "the value is out of range or couldn't be read",
+    "profile.set_aside.reason.out_of_range": "the value is out of range",
+    "profile.set_aside.reason.not_a_number": "the value isn't a number",
+
+    // ─── A consent the server requires that the app does not grant itself ──
+    "consent.title": "Permission needed",
+    "consent.intro": "This needs a permission you haven't given yet. Read it, tick it if you agree, and press the button. Nothing is turned on until you do.",
+    "consent.undescribed": "This version of the app can't describe a required permission ({types}), so it can't ask for it here. Reload the page, or ask your counselor.",
+    "consent.grant": "Give permission",
+    "consent.not_now": "Not now",
+    "consent.grant_failed": "The permission wasn't saved. Try again in a moment.",
+    "consent.needed": "This needs a permission you haven't given yet.",
+    "consent.granted": "Permission given. Try that again now.",
+
     // ─── Locale toggle ──
     "locale.label": "Language",
     "locale.en": "English",
@@ -371,13 +398,13 @@ export const STRINGS = {
   "ko": {
     // ─── 자기서사 / 내러티브 ──
     "narrative.title": "\ub0b4 \uc774\uc57c\uae30",
-    "narrative.subtitle": "\ubb34\uc5c7\uc744 \uc18c\uc911\ud788 \uc5ec\uae30\uace0, \uc5b4\ub5bb\uac8c \uadf8\uac83\uc744 \ubcf4\uc5ec\uc8fc\uc154\uc8e0? 100\u20131500\uc790.",
+    "narrative.subtitle": "\ubb34\uc5c7\uc744 \uc18c\uc911\ud788 \uc5ec\uae30\uace0, \uc5b4\ub5bb\uac8c \uadf8\uac83\uc744 \ubcf4\uc5ec\uc8fc\uc154\uc8e0? {minChars}\u2013{maxChars}\uc790.",
     "narrative.placeholder": "\uc800\ub294 ...\ub97c \uae4a\uc774 \uc544\ub07c\uba70, \ub2e4\uc74c\ucc98\ub7fc \ubcf4\uc5ec\uc640\uc2b5\ub2c8\ub2e4...",
     "narrative.save": "\ub0b4\ub7ec\ud2f0\ube0c \uc800\uc7a5",
     "narrative.delete": "\uc0ad\uc81c",
     "narrative.saved_at": "{when}\uc5d0 \uc800\uc7a5\ub428",
-    "narrative.too_short": "\ucd5c\uc18c \uae00\uc790 100\uc790 \uc911 {chars}\uc790, \ucd5c\uc18c \ub2e8\uc5b4 20\uac1c \uc911 {words}\uac1c.",
-    "narrative.too_long": "{chars}/1500\uc790 \u2014 \uc774\uc57c\uae30\ub97c \uc870\uae08 \ub354 \ub2e8\ub2e8\ud558\uac8c \ub2e4\ub4ec\uc5b4\uc8fc\uc138\uc694.",
+    "narrative.too_short": "\ucd5c\uc18c \uae00\uc790 {minChars}\uc790 \uc911 {chars}\uc790, \ucd5c\uc18c \ub2e8\uc5b4 {minWords}\uac1c \uc911 {words}\uac1c.",
+    "narrative.too_long": "{chars}/{maxChars}\uc790 \u2014 \uc774\uc57c\uae30\ub97c \uc870\uae08 \ub354 \ub2e8\ub2e8\ud558\uac8c \ub2e4\ub4ec\uc5b4\uc8fc\uc138\uc694.",
     "narrative.empty_hint": "\ud65c\ub3d9 \uc21c\uc704\ub97c \uc0b0\uc815\ud558\uae30 \uc804\uc5d0, \ud559\uc0dd\ub2c8\uc758 \ub3d9\uae30\uc640 \uadfc\uac70\uac00 \ub4e4\uc5b4\uac04 \ucd08\uace0\ub97c \uba3c\uc800 \uc801\uc5b4\uc8fc\uc138\uc694.",
     "narrative.why_required": "\uc774 \uc774\uc57c\uae30\ub294 \ud65c\ub3d9 \uc21c\uc704\ub97c \uc815\ud558\uace0, \ud6c4\ubcf4 EC\uc758 \uc801\ud569\ub3c4\ub97c \ucc44\uc810\ud558\uba70, \ub4dc\ub9ac\ud504\ud2b8\ub97c \uac10\uc9c0\ud558\ub294 \uae30\uc900\uc785\ub2c8\ub2e4. \uc5ec\uae30\uc11c \ud55c \ubc88 \uc800\uc7a5\ud558\uc2dc\uba74 \uc774\ud6c4\uc5d4 \uc0ac\uc774\ub4dc\ubc14\uc5d0\uc11c \uc5b8\uc81c\ub4e0\uc9c0 \ub2e4\uc2dc \uc5fc\uc5b4\ubcfc \uc218 \uc788\uc2b5\ub2c8\ub2e4.",
 
@@ -441,6 +468,11 @@ export const STRINGS = {
     "deadlines.empty": "\uc544\uc9c1 \ub9c8\uac10\uc77c\uc774 \uc5c6\uc2b5\ub2c8\ub2e4. Common App, Early Decision, \uc7a5\ud559\uae08 \ub4f1\uc744 \ucd94\uac00\ud574\uc8fc\uc138\uc694.",
     "deadlines.overdue_chip": "\uc9c0\ub0a8",
     "deadlines.due_chip": "{days}\uc77c \ub0a8\uc74c",
+    "deadlines.category.personal": "\uac1c\uc778",
+    "deadlines.category.admissions": "\uc9c0\uc6d0\uc11c",
+    "deadlines.category.financial_aid": "\ud559\uc790\uae08 \uc9c0\uc6d0",
+    "deadlines.category.test": "\uc2dc\ud5d8",
+    "deadlines.category.other": "\uae30\ud0c0",
 
     // ─── 명성 카드 ──
     "prestige.title": "\uba85\uc131 \uadfc\uac70",
@@ -690,6 +722,23 @@ export const STRINGS = {
     "fit.reread_failed": "다시 읽기를 마치지 못해 저장된 결과를 그대로 보여 줍니다. 나중에 다시 시도해 주세요.",
     "targets.cap_reached": "목표 학교는 최대 {max}곳까지 담을 수 있습니다. 다른 학교를 추가하려면 하나를 먼저 삭제해 주세요.",
     "targets.cap_short": "목록 가득 참 ({max})",
+    "profile.set_aside.row": "저장하지 못했어요: {why}.{kept}",
+    "profile.set_aside.row_undated": "시험 날짜 없이 저장했어요. 월을 다시 골라 주세요.",
+    "profile.set_aside.kept": " 이전에 저장된 값을 그대로 쓰고 있어요.",
+    "profile.set_aside.fix": "고치기",
+    "profile.set_aside.remove": "지우기",
+    "profile.set_aside.reason.scale_needed": "점수 척도를 골라야 해요 (0-120 점수인지 1-6 밴드 점수인지)",
+    "profile.set_aside.reason.invalid_entry": "범위를 벗어났거나 읽을 수 없는 값이에요",
+    "profile.set_aside.reason.out_of_range": "범위를 벗어난 값이에요",
+    "profile.set_aside.reason.not_a_number": "숫자가 아니에요",
+    "consent.title": "동의가 필요해요",
+    "consent.intro": "아직 동의하지 않은 항목이 있어요. 내용을 읽고 동의한다면 체크한 뒤 버튼을 눌러 주세요. 누르기 전에는 아무것도 켜지지 않아요.",
+    "consent.undescribed": "이 버전의 앱은 필요한 동의 항목({types})을 설명할 수 없어서 여기서 요청할 수 없어요. 페이지를 새로고침하거나 상담 선생님께 문의해 주세요.",
+    "consent.grant": "동의하기",
+    "consent.not_now": "나중에",
+    "consent.grant_failed": "동의가 저장되지 않았어요. 잠시 후 다시 시도해 주세요.",
+    "consent.needed": "아직 동의하지 않은 항목이 있어서 진행할 수 없어요.",
+    "consent.granted": "동의했어요. 이제 다시 시도해 주세요.",
     "candidates.generate": "\u2728 \ub0b4 \ud504\ub85c\ud544\ub85c \uc544\uc774\ub514\uc5b4 \uc0dd\uc131",
     "candidates.generating": "\uc544\uc774\ub514\uc5b4 \uc0dd\uc131 \uc911\u2026",
     "candidates.generated_hint": "\ud504\ub85c\ud544\uc744 \ubc14\ud0d5\uc73c\ub85c \uc0dd\uc131\ud55c \uc544\uc774\ub514\uc5b4\uc785\ub2c8\ub2e4 \u2014 \ud559\uc0dd\ub2d8\uc758 \uae30\ub85d\uc5d0 \uadfc\uac70\ud55c \uc81c\uc548\uc774\ub2c8, \ub9c8\uc74c\uc5d0 \ub4dc\ub294 \ud56d\ubaa9\uc744 \uc704\uc5d0 \ucd94\uac00\ud574 \uc21c\uc704\ub97c \ub9e4\uaca8\ubcf4\uc138\uc694.",

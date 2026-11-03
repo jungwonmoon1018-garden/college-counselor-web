@@ -17,6 +17,8 @@
 
 import { detectLocale, saveLocale } from "./i18n.js";
 import { _tryReAuth } from "./chat/chat-client.js";
+import { isSessionExpiry } from "./chat/chat-errors.js";
+import { localDateString } from "./profile/dates.js";
 
 // Client-side cap on any API call (see ccFetch). Model-backed tools pass a
 // longer `timeoutMs` explicitly.
@@ -115,7 +117,10 @@ async function ccFetch(path, opts = {}) {
     // used to fail from then on while the chat kept working. After a logout
     // _tryReAuth has no credentials (endSessionReauth), so a logged-out page
     // never signs itself back in; the error then says the session ended.
-    if (resp.status === 401 && !opts._reauthAttempted) {
+    // Only a session failure is healed: a 401 with another code (a refused
+    // provider key from an older server) would spend a hidden sign-in.
+    const sessionFailure = isSessionExpiry(resp.status, json || {});
+    if (sessionFailure && !opts._reauthAttempted) {
       if (await _tryReAuth()) return ccFetch(path, { ...originalOpts, _reauthAttempted: true });
     }
     if (resp.status === 409 && (json?.error === "no_active_narrative" || /narrative/i.test(json?.error || ""))) {
@@ -124,7 +129,7 @@ async function ccFetch(path, opts = {}) {
     const err = new Error(json?.message || json?.error || `HTTP ${resp.status}`);
     err.status = resp.status;
     err.body = json;
-    if (resp.status === 401) err.sessionEnded = true;
+    if (sessionFailure) err.sessionEnded = true;
     throw err;
   }
   return json;
@@ -246,8 +251,13 @@ export const courses = {
 
 // ─── Deadlines (F7) ──────────────────────────────────────────────────────
 export const deadlines = {
-  async list() {
-    return ccFetch("/api/students/deadlines", { method: "GET" });
+  // The server counts days left, overdue rows and the chip's summary from
+  // `today`, which it accepts only when that date is today somewhere on
+  // Earth. Without it the server counts from Anywhere-on-Earth today, which
+  // is a day behind a student in Seoul for most of the day, so a deadline
+  // read a day further off than it is and the chip missed one due today.
+  async list({ now = new Date() } = {}) {
+    return ccFetch(`/api/students/deadlines?today=${encodeURIComponent(localDateString(now))}`, { method: "GET" });
   },
   async create(d) {
     return ccFetch("/api/students/deadlines", {
@@ -255,8 +265,10 @@ export const deadlines = {
       body: d,
     });
   },
-  async patch(id, body) {
-    return ccFetch(`/api/students/deadlines/${encodeURIComponent(id)}`, {
+  // The row that comes back is counted on the same calendar, and a snooze
+  // with no end date is dated from it.
+  async patch(id, body, { now = new Date() } = {}) {
+    return ccFetch(`/api/students/deadlines/${encodeURIComponent(id)}?today=${encodeURIComponent(localDateString(now))}`, {
       method: "PATCH",
       body,
     });

@@ -149,6 +149,42 @@ describe("AdminApp", () => {
     expect(screen.queryByText(/every 14 days/)).toBeNull();
   }, 20_000);
 
+  // ui-11: a time sent as SQLite's "YYYY-MM-DD HH:MM:SS" is UTC. new Date()
+  // read it as local time in Chrome (05:00 UTC showed as 05:00 in Seoul) and
+  // as Invalid Date in Safari. The expected text is computed from the UTC
+  // instant, so this holds in any time zone.
+  it("shows a scout time sent without a zone as the UTC instant it is", async () => {
+    const ok = (body) => ({ ok:true, json:async()=>body });
+    fetch.mockImplementation(async (path) => {
+      if (path === "/api/admin/status") return ok({ bootstrapped:true, webDeployment:true });
+      if (path === "/api/admin/login") return ok({ authenticated:true, csrfToken:"web-csrf" });
+      if (path === "/api/admin/secrets/status") return ok({ webDeployment:true, installationReady:true, encryption:{configured:true}, openrouter:{configured:true}, scorecard:{configured:true} });
+      if (path === "/api/admin/models") return ok({
+        models:{ small:"google/gemma-4-26b-a4b-it", medium:"google/gemma-4-26b-a4b-it", large:"google/gemma-4-26b-a4b-it" },
+        options:[{ id:"google/gemma-4-26b-a4b-it", label:"Google Gemma 4 26B A4B", available:true }],
+        candidates:[],
+      });
+      if (path === "/api/admin/policy-scout/status") return ok({
+        running:false, cadenceDays:14, nextRunAt:"2026-11-03 11:05:00", nextRunReason:"retry_after_failure",
+        lastAutomaticSweep:{ trigger:"boot", outcome:"failed", finishedAt:"2026-11-03 05:00:00", schoolsTotal:300, schoolsChecked:0, schoolsFailed:300 },
+      });
+      return { ok:false, json:async()=>({ error:"unexpected request" }) };
+    });
+
+    const user = userEvent.setup();
+    render(<AdminApp />);
+    await screen.findByRole("heading", { name:"Administrator sign in" });
+    await user.type(screen.getByLabelText("Password"), "correct horse battery staple");
+    await user.click(screen.getByRole("button", { name:"Sign in" }));
+
+    const finished = new Date("2026-11-03T05:00:00Z").toLocaleString();
+    const next = new Date("2026-11-03T11:05:00Z").toLocaleString();
+    const line = await screen.findByText(/The last admissions-policy sweep \(/);
+    expect(line.textContent).toContain(`(${finished})`);
+    expect(line.textContent).toContain(next);
+    expect(line.textContent).not.toMatch(/Invalid Date/);
+  }, 20_000);
+
   // A cold start's 502 on the status request used to read as "no
   // administrator yet" and show the create-administrator form (ui-12).
   it("a failed status request offers a retry, never the create-administrator form", async () => {

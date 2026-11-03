@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import NarrativeEditor from "./NarrativeEditor.jsx";
+import { NARRATIVE_MAX_CHARS, NARRATIVE_MIN_CHARS, NARRATIVE_MIN_WORDS } from "../profile/narrative-limits.js";
 
 // The story editor's Delete sent DELETE /api/ec/narrative/<id>, a route the
 // server never had: the student saw "Not found" and the story stayed active,
@@ -65,5 +66,31 @@ describe("NarrativeEditor", () => {
     const when = new Date("2026-11-03T05:00:00Z").toLocaleString("en-US");
     expect(screen.getByText((text) => text.includes(when))).toBeInTheDocument();
     expect(screen.queryByText(/Invalid Date/)).not.toBeInTheDocument();
+  }, 20_000);
+
+  // The editor kept its own 100 / 1500 / 20 that matched the server only by
+  // luck; it now reads profile/narrative-limits.js, which the backend's
+  // misc-client-parity test holds to the server, and checks in the server's
+  // order, so a long story of few words is called too long.
+  it("counts and checks against the limits the server holds a story to", async () => {
+    stubBackend([]);
+    render(<NarrativeEditor />);
+    const box = await screen.findByDisplayValue(STORY);
+    expect(NarrativeEditor.MIN_CHARS).toBe(NARRATIVE_MIN_CHARS);
+    expect(NarrativeEditor.MAX_CHARS).toBe(NARRATIVE_MAX_CHARS);
+    expect(NarrativeEditor.MIN_WORDS).toBe(NARRATIVE_MIN_WORDS);
+    expect(screen.getByText(`What do you care about, and how have you shown it? ${NARRATIVE_MIN_CHARS}–${NARRATIVE_MAX_CHARS} characters.`)).toBeInTheDocument();
+    const save = screen.getByRole("button", { name: "Save narrative" });
+    expect(save).not.toBeDisabled();
+
+    fireEvent.change(box, { target: { value: "x".repeat(NARRATIVE_MAX_CHARS + 1) } });
+    expect(screen.getByText(`${NARRATIVE_MAX_CHARS + 1}/${NARRATIVE_MAX_CHARS} — please tighten the story.`)).toBeInTheDocument();
+    expect(save).toBeDisabled();
+
+    // Long enough, one word short.
+    const word = "w".repeat(Math.ceil(NARRATIVE_MIN_CHARS / (NARRATIVE_MIN_WORDS - 1)) + 1);
+    fireEvent.change(box, { target: { value: Array(NARRATIVE_MIN_WORDS - 1).fill(word).join(" ") } });
+    expect(screen.getByText(new RegExp(`/${NARRATIVE_MIN_CHARS} characters minimum\\. ${NARRATIVE_MIN_WORDS - 1}/${NARRATIVE_MIN_WORDS} words minimum\\.`))).toBeInTheDocument();
+    expect(save).toBeDisabled();
   }, 20_000);
 });

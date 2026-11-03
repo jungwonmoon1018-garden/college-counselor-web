@@ -146,11 +146,11 @@ describe("safe-storage with site data blocked", () => {
 });
 
 // A source check standing in for a lint rule (the frontend has no eslint):
-// every localStorage touch goes through safe-storage.js. App.jsx is listed
-// while its one guarded locale write still awaits the move to saveLocale.
+// every localStorage touch goes through safe-storage.js. App.jsx's locale
+// write was the last one outside it and now goes through i18n's saveLocale.
 describe("no bare localStorage outside safe-storage", () => {
   const SRC = path.resolve(__dirname, "..");
-  const ALLOWED = new Set(["session/safe-storage.js", "App.jsx"]);
+  const ALLOWED = new Set(["session/safe-storage.js"]);
   function walk(dir) {
     return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
       const full = path.join(dir, entry.name);

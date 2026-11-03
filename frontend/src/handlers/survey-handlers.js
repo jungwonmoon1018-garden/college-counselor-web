@@ -2,8 +2,9 @@
 // reconciling with the backend profile and editing an activity from the
 // profile. App() keeps each hook and its dependency array and calls these with the
 // render's bindings as `ctx`. Moved out of App.jsx on 2026-09-20.
-import { normalizeClassRank, formToEntry, blankTestForm, entryToForm } from "../profile/test-scores.js";
+import { normalizeClassRank, formToEntry, blankTestForm, entryToForm, entryLabel } from "../profile/test-scores.js";
 import { describeSetAside, syncFailureMessage } from "../profile/sync-result.js";
+import { setAsideRowsFrom } from "../profile/set-aside-rows.js";
 import { S } from "../app-shared.js";
 import { latestApScoreYear } from "../profile/ap-entry.js";
 import { storageApi, safeBtoa } from "../session/vault-storage.js";
@@ -50,6 +51,7 @@ export async function handleSurveyComplete(ctx) {
     sGoals, sGpaUw, sGpaW, sMajorInterest, sNoGpaYet, sNoTestsYet,
     sTests, setData, setMessages, setScreen, setSurveyError, user,
     getSyncBase, setSyncBase, syncInFlightRef,
+    locale, setSetAsideRows,
   } = ctx;
   // Flatten per-year courses into one array with year tags. A course in
   // the unplaced bucket keeps the year it came with (none, or one the
@@ -90,7 +92,10 @@ export async function handleSurveyComplete(ctx) {
     sum.push(`${allCourses.length} courses${apCount ? ` (${apCount} AP)` : ""}`);
   }
   if (profile.apScores.length) sum.push(`${profile.apScores.length} AP exam scores`);
-  if (profile.testScores.length) sum.push(profile.testScores.map(t => `${t.test.toUpperCase()}${t.subject?` ${t.subject}`:""}: ${t.totalScore}`).join(", "));
+  // The catalog's own name for each entry, scale included ("PSAT 8/9",
+  // "TOEFL (1-6 band)", "SAT Subject Test"): the test id upper-cased read
+  // "SAT_SUBJECT" and gave a band 5 as "TOEFL: 5", a 5 out of 120.
+  if (profile.testScores.length) sum.push(profile.testScores.map(t => `${entryLabel(t)}${t.subject?` ${t.subject}`:""}: ${t.totalScore}`).join(", "));
   else if (sNoTestsYet) sum.push("Test scores: not taken yet");
   if (activities.length) sum.push(`${activities.length} activities`);
 
@@ -160,7 +165,9 @@ export async function handleSurveyComplete(ctx) {
     // The server now holds what was sent: that is the base the next save
     // is checked against.
     setSyncBase?.(baseFromPayload(payload, body?.revision ?? base?.serverRevision ?? null));
-    setAsideNote = describeSetAside(body?.setAside);
+    setAsideNote = describeSetAside(body?.setAside, { locale });
+    // The sidebar marks each score the server set aside, where it is.
+    setSetAsideRows?.(setAsideRowsFrom(body?.setAside, payload.profile));
   }
 
   // FIX P2: Only reset messages on FIRST setup. If editing from chat, append an update
