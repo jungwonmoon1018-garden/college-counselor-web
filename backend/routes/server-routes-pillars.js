@@ -17,8 +17,9 @@ import {
   screenInput as defaultScreenInput,
   screenOutput as defaultScreenOutput,
 } from "../chat/content-moderation.js";
-import { isCrisisText as defaultIsCrisisText } from "../chat/policy-router.js";
-import { buildCrisisResponse as defaultBuildCrisisResponse } from "../chat/rules-engine.js";
+import { isCrisisText as defaultIsCrisisText, isCrisisTopicMention } from "../chat/policy-router.js";
+import { buildCrisisChatReply as defaultBuildCrisisChatReply, crisisResourceFooter } from "../chat/rules-engine.js";
+import { resolveLocale } from "../shared/i18n.js";
 
 const VALID_DECISION_TYPES = new Set(Object.values(DECISION_TYPES));
 
@@ -43,7 +44,7 @@ export function mountPillarRoutes(app, deps) {
     screenCouncilOutput = defaultScreenOutput,
     restoreCouncilPII = defaultRestorePII,
     isCouncilCrisisText = defaultIsCrisisText,
-    buildCouncilCrisisResponse = defaultBuildCrisisResponse,
+    buildCouncilCrisisReply = defaultBuildCrisisChatReply,
   } = deps;
 
   if (!db) throw new Error("mountPillarRoutes requires db");
@@ -105,19 +106,16 @@ export function mountPillarRoutes(app, deps) {
     // Crisis support is deterministic and must not be suppressed by malformed
     // Council metadata. It runs after authentication/size checks but before
     // explicit-action, consent, budget, or model validation.
-    const localeHeader = req.headers["x-collegeapp-locale"] || req.headers["accept-language"] || "";
-    const locale = String(localeHeader).toLowerCase().startsWith("ko") ? "ko" : "en-US";
+    // The same deterministic reply as /api/chat (one builder), with the same
+    // locale resolution, so a Council question and a chat message that say
+    // the same thing get the same hotlines.
+    const locale = resolveLocale(req) === "ko" ? "ko" : "en-US";
     if (isCouncilCrisisText(question)) {
-      const built = buildCouncilCrisisResponse(locale);
-      const crisis = built?.crisis_response || built || {};
-      return res.json({
-        answer: crisis.message || "",
-        actions: Array.isArray(crisis.resources) ? crisis.resources : [],
-        limitations: [crisis.disclaimer].filter(Boolean),
-        crisisSafe: true,
-        _meta: { deterministic: true, topicType: "CRISIS", modelTier: "NONE" },
-      });
+      return res.json(buildCouncilCrisisReply(locale));
     }
+    // A question that names suicide, self-harm or overdose as a topic is
+    // reviewed, and the recommendation carries the resource footer.
+    const topicFooter = isCrisisTopicMention(question) ? crisisResourceFooter(locale) : "";
 
     if (req.body?.explicit !== true || req.body?.auto === true) {
       return res.status(400).json({
@@ -222,9 +220,12 @@ export function mountPillarRoutes(app, deps) {
         ? result.dissents.map(sanitizeDissent)
         : [];
       const standaloneDissent = sanitizeDissent(result?.dissent);
+      const recommendation = sanitizeText(result?.recommendation);
       const safeResult = {
         ...result,
-        recommendation: sanitizeText(result?.recommendation),
+        recommendation: topicFooter && typeof recommendation === "string" && recommendation.trim()
+          ? recommendation + topicFooter
+          : recommendation,
         dissents,
         dissent: standaloneDissent || dissents[0] || null,
       };

@@ -11,6 +11,7 @@ import {
   selectModelTier,
   canHandleDeterministically,
   routeRequest,
+  isCrisisTopicMention,
   TOPIC_TYPES,
   MODEL_TIERS,
 } from "../chat/policy-router.js";
@@ -41,6 +42,62 @@ describe("classifyTopic", () => {
   it("classifies crisis language as CRISIS", () => {
     const result = classifyTopic("I want to end my life");
     assert.equal(result.topicType, TOPIC_TYPES.CRISIS);
+  });
+
+  // iOS and macOS type ’ by default; every pattern spelled the apostrophe in
+  // ASCII, so these were ordinary coaching turns.
+  it("classifies crisis statements typed with a typographic apostrophe as CRISIS", () => {
+    for (const text of ["I’m not safe at home", "I don’t want to live anymore", "I’m being abused by my stepdad", "I’m scared to go home"]) {
+      assert.equal(classifyTopic(text).topicType, TOPIC_TYPES.CRISIS, text);
+    }
+    assert.notEqual(classifyTopic("I’m hopeless at chemistry").topicType, TOPIC_TYPES.CRISIS);
+  });
+
+  // Over-firing idioms, loosened on both lexicons with the first-person
+  // statement next to each one still pinned as a crisis.
+  it("answers idioms that look like danger, and keeps the first-person statements beside them", () => {
+    const pairs = [
+      ["I'm in danger of failing AP Chem, what should I do?", "I'm in danger at home"],
+      ["I am in danger of losing my scholarship if my GPA drops", "I'm in danger of being hurt"],
+      ["I cut myself off from social media to focus on SAT prep", "I cut myself last night"],
+      ["I need to cut myself some slack this semester", "I'm cutting myself again"],
+      ["I hurt myself playing soccer and missed junior season", "I want to hurt myself"],
+      ["I hurt myself at practice", "I keep hurting myself"],
+      ["They threatened me with detention for being late", "he threatened me with a knife"],
+      ["My teacher threatened me with a zero", "he threatened to kill me"],
+      ["It's an emergency, my Common App won't submit and the deadline is tonight!", "This is an emergency, I need help right now"],
+    ];
+    for (const [idiom, statement] of pairs) {
+      assert.notEqual(classifyTopic(idiom).topicType, TOPIC_TYPES.CRISIS, idiom);
+      assert.equal(classifyTopic(statement).topicType, TOPIC_TYPES.CRISIS, statement);
+    }
+  });
+
+  it("answers suicide named as a topic, and keeps a third party's attempt and first-person statements as crisis", () => {
+    for (const text of ["I started a suicide prevention club at school", "My research project is on suicide rates among teens", "We run a self-harm awareness week", "I volunteer with an overdose prevention program"]) {
+      assert.notEqual(classifyTopic(text).topicType, TOPIC_TYPES.CRISIS, text);
+      assert.equal(isCrisisTopicMention(text), true, text);
+    }
+    for (const text of ["My essay is about my brother's suicide attempt", "I'm suicidal", "I'm thinking about suicide", "I overdosed"]) {
+      assert.equal(classifyTopic(text).topicType, TOPIC_TYPES.CRISIS, text);
+      assert.equal(isCrisisTopicMention(text), false, text);
+    }
+    assert.equal(isCrisisTopicMention("Which APs should I take?"), false);
+  });
+
+  it("classifies Korean first-person statements as CRISIS and Korean hyperbole as coaching", () => {
+    for (const text of ["살고 싶지 않아요", "아빠가 저를 때려요", "엄마한테 맞고 있어요", "손목을 그었어요", "더 이상 살 이유가 없어요"]) {
+      assert.equal(classifyTopic(text).topicType, TOPIC_TYPES.CRISIS, text);
+    }
+    for (const text of ["화학 때문에 죽겠어요", "죽을 것 같이 바빠요", "자살 예방 동아리를 만들었어요"]) {
+      assert.notEqual(classifyTopic(text).topicType, TOPIC_TYPES.CRISIS, text);
+    }
+  });
+
+  it("classifies ideation the client always caught as CRISIS", () => {
+    for (const text of ["everyone would be better off without me", "nobody would miss me", "I hate my life"]) {
+      assert.equal(classifyTopic(text).topicType, TOPIC_TYPES.CRISIS, text);
+    }
   });
 
   it("defaults unmatched questions to COACHING (general)", () => {

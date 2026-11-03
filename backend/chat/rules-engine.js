@@ -400,7 +400,51 @@ export function evaluateComplianceGate(topicType, evidenceObjects = [], options 
 // CRISIS RESPONSE (deterministic — no model call)
 // ═══════════════════════════════════════════════════════════
 
+// The resource lists, the reply copy and the topic footer are identical in
+// frontend/src/chat/crisis-lexicon.js, which renders the same reply when the
+// client's own lexicon fires first; backend/tests/crisis-lexicon-parity.test.js
+// compares them. Korea consolidated 1393 and its other counseling lines into
+// 109 in January 2024, so 1393 and 1577-0199 are gone. The Korean list
+// comes first in Korean, then the US lines, because a Korean-speaking
+// student may be in either country.
+const US_CRISIS_RESOURCES = Object.freeze([
+  Object.freeze({ name: "Emergency services", contact: "911", description: "If you are in immediate danger", type: "emergency" }),
+  Object.freeze({ name: "988 Suicide & Crisis Lifeline", contact: "988", description: "Call or text, 24/7", type: "crisis" }),
+  Object.freeze({ name: "Crisis Text Line", contact: "Text HOME to 741741", description: "Free, 24/7", type: "crisis" }),
+  Object.freeze({ name: "Childhelp National Child Abuse Hotline", contact: "1-800-422-4453", description: "24/7", type: "abuse" }),
+]);
+const KO_CRISIS_RESOURCES = Object.freeze([
+  Object.freeze({ name: "자살예방상담전화", contact: "109", description: "24시간 상담", type: "crisis" }),
+  Object.freeze({ name: "청소년상담전화", contact: "1388", description: "24시간 청소년 상담", type: "youth" }),
+  Object.freeze({ name: "응급 신고", contact: "119", description: "지금 위험하거나 다쳤을 때", type: "emergency" }),
+  Object.freeze({ name: "경찰", contact: "112", description: "폭력이나 위협이 있을 때", type: "emergency" }),
+  Object.freeze({ name: "Emergency services (미국)", contact: "911", description: "미국에서 즉시 위험할 때", type: "emergency" }),
+  Object.freeze({ name: "988 Suicide & Crisis Lifeline (미국)", contact: "988", description: "전화 또는 문자, 24시간", type: "crisis" }),
+  Object.freeze({ name: "Crisis Text Line (미국)", contact: "Text HOME to 741741", description: "무료 문자 상담, 24시간", type: "crisis" }),
+  Object.freeze({ name: "Childhelp 아동학대 핫라인 (미국)", contact: "1-800-422-4453", description: "24시간", type: "abuse" }),
+]);
+
+const CRISIS_COPY = Object.freeze({
+  "en-US": Object.freeze({
+    message: "It sounds like you may be going through something really hard. You don't have to handle it alone, and people who can help are available right now.",
+    adult: "Please also reach out to a trusted adult: a parent, school counselor, teacher, or coach. Asking for help is a sign of strength.",
+    disclaimer: "I'm an AI assistant and can't provide crisis counseling. Please contact one of these trained services.",
+    resources: US_CRISIS_RESOURCES,
+  }),
+  ko: Object.freeze({
+    message: "지금 많이 힘든 시간을 보내고 있는 것 같아요. 혼자 감당하지 않아도 돼요. 지금 바로 도움을 받을 수 있는 곳이 있어요.",
+    adult: "부모님, 학교 상담 선생님, 선생님이나 코치처럼 믿을 수 있는 어른에게도 꼭 이야기해 주세요. 도움을 청하는 것은 용기 있는 일이에요.",
+    disclaimer: "저는 AI 도우미라서 위기 상담을 제공할 수 없어요. 위의 전문 기관에 연락해 주세요.",
+    resources: KO_CRISIS_RESOURCES,
+  }),
+});
+
+function crisisCopy(locale) {
+  return locale === "ko" ? CRISIS_COPY.ko : CRISIS_COPY["en-US"];
+}
+
 export function buildCrisisResponse(locale = "en-US") {
+  const copy = crisisCopy(locale);
   return {
     topicType: "crisis",
     modelUsed: "none",
@@ -408,23 +452,71 @@ export function buildCrisisResponse(locale = "en-US") {
     model_inferences: [],
     coaching_suggestions: [],
     crisis_response: {
-      message: locale === "ko"
-        ? "도움이 필요하신 것 같습니다. 아래 자원을 이용해 주세요."
-        : "It sounds like you may be going through a difficult time. Please reach out to one of these resources:",
-      resources: [
-        { name: "Emergency Services", contact: "911", description: "For immediate danger", type: "emergency" },
-        { name: "Suicide & Crisis Lifeline", contact: "988", description: "24/7 mental health support", type: "crisis" },
-        { name: "Crisis Text Line", contact: "Text HOME to 741741", description: "Free 24/7 crisis texting", type: "crisis" },
-        ...(locale === "ko" ? [
-          { name: "한국 자살예방상담전화", contact: "1393", description: "24시간 상담", type: "crisis" },
-          { name: "정신건강위기상담전화", contact: "1577-0199", description: "정신건강 위기 상담", type: "crisis" },
-        ] : []),
-      ],
-      disclaimer: "I'm an AI assistant and cannot provide crisis counseling. Please contact a trained professional.",
+      message: copy.message,
+      resources: copy.resources.map((resource) => ({ ...resource })),
+      disclaimer: copy.disclaimer,
     },
     ai_disclosure: {
       session_disclosure: "This is a deterministic safety response, not an AI-generated message.",
       model_disclosure: "No AI model was used for this response.",
     },
   };
+}
+
+function crisisResourceLine(resource) {
+  const details = [resource.contact, resource.description].map((v) => String(v || "").trim()).filter(Boolean).join(" — ");
+  return `- **${String(resource.name || "").trim()}:** ${details}`;
+}
+
+// The crisis reply with every resource written into the text itself.
+export function renderCrisisText(locale = "en-US") {
+  const copy = crisisCopy(locale);
+  return [
+    copy.message,
+    copy.resources.map(crisisResourceLine).join("\n"),
+    copy.adult,
+    `_${copy.disclaimer}_`,
+  ].join("\n\n");
+}
+
+// The one deterministic crisis reply /api/chat and /api/council/convene
+// send. The chat route used to send the hotlines only in `actions`, as
+// {name, contact} objects, with no topic_type: the client's formatter showed
+// actions only on regulated turns (and would have printed "[object Object]"),
+// so a student the server caught saw "Please reach out to one of these
+// resources:" and nothing after it, and the turn ran on through the
+// specialists and the supervisor as an ordinary answer. The answer text now
+// carries the full list, and crisisSafe plus topic_type "crisis" let every
+// client path recognize the reply before it parses or merges anything.
+export function buildCrisisChatReply(locale = "en-US") {
+  const loc = locale === "ko" ? "ko" : "en-US";
+  const built = buildCrisisResponse(loc);
+  const text = renderCrisisText(loc);
+  return {
+    answer: text,
+    topic_type: "crisis",
+    crisisSafe: true,
+    locale: loc,
+    claims: [],
+    limitations: [built.crisis_response.disclaimer],
+    actions: built.crisis_response.resources,
+    usage: { input_tokens: 0, output_tokens: 0, estimated_cost_usd: 0 },
+    content: [{ type: "text", text }],
+    ai_disclosure: built.ai_disclosure,
+    _meta: { deterministic: true, topicType: "CRISIS", modelTier: "NONE" },
+  };
+}
+
+// Appended to an answer whose question names suicide, self-harm or overdose
+// as a topic ("our suicide prevention club needs a fundraiser idea"). The
+// question is answered, and the safety net is never silently dropped. The
+// wording stays clear of the crisis lexicon, because the client sends drafts
+// that carry it back through /api/chat.
+const CRISIS_TOPIC_FOOTERS = Object.freeze({
+  "en-US": "\n\n_If this topic is close to home for you, support is available any time: call or text 988, or text HOME to 741741. If you are in immediate danger, call 911._",
+  ko: "\n\n_이 주제가 개인적으로 와닿는다면 언제든 도움을 받을 수 있어요: 109(24시간 상담)나 청소년상담전화 1388에 연락하고, 위급하면 119나 112에 전화하세요. 미국에 있다면 988에 전화나 문자를 하거나 741741로 HOME을 보내세요._",
+});
+
+export function crisisResourceFooter(locale = "en-US") {
+  return locale === "ko" ? CRISIS_TOPIC_FOOTERS.ko : CRISIS_TOPIC_FOOTERS["en-US"];
 }

@@ -8,6 +8,7 @@ import { buildCalendarPreamble, buildMemoryPreamble, orchestrate, rememberExchan
 import { looksLikeTranscript } from "../profile/transcript-utils.js";
 import { filedChatDocuments, mergeDocuments } from "../chat/chat-documents.js";
 import { reconcileCouncilFailureMessages } from "../profile/strategy-council.js";
+import { crisisResponseText, crisisTurnResult, isCrisisStatement } from "../chat/crisis-lexicon.js";
 
 // ─── SEND MESSAGE ───
 export async function send(ctx) {
@@ -158,9 +159,16 @@ export async function send(ctx) {
     const modelMsg = contextAppendix
       ? `${msg}\n\n[Context appendix — reference data for the assistant; not part of the student's question]\n${contextAppendix}\n[End context appendix]`
       : msg;
+    // A Council question runs the client lexicon first, as an ordinary chat
+    // turn does; the Council route's own check stays as the backstop. The
+    // UI locale goes to every /api/chat call of the turn, so the server's
+    // crisis reply, footnotes and refusals come back in the student's
+    // language (every call used to say en-US).
     const result = councilTypeForTurn
-      ? await conveneStrategyCouncil(baseMsg, councilTypeForTurn, abortRef.current.signal)
-      : await orchestrate(modelMsg, requestData, setData, setAgentStatus, abortRef.current.signal, attachment || null, messages);
+      ? (isCrisisStatement(baseMsg)
+        ? { ...crisisTurnResult(crisisResponseText(locale), locale), council: false }
+        : await conveneStrategyCouncil(baseMsg, councilTypeForTurn, abortRef.current.signal))
+      : await orchestrate(modelMsg, requestData, setData, setAgentStatus, abortRef.current.signal, attachment || null, messages, { locale });
     if (!threadIdForTurn && councilTypeForTurn) {
       threadIdForTurn = await newThread(undefined, true);
     }

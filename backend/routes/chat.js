@@ -5,13 +5,14 @@
 import { isReasonableModelId as adapterIsReasonableModelId } from "../llm-adapters/index.js";
 import { hasAttachmentPreface, stripClientEnvelope } from "../chat/chat-envelope.js";
 import { redactProviderText, restorePII, screenInput, screenOutput } from "../chat/content-moderation.js";
-import { TOPIC_TYPES, canHandleDeterministically, classifyTopic, isLookupQuestion } from "../chat/policy-router.js";
+import { TOPIC_TYPES, canHandleDeterministically, classifyTopic, isCrisisTopicMention, isLookupQuestion } from "../chat/policy-router.js";
+import { resolveLocale } from "../shared/i18n.js";
 import { validateRequiredConsents } from "../security/consent.js";
 import { OPENROUTER_CATALOG, ensureOpenRouterCatalog } from "../scouts/openrouter-model-refresh.js";
 import { buildSystemPrompt, redactPayloadForModel } from "../chat/orchestration-engine.js";
 import { composeAnswer, composeDeterministicAnswer } from "../chat/answer-composer.js";
 import crypto from "node:crypto";
-import { buildCrisisResponse } from "../chat/rules-engine.js";
+import { buildCrisisChatReply, crisisResourceFooter } from "../chat/rules-engine.js";
 import { searchFacts } from "../scouts/fact-store.js";
 import { buildFidelityCorrection, buildFidelityFootnote, checkProfileFidelity, detectSchoolMentions, formatProfileForModel } from "../chat/chat-grounding.js";
 import { processStudentInputForConcepts } from "../academics/ap-concept-vectorizer.js";
@@ -86,24 +87,32 @@ export function registerChatRoutes(app, deps) {
       }
 
       const classification = classifyTopic(questionText);
-      const locale = req.headers["accept-language"]?.startsWith("ko") ? "ko" : "en-US";
+      // The locale picks the crisis lines, the fidelity footnote and the
+      // no-source reply. It used to come from Accept-Language alone, which
+      // the client always sent as en-US, so a Korean student never saw the
+      // Korean hotlines; resolveLocale honors ?locale= and X-CollegeApp-Locale
+      // first, as the Council route does.
+      const locale = resolveLocale(req) === "ko" ? "ko" : "en-US";
+      // Crisis comes before every other branch, utility calls included: the
+      // client's gatekeeper sends the student's words as `Classify: "…"`, and
+      // its reply must be the crisis reply, not a classification.
       if (classification.topicType === TOPIC_TYPES.CRISIS) {
-        const built = buildCrisisResponse(locale);
-        const crisis = built.crisis_response || built;
         deps.stmts.insertAudit.run(
           crypto.randomUUID(), new Date().toISOString(), "crisis_detected",
           studentId.slice(0, 12), "crisis_policy_triggered", deps.hashIP(req.ip),
         );
-        return res.json({
-          answer: crisis.message,
-          claims: [],
-          limitations: [crisis.disclaimer].filter(Boolean),
-          actions: Array.isArray(crisis.resources) ? crisis.resources : [],
-          usage: { input_tokens: 0, output_tokens: 0, estimated_cost_usd: 0 },
-          content: [{ type: "text", text: crisis.message }],
-          _meta: { deterministic: true, topicType: "CRISIS", modelTier: "NONE" },
-        });
+        return res.json(buildCrisisChatReply(locale));
       }
+      // Suicide, self-harm or overdose named as a topic ("our school's suicide
+      // prevention club needs a fundraiser idea") is answered, with the 988 /
+      // 741741 footer on every answer the student can see. Utility calls get
+      // no footer: their reply is JSON the client parses.
+      const topicFooter = !jsonUtilityCall && isCrisisTopicMention(questionText) ? crisisResourceFooter(locale) : "";
+      const withTopicFooter = (body) => {
+        if (!topicFooter || !body || typeof body.answer !== "string" || !body.answer.trim()) return body;
+        const answer = body.answer + topicFooter;
+        return { ...body, answer, content: [{ type: "text", text: answer }] };
+      };
 
       let evidence = [];
       try { evidence = searchFacts(deps.factStmts, questionText, 12) || []; } catch { /* fail closed below */ }
@@ -139,11 +148,11 @@ export function registerChatRoutes(app, deps) {
             if (stats) {
               markStage("on_demand_read");
               const composed = composeDeterministicAnswer({ classification, result: stats, evidence, locale });
-              return res.json({
+              return res.json(withTopicFooter({
                 ...composed,
                 content: [{ type: "text", text: composed.answer }],
                 _meta: { deterministic: true, topicType: classification.topicType, modelTier: "NONE", onDemandRead: "ok", timings: finishTimings() },
-              });
+              }));
             }
           }
           markStage("on_demand_read");
@@ -173,11 +182,11 @@ export function registerChatRoutes(app, deps) {
           if (/^No deterministic rule is available/.test(String(result?.message || ""))) answerable = false;
           if (answerable) {
             const composed = composeDeterministicAnswer({ classification, result, evidence, locale });
-            return res.json({
+            return res.json(withTopicFooter({
               ...composed,
               content: [{ type: "text", text: composed.answer }],
               _meta: { deterministic: true, topicType: classification.topicType, modelTier: "NONE", onDemandRead: onDemand, timings: finishTimings() },
-            });
+            }));
           }
         }
         // Informational regulated/high-stakes questions flow to the model:
@@ -190,7 +199,10 @@ export function registerChatRoutes(app, deps) {
         const gate = hardLookup && deps.hasVerifiedCollegeData(questionText)
           ? { systemPrefix: buildSystemPrompt(classification) }
           : deps.regulatedChatGate(classification, studentId, questionText, locale, { schoolNamed: namedSchools.length > 0, schoolName: namedSchools[0] || null, onDemand });
-        if (gate.block) return res.json(gate.response);
+        // The refusal carries its topic_type like every composed answer, so
+        // the client shows its limitation and the official-source action
+        // (it shows those only on regulated and high-stakes turns).
+        if (gate.block) return res.json(withTopicFooter({ topic_type: classification.topicType, ...gate.response }));
         regulatedSystemPrefix = gate.systemPrefix || null;
       }
 
@@ -426,7 +438,7 @@ export function registerChatRoutes(app, deps) {
         locale,
         questionText,
       });
-      res.json({
+      res.json(withTopicFooter({
         ...composed,
         content: [{ type: "text", text: composed.answer }],
         model: response.model || model,
@@ -444,7 +456,7 @@ export function registerChatRoutes(app, deps) {
           attachmentsInlined,
           timings: finishTimings({ tier, model: response.model || model, threadMemory: threadMemoryCount }),
         },
-      });
+      }));
     } catch (error) {
       const status = Number.isInteger(error?.status) ? error.status : 502;
       console.error("[CHAT] request failed:", error?.code || error?.message);

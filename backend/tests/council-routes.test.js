@@ -151,7 +151,7 @@ test("Council crisis handling bypasses malformed metadata, budget, and models", 
   assert.equal(response.body.crisisSafe, true);
   assert.equal(response.body._meta.deterministic, true);
   assert.equal(response.body._meta.modelTier, "NONE");
-  assert.ok(response.body.actions.some((item) => item.contact === "1393"));
+  assert.ok(response.body.actions.some((item) => item.contact === "109"));
   assert.equal(harness.calls.limiter, 1);
   assert.equal(harness.calls.begin.length, 0);
   assert.equal(harness.calls.convene.length, 0);

@@ -13,6 +13,9 @@ import {
   estimateNetPrice,
   evaluateComplianceGate,
   buildCrisisResponse,
+  buildCrisisChatReply,
+  renderCrisisText,
+  crisisResourceFooter,
 } from "../chat/rules-engine.js";
 
 describe("runFAFSAEligibilityCheck", () => {
@@ -180,9 +183,51 @@ describe("buildCrisisResponse", () => {
     assert.ok(result.crisis_response.resources.some((r) => r.contact === "988"));
   });
 
-  it("returns Korean crisis resources for ko locale", () => {
-    const result = buildCrisisResponse("ko");
-    assert.ok(result.crisis_response.resources.some((r) => r.contact === "1393"));
+  // Korea folded 1393 and its other counseling lines into 109 in January
+  // 2024. Korean comes first, then the US lines for a student abroad.
+  it("returns Korean crisis resources for ko locale, Korean lines first", () => {
+    const contacts = buildCrisisResponse("ko").crisis_response.resources.map((r) => r.contact);
+    assert.deepEqual(contacts.slice(0, 4), ["109", "1388", "119", "112"]);
+    for (const us of ["911", "988", "Text HOME to 741741", "1-800-422-4453"]) assert.ok(contacts.includes(us), us);
+    assert.ok(!contacts.includes("1393"));
+    assert.ok(!contacts.includes("1577-0199"));
+  });
+
+  it("lists 911, 988, 741741 and Childhelp in English", () => {
+    const contacts = buildCrisisResponse("en-US").crisis_response.resources.map((r) => r.contact);
+    assert.deepEqual(contacts, ["911", "988", "Text HOME to 741741", "1-800-422-4453"]);
+  });
+});
+
+// The chat reply used to carry the hotlines only in `actions`, which the
+// client dropped: the student saw one sentence ending in a colon.
+describe("buildCrisisChatReply", () => {
+  it("writes every resource into the answer text and marks the reply as crisis", () => {
+    for (const locale of ["en-US", "ko"]) {
+      const reply = buildCrisisChatReply(locale);
+      assert.equal(reply.topic_type, "crisis");
+      assert.equal(reply.crisisSafe, true);
+      assert.equal(reply._meta.topicType, "CRISIS");
+      assert.equal(reply._meta.deterministic, true);
+      assert.equal(reply.answer, renderCrisisText(locale));
+      assert.equal(reply.content[0].text, reply.answer);
+      for (const resource of reply.actions) {
+        assert.ok(reply.answer.includes(resource.contact), `${locale} answer lists ${resource.contact}`);
+      }
+      assert.ok(!/\[object Object\]/.test(reply.answer));
+      assert.ok(!/:\s*$/.test(reply.answer), "the reply never ends on a dangling colon");
+      assert.deepEqual(reply.usage, { input_tokens: 0, output_tokens: 0, estimated_cost_usd: 0 });
+    }
+    assert.match(buildCrisisChatReply("ko").answer, /109[\s\S]*1388[\s\S]*119[\s\S]*112[\s\S]*988/);
+  });
+
+  it("falls back to English for any other locale", () => {
+    assert.equal(buildCrisisChatReply("es").answer, renderCrisisText("en-US"));
+  });
+
+  it("has a topic footer with 988 and 741741 in both locales", () => {
+    assert.match(crisisResourceFooter("en-US"), /988[\s\S]*741741/);
+    assert.match(crisisResourceFooter("ko"), /109[\s\S]*1388[\s\S]*988[\s\S]*741741/);
   });
 });
 

@@ -1,3 +1,5 @@
+import { formatCrisisReply, isCrisisReplyBody } from "../chat/crisis-lexicon.js";
+
 export const COUNCIL_DECISION_OPTIONS = Object.freeze([
   Object.freeze({ value: "course-selection", label: "Course selection", labelKo: "과목 선택" }),
   Object.freeze({ value: "college-list", label: "College list", labelKo: "대학 목록" }),
@@ -44,30 +46,13 @@ export function councilThreadTitle(decisionType, locale = "en-US") {
 }
 
 export function formatCouncilResult(body = {}, locale = "en-US") {
-  if (body.crisisSafe) {
+  // One renderer for every deterministic crisis body (formatCrisisReply in
+  // chat/crisis-lexicon.js): the server now writes the resources into `answer`,
+  // and a resource list rendered here as well would show every line twice.
+  if (isCrisisReplyBody(body)) {
     const ko = locale === "ko";
-    const parts = [String(body.answer || body.message || "").trim()].filter(Boolean);
-    const resources = Array.isArray(body.actions) ? body.actions : [];
-    if (resources.length) {
-      parts.push(ko ? "**즉시 이용할 수 있는 지원**" : "**Immediate support**");
-      for (const resource of resources) {
-        if (resource && typeof resource === "object") {
-          const name = String(resource.name || (ko ? "지원 기관" : "Support resource")).trim();
-          const contact = String(resource.contact || resource.url || "").trim();
-          const description = String(resource.description || "").trim();
-          const details = [contact, description].filter(Boolean).join(" — ");
-          parts.push(`- **${name}:** ${details}`.trim());
-        } else if (resource) {
-          parts.push(`- ${String(resource).trim()}`);
-        }
-      }
-    }
-    const limitations = Array.isArray(body.limitations)
-      ? body.limitations.map((item) => String(item || "").trim()).filter(Boolean)
-      : [];
-    if (limitations.length) parts.push(...limitations.map((item) => `_${item}_`));
     return {
-      text: parts.join("\n\n"),
+      text: formatCrisisReply(body, locale),
       blocked: true,
       crisisSafe: true,
       threadTitle: ko ? "지원 안내" : "Support resources",

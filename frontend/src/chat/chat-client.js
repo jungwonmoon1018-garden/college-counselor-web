@@ -2,6 +2,8 @@
 // client rate limiter, the call timeout, the silent re-authentication on a
 // 401, the upload safety screen and the audit log call. Moved out of App.jsx
 // on 2026-09-20.
+import { formatCrisisReply, isCrisisReplyBody } from "./crisis-lexicon.js";
+
 // FIX 7d: Sanitize free-text inputs to prevent persistent prompt injection
 // `maxChars` defaults to a budget far above any attachment preface: the old
 // hard cap of 500 characters silently truncated every uploaded transcript or
@@ -11,7 +13,9 @@ const SENTINEL_LINE_RE = /^\s*\[(?:Attached files —|End of attached files\]|Co
 
 export function sanitizeInput(text, maxChars = 200_000) {
   if (!text) return "";
-  // Normalize unicode homoglyphs (smart quotes, zero-width chars, lookalikes)
+  // Strips zero-width and invisible characters only. Typographic quotes are
+  // left alone here; the crisis lexicons normalize them themselves
+  // (normalizeForLexicon), which this comment once claimed happened here.
   let s = text.replace(/[\u200B-\u200F\u2028-\u202F\uFEFF]/g, ""); // zero-width / invisible chars
   // Brackets go, except on the sentinel lines this client builds around
   // the question ("[Attached files \u2014 \u2026]", "[End of attached files]",
@@ -77,9 +81,38 @@ function formatStructuredChatResponse(body) {
   if (grouped.student.length && regulatedTurn) parts.push("**Student-provided facts**", ...grouped.student);
   if (regulatedTurn) {
     if (Array.isArray(body.limitations) && body.limitations.length) parts.push("**Limitations**", ...body.limitations.map((item) => `- ${String(item)}`));
-    if (Array.isArray(body.actions) && body.actions.length) parts.push("**Next actions**", ...body.actions.map((item) => `- ${String(item.label || item.text || item)}`));
+    if (Array.isArray(body.actions) && body.actions.length) parts.push("**Next actions**", ...body.actions.map((item) => `- ${actionLine(item)}`));
   }
   return parts.filter(Boolean).join("\n\n");
+}
+
+// An action is a string or an object: {label, url} from the composer and the
+// no-source reply, {name, contact} from a resource list. String(object) used
+// to print "[object Object]".
+function actionLine(item) {
+  if (!item || typeof item !== "object") return String(item ?? "");
+  const label = String(item.label || item.name || item.text || "").trim();
+  const detail = String(item.url || item.contact || "").trim();
+  return [label, detail].filter(Boolean).join(" — ") || "";
+}
+
+// Thrown by requestChat when /api/chat answers with its deterministic crisis
+// reply. The reply is not JSON and not a draft: a gatekeeper that parsed it
+// fell back to safe_multi, and every specialist and the supervisor then got
+// the same body and merged it into an ordinary answer. Throwing lets
+// orchestrate() end the turn at whichever call it arrives on.
+export class CrisisReplyError extends Error {
+  constructor(body, locale = "en-US") {
+    super("crisis_reply");
+    this.name = "CrisisReplyError";
+    this.crisisReply = true;
+    this.body = body;
+    this.text = formatCrisisReply(body, locale);
+  }
+}
+
+export function isCrisisReplyError(err) {
+  return Boolean(err && err.crisisReply === true && typeof err.text === "string");
 }
 
 // Unique id for the backend's budget ledger. /api/chat REQUIRES a request_id
@@ -113,10 +146,12 @@ function withCallTimeout(signal, ms) {
   return ctrl.signal;
 }
 
+// `locale` is the UI language. Every caller used to leave it out, so every
+// call said en-US and a Korean student's crisis reply listed only US lines.
 export async function requestChat(payload, signal, locale = "en-US") {
   const lang = locale === "ko" ? "ko" : "en-US";
   const url = `${CHAT_PATH}?locale=${encodeURIComponent(lang)}`;
-  const headers = { "Content-Type": "application/json", "Accept-Language": lang };
+  const headers = { "Content-Type": "application/json", "Accept-Language": lang, "X-CollegeApp-Locale": lang };
   // Send the session token for tenant authorization and usage accounting.
   if (window.__CC_SESSION_TOKEN__) {
     headers["Authorization"] = `Bearer ${window.__CC_SESSION_TOKEN__}`;
@@ -154,6 +189,8 @@ export async function requestChat(payload, signal, locale = "en-US") {
   }
 
   const body = await r.json();
+  // Before any formatting or JSON parse: a crisis reply ends the turn.
+  if (isCrisisReplyBody(body)) throw new CrisisReplyError(body, lang);
   if (body?.answer) {
     const expectsJson = /respond\s+(only\s+)?with\s+json|return\s+only\s+json/i.test(String(payload?.system || ""));
     const text = expectsJson ? String(body.answer) : formatStructuredChatResponse(body);
@@ -226,7 +263,7 @@ export async function _tryReAuth() {
 // Uses a dedicated safety classifier to reject CSAM, explicit content,
 // and inappropriate material before it ever reaches the counseling agents.
 
-export async function screenUploadForSafety(fileData, signal) {
+export async function screenUploadForSafety(fileData, signal, locale = "en-US") {
   const UPLOAD_SCREENER = {
     id: "upload_screener",
     label: "Upload Safety",
@@ -261,11 +298,13 @@ If uncertain whether the content is unsafe, ACCEPT — downstream moderation run
       max_tokens: UPLOAD_SCREENER.maxTokens,
       system: UPLOAD_SCREENER.system,
       messages: [{ role: "user", content: contentBlocks }]
-    }, signal);
+    }, signal, locale);
     const text = d.content?.filter(b => b.type === "text").map(b => b.text).join("") || "";
     const result = JSON.parse(text.replace(/```json|```/g, "").trim());
     return { safe: !!result.safe, reason: result.reason || "" };
   } catch (err) {
+    // A crisis reply is not a screening failure; orchestrate() ends the turn.
+    if (isCrisisReplyError(err)) throw err;
     // Fail CLOSED — if screening fails, reject the upload
     // But surface the real error so the user can fix it (auth, missing key, payload size, etc.)
     console.warn("Upload safety screening failed:", err?.message);

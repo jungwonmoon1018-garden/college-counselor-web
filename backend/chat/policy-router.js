@@ -62,27 +62,85 @@ export const STRATEGY_COUNCIL_SUBINTENTS = new Set([
 // ─── Escalation threshold: Sonnet must report confidence below this to escalate to Opus ───
 const OPUS_ESCALATION_THRESHOLD = 0.45;
 
-// ─── Keyword patterns for topic classification ───
+// ─── Crisis lexicon ───
+// Deterministic crisis triggers are STATEMENTS ABOUT THE STUDENT'S OWN
+// SAFETY, not topic words. The earlier lexicon fired on bare "abuse",
+// "emergency", "danger", "threatened" and on "end my …" — so "how do I end
+// my essay?" and "I volunteer in the emergency room" got the crisis
+// hotlines instead of an answer. Ordinary stress ("I'm hopeless at
+// chemistry", "overwhelmed") is not a crisis: the client adds a supportive
+// footer for that without blocking the answer.
+//
+// The client keeps the same list in frontend/src/chat/crisis-lexicon.js,
+// built from the same fragments. The two were once written separately and
+// drifted until 24 of 30 probe phrases disagreed (no Hangul on the client,
+// no "better off without me" here); backend/tests/crisis-lexicon-parity.test.js
+// now compares the pattern sources, the shared case fixture, the resource
+// list and the footers, so change both files together.
+
+// iOS and macOS insert a typographic apostrophe by default, and "I’m not
+// safe at home" missed both lexicons because every pattern spelled the
+// apostrophe in ASCII. Zero-width characters and line breaks split phrases
+// the same way. Every crisis check matches the text after this.
+export function normalizeForLexicon(text) {
+  let s = String(text ?? "");
+  try { s = s.normalize("NFKC"); } catch { /* keep the raw text */ }
+  return s
+    .replace(/[‘’‚‛′‵ʻʼ´`＇]/g, "'")
+    .replace(/[​-‏⁠﻿­]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// A topic noun right after suicide / self-harm / overdose makes it a topic
+// mention, not a disclosure: "suicide prevention club", "self-harm awareness
+// week", "overdose prevention program", "the 988 Suicide & Crisis Lifeline".
+// Students who run those programs could not get help presenting them. A
+// third party's attempt ("my brother's suicide attempt") is not a topic noun
+// and stays a crisis statement.
+const TOPIC_NOUNS = String.raw`(?:prevention|awareness|research|rates?|statistics?|stats|clubs?|walks?|training|programs?|weeks?|months?|hotlines?|lifelines?)`;
+const TOPIC_PAIR = String.raw`(?:suicide|self[\s-]?harm|overdose|crisis|mental[\s-]health|substance[\s-](?:use|abuse)|drug|opioid)s?`;
+const TOPIC_TAIL = String.raw`(?![\s/&-]+(?:(?:and|or)[\s/&-]+)?${TOPIC_PAIR}[\s-]+${TOPIC_NOUNS}\b|[\s-]+${TOPIC_NOUNS}\b)`;
+// "I hurt myself playing soccer" and "I cut myself off from social media"
+// are about a sports injury and a phone, and both got the hotlines.
+const HURT_IDIOM = String.raw`(?!\s+(?:playing|at\s+(?:practice|tryouts?|the\s+gym|(?:a|the)\s+(?:game|match|meet|race|tournament))|during\s+(?:practice|tryouts?|(?:a|the|my|our)\s+(?:\w+\s+)?(?:game|match|meet|race|season|tournament|practice|scrimmage))|in\s+(?:a|the|my)\s+(?:game|match|race|meet|tournament)|skiing|snowboarding|skating|running|lifting|training|practicing|working\s+out|dancing))`;
+const CUT_IDIOM = String.raw`(?!\s+(?:off|some\s+slack|short))`;
+// "No reason to keep going with robotics" is about an activity; "no reason
+// to keep going", "… with my life" and "… with any of this" are not.
+const ACTIVITY_TAIL = String.raw`(?!\s+with\s+(?!(?:my\s+life|life|this|it|everything|anything|any\s+of\s+this)\b))`;
+const RELATION = String.raw`(?:dad|father|mom|mother|parents?|step-?\w+|foster\s+\w+|grand(?:pa|ma|father|mother|parents?)|coach|teacher|tutor|boyfriend|girlfriend|partner|uncle|aunt|brother|sister|cousin|guardian|relative|neighbou?r|boss|pastor|priest)`;
+const HARM_VERB = String.raw`(?:hits?|hitting|beats?|beating|abuses?|abused|abusing|touch(?:es|ed|ing)|molest(?:s|ed|ing)?|assault(?:s|ed|ing)?|hurts?|hurting|chok(?:es|ed|ing)|slap(?:s|ped|ping)?|punch(?:es|ed|ing)?)`;
+const THIRD_PARTY_VERB = String.raw`(?:hits?|hitting|beats?|beating|abuses?|abused|abusing|touch(?:es|ed|ing)|molest(?:s|ed|ing)?|grooming|groomed|raped?|assault(?:s|ed|ing)?|chok(?:es|ed|ing)|slap(?:s|ped|ping)?|punch(?:es|ed|ing)?)`;
+// An application emergency ("my Common App won't submit, it's an
+// emergency") is not a safety statement; any other "it's an emergency" is.
+const APPLICATION_WORDS = String.raw`(?:apps?|applications?|common\s+app|essays?|deadlines?|portal|submit\w*|upload\w*|forms?|fafsa|css\s+profile|transcripts?|homework|assignments?|exams?|tests?|quiz|sat|act|recommendations?|letters?|payments?|fees?|login|log\s+in|password|website)`;
+
 const PATTERNS = {
-  // Deterministic crisis triggers are STATEMENTS ABOUT THE STUDENT'S OWN
-  // SAFETY, not topic words. The earlier lexicon fired on bare "abuse",
-  // "emergency", "danger", "threatened" and on "end my …" — so "how do I end
-  // my essay?" and "I volunteer in the emergency room" got the crisis
-  // hotlines instead of an answer. Ordinary stress ("I'm hopeless at
-  // chemistry", "overwhelmed") is not a crisis: the client adds a supportive
-  // footer for that without blocking the answer.
   crisis: [
     // Self-harm / suicidal ideation, first person.
-    /\b(?:suicid\w*|kill(?:ing)?\s+myself|self[- ]?harm(?:ing)?|(?:want|wanted|wanting|going|ready)\s+to\s+die|wanna\s+die|end(?:ing)?\s+my\s+(?:own\s+)?life|end\s+it\s+all|take\s+my\s+(?:own\s+)?life|hurt(?:ing)?\s+myself|cut(?:ting)?\s+myself|don'?t\s+want\s+to\s+(?:live|be\s+alive|wake\s+up|exist|be\s+here)|no\s+reason\s+to\s+(?:live|go\s+on)|better\s+off\s+dead|not\s+worth\s+living|wish\s+i\s+(?:was|were)\s+dead|overdos(?:e|ing))\b/i,
+    new RegExp(String.raw`\b(?:suicid\w*\b${TOPIC_TAIL}|kill(?:ing)?\s+myself|self[\s-]?harm(?:ing|ed)?\b${TOPIC_TAIL}|(?:want|wanted|wanting|going|ready)\s+to\s+die|wanna\s+die|end(?:ing)?\s+my\s+(?:own\s+)?life|end\s+it\s+all|take\s+my\s+(?:own\s+)?life|hurt(?:ing)?\s+myself\b${HURT_IDIOM}|cut(?:ting)?\s+myself\b${CUT_IDIOM}|don'?t\s+want\s+to\s+(?:live|be\s+alive|wake\s+up|exist|be\s+here)|no\s+reason\s+to\s+(?:live|(?:go\s+on|keep\s+going)\b${ACTIVITY_TAIL})|better\s+off\s+dead|not\s+worth\s+living|wish\s+i\s+(?:was|were)\s+dead|overdos(?:e|ed|es|ing)\b${TOPIC_TAIL}|took\s+(?:too\s+many|a\s+(?:bunch|handful)\s+of|all\s+(?:of\s+)?(?:my|the))\s+(?:pills|meds|medications?|tablets))\b`, "i"),
     // Abuse, assault, grooming — the student says it is happening to them.
-    /\b(?:(?:my|our)\s+(?:dad|father|mom|mother|parents?|step(?:dad|mom|father|mother)|coach|teacher|tutor|boyfriend|girlfriend|partner|uncle|aunt|brother|sister|cousin|guardian|relative)\s+(?:hits?|beats?|abuses?|touch(?:es|ed)|molest(?:s|ed)?|assault(?:s|ed)?|hurts?|chokes?|threatens?)\s+me|i(?:'m| am| was| have been| get| got)\s+(?:being\s+)?(?:physically|sexually|emotionally|verbally)?\s*(?:abused|molested|assaulted|raped|groomed|beaten)|(?:he|she|they|someone|an?\s+adult)\s+(?:is\s+|are\s+)?(?:hits?|beats?|abuses?|touch(?:es|ed)|molest(?:s|ed)|grooming|groomed|raped?|assaulted)\s+me|domestic\s+violence\s+(?:at|in)\s+(?:my\s+)?home)\b/i,
+    new RegExp(String.raw`\b(?:(?:my|our)\s+${RELATION}\s+(?:is\s+|keeps\s+|has\s+been\s+|always\s+|still\s+)?${HARM_VERB}\s+me|i(?:'?m|\s+am|\s+was|\s+have\s+been|'ve\s+been|\s+get|\s+got|\s+keep\s+getting)\s+(?:being\s+)?(?:(?:physically|sexually|emotionally|verbally)\s+)?(?:abused|molested|assaulted|raped|groomed|beaten)|(?:he|she|they|someone|somebody|an?\s+adult)\s+(?:is\s+|are\s+|keeps\s+|has\s+been\s+)?${THIRD_PARTY_VERB}\s+me|domestic\s+violence\s+(?:at|in)\s+(?:my\s+)?home)\b`, "i"),
+    // A threat of harm. "They threatened me with detention" and "my teacher
+    // threatened me with a zero" are school discipline, not danger.
+    new RegExp(String.raw`\bthreaten(?:s|ed|ing)?\s+(?:to\s+(?:hurt|kill|beat|hit|harm|rape|touch|shoot|stab)\s+me|me\b(?!\s+with\s+(?!(?:a\s+)?(?:knife|gun|weapon|violence|a\s+beating|death|bodily\s+harm|physical\s+harm)\b)))`, "i"),
     // Immediate danger — the student says they are not safe right now.
-    /\b(?:i(?:'m| am)\s+(?:in\s+danger|not\s+safe|unsafe|scared\s+(?:for\s+my\s+life|to\s+go\s+home))|(?:someone|he|she|they)\s+(?:is\s+|are\s+)?threaten(?:s|ing|ed)\s+(?:to\s+(?:hurt|kill)\s+)?me|(?:it'?s|this\s+is)\s+an\s+emergency|i\s+don'?t\s+feel\s+safe\s+(?:at\s+home|at\s+school|anywhere|here))\b/i,
+    // "In danger of failing AP Chem" is grades; "in danger", "in danger at
+    // home" and "in danger of being hurt" are not.
+    new RegExp(String.raw`\b(?:i(?:'?m|\s+am)\s+(?:in\s+danger\b(?!\s+of\s+(?!(?:being\s+)?(?:hurt|harmed|killed|attacked|beaten|abused|dying|death)\b))|not\s+safe|unsafe|(?:scared|afraid|terrified)\s+(?:for\s+my\s+life|to\s+go\s+(?:back\s+)?home))|i\s+(?:don'?t|do\s+not)\s+feel\s+safe\s+(?:at\s+home|at\s+school|anywhere|here|with\s+(?:my\s+)?\w+))\b`, "i"),
+    new RegExp(String.raw`^(?![\s\S]*\b${APPLICATION_WORDS}\b)[\s\S]*\b(?:it'?s|it\s+is|this\s+is)\s+an?\s+emergency\b`, "i"),
+    // Hopelessness about life itself, which the client always treated as a
+    // crisis and this list did not ("everyone would be better off without
+    // me" went to a paid Strategy Council review). Never fires on academic
+    // despair ("I give up on this essay").
+    new RegExp(String.raw`\b(?:no\s+point\s+(?:in|to)\s+(?:living|anything|going\s+on)|better\s+(?:off\s+)?without\s+me|nobody\s+would\s+(?:care|notice|miss\s+me)|disappear\s+(?:forever|for\s+good)|(?:just\s+)?want\s+to\s+disappear\b(?!\s+(?:from|into|for\s+(?:a|the)\s+(?:bit|while|day|weekend)))|give\s+up\s+on\s+(?:life|everything)|can'?t\s+go\s+on(?:\s+like\s+this)?|hate\s+my\s+life|life\s+is(?:n'?t|\s+not)\s+worth|don'?t\s+see\s+the\s+point\s+(?:of|in)\s+(?:anything|living|life))\b`, "i"),
     // Korean (a first-class locale here, with Korean crisis hotlines). No \b —
     // word boundaries behave poorly for CJK; match the lexemes directly.
-    /(자살|자해|죽고\s*싶|죽고싶|목숨을\s*끊|극단적\s*선택|살기\s*싫|죽어\s*버리고\s*싶)/,
-    /(학대|성추행|성폭행|폭행|가정폭력)(?:을|를)?\s*(?:당하|당했|당하고|받고|받았|겪|겪고)/,
-    /(위험에\s*처|안전하지\s*않|저는\s*위험해)/,
+    // Colloquial hyperbole ("화학 때문에 죽겠어요", "죽을 것 같이 바빠요")
+    // does not match.
+    /(자살(?!\s*(?:예방|방지|률|율|통계|연구|인식|캠페인|동아리|프로그램|교육|상담전화))|자해(?!\s*(?:예방|방지|인식|연구|통계|캠페인|동아리|프로그램|교육))|죽고\s*싶|목숨을\s*끊|극단적\s*선택|살기\s*싫|죽어\s*버리고\s*싶|살고\s*싶지\s*않|살\s*이유가\s*없|살\s*가치가\s*없|사라지고\s*싶|없어지고\s*싶|삶을\s*끝내|인생을\s*끝내|손목을\s*(?:긋|그었|그어)|(?:^|[^가-힣])(?:나|내가|제가|저)\s*(?:없으면|없는\s*게|없어지면)\s*(?:다들\s*|모두\s*|가족도\s*)?(?:더\s*)?(?:나을|낫|행복할))/,
+    /((?:학대|성추행|성폭행|폭행|가정폭력)(?:을|를)?\s*(?:당하|당했|당하고|받고|받았|겪|겪고)|(?:아빠|엄마|아버지|어머니|부모님|새아빠|새엄마|계부|계모|오빠|형|누나|언니|삼촌|이모|고모|할아버지|할머니|선생님|코치|남자\s*친구|남친|여자\s*친구|여친)(?:가|이|께서|는|은)?\s*(?:저를|나를|절|날)?\s*(?:자꾸\s*|계속\s*|매일\s*|또\s*)?(?:때려|때렸|때린|때리|해칠|해치려|만져|만졌|만지)|(?:아빠|엄마|아버지|어머니|부모님|새아빠|새엄마|계부|계모|오빠|형|누나|언니|삼촌|선생님|코치|남자\s*친구|남친|여자\s*친구|여친)(?:한테|에게|께)\s*(?:자꾸\s*|계속\s*|매일\s*|또\s*)?(?:맞고\s*있|맞았|맞아요|맞는다|맞아))/,
+    /(위험에\s*처|안전하지\s*않|저는\s*위험해|집에\s*가(?:기|는\s*(?:게|것이))\s*(?:무서|두려))/,
   ],
   regulated: {
     fafsa: /\bfafsa\b|\bstudent\s*aid\s*index\b|\bsai\b|\befc\b|\bexpected\s*family\s*contribution\b|\bfederal\s*student\s*aid\b|\bstudentaid\.gov\b|\bfsa\s*id\b|\bcontributor\b.*\bfafsa\b/i,
@@ -201,9 +259,23 @@ export function isVerifiedEvidenceForTopic(evidence, subIntent, { now = new Date
 // crisis words back — e.g. a chat-thread title. Keeps one canonical check so
 // the two never drift.
 export function isCrisisText(text) {
-  const s = (text || "").trim();
+  const s = normalizeForLexicon(text);
   if (!s) return false;
   return PATTERNS.crisis.some((pattern) => pattern.test(s));
+}
+
+// Read by the parity test against the client's copy; not for matching.
+export const CRISIS_PATTERNS = Object.freeze([...PATTERNS.crisis]);
+
+// Suicide, self-harm or overdose named anywhere. Checked only after the
+// crisis patterns have said no, so a match marks a topic mention ("our
+// suicide prevention club"): answered normally, with the resource footer.
+export const CRISIS_TOPIC_RE = /\b(?:suicid\w*|self[\s-]?harm\w*|overdos\w*)\b|자살|자해/i;
+
+export function isCrisisTopicMention(text) {
+  const s = normalizeForLexicon(text);
+  if (!s || PATTERNS.crisis.some((pattern) => pattern.test(s))) return false;
+  return CRISIS_TOPIC_RE.test(s);
 }
 
 // ─── Main classification function ───
@@ -222,20 +294,20 @@ export function classifyTopic(query, conversationContext = {}) {
     };
   }
 
-  // 1. Crisis detection — always first, highest priority
-  for (const pattern of PATTERNS.crisis) {
-    if (pattern.test(text)) {
-      return {
-        topicType: TOPIC_TYPES.CRISIS,
-        intent: "crisis_detected",
-        subIntent: null,
-        sourceConstraint: "none",
-        modelTier: MODEL_TIERS.NONE,
-        gates: ["crisis_protocol"],
-        confidence: 0.95,
-        rationale: "Crisis keywords detected. Route to deterministic crisis response.",
-      };
-    }
+  // 1. Crisis detection — always first, highest priority. Matched on the
+  // normalized question (typographic apostrophes, zero-width characters),
+  // not on `text`, which the topic patterns below still read as before.
+  if (isCrisisText(query)) {
+    return {
+      topicType: TOPIC_TYPES.CRISIS,
+      intent: "crisis_detected",
+      subIntent: null,
+      sourceConstraint: "none",
+      modelTier: MODEL_TIERS.NONE,
+      gates: ["crisis_protocol"],
+      confidence: 0.95,
+      rationale: "Crisis keywords detected. Route to deterministic crisis response.",
+    };
   }
 
   // 2. Regulated topics

@@ -1,5 +1,42 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { _tryReAuth, endSessionReauth, setReauthCredentialProvider } from "./chat-client.js";
+import { _tryReAuth, endSessionReauth, isCrisisReplyError, requestChat, setReauthCredentialProvider } from "./chat-client.js";
+
+function stubBody(body) {
+  const fetchSpy = vi.fn(async () => ({ ok: true, status: 200, json: async () => body }));
+  vi.stubGlobal("fetch", fetchSpy);
+  return fetchSpy;
+}
+
+describe("requestChat reply handling", () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  // A crisis body used to be formatted as an answer: its hotlines lived in
+  // `actions`, shown only on regulated turns, so the text ended on a colon.
+  it("throws a crisis reply before formatting, carrying the full resource text", async () => {
+    stubBody({
+      answer: "It sounds like you may be going through a difficult time. Please reach out to one of these resources:",
+      actions: [{ name: "Suicide & Crisis Lifeline", contact: "988" }, { name: "Crisis Text Line", contact: "Text HOME to 741741" }],
+      _meta: { deterministic: true, topicType: "CRISIS" },
+    });
+    const err = await requestChat({ system: "Respond ONLY with valid JSON.", messages: [] }).catch((e) => e);
+    expect(isCrisisReplyError(err)).toBe(true);
+    expect(err.text).toMatch(/988[\s\S]*741741/);
+    expect(err.text).not.toMatch(/\[object Object\]/);
+  });
+
+  it("renders an official-source action as its label and link, not [object Object]", async () => {
+    stubBody({
+      answer: "I don't have verified admissions statistics for that school yet.",
+      topic_type: "high_stakes",
+      limitations: ["No figure is quoted without a verified official source."],
+      actions: [{ label: "College Scorecard", url: "https://collegescorecard.ed.gov" }],
+    });
+    const body = await requestChat({ messages: [] });
+    expect(body.structuredText).toContain("**Next actions**");
+    expect(body.structuredText).toContain("College Scorecard — https://collegescorecard.ed.gov");
+    expect(body.structuredText).not.toMatch(/\[object Object\]/);
+  });
+});
 
 // Silent re-authentication keeps a session alive across a backend restart.
 // It must stop the moment the student logs out: App() clears the credential
