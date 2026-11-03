@@ -261,6 +261,23 @@ test("a target or a school's figure listed after the student's score makes no co
   assert.doesNotMatch(JSON.stringify(calls), /FIDELITY CORRECTION/);
 });
 
+// The target rule first read "admit" and "target" as nouns even with an
+// object after them, and any capitalized possessive as a school's, so an
+// invented 1520 before "admit you" or "is Jiyeon's best" went out unchecked.
+test("an invented score listed before a verb or a person's possessive is still corrected", async () => {
+  const token = await registerWithProfile("fidelity-list-verb");
+  const wrong = "Your 3.82 GPA and 1520 SAT admit you to most schools on your list, and your 3.82 GPA and 1520 SAT is Jiyeon's best.";
+  const fixed = "Your 3.82 GPA and 1450 SAT admit you to most schools on your list.";
+  const marker = `MOCKREPLY:${b64(wrong)}: MOCKRETRY:${b64(fixed)}:`;
+  const turn = await chat(token, "Am I competitive for Michigan?", marker, "fidelity-list-verb-1");
+  assert.equal(turn.data._meta.profileFidelity?.resolved, "retry");
+  assert.deepEqual(turn.data._meta.profileFidelity.contradictions.map((c) => [c.kind, c.stated]), [["sat", "1520"]]);
+  assert.equal(turn.data.answer, fixed);
+  const calls = callsFor(marker);
+  assert.equal(calls.length, 2, "one draft call plus one corrective retry");
+  assert.match(JSON.stringify(calls[1].messages), /- SAT: recorded 1450 \(the reply said 1520\)/);
+});
+
 // An AP exam with no score on record was never checked, and the profile
 // block said nothing when there were no AP scores at all.
 test("a score invented for an AP course still in progress is corrected, and the profile says no AP scores are recorded", async () => {

@@ -290,10 +290,17 @@ const CLAUSE_BOUNDARY_SOURCE = String.raw`[.!?](?=\s|$)|[;\n]|,|\s(?:but|while|w
 
 // Every bound value, list item and course grade asks for its clause, and the
 // clause used to be found by scanning the reply from its start each time:
-// quadratic, 150-650 ms on a 60k-character reply. The boundaries of the last
-// text asked about are kept, so a check finds them once and then looks each
-// clause up by binary search.
+// quadratic, 150-650 ms on a 60k-character reply. The boundaries are found
+// once per reply and each clause is looked up by binary search. Only the
+// last reply is kept: one string and its boundary offsets, replaced by the
+// next reply checked, so the cache never holds more than one reply.
 let clauseIndex = { text: null, starts: [], closes: [] };
+// A clause is read at most this far either side of the value. A reply with
+// no sentence punctuation is one clause, and the hedge patterns ran over all
+// of it for every value: quadratic again, a second for 120k characters of
+// course grades and two for Korean with no periods. No real clause runs this
+// long, so a word farther away was never part of the same statement.
+const CLAUSE_REACH = 400;
 
 function clauseBoundaries(text) {
   if (clauseIndex.text === text) return clauseIndex;
@@ -321,13 +328,13 @@ function firstIndex(list, ok) {
 
 // The clause opens after the last boundary that closes at or before `start`
 // and runs to the first boundary that starts at or after `end`; a boundary
-// inside the span does not split it.
+// inside the span does not split it. Neither side reaches past CLAUSE_REACH.
 function clauseAround(text, start, end) {
   const { starts, closes } = clauseBoundaries(text);
   const before = firstIndex(closes, (close) => close > start) - 1;
   const after = firstIndex(starts, (at) => at >= end);
-  const from = before >= 0 ? closes[before] : 0;
-  const to = after < starts.length ? starts[after] : text.length;
+  const from = Math.max(before >= 0 ? closes[before] : 0, start - CLAUSE_REACH);
+  const to = Math.min(after < starts.length ? starts[after] : text.length, end + CLAUSE_REACH);
   return { lead: text.slice(from, start), tail: text.slice(end, to), whole: text.slice(from, to) };
 }
 
@@ -486,7 +493,25 @@ function courseMentions(text, groups) {
     const re = aliasRegExp([...group.aliases].sort((a, b) => b.length - a.length));
     for (const m of text.matchAll(re)) spans.push({ group, start: m.index, end: m.index + m[0].length });
   }
-  const kept = spans.filter((s) => !spans.some((o) => o !== s && o.start <= s.start && o.end >= s.end && (o.end - o.start) > (s.end - s.start)));
+  // A span inside a longer one is the longer one ("AP Physics C: Mechanics",
+  // not also "Physics"). Comparing every span with every other was quadratic
+  // in the mentions, a tenth of a second on a long reply of course grades;
+  // sorted by start, then longest first, one pass finds the same spans. The
+  // sort is stable, so one span named by two courses keeps their order.
+  spans.sort((a, b) => a.start - b.start || b.end - a.end);
+  const kept = [];
+  let reach = -1; // the furthest end of a span that starts before this one
+  let atStart = -1;
+  let longestEnd = -1; // the end of the longest span that starts here
+  for (const span of spans) {
+    if (span.start !== atStart) {
+      reach = Math.max(reach, longestEnd);
+      atStart = span.start;
+      longestEnd = span.end;
+    }
+    if (reach >= span.end || longestEnd > span.end) continue;
+    kept.push(span);
+  }
   const bySpan = new Map();
   for (const span of kept) {
     const before = text.slice(Math.max(0, span.start - 70), span.start);
@@ -724,13 +749,61 @@ function boundValueMentions(text, patterns, { section = null } = {}) {
 const LIST_JOINER_RE = /\s*,\s*(?:and\s+|plus\s+|as\s+well\s+as\s+)?|\s+(?:and|plus|&|as\s+well\s+as)\s+|\s*점?\s*(?:와|과|및)\s*/y;
 // After an item: a goal or a group's figure ("1520 SAT goal", "1450 SAT
 // superscore target", "1520 SAT admits at Duke"), a school's figure ("1520
-// SAT is Duke's median", "is the University of Michigan's"), or a value it
-// "would be ideal" to reach or that "would be needed". The item is not the
-// student's, and the list ends there; what came before it is still checked.
-// "Would be" alone does not end it: "your 3.72 GPA and 1520 SAT would be
-// competitive" states the record, as "your 3.95 GPA would make you
-// competitive" does, and an invented 1520 there still gets its retry.
-const LIST_ITEM_NOT_OWN_AFTER_RE = new RegExp(String.raw`^(?:\s+(?:superscore|super-score|score|scores|total|composite|combined|result|results))*\s+(?:(?:goals?|targets?|aims?|benchmarks?|medians?|averages?|range|ranges|band|cutoffs?|thresholds?|minimums?|admits?|admitted|applicants?|enrollees|matriculants|students)(?![A-Za-z])|(?:is|was)\s+(?:(?:the\s+)?(?:[A-Z][\w.&-]*\s+(?:(?:of|at|for)\s+)?){0,5}[A-Z][\w.&-]*(?:['’]s|s['’])(?![A-Za-z])|the\s+(?:school|college|university|program|class)['’]s(?![A-Za-z])|(?:its|their)(?![A-Za-z]))|would\s+be\s+(?:ideal|needed|necessary|required|(?:an?|the|your)\s+(?:[a-z]+\s+)?(?:target|goal|aim|benchmark))(?![A-Za-z]))`);
+// SAT is Duke's median", "is the University of Michigan's", "is the median
+// at Duke", "is their median"), or a value it "would be ideal" to reach or
+// that "would be needed". The item is not the student's, and the list ends
+// there; what came before it is still checked. "Would be" alone does not end
+// it: "your 3.72 GPA and 1520 SAT would be competitive" states the record, as
+// "your 3.95 GPA would make you competitive" does, and an invented 1520 there
+// still gets its retry.
+//
+// The first version of this rule read any of these words, and any
+// capitalized possessive, as the end of the list, and so let invented scores
+// through: "your 3.72 GPA and 1520 SAT admit you to most schools" and
+// "…target schools like Duke" use the word as a verb with an object, "…was
+// their deciding factor" and "…is Jiyeon's best" call the score a person's,
+// not a school's. A word that is only ever a noun (goal, median, cutoff)
+// ends the list wherever it stands. A word that is also a verb (target, aim,
+// admit, average, range, benchmark) ends it only in a noun's place: before a
+// sentence end or a bracket, a verb "is/are/was/were", "at/of/for/in", or a
+// school's name. "Is/was" then ends it only before a figure noun ("is the
+// median", "is their 75th percentile") or a school's possessive (below).
+const LIST_ITEM_LABEL_TAIL = String.raw`^(?:\s+(?:superscore|super-score|score|scores|total|composite|combined|result|results))*\s+`;
+const LIST_FIGURE_NOUN = String.raw`(?:medians?|averages?|mean|benchmarks?|cutoffs?|thresholds?|minimums?|ranges?|band|middle|mid-?50|25th|75th|percentile|targets?|goals?|typical|admits?|admitted|applicants?|students|requirements?|norm|bar)(?![A-Za-z])`;
+// A goal word is a noun, not a verb taking an object, when punctuation, a
+// verb of its own (is, would, puts, means), "and", or a noun it qualifies
+// follows it: "1520 SAT target score are 140 points apart" drew a needless
+// correction until "score" counted (2026-11-04).
+const LIST_NOUN_PLACE = String.raw`(?=\s*(?:[.!?;:,()\]—–]|$)|\s+(?:(?:is|are|was|were|at|of|for|in|and|would|should|could|will|puts?|means|scores?|ranges?|numbers?)(?![A-Za-z])|[A-Z]))`;
+const LIST_ITEM_NOT_OWN_AFTER_RE = new RegExp(String.raw`${LIST_ITEM_LABEL_TAIL}(?:(?:goals?|medians?|band|cutoffs?|thresholds?|minimums?|applicants?|enrollees|matriculants|students)(?![A-Za-z])|(?:targets?|aims?|benchmarks?|averages?|ranges?|admits?|admitted)${LIST_NOUN_PLACE}|(?:is|was)\s+(?:(?:the|its|their)\s+(?:[\w%-]+\s+)?${LIST_FIGURE_NOUN}|the\s+(?:school|college|university|program|class)['’]s(?![A-Za-z]))|would\s+be\s+(?:ideal|needed|necessary|required|(?:an?|the|your)\s+(?:[a-z]+\s+)?(?:target|goal|aim|benchmark))(?![A-Za-z]))`);
+// "…1520 SAT is Duke's median", "is the University of Michigan's", "is
+// MIT's": a possessive ends the list when it names a school (a known alias
+// or a name with University, College, Institute, State or Tech in it) or
+// when a figure noun follows it ("is Elm Valley's median"). "Is Jiyeon's
+// best" does neither: a reply that calls the student by name is stating the
+// student's own score.
+const LIST_ITEM_POSSESSOR_RE = new RegExp(String.raw`${LIST_ITEM_LABEL_TAIL}(?:is|was)\s+(?:the\s+)?(?<owner>(?:[A-Z][\w.&-]*\s+(?:(?:of|at|for|in)\s+)?){0,5}[A-Z][\w.&-]*)(?:['’]s|s['’])(?![A-Za-z])`);
+const LIST_FIGURE_AFTER_RE = new RegExp(String.raw`^\s+(?:[\w%-]+\s+)?${LIST_FIGURE_NOUN}`);
+const SCHOOL_WORD_RE = /(?<![A-Za-z])(?:University|College|Institute|School|Academy|Polytechnic|Conservatory|State|Tech)(?![A-Za-z])/;
+let schoolAliasKeys = null;
+
+function namesSchool(owner) {
+  // SCHOOL_ALIASES is declared further down the module; it is read here
+  // only once a check runs, after the module has loaded.
+  schoolAliasKeys ||= new Set(Object.keys(SCHOOL_ALIASES).map((alias) => alias.toLowerCase()));
+  return SCHOOL_WORD_RE.test(owner) || schoolAliasKeys.has(owner.replace(/\s+/g, " ").toLowerCase());
+}
+
+// Whether what follows a list item makes it a target or someone else's
+// figure. It reads at most 80 characters, so each item costs the same
+// whatever the length of the reply.
+function listItemNotOwn(text, end) {
+  const after = text.slice(end, end + 80);
+  if (LIST_ITEM_NOT_OWN_AFTER_RE.test(after)) return true;
+  const possessor = after.match(LIST_ITEM_POSSESSOR_RE);
+  if (!possessor) return false;
+  return namesSchool(possessor.groups.owner) || LIST_FIGURE_AFTER_RE.test(after.slice(possessor[0].length));
+}
 // An aside after an item ("your 3.82 GPA (4.31 weighted) and 1450 SAT").
 const LIST_ASIDE_RE = /\s*\([^()\n]{1,40}\)/y;
 // "your stats (…)", "your numbers — …", "your profile: …": the student's
@@ -822,7 +895,7 @@ function walkList(text, from, pos, { owned = false, parallel = false, first = fa
       if (VALUE_TAIL_BLOCK_RE.test(text.slice(item.vEnd, item.vEnd + 20))) return;
       if (item.form === "numberFirst" && COUNTED_AFTER_LABEL_RE.test(text.slice(item.end, item.end + 24))) return;
     }
-    if (LIST_ITEM_NOT_OWN_AFTER_RE.test(text.slice(item.end, item.end + 80))) return;
+    if (listItemNotOwn(text, item.end)) return;
     // An item with an article of its own is a fresh noun phrase: a modal
     // after it ("…, and a 1520 SAT would make you competitive") makes it a
     // plan, as it does for an unbound value.

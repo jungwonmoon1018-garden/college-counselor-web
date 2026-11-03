@@ -505,6 +505,15 @@ test("a target or a school's figure listed after the student's score is not the 
     "Your 1380 SAT and 1520 SAT benchmark for Duke.",
     "Your 3.72 GPA and 3.95 GPA goal are close.",
     "Your stats (3.72 GPA, 1380 SAT, 1520 SAT target) are solid.",
+    "Your 1380 SAT and 1520 SAT target score are 140 points apart.",
+    "Your 1380 SAT and 1520 SAT target score is 140 points higher.",
+    "Your 1380 SAT and 1520 SAT target puts Duke in reach.",
+    "Your 1380 SAT and 1520 SAT target would put Duke in reach.",
+    "Your 1380 SAT and 1520 SAT target should be doable.",
+    "Your 1380 SAT and 1520 SAT target means 140 more points.",
+    "Your 1380 SAT and 1520 SAT target range are 140 points apart.",
+    "Your 1380 SAT and 1520 SAT target and 3.9 GPA goal look good.",
+    "Your 1380 SAT and 1520 SAT target (Duke's median) are 140 points apart.",
   ]) assert.deepEqual(kinds(text, record), [], text);
   // What came before the target is still the student's and still checked.
   for (const [text, want] of [
@@ -514,21 +523,80 @@ test("a target or a school's figure listed after the student's score is not the 
   ]) assert.deepEqual(kinds(text, record), want, text);
 });
 
+// The rule above first ended the list at any of its words and at any
+// capitalized possessive, so an invented score went through again when the
+// word was a verb taking an object ("admit you", "target schools") or the
+// possessive named a person ("is Jiyeon's best", "was their deciding
+// factor"). A word that can be a verb ends the list only in a noun's place,
+// and "is X's" only when X is a school or a figure noun follows.
+test("an invented score before a verb or a person's possessive is still checked", () => {
+  const record = { gpaUnweighted: 3.72, testScores: [{ test: "sat", totalScore: 1380 }] };
+  for (const [text, want] of [
+    ["Your 3.72 GPA and 1520 SAT admit you to most schools.", ["sat:1520"]],
+    // "Target" before a common noun is a verb; before a school's name it
+    // stays a noun ("1520 SAT target Duke…" is left alone).
+    ["Your 3.72 GPA and 1520 SAT target schools like Duke.", ["sat:1520"]],
+    ["Your 3.72 GPA and 1520 SAT was their deciding factor.", ["sat:1520"]],
+    ["Your 3.72 GPA and 1520 SAT is Jiyeon's best.", ["sat:1520"]],
+    ["Your 3.72 GPA and 1520 SAT admitted you to Duke.", ["sat:1520"]],
+    ["Your 3.72 GPA and 1520 SAT is the best you've done.", ["sat:1520"]],
+    ["Your 3.72 GPA and 1520 SAT would be a strong pair.", ["sat:1520"]],
+    // The first item is tied to the student by its own "your"; the list
+    // rule never reaches it.
+    ["Your 1520 SAT is Duke's median.", ["sat:1520"]],
+    ["Your 1520 SAT goal.", ["sat:1520"]],
+  ]) assert.deepEqual(kinds(text, record), want, text);
+  // The same words as nouns, a school's possessive, and a figure noun after
+  // "is the / its / their" still end the list.
+  for (const text of [
+    "Your 1380 SAT and 1520 SAT is Duke’s.",
+    "Your 1380 SAT and 1520 SAT is their median.",
+    "Your 1380 SAT and 1520 SAT is the median at Duke.",
+    "Your 1380 SAT and 1520 SAT is MIT's 25th percentile.",
+    "Your 1380 SAT and 1520 SAT is Elm Valley's median.",
+    "Your 1380 SAT and 1520 SAT target for Duke.",
+    "Your 1380 SAT and 1520 SAT target, which is 140 points higher.",
+    "Your 1380 SAT and 1520 SAT goal puts Duke in reach.",
+    "Your 1380 SAT and 1520 SAT average at Duke.",
+    "Your 1380 SAT and 1520 SAT median at Duke.",
+  ]) assert.deepEqual(kinds(text, record), [], text);
+});
+
 // Every bound value and list item reads its clause, and the clause used to
 // be found by scanning the reply from the start each time, so a long reply
 // took quadratic time (a 60k-character reply, 150-650 ms; this 200k one,
 // over 2.5 s). The boundaries are now found once per reply, and this one
-// takes tens of milliseconds.
+// takes tens of milliseconds. A reply with no sentence punctuation is one
+// clause, and the hedge patterns read all of it for every value (course
+// grades, a second at 120k characters; Korean with no periods, two), and
+// course mentions were compared pairwise; a clause is now read at most 400
+// characters either side and the mentions are swept once.
 test("the fidelity check stays linear on a long reply", () => {
-  const record = { gpaUnweighted: 3.72, testScores: [{ test: "sat", totalScore: 1380 }], apScores: [{ exam: "Statistics", score: 4 }] };
-  const sentence = "Your stats (3.72 GPA, 1380 SAT) and your 1380 SAT and 1520 SAT goal, plus a 4 on AP Statistics, make you competitive; many admits have a 3.9 GPA. ";
-  const reply = sentence.repeat(Math.ceil(200_000 / sentence.length));
-  checkProfileFidelity(reply.slice(0, 2000), record);
-  const started = performance.now();
-  const { contradictions } = checkProfileFidelity(reply, record);
-  const elapsed = performance.now() - started;
-  assert.deepEqual(contradictions, []);
-  assert.ok(elapsed < 1_000, `a ${reply.length}-character reply took ${Math.round(elapsed)} ms`);
+  const record = {
+    gpaUnweighted: 3.72,
+    testScores: [{ test: "sat", totalScore: 1380 }],
+    apScores: [{ exam: "Statistics", score: 4 }],
+    courses: [
+      { name: "Statistics", type: "ap", grade: "A", year: "junior" },
+      { name: "Biology", type: "ap", grade: "B+", year: "junior" },
+    ],
+  };
+  for (const sentence of [
+    "Your stats (3.72 GPA, 1380 SAT) and your 1380 SAT and 1520 SAT goal, plus a 4 on AP Statistics, make you competitive; many admits have a 3.9 GPA. ",
+    "your A in AP Statistics and your B+ in AP Biology and a strong record in AP Statistics ",
+    "학생의 SAT 1380점과 GPA 3.72는 좋고 AP 통계학 시험에서 4점을 받았고 ",
+  ]) {
+    const reply = sentence.repeat(Math.ceil(200_000 / sentence.length));
+    checkProfileFidelity(reply.slice(0, 2000), record);
+    const started = performance.now();
+    const { contradictions } = checkProfileFidelity(reply, record);
+    const elapsed = performance.now() - started;
+    assert.deepEqual(contradictions, [], sentence);
+    assert.ok(elapsed < 1_000, `a ${reply.length}-character reply of "${sentence.slice(0, 24)}…" took ${Math.round(elapsed)} ms`);
+  }
+  // The cap leaves an invented value in such a reply caught.
+  const long = "your A in AP Statistics and your C in AP Biology and a strong record in AP Statistics ".repeat(2000);
+  assert.deepEqual(kinds(long, record).filter((k, i, all) => all.indexOf(k) === i), ["course_grade:C"]);
 });
 
 // Every recorded sitting is a true score: the check read only the first
