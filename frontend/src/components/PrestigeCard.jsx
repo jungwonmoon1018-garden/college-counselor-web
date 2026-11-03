@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ec as ecApi } from "../api.js";
 import { t } from "../i18n.js";
+import { loadErrorRetryable, loadErrorText } from "./load-error.js";
 
 // ═══════════════════════════════════════════════════════════════════════
 // PrestigeCard — fetches /api/ec/strength/:ecName/prestige and renders the
@@ -14,26 +15,49 @@ import { t } from "../i18n.js";
 export default function PrestigeCard({ ecName, locale = "en-US" }) {
   const [data, setData] = useState(null);
   const [loaded, setLoaded] = useState(false);
+  // A request that failed, kept apart from the empty answer (ui-12).
+  const [failure, setFailure] = useState(null);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let alive = true;
-    setLoaded(false); setData(null);
+    setLoaded(false); setData(null); setFailure(null);
     (async () => {
       try {
         const r = await ecApi.prestige(ecName);
         if (alive) setData(r);
       } catch (err) {
-        // A known activity without a cached rationale answers 404 with a
-        // friendly message; surface it instead of a bare "no data".
-        if (alive && err?.body?.friendlyMessage) setData({ error: err.body.error || "no_cached_rationale", friendlyMessage: err.body.friendlyMessage });
+        if (!alive) return;
+        // A known activity without a cached rationale answers 404, with a
+        // friendly message to show; that is the empty state. Anything else
+        // (a 5xx while the server restarts, a timeout, a 429, an ended
+        // session) is a failure, and saying "no rationale cached yet" for
+        // it was false.
+        if (err?.status === 404) {
+          if (err?.body?.friendlyMessage) setData({ error: err.body.error || "no_cached_rationale", friendlyMessage: err.body.friendlyMessage });
+        } else {
+          setFailure(err || new Error("failed"));
+        }
       }
       finally { if (alive) setLoaded(true); }
     })();
     return () => { alive = false; };
-  }, [ecName]);
+  }, [ecName, attempt]);
 
   if (!loaded) {
     return <div style={{ fontSize: 12, color: "#555", padding: "8px 12px" }}>...</div>;
+  }
+  if (failure) {
+    return (
+      <div role="alert" data-testid="prestige-error" style={{ fontSize: 12, color: "#fbd38d", padding: "10px 14px", borderRadius: 10, background: "rgba(246,173,85,0.06)", border: "1px solid rgba(246,173,85,0.2)", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ flex: 1 }}>{loadErrorText(failure, locale)}</span>
+        {loadErrorRetryable(failure) && (
+          <button type="button" onClick={() => setAttempt((n) => n + 1)} style={{ fontSize: 11, color: "#fbd38d", background: "transparent", border: "1px solid rgba(246,173,85,0.35)", borderRadius: 6, padding: "2px 8px", cursor: "pointer" }}>
+            {t(locale, "load.retry")}
+          </button>
+        )}
+      </div>
+    );
   }
   if (!data || data.error) {
     return (

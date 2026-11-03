@@ -22,6 +22,9 @@ import {
   compareCourseRigor,
   scoreEvidenceConfidence,
   recencyScore,
+  buildRedFlagEntries,
+  recommendStrategy,
+  recommendStrategyKey,
   actToSat,
   satToAct,
 } from "../colleges/positioning-engine.js";
@@ -971,4 +974,72 @@ test("evidence recency ages with the clock, and today's numbers are unchanged", 
   const stale = scoreEvidenceConfidence({ cdsResult: cds("2025-26"), collegeContext: ctx, majorPolicy: {}, ipedsGrowthAvailable: true, now: fall2028 });
   const fresh = scoreEvidenceConfidence({ cdsResult: cds("2027-28"), collegeContext: ctx, majorPolicy: {}, ipedsGrowthAvailable: true, now: fall2028 });
   assert.ok(stale.normalized < fresh.normalized, JSON.stringify({ stale, fresh }));
+});
+
+// The card printed the label, summary, flags, strategy and confidence as
+// the engine's English text, so a Korean-mode student read the most
+// important line of the card in English (fit-10). Each now carries a stable
+// code the card translates; the English stays what the chat quotes.
+test("every read carries stable codes beside its English text", () => {
+  const LABEL_KEYS = { "Highly competitive": "highly_competitive", Competitive: "competitive", Reach: "reach", "High reach": "high_reach" };
+  const SUMMARY_KEYS = { "academically in-range": "in_range", "academically plausible but not comfortable": "plausible", "academically stretched": "stretched" };
+  for (const rate of [4, 30, 75]) {
+    const read = buildPositioningForTarget(studentWith(), { ...WIDE_COLLEGE, acceptanceRate: rate }, WIDE_CDS, { major: "Computer Science" });
+    assert.equal(read.labelKey, LABEL_KEYS[read.overallPositioningLabel]);
+    assert.equal(read.admissibility.summaryKey, SUMMARY_KEYS[read.admissibility.summary]);
+    assert.equal(read.confidence.evidenceConfidenceKey, read.confidence.evidenceConfidence.toLowerCase().replace(/\s+/g, "_"));
+    assert.ok(["high", "medium", "low", "very_low"].includes(read.confidence.evidenceConfidenceKey));
+    assert.equal(read.mainRedFlagCodes.length, read.mainRedFlags.length);
+    assert.ok(typeof read.strategyKey === "string" && read.strategyKey.length > 0);
+  }
+
+  const weakMath = buildPositioningForTarget(studentWith({ testScores: [{ test: "sat", totalScore: 1530, sections: { readingWriting: 800, math: 730 } }] }), WIDE_COLLEGE, WIDE_CDS, { major: "Computer Science" });
+  const mathIndex = weakMath.mainRedFlags.findIndex((f) => /SAT Math \(730\)/.test(f));
+  assert.ok(mathIndex >= 0);
+  assert.deepEqual(weakMath.mainRedFlagCodes[mathIndex], { code: "math_below_band", params: { test: "SAT", value: 730, low: 770 } });
+
+  const empty = buildPositioningForTarget(buildStudentModel({}, [], null), { name: "Nowhere", topMajors: [] }, { parsed: null }, {});
+  assert.equal(empty.admissibility.summaryKey, "not_enough_data");
+  assert.equal(empty.strategyKey, "add_academics");
+  assert.deepEqual(empty.dataNoteKeys, ["add_gpa_or_test", "admit_rate_assumed"]);
+  assert.equal(empty.dataNoteKeys.length, empty.dataNotes.length);
+});
+
+test("each red flag's code matches its sentence, and the strategy key matches the strategy", () => {
+  const CODE_TEXT = {
+    math_below_band: /Math \(\d+\) sits below/,
+    stated_test_required: /says SAT or ACT scores are required this cycle/,
+    stated_test_flexible: /test-flexible policy/,
+    ap_field_below_3: /AP exam scores in the intended field/,
+    weak_major_coursework: /Weak major-relevant coursework/,
+    shallow_activities: /Many shallow extracurriculars/,
+    generic_narrative: /sounding generic/,
+    weak_narrative_coherence: /Narrative coherence is weak/,
+    capped_major_unprepared: /capped or capacity-constrained major/,
+    light_transcript: /Transcript looks light/,
+  };
+  const student = studentWith({ gpa_unweighted: 3.2, testScores: [{ test: "sat", totalScore: 1530, sections: { readingWriting: 800, math: 730 } }] });
+  const entries = buildRedFlagEntries(student, { ...WIDE_COLLEGE, acceptanceRate: 4, avgGpaAdmitted: 3.94 }, { capacityRiskFlag: "normal" }, { specificity: 80, coherence: 80 }, {
+    tests: { best: { test: "sat", sections: [{ key: "math", value: 730, position: "below", band: { low: 770 } }] } },
+  });
+  assert.ok(entries.length >= 2, JSON.stringify(entries));
+  for (const entry of entries) {
+    assert.ok(CODE_TEXT[entry.code], `unknown code ${entry.code}`);
+    assert.match(entry.text, CODE_TEXT[entry.code]);
+  }
+  const SENTENCES = {
+    highly_competitive: /Lean into fit/,
+    competitive_capped: /major-aware/,
+    competitive: /school-specific fit/,
+    reach_gaps: /selective reach/,
+    reach_aspirational: /aspirational reach/,
+    high_reach: /high reach/,
+  };
+  for (const [label, flags, risk] of [
+    ["Highly competitive", [], "normal"], ["Competitive", [], "capped"], ["Competitive", [], "normal"],
+    ["Reach", ["x"], "normal"], ["Reach", [], "normal"], ["High reach", [], "normal"],
+  ]) {
+    const key = recommendStrategyKey(label, flags, { capacityRiskFlag: risk });
+    assert.match(recommendStrategy(label, flags, { capacityRiskFlag: risk }), SENTENCES[key]);
+  }
 });

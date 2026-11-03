@@ -3,6 +3,7 @@
 import { useRef, useState, useCallback } from "react";
 import { handleCreate as handleCreateImpl, handleLogin as handleLoginImpl, handleStudentRecovery as handleStudentRecoveryImpl } from "../handlers/auth-handlers.js";
 import { storageApi, storageKeyFor, safeBtoa } from "../session/vault-storage.js";
+import { safeRemove } from "../session/safe-storage.js";
 
 export function useAuthHandlers(ctx) {
   const {
@@ -84,7 +85,7 @@ export function useAuthHandlers(ctx) {
       if (!response.ok) throw new Error("The server did not confirm complete deletion.");
       await storageApi.delete(await storageKeyFor(email));
       await storageApi.delete(`cc_draft_${safeBtoa(email).replace(/[^a-zA-Z0-9]/g, "")}`);
-      try { localStorage.removeItem(`cc_targets_${email}`); } catch {}
+      safeRemove(`cc_targets_${email}`);
     } catch (error) {
       window.alert(error?.message || "Deletion failed. No local data was removed.");
       return;

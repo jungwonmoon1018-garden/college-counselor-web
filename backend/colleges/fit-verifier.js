@@ -14,7 +14,10 @@
 //      it cites appears verbatim in the fetched text.
 //
 // Every check records what the fit used, what the live source says, and a
-// status (consistent / differs / filled / unavailable / info). When a live
+// status (consistent / differs / filled / unavailable / info). Each check
+// carries stable keys beside its English text (field, plan, usedBucket,
+// liveBucket, liveSourceKind, readerKey) so the card can say it in the
+// student's language; the chat reads the English. When a live
 // value differs, or fills a value the fit did not have, the fit is re-scored
 // with the live inputs so the student sees whether the label would move.
 // Pure orchestration: the caller injects the Scorecard lookup, the page
@@ -95,6 +98,7 @@ export function compareFitInputs({ used = {}, scorecard = null, policy = null, m
       usedSource,
       live: live != null ? `${live}%` : null,
       liveSource: live != null ? scorecardLabel : null,
+      liveSourceKind: live != null ? "college_scorecard" : null,
       status: numericStatus(used.acceptanceRate != null, live != null, within),
     });
   }
@@ -110,6 +114,7 @@ export function compareFitInputs({ used = {}, scorecard = null, policy = null, m
       usedSource,
       live: liveRange,
       liveSource: liveRange ? scorecardLabel : null,
+      liveSourceKind: liveRange ? "college_scorecard" : null,
       status: numericStatus(Boolean(usedRange), Boolean(liveRange), ok),
     });
   }
@@ -125,6 +130,7 @@ export function compareFitInputs({ used = {}, scorecard = null, policy = null, m
       usedSource,
       live: liveRange,
       liveSource: liveRange ? scorecardLabel : null,
+      liveSourceKind: liveRange ? "college_scorecard" : null,
       status: numericStatus(Boolean(usedRange), Boolean(liveRange), ok),
     });
   }
@@ -136,8 +142,8 @@ export function compareFitInputs({ used = {}, scorecard = null, policy = null, m
     const scoutBucket = normalizeTestPolicyBucket(policy?.testPolicy?.value);
     const modelBucket = modelPolicy?.quoteVerified ? normalizeTestPolicyBucket(modelPolicy.value) : null;
     const readers = [];
-    if (scoutBucket) readers.push({ reader: "official-site parser", bucket: scoutBucket, evidence: policy.testPolicy.evidence, sourceUrl: policy.testPolicy.sourceUrl });
-    if (modelBucket) readers.push({ reader: "model (quote verified)", bucket: modelBucket, evidence: modelPolicy.evidence, sourceUrl: modelPolicy.sourceUrl });
+    if (scoutBucket) readers.push({ reader: "official-site parser", readerKey: "official_site_parser", bucket: scoutBucket, evidence: policy.testPolicy.evidence, sourceUrl: policy.testPolicy.sourceUrl });
+    if (modelBucket) readers.push({ reader: "model (quote verified)", readerKey: "model_quote_verified", bucket: modelBucket, evidence: modelPolicy.evidence, sourceUrl: modelPolicy.sourceUrl });
     const agreed = readers.length === 2 ? readers[0].bucket === readers[1].bucket : null;
     const liveBucket = readers.length === 0 ? null : (agreed === false ? null : readers[0].bucket);
     const liveEvidence = readers[0] || null;
@@ -156,8 +162,9 @@ export function compareFitInputs({ used = {}, scorecard = null, policy = null, m
         : (readers.length ? readers.map((r) => `${r.reader}: ${describeTestPolicyBucket(r.bucket)}`).join(" vs ") : null),
       liveSource: liveEvidence?.sourceUrl || null,
       evidence: liveEvidence?.evidence || null,
-      readers: readers.map((r) => ({ reader: r.reader, value: describeTestPolicyBucket(r.bucket) })),
+      readers: readers.map((r) => ({ reader: r.reader, readerKey: r.readerKey, bucket: r.bucket, value: describeTestPolicyBucket(r.bucket) })),
       status,
+      usedBucket: usedBucket || null,
       liveBucket,
       officialSiteStatus: policyFailure || "read",
     });
@@ -169,6 +176,7 @@ export function compareFitInputs({ used = {}, scorecard = null, policy = null, m
     checks.push({
       field: `deadline_${plan}`,
       label: `${titleCase(plan)} deadline`,
+      plan,
       used: null,
       usedSource: null,
       live: entry.date,
@@ -386,7 +394,7 @@ export async function verifyCollegeFit({
         : modelReview,
     recomputed,
     original: original
-      ? { finalPositioningScore: original.finalPositioningScore ?? null, overallPositioningLabel: original.overallPositioningLabel ?? null }
+      ? { finalPositioningScore: original.finalPositioningScore ?? null, overallPositioningLabel: original.overallPositioningLabel ?? null, ...(original.labelKey ? { labelKey: original.labelKey } : {}) }
       : null,
   };
 }

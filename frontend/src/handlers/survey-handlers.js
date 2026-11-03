@@ -7,6 +7,7 @@ import { describeSetAside, syncFailureMessage } from "../profile/sync-result.js"
 import { S } from "../app-shared.js";
 import { latestApScoreYear } from "../profile/ap-entry.js";
 import { storageApi, safeBtoa } from "../session/vault-storage.js";
+import { safeSet } from "../session/safe-storage.js";
 import { formatGpa, hasGpa } from "../profile/gpa.js";
 import { baseFromPayload, buildSyncPayload, describeProfileConflict, readServerProfile, reconcileProfile } from "../profile/profile-reconcile.js";
 
@@ -183,7 +184,7 @@ export async function handleSurveyComplete(ctx) {
 
   if (user?.email) {
     // Cache a flag so the chat system knows to collect the student's story
-    try { localStorage.setItem("cc_narrative_pending_" + user.email, "1"); } catch { /* ignore */ }
+    safeSet("cc_narrative_pending_" + user.email, "1");
     // Survey is committed — drop the interrupted-draft autosave so it can't
     // rehydrate stale entries next time.
     storageApi.delete(`cc_draft_${safeBtoa(user.email).replace(/[^a-zA-Z0-9]/g, "")}`);

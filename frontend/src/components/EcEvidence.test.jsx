@@ -88,6 +88,33 @@ describe("EcEvidence", () => {
     expect(await screen.findByTestId("ec-evidence")).toHaveTextContent("none linked yet — attach a certificate, letter or write-up in chat and name this activity in your message.");
   });
 
+  // A failed read used to say "none linked yet", so a student could
+  // re-upload a certificate already on file (ui-12).
+  it("says the read failed, with a retry, instead of saying no file is linked", async () => {
+    let calls = 0;
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      calls += 1;
+      const body = calls === 1 ? { error: "Bad gateway" } : { ok: true, vector: {}, attachments: [{ id: "a1", filename: "award.pdf", origin: "upload" }] };
+      return { ok: calls > 1, status: calls === 1 ? 502 : 200, headers: { get: () => "application/json" }, json: async () => body, text: async () => JSON.stringify(body) };
+    }));
+    render(<EcEvidence ecName="Robotics Club" locale="ko" />);
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("서버에 문제가 있어 불러오지 못했습니다.");
+    expect(screen.queryByText(/아직 연결된 자료가 없습니다/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+    expect(await screen.findByTestId("ec-evidence")).toHaveTextContent("award.pdf");
+  });
+
+  it("a network failure is an error too, and an unknown activity (404) is empty", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("Failed to fetch"); }));
+    render(<EcEvidence ecName="Robotics Club" />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't reach the server.");
+    cleanup();
+    stubFetch([]);
+    render(<EcEvidence ecName="Unknown" />);
+    expect(await screen.findByTestId("ec-evidence")).toHaveTextContent("none linked yet");
+  });
+
   it("reads chat uploads into activities and reports what was linked, unmatched, already linked and name-only", async () => {
     const onLinked = vi.fn();
     stubFetch([{ method: "POST", path: "/api/ec/evidence/from-chat", body: {

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { ec as ecApi } from "../api.js";
+import { t } from "../i18n.js";
+import { loadErrorRetryable, loadErrorText } from "./load-error.js";
 
 // ═══════════════════════════════════════════════════════════════════════
 // EcEvidence — the files linked to one activity as the EC strength read
@@ -12,25 +14,34 @@ import { ec as ecApi } from "../api.js";
 // past chat upload into the activities they name and says what happened.
 // ═══════════════════════════════════════════════════════════════════════
 
-export default function EcEvidence({ ecName, refreshKey = 0, onRemoved }) {
+export default function EcEvidence({ ecName, refreshKey = 0, onRemoved, locale = "en-US" }) {
   const [rows, setRows] = useState(null);
+  // A failed read, kept apart from an activity with no files (ui-12).
+  const [failure, setFailure] = useState(null);
+  const [attempt, setAttempt] = useState(0);
   const [removing, setRemoving] = useState(null);
   const [note, setNote] = useState("");
 
   useEffect(() => {
     let alive = true;
     setRows(null);
+    setFailure(null);
     setNote("");
     (async () => {
       try {
         const r = await ecApi.evidence(ecName);
         if (alive) setRows(Array.isArray(r?.attachments) ? r.attachments : []);
-      } catch {
-        if (alive) setRows([]);
+      } catch (err) {
+        // Any failure used to read as "none linked yet", so a student could
+        // re-upload a certificate that was already on file. An activity the
+        // server does not know (404) has no files; anything else failed.
+        if (!alive) return;
+        if (err?.status === 404) setRows([]);
+        else setFailure(err || new Error("failed"));
       }
     })();
     return () => { alive = false; };
-  }, [ecName, refreshKey]);
+  }, [ecName, refreshKey, attempt]);
 
   const remove = async (a) => {
     if (!a?.id || removing) return;
@@ -51,12 +62,25 @@ export default function EcEvidence({ ecName, refreshKey = 0, onRemoved }) {
     }
   };
 
+  if (failure) {
+    return (
+      <div role="alert" data-testid="ec-evidence-error" style={{ fontSize: 11, color: "#fbd38d", padding: "6px 2px 0", lineHeight: 1.5 }}>
+        <span style={{ color: "#6a6a7a" }}>{t(locale, "evidence.label")}: </span>
+        {loadErrorText(failure, locale)}
+        {loadErrorRetryable(failure) && (
+          <button type="button" onClick={() => setAttempt((n) => n + 1)} style={{ fontSize: 10, color: "#fbd38d", background: "transparent", border: "none", padding: "0 0 0 6px", cursor: "pointer", textDecoration: "underline" }}>
+            {t(locale, "load.retry")}
+          </button>
+        )}
+      </div>
+    );
+  }
   if (rows === null) return null;
   return (
     <div data-testid="ec-evidence" style={{ fontSize: 11, color: "#8a8a9a", padding: "6px 2px 0", lineHeight: 1.5 }}>
-      <span style={{ color: "#6a6a7a" }}>Evidence: </span>
+      <span style={{ color: "#6a6a7a" }}>{t(locale, "evidence.label")}: </span>
       {rows.length === 0
-        ? <span>none linked yet — attach a certificate, letter or write-up in chat and name this activity in your message.</span>
+        ? <span>{t(locale, "evidence.none")}</span>
         : rows.map((a, i) => (
           <span key={a.id || a.filename}>
             {i > 0 ? " " : ""}📎 {a.filename}{a.origin === "chat" ? " (from chat)" : ""}{a.uploaded_at ? ` · ${String(a.uploaded_at).slice(0, 10)}` : ""}

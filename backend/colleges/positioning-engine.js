@@ -1033,8 +1033,12 @@ export function scoreEvidenceConfidence({ cdsResult, collegeContext, majorPolicy
 
 const QUANTITATIVE_BUCKETS = new Set(["computer_science", "data_science", "computational_biology", "biomedical_engineering", "engineering", "mathematics", "physics", "chemistry", "economics"]);
 
-export function buildRedFlags(student, collegeContext, majorCompetitiveness, narrativeFit, reads = null) {
-  const flags = [];
+// Each flag carries a stable code and its numbers beside the English
+// sentence the chat quotes, so the card can say it in the student's
+// language (a Korean-mode card printed every flag in English, fit-10).
+export function buildRedFlagEntries(student, collegeContext, majorCompetitiveness, narrativeFit, reads = null) {
+  const entries = [];
+  const flags = { push: (text, code, params = null) => entries.push(params ? { code, params, text } : { code, text }) };
   // A math section under the school's 25th percentile is the number a
   // quantitative department reads first, whatever the total says.
   // A test-blind school reads no score, so no section of one is a flag there.
@@ -1042,7 +1046,8 @@ export function buildRedFlags(student, collegeContext, majorCompetitiveness, nar
   if (best && !reads?.tests?.blind && QUANTITATIVE_BUCKETS.has(student.majorBucket)) {
     const mathSection = (best.sections || []).find((s) => s.key === "math");
     if (mathSection?.position === "below") {
-      flags.push(`${best.test.toUpperCase()} Math (${mathSection.value}) sits below this school's 25th percentile (${mathSection.band.low}), which a quantitative major will notice.`);
+      flags.push(`${best.test.toUpperCase()} Math (${mathSection.value}) sits below this school's 25th percentile (${mathSection.band.low}), which a quantitative major will notice.`,
+        "math_below_band", { test: best.test.toUpperCase(), value: mathSection.value, low: mathSection.band.low });
     }
   }
   // A school whose own admissions pages require scores this cycle, with no
@@ -1052,43 +1057,48 @@ export function buildRedFlags(student, collegeContext, majorCompetitiveness, nar
   if (stated && !best) {
     const checked = String(stated.checkedAt || "").slice(0, 10);
     if (stated.value === "test_required") {
-      flags.push(`This school's admissions site (checked ${checked}) says SAT or ACT scores are required this cycle, and no score is on file.`);
+      flags.push(`This school's admissions site (checked ${checked}) says SAT or ACT scores are required this cycle, and no score is on file.`, "stated_test_required", { checked });
     } else if (stated.value === "test_flexible" && !(student.apExams?.count > 0)) {
-      flags.push(`This school's admissions site (checked ${checked}) requires test scores this cycle (SAT, ACT, or AP or IB results under its test-flexible policy), and none is on file.`);
+      flags.push(`This school's admissions site (checked ${checked}) requires test scores this cycle (SAT, ACT, or AP or IB results under its test-flexible policy), and none is on file.`, "stated_test_flexible", { checked });
     }
   }
   if (reads?.apExams?.relevant?.length && reads.apExams.relevantAverage != null && reads.apExams.relevantAverage < 3) {
-    flags.push("AP exam scores in the intended field average below 3.");
+    flags.push("AP exam scores in the intended field average below 3.", "ap_field_below_3");
   }
   // The coursework flags wait for a course list that looks like a
   // transcript (four courses or more); one course entered says nothing
   // about what the student took.
   const transcriptOnFile = student.courses.length >= 4;
   if (transcriptOnFile && student.relevantCourses.length <= 1 && ["computer_science", "engineering", "computational_biology", "data_science", "business"].includes(student.majorBucket)) {
-    flags.push("Weak major-relevant coursework for an ambitious intended major.");
+    flags.push("Weak major-relevant coursework for an ambitious intended major.", "weak_major_coursework");
   }
   if (student.activities.length >= 8 && student.strengthRows.length > 0 && (avg(student.strengthRows.map((row) => Number(row.dedication || 0))) || 0) < 0.35) {
-    flags.push("Many shallow extracurriculars without enough sustained depth.");
+    flags.push("Many shallow extracurriculars without enough sustained depth.", "shallow_activities");
   }
   // A narrative that reads weakly is a flag; a narrative not written yet is
   // not (the advice elsewhere asks for one).
   const hasNarrative = student.narrativeCoherence != null;
   if (hasNarrative && (student.majorInterest || "").match(/\b(ai|medicine|business)\b/i) && narrativeFit.specificity < 45) {
-    flags.push("Narrative risks sounding generic for a crowded major lane.");
+    flags.push("Narrative risks sounding generic for a crowded major lane.", "generic_narrative");
   }
   if (hasNarrative && narrativeFit.coherence < 45) {
-    flags.push("Narrative coherence is weak and may read as a list rather than a story.");
+    flags.push("Narrative coherence is weak and may read as a list rather than a story.", "weak_narrative_coherence");
   }
   // Preparation for a capped major needs a major: with none, the
   // neutral pool can still read "moderate", and the flag used to fire for
   // every student who had not chosen one (fit-1).
   if (transcriptOnFile && student.majorBucket && majorCompetitiveness.capacityRiskFlag !== "normal" && student.relevantCourses.length <= 2) {
-    flags.push("Applying to a capped or capacity-constrained major without enough preparation.");
+    flags.push("Applying to a capped or capacity-constrained major without enough preparation.", "capped_major_unprepared");
   }
   if ((collegeContext.acceptanceRate ?? 100) < 15 && student.gpa != null && (collegeContext.avgGpaAdmitted ?? 3.9) - student.gpa > 0.2) {
-    flags.push("Transcript looks light relative to this university's admitted academic range.");
+    flags.push("Transcript looks light relative to this university's admitted academic range.", "light_transcript");
   }
-  return flags;
+  return entries;
+}
+
+// The English sentences alone, as the chat and older callers read them.
+export function buildRedFlags(student, collegeContext, majorCompetitiveness, narrativeFit, reads = null) {
+  return buildRedFlagEntries(student, collegeContext, majorCompetitiveness, narrativeFit, reads).map((entry) => entry.text);
 }
 
 // The label is an admission likelihood, not the composite. The school's
@@ -1176,6 +1186,10 @@ export function admitRatePools(record) {
 // science, takes the best SAT/ACT sitting, compares a weighted-only GPA and
 // leaves an above-4.0 one unplaced, reads an unread test policy as unknown
 // and a test-blind one as reading no score, and ages evidence by the clock.
+// The same version carries the stable codes the card translates (labelKey,
+// summaryKey, strategyKey, mainRedFlagCodes, evidenceConfidenceKey,
+// dataNoteKeys): v3 had not shipped when they were added, so every cached
+// payload in production predates both and is recomputed once.
 export const POSITIONING_MODEL_VERSION = "positioning_v3";
 
 export function classifyPositioningLabel(likelihoodScore) {
@@ -1217,6 +1231,15 @@ export function studentDataNeeded(student) {
 
 export function hasEnoughStudentData(student) {
   return studentDataNeeded(student).length < 2;
+}
+
+// The strategy's stable key beside its English sentence (recommendStrategy),
+// for the card's translations.
+export function recommendStrategyKey(positioningLabel, redFlags, majorCompetitiveness) {
+  if (positioningLabel === "Highly competitive") return "highly_competitive";
+  if (positioningLabel === "Competitive") return majorCompetitiveness.capacityRiskFlag !== "normal" ? "competitive_capped" : "competitive";
+  if (positioningLabel === "Reach") return redFlags.length > 0 ? "reach_gaps" : "reach_aspirational";
+  return "high_reach";
 }
 
 export function recommendStrategy(positioningLabel, redFlags, majorCompetitiveness) {
@@ -1273,7 +1296,8 @@ export function buildPositioningForTarget(student, collegeContext, cdsResult, op
   const narrative = scoreNarrativeFit(student);
   const differentiation = scoreDifferentiationStrength(student);
   const strategicFocus = scoreStrategicFocusBonus(options.strategicSignals || [], options.majorPolicy || null);
-  const redFlags = buildRedFlags(student, collegeContext, majorComp, narrative, academic.reads);
+  const redFlagEntries = buildRedFlagEntries(student, collegeContext, majorComp, narrative, academic.reads);
+  const redFlags = redFlagEntries.map((entry) => entry.text);
 
   // ── Displayed competitiveness blends intended-major crowding with the
   // school's ACTUAL institutional selectivity (admit rate). Previously the
@@ -1337,9 +1361,11 @@ export function buildPositioningForTarget(student, collegeContext, cdsResult, op
   // What the student could add, and what the read could not place; the
   // card and the chat say these in their own words.
   const dataNotes = [];
-  if (!enoughStudentData) dataNotes.push("Add a GPA (unweighted or weighted) or an SAT or ACT score to see a likelihood for this school.");
-  if (gpaScaleUnknown) dataNotes.push("Your unweighted GPA is above 4.0, so its scale is not known and it was read as at this school's average. Enter your GPA on a 4.0 scale as the unweighted GPA, and a weighted GPA in the weighted box.");
-  if (admitRate == null) dataNotes.push("No admit rate is on file for this school; the likelihood assumes 50% until one is.");
+  const dataNoteKeys = [];
+  if (!enoughStudentData) { dataNotes.push("Add a GPA (unweighted or weighted) or an SAT or ACT score to see a likelihood for this school."); dataNoteKeys.push("add_gpa_or_test"); }
+  if (gpaScaleUnknown) { dataNotes.push("Your unweighted GPA is above 4.0, so its scale is not known and it was read as at this school's average. Enter your GPA on a 4.0 scale as the unweighted GPA, and a weighted GPA in the weighted box."); dataNoteKeys.push("gpa_scale_unknown"); }
+  if (admitRate == null) { dataNotes.push("No admit rate is on file for this school; the likelihood assumes 50% until one is."); dataNoteKeys.push("admit_rate_assumed"); }
+  const summaryKey = !enoughStudentData ? "not_enough_data" : academic.score >= 80 ? "in_range" : academic.score >= 65 ? "plausible" : "stretched";
 
   // Honest uncertainty bands for the displayed dimensions, widened in
   // inverse proportion to evidence confidence. The confidence dimension
@@ -1360,6 +1386,8 @@ export function buildPositioningForTarget(student, collegeContext, cdsResult, op
     finalPositioningScore: boundedFinal,
     studentDataNeeded: enoughStudentData ? [] : studentDataNeeded(student),
     dataNotes,
+    // The same notes as stable keys, for the card's translations.
+    dataNoteKeys,
     // The composite the likelihood was shifted by, and the base rate it
     // started from (null when the admit rate is unknown: 50% was assumed),
     // with what that rate is: the pool outside Early Decision when the CDS
@@ -1370,9 +1398,13 @@ export function buildPositioningForTarget(student, collegeContext, cdsResult, op
     admitRate: admitRateSummary,
     admissibility: {
       academicReadinessScore: academic.score,
-      summary: !enoughStudentData
-        ? "not enough academic data yet"
-        : academic.score >= 80 ? "academically in-range" : academic.score >= 65 ? "academically plausible but not comfortable" : "academically stretched",
+      summary: {
+        not_enough_data: "not enough academic data yet",
+        in_range: "academically in-range",
+        plausible: "academically plausible but not comfortable",
+        stretched: "academically stretched",
+      }[summaryKey],
+      summaryKey,
     },
     competitiveness: {
       // Blended: intended-major crowding + the school's real admit-rate
@@ -1394,15 +1426,21 @@ export function buildPositioningForTarget(student, collegeContext, cdsResult, op
     },
     confidence: {
       evidenceConfidence: confidence.label,
+      // "high" | "medium" | "low" | "very_low", for the card's translations.
+      evidenceConfidenceKey: String(confidence.label).toLowerCase().replace(/\s+/g, "_"),
       evidenceConfidenceScore: confidence.score,
       evidenceValidated: confidence.validated,
     },
     scoreRanges,
     capacityRiskFlag: majorComp.capacityRiskFlag,
     mainRedFlags: redFlags,
+    // The same flags as { code, params } for the card's translations; the
+    // English sentences above stay what the chat quotes.
+    mainRedFlagCodes: redFlagEntries.map(({ code, params }) => (params ? { code, params } : { code })),
     recommendedPositioningStrategy: enoughStudentData
       ? recommendStrategy(label, redFlags, majorComp)
       : "Add a GPA or an SAT/ACT score first; with neither on file there is nothing yet to place against this school's admitted class.",
+    strategyKey: enoughStudentData ? recommendStrategyKey(label, redFlags, majorComp) : "add_academics",
     // How this student's own record compares with the enrolled class the
     // Common Data Set describes: the facts the readiness blend used.
     profileComparison: { ...buildProfileComparison(academic.reads), admitRate: admitRateSummary },

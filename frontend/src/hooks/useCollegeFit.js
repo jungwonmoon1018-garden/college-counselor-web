@@ -6,6 +6,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { removeTargetSchool as removeTargetSchoolImpl, lookupCollege as lookupCollegeImpl, cancelLookup } from "../handlers/school-handlers.js";
 import { fitReadIsStale } from "../profile/fit-refresh.js";
 import { MAX_TARGET_SCHOOLS, targetListHas } from "../profile/target-schools.js";
+import { safeGetJson, safeSet } from "../session/safe-storage.js";
 
 export function useCollegeFit(ctx) {
   const {
@@ -62,13 +63,11 @@ export function useCollegeFit(ctx) {
   // Load the saved target schools when the signed-in user is known.
   useEffect(() => {
     if (!user?.email) return;
-    try {
-      const raw = window.localStorage?.getItem?.(`cc_targets_${user.email}`);
-      setTargetSchools(raw ? JSON.parse(raw) : []);
-    } catch { setTargetSchools([]); }
+    const saved = safeGetJson(`cc_targets_${user.email}`, []);
+    setTargetSchools(Array.isArray(saved) ? saved : []);
   }, [user?.email]);
   const saveTargets = (arr, email) => {
-    try { if (email) window.localStorage?.setItem?.(`cc_targets_${email}`, JSON.stringify(arr)); } catch { /* ignore */ }
+    if (email) safeSet(`cc_targets_${email}`, JSON.stringify(arr));
   };
   // Holds the (later-defined) deadline creator so addTargetSchool can call it
   // without a forward-reference TDZ in its dependency array.
@@ -132,6 +131,37 @@ export function useCollegeFit(ctx) {
       lookupCollegeRef.current?.(last.collegeName, last.hintUrl, { refresh: true });
     }
   }, []);
+  // Re-read the values of the school on the card, bypassing the cache
+  // (POST /api/colleges/values with force). This replaces the sidebar's
+  // "Clear cached college values", which deleted every school's read for
+  // every student while saying it cleared this account's (ui-8). Only this
+  // school is read again, the server replaces its row only when the new read
+  // succeeds, and a failed re-read leaves the card as it was. Answers what
+  // happened ({ ok, status, code }) for the button to say.
+  const rereadCollegeValues = useCallback(async () => {
+    const token = window.__CC_SESSION_TOKEN__;
+    const shown = collegeValuesRef.current;
+    const collegeName = (shown && !shown.error && shown.displayName) || lookupStateRef.current.lastRequest?.collegeName || "";
+    if (!token || !collegeName) return { ok: false, status: 0, code: "nothing_to_reread" };
+    const lookupAt = lookupStateRef.current.seq;
+    setCollegeValuesLoading(true);
+    try {
+      const r = await fetch("/api/colleges/values", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, "X-CollegeApp-Locale": locale },
+        body: JSON.stringify({ collegeName, force: true }),
+      });
+      const body = await r.json().catch(() => ({}));
+      // A newer lookup owns the card now; this answer is not painted.
+      if (lookupStateRef.current.seq !== lookupAt) return { ok: r.ok, status: r.status, code: body?.code || null, superseded: true };
+      if (r.ok && body && !body.error) setCollegeValuesState({ ...body, refreshedAt: new Date().toISOString() });
+      return { ok: r.ok, status: r.status, code: body?.code || null };
+    } catch {
+      return { ok: false, status: 0, code: "network_error" };
+    } finally {
+      if (lookupStateRef.current.seq === lookupAt) setCollegeValuesLoading(false);
+    }
+  }, [locale]);
   // Double-check the fit read against the live web: College Scorecard, the
   // school's own admissions pages (deterministic parse), and a second,
   // quote-verified read of those pages by the medium-tier model. The answer
@@ -154,9 +184,11 @@ export function useCollegeFit(ctx) {
       });
       const body = await r.json().catch(() => ({}));
       if (!current()) return;
-      setCollegeVerification(r.ok ? body : { error: body.error || `HTTP ${r.status}` });
+      // The card says what went wrong from the status and code, in the
+      // student's language; the server's English error stays for logs.
+      setCollegeVerification(r.ok ? body : { error: body.error || `HTTP ${r.status}`, code: body.code || null, status: r.status });
     } catch (err) {
-      if (current()) setCollegeVerification({ error: err?.message || "verification failed" });
+      if (current()) setCollegeVerification({ error: err?.message || "verification failed", code: "network_error", status: 0 });
     } finally {
       if (current()) setCollegeVerifying(false);
     }
@@ -164,7 +196,7 @@ export function useCollegeFit(ctx) {
   return {
     addTargetSchool, authedFetchRef, collegePositioning, collegePositioningLoading, collegeValues, collegeValuesHint,
     collegeValuesLoading, collegeValuesQuery, collegeVerification, collegeVerifying, createDeadlinesRef, deadlineRefreshKey,
-    lookupCollege, lookupCollegeRef, refreshCollegeFit, removeTargetSchool, setCollegeValues, setCollegeValuesHint,
+    lookupCollege, lookupCollegeRef, refreshCollegeFit, removeTargetSchool, rereadCollegeValues, setCollegeValues, setCollegeValuesHint,
     setCollegeValuesQuery, setTargetSchoolInput, targetSchoolInput, targetSchools, verifyCollegeFit,
   };
 }

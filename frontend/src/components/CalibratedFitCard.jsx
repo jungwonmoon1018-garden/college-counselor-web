@@ -75,22 +75,111 @@ function finiteOrNull(value) {
   return Number.isFinite(n) ? n : null;
 }
 
-// Map the positioning label to a reach/target/safety color band. Higher
-// position = stronger standing for the student.
-function bandColor(label) {
-  const l = String(label || "").toLowerCase();
-  if (l.includes("highly competitive")) return "#68d391"; // strong standing
-  if (l.includes("high reach")) return "#f56565";
-  if (l.includes("reach")) return "#f6ad55";
-  if (l.includes("competitive")) return "#63b3ed";        // target
-  return "#8a8a9a";
+// The card speaks the engine's stable codes in the student's language
+// (fit-10): labelKey, summaryKey, strategyKey, mainRedFlagCodes and
+// evidenceConfidenceKey, beside the English text the chat quotes. A Korean-
+// mode card used to print the headline band, the summary, the flags, the
+// strategy, the confidence and the double-check in English beside Korean
+// bars. A payload cached before the codes existed carries only the English,
+// which these maps read back to a key; anything still unknown is shown as
+// the server sent it rather than blank.
+const LABEL_KEY_OF = {
+  "highly competitive": "highly_competitive",
+  competitive: "competitive",
+  reach: "reach",
+  "high reach": "high_reach",
+  "not enough data yet": "insufficient_student_data",
+};
+const SUMMARY_KEY_OF = {
+  "academically in-range": "in_range",
+  "academically plausible but not comfortable": "plausible",
+  "academically stretched": "stretched",
+  "not enough academic data yet": "not_enough_data",
+};
+
+// t() answers the key itself when no string exists; this answers the
+// fallback instead, so a code the card does not know yet shows the
+// server's English, never a raw key or "undefined".
+function tr(locale, key, params, fallback) {
+  const text = t(locale, key, params);
+  return text === key ? (fallback ?? "") : text;
 }
 
-function confColor(level) {
-  const l = String(level || "").toLowerCase();
-  if (l === "high") return "#68d391";
-  if (l === "medium") return "#f6ad55";
+export function labelKeyOf(read) {
+  if (!read) return null;
+  if (read.labelKey) return String(read.labelKey);
+  return LABEL_KEY_OF[String(read.overallPositioningLabel || "").trim().toLowerCase()] || null;
+}
+
+function labelText(read, locale) {
+  const key = labelKeyOf(read);
+  if (!key) return read?.overallPositioningLabel || "";
+  const insufficient = INSUFFICIENT_LABELS[key];
+  if (insufficient) return t(locale, insufficient.badge);
+  return tr(locale, `fit.label_${key}`, null, read?.overallPositioningLabel || key);
+}
+
+// Map the positioning label to a reach/target/safety color band. Higher
+// position = stronger standing for the student. Keyed off the label key:
+// keyed off the English text, the colors would have broken the moment the
+// label was translated.
+const BAND_COLOR = {
+  highly_competitive: "#68d391", // strong standing
+  competitive: "#63b3ed",        // target
+  reach: "#f6ad55",
+  high_reach: "#f56565",
+};
+function bandColor(read) {
+  return BAND_COLOR[labelKeyOf(read)] || "#8a8a9a";
+}
+
+function confidenceKeyOf(confidence) {
+  if (!confidence) return null;
+  if (confidence.evidenceConfidenceKey) return String(confidence.evidenceConfidenceKey);
+  const level = String(confidence.evidenceConfidence || "").trim().toLowerCase();
+  return level ? level.replace(/\s+/g, "_") : null;
+}
+
+function confColor(key) {
+  if (key === "high") return "#68d391";
+  if (key === "medium") return "#f6ad55";
   return "#f56565"; // low / very low
+}
+
+function summaryText(admissibility, locale) {
+  const key = admissibility?.summaryKey || SUMMARY_KEY_OF[String(admissibility?.summary || "").trim().toLowerCase()];
+  return key ? tr(locale, `fit.summary_${key}`, null, admissibility?.summary || "") : (admissibility?.summary || "");
+}
+
+function strategyText(positioning, locale) {
+  const key = positioning.strategyKey;
+  return key ? tr(locale, `fit.strategy_${key}`, null, positioning.recommendedPositioningStrategy || "") : (positioning.recommendedPositioningStrategy || "");
+}
+
+// Each flag in the student's language when its code is known, else the
+// engine's English sentence for it.
+function redFlagTexts(positioning, locale) {
+  const english = Array.isArray(positioning.mainRedFlags) ? positioning.mainRedFlags : [];
+  const codes = Array.isArray(positioning.mainRedFlagCodes) && positioning.mainRedFlagCodes.length === english.length
+    ? positioning.mainRedFlagCodes
+    : null;
+  return english.map((text, i) => {
+    const entry = codes?.[i];
+    return entry?.code ? tr(locale, `fit.flag_${entry.code}`, entry.params || {}, text) : text;
+  });
+}
+
+// The sentence for a verification request that did not answer, by what
+// went wrong and whether trying again can help.
+export function verificationErrorText(error, locale) {
+  const status = Number(error?.status) || 0;
+  const code = String(error?.code || "");
+  if (status === 401) return t(locale, "fit.verify_error_session");
+  if (code === "consent_required" || status === 403) return t(locale, "fit.verify_error_consent");
+  if (status === 402) return t(locale, "fit.verify_error_budget");
+  if (code === "rate_limited" || status === 429) return t(locale, "fit.verify_error_rate");
+  if (status === 0) return t(locale, "fit.verify_error_network");
+  return t(locale, "fit.verify_error_generic");
 }
 
 // SubBar renders a point estimate and, when `range` is supplied and has real
@@ -127,13 +216,52 @@ function SubBar({ label, score, color, range }) {
   );
 }
 
-const CHECK_ICON = { consistent: "✓", differs: "≠", inconclusive: "?", unavailable: "–", info: "ℹ" };
-const CHECK_COLOR = { consistent: "#68d391", differs: "#f56565", inconclusive: "#f6ad55", unavailable: "#6a6a7a", info: "#8ec5ff" };
+const CHECK_ICON = { consistent: "✓", differs: "≠", filled: "+", inconclusive: "?", unavailable: "–", info: "ℹ" };
+const CHECK_COLOR = { consistent: "#68d391", differs: "#f56565", filled: "#f6ad55", inconclusive: "#f6ad55", unavailable: "#6a6a7a", info: "#8ec5ff" };
 const VERDICT_COLOR = { consistent: "#68d391", discrepancies_found: "#f56565", inconclusive: "#f6ad55", unverifiable: "#8a8a9a" };
 
 function isUrl(value) {
   return /^https?:/.test(String(value || ""));
 }
+
+// A check's name in the card's language, by its field (fit-verifier.js);
+// a deadline by its plan. An unknown field shows the server's English.
+function checkLabel(c, locale) {
+  if (c.plan || /^deadline_/.test(String(c.field || ""))) {
+    const plan = c.plan || String(c.field).replace(/^deadline_/, "");
+    return t(locale, "fit.check_deadline", { plan: tr(locale, `fit.plan_${plan}`, null, String(plan).replace(/_/g, " ")) });
+  }
+  return tr(locale, `fit.check_${c.field}`, null, c.label || c.field);
+}
+
+// The test-policy check's values are buckets the card can name; the
+// others are numbers, ranges and dates that read the same in any language.
+function bucketText(bucket, fallback, locale) {
+  return bucket ? tr(locale, `fit.bucket_${bucket}`, null, fallback) : fallback;
+}
+
+function checkUsed(c, locale) {
+  if (c.used == null) return null;
+  return c.field === "test_policy" ? bucketText(c.usedBucket, c.used, locale) : c.used;
+}
+
+function checkLive(c, locale) {
+  if (c.live == null) return null;
+  if (c.field !== "test_policy") return c.live;
+  if (c.liveBucket) return bucketText(c.liveBucket, c.live, locale);
+  // Two readers that disagree: each with what it read.
+  if (Array.isArray(c.readers) && c.readers.length && c.readers.every((r) => r.readerKey && r.bucket)) {
+    return c.readers.map((r) => `${tr(locale, `fit.reader_${r.readerKey}`, null, r.reader)}: ${bucketText(r.bucket, r.value, locale)}`).join(" · ");
+  }
+  return c.live;
+}
+
+function liveSourceText(c, locale) {
+  if (!c.liveSource || isUrl(c.liveSource)) return null;
+  return c.liveSourceKind === "college_scorecard" ? t(locale, "fit.source_scorecard_live") : c.liveSource;
+}
+
+const SITE_STATUSES = new Set(["bad_name", "site_unresolved", "robots_disallowed", "no_pages", "not_attempted", "read_failed"]);
 
 // The web double-check: what the fit used vs what the live sources say.
 function VerificationPanel({ v, locale }) {
@@ -141,36 +269,43 @@ function VerificationPanel({ v, locale }) {
   const checks = Array.isArray(v.checks) ? v.checks : [];
   const scored = checks.filter((c) => c.status !== "info");
   const info = checks.filter((c) => c.status === "info");
+  const siteStatus = String(v.officialSite?.status || "");
   return (
-    <div style={{ marginTop: 6, padding: 8, borderRadius: 6, background: "rgba(255,255,255,0.02)", border: `1px solid ${color}33` }}>
+    <div data-testid="fit-verification" style={{ marginTop: 6, padding: 8, borderRadius: 6, background: "rgba(255,255,255,0.02)", border: `1px solid ${color}33` }}>
       <div style={{ fontSize: 10, fontWeight: 700, color, marginBottom: 4 }}>
-        {t(locale, `fit.verdict_${v.verdict}`)}
+        {tr(locale, `fit.verdict_${v.verdict}`, null, t(locale, "fit.verdict_unverifiable"))}
         <span style={{ fontWeight: 400, color: "#6a6a7a", marginLeft: 6 }}>
-          {String(v.checkedAt || "").slice(0, 10)}{v.cached ? " · cached" : ""}
+          {String(v.checkedAt || "").slice(0, 10)}{v.cached ? ` · ${t(locale, "fit.cached_short")}` : ""}
         </span>
       </div>
-      {scored.map((c) => (
-        <div key={c.field} style={{ fontSize: 10, color: "#bbb", lineHeight: 1.5, display: "flex", gap: 6 }}>
-          <span style={{ color: CHECK_COLOR[c.status] || "#8a8a9a", width: 10, flexShrink: 0 }}>{CHECK_ICON[c.status] || "•"}</span>
-          <span>
-            <span style={{ color: "#ddd" }}>{c.label}:</span>{" "}
-            {c.used != null && <span>{t(locale, "fit.fit_used")} {c.used}</span>}
-            {c.used != null && c.live != null && <span> · </span>}
-            {c.live != null && (
-              isUrl(c.liveSource)
-                ? <a href={c.liveSource} target="_blank" rel="noopener noreferrer" style={{ color: "#8ec5ff", textDecoration: "none" }}>{t(locale, "fit.live")} {c.live} ↗</a>
-                : <span>{t(locale, "fit.live")} {c.live}{c.liveSource ? ` (${c.liveSource})` : ""}</span>
-            )}
-            {c.used == null && c.live == null && <span style={{ color: "#6a6a7a" }}>not available</span>}
-            {c.evidence && <div style={{ fontSize: 9, color: "#777", fontStyle: "italic" }}>{"“"}{c.evidence}{"”"}</div>}
-          </span>
-        </div>
-      ))}
+      {scored.map((c) => {
+        const used = checkUsed(c, locale);
+        const live = checkLive(c, locale);
+        const source = liveSourceText(c, locale);
+        return (
+          <div key={c.field} style={{ fontSize: 10, color: "#bbb", lineHeight: 1.5, display: "flex", gap: 6 }}>
+            <span style={{ color: CHECK_COLOR[c.status] || "#8a8a9a", width: 10, flexShrink: 0 }}>{CHECK_ICON[c.status] || "•"}</span>
+            <span>
+              <span style={{ color: "#ddd" }}>{checkLabel(c, locale)}:</span>{" "}
+              {used != null && <span>{t(locale, "fit.fit_used")} {used}</span>}
+              {c.status === "filled" && used == null && <span>{t(locale, "fit.check_filled")}</span>}
+              {(used != null || c.status === "filled") && live != null && <span> · </span>}
+              {live != null && (
+                isUrl(c.liveSource)
+                  ? <a href={c.liveSource} target="_blank" rel="noopener noreferrer" style={{ color: "#8ec5ff", textDecoration: "none" }}>{t(locale, "fit.live")} {live} ↗</a>
+                  : <span>{t(locale, "fit.live")} {live}{source ? ` (${source})` : ""}</span>
+              )}
+              {used == null && live == null && <span style={{ color: "#6a6a7a" }}>{t(locale, "fit.check_not_available")}</span>}
+              {c.evidence && <div style={{ fontSize: 9, color: "#777", fontStyle: "italic" }}>{"“"}{c.evidence}{"”"}</div>}
+            </span>
+          </div>
+        );
+      })}
       {info.length > 0 && (
         <div style={{ fontSize: 9, color: "#8a8a9a", marginTop: 4, lineHeight: 1.5 }}>
           {info.map((c) => (
             <span key={c.field} style={{ marginRight: 8 }}>
-              ℹ {c.label}: {isUrl(c.liveSource)
+              ℹ {checkLabel(c, locale)}: {isUrl(c.liveSource)
                 ? <a href={c.liveSource} target="_blank" rel="noopener noreferrer" style={{ color: "#8ec5ff", textDecoration: "none" }}>{c.live}</a>
                 : c.live}
             </span>
@@ -178,13 +313,15 @@ function VerificationPanel({ v, locale }) {
         </div>
       )}
       {v.recomputed && (
-        <div style={{ fontSize: 10, marginTop: 6, color: v.recomputed.labelChanged ? "#f6ad55" : "#9ae6b4" }}>
-          {t(locale, "fit.recomputed")}: <strong>{insufficientRead(v.recomputed) ? t(locale, insufficientRead(v.recomputed).badge) : v.recomputed.overallPositioningLabel}</strong>
-          {v.recomputed.labelChanged ? ` (was ${v.original?.overallPositioningLabel})` : " (label unchanged)"}
+        <div data-testid="fit-recomputed" style={{ fontSize: 10, marginTop: 6, color: v.recomputed.labelChanged ? "#f6ad55" : "#9ae6b4" }}>
+          {t(locale, "fit.recomputed")}: <strong>{labelText(v.recomputed, locale) || t(locale, "fit.check_not_available")}</strong>
+          {" "}{v.recomputed.labelChanged
+            ? t(locale, "fit.recomputed_was", { label: labelText(v.original, locale) || "—" })
+            : t(locale, "fit.recomputed_unchanged")}
         </div>
       )}
       {v.modelReview && v.modelReview.status && v.modelReview.status !== "ok" && (
-        <div style={{ fontSize: 9, color: "#6a6a7a", marginTop: 4 }}>{t(locale, "fit.model_review")}: unavailable this time</div>
+        <div style={{ fontSize: 9, color: "#6a6a7a", marginTop: 4 }}>{t(locale, "fit.model_review")}: {t(locale, "fit.model_review_unavailable")}</div>
       )}
       {v.modelReview && v.modelReview.status === "ok" && (v.modelReview.summary || (v.modelReview.notes || []).length > 0) && (
         <div style={{ marginTop: 6, fontSize: 10, color: "#aaa", lineHeight: 1.5 }}>
@@ -193,8 +330,10 @@ function VerificationPanel({ v, locale }) {
           {(v.modelReview.notes || []).map((n, idx) => <div key={idx}>• {n}</div>)}
         </div>
       )}
-      {v.officialSite?.status && v.officialSite.status !== "read" && (
-        <div style={{ fontSize: 9, color: "#6a6a7a", marginTop: 4 }}>Official site: {String(v.officialSite.status).replace(/_/g, " ")}</div>
+      {siteStatus && siteStatus !== "read" && (
+        <div style={{ fontSize: 9, color: "#6a6a7a", marginTop: 4 }}>
+          {t(locale, "fit.site_label")}: {t(locale, SITE_STATUSES.has(siteStatus) ? `fit.site_${siteStatus}` : "fit.site_read_failed")}
+        </div>
       )}
     </div>
   );
@@ -317,7 +456,7 @@ function ProfileComparison({ pc, locale, withLikelihood = true }) {
     rows.push({ label: t(locale, "fit.cmp_tests"), value: band ? `${shown} · ${band} · ${t(locale, `fit.pos_${u.position || "unknown"}`)}` : shown, tone: u.position });
     for (const s of tests.sections || []) {
       if (!s?.band) continue;
-      rows.push({ label: s.label, value: `${s.value} · ${s.band.low}–${s.band.high} · ${t(locale, `fit.pos_${s.position || "unknown"}`)}`, tone: s.position, sub: true });
+      rows.push({ label: s.key ? tr(locale, `fit.section_${s.key}`, null, s.label) : s.label, value: `${s.value} · ${s.band.low}–${s.band.high} · ${t(locale, `fit.pos_${s.position || "unknown"}`)}`, tone: s.position, sub: true });
     }
     if (tests.distribution) rows.push({ value: fill(t(locale, "fit.cmp_distribution"), tests.distribution), tone: "unknown", sub: true });
     if (tests.advice === "withhold") rows.push({ value: t(locale, "fit.advice_withhold"), tone: "note", sub: true });
@@ -395,6 +534,27 @@ export default function CalibratedFitCard({ collegeValues, positioning, loading,
   const insufficient = hasPositioning ? insufficientRead(positioning) : null;
   const engineName = positioning?.schoolName && positioning.schoolName !== "Unknown school" ? positioning.schoolName : null;
   const title = values?.displayName || engineName || schoolName || "";
+  const confidenceKey = hasPositioning ? confidenceKeyOf(positioning.confidence) : null;
+  const redFlags = hasPositioning ? redFlagTexts(positioning, locale) : [];
+  // The engine's data notes, each said once: three of them already have a
+  // row of their own (the insufficient hint, the GPA scale note, the
+  // assumed admit rate), so only a note no row covers is shown here, in the
+  // card's language when its key is known and as the engine wrote it if not.
+  const extraNotes = [];
+  if (hasPositioning) {
+    const keys = Array.isArray(positioning.dataNoteKeys) ? positioning.dataNoteKeys : [];
+    const notes = Array.isArray(positioning.dataNotes) ? positioning.dataNotes : [];
+    const pc = positioning.profileComparison || {};
+    const covered = {
+      add_gpa_or_test: Boolean(insufficient),
+      gpa_scale_unknown: Boolean(pc.gpa && (pc.gpa.gpa != null || (pc.gpa.basis === "weighted_only" && pc.gpa.comparedGpa != null))
+        && (pc.gpa.basis === "scale_unknown" || pc.gpa.note === "gpa_scale_unknown")),
+      admit_rate_assumed: Boolean(!insufficient && pc.admitRate && finiteOrNull(pc.admitRate.used) == null && finiteOrNull(pc.admitRate.assumedForLikelihood) != null),
+    };
+    if (keys.length === notes.length && keys.length) {
+      keys.forEach((key, i) => { if (!covered[key]) extraNotes.push(tr(locale, `fit.note_${key}`, null, notes[i])); });
+    }
+  }
 
   return (
     <div data-testid="fit-card" style={{ background: "rgba(104,211,145,0.05)", border: "1px solid rgba(104,211,145,0.15)", borderRadius: 8, padding: 10, marginBottom: 14 }}>
@@ -403,10 +563,10 @@ export default function CalibratedFitCard({ collegeValues, positioning, loading,
         {loading && <div style={{ fontSize: 10, color: "#8a8a9a" }}>…</div>}
         {!loading && onAddTarget && (
           isTarget
-            ? <span style={{ fontSize: 9, color: "#9ce5b6", whiteSpace: "nowrap" }}>🎯 target</span>
+            ? <span style={{ fontSize: 9, color: "#9ce5b6", whiteSpace: "nowrap" }}>{t(locale, "fit.is_target")}</span>
             : targetListFull
               ? <span data-testid="fit-target-full" title={t(locale, "targets.cap_reached", { max: MAX_TARGET_SCHOOLS })} style={{ fontSize: 9, color: "#8a8a9a", whiteSpace: "nowrap" }}>{t(locale, "targets.cap_short", { max: MAX_TARGET_SCHOOLS })}</span>
-              : <button onClick={onAddTarget} title="Add to your target schools" style={{ fontSize: 9, color: "#c4b5fd", background: "rgba(167,139,250,0.10)", border: "1px solid rgba(167,139,250,0.3)", borderRadius: 6, padding: "2px 6px", cursor: "pointer", whiteSpace: "nowrap" }}>➕ target</button>
+              : <button onClick={onAddTarget} title={t(locale, "fit.add_target_title")} style={{ fontSize: 9, color: "#c4b5fd", background: "rgba(167,139,250,0.10)", border: "1px solid rgba(167,139,250,0.3)", borderRadius: 6, padding: "2px 6px", cursor: "pointer", whiteSpace: "nowrap" }}>{t(locale, "fit.add_target")}</button>
         )}
       </div>
 
@@ -414,7 +574,9 @@ export default function CalibratedFitCard({ collegeValues, positioning, loading,
       {hasPositioning ? (
         <div style={{ marginBottom: 10 }}>
           {insufficient ? (
-            // No label: a neutral badge that says what to add. The bars,
+            // No label: a neutral badge that says what to add. The engine
+            // withholds a label only when a GPA and an SAT/ACT are both
+            // missing (studentDataNeeded), which is what the badge names. The bars,
             // the "academically stretched" summary, the red flags and the
             // strategy text all describe a placement the read did not make.
             <>
@@ -429,14 +591,14 @@ export default function CalibratedFitCard({ collegeValues, positioning, loading,
             </>
           ) : (
             <>
-              <div style={{
+              <div data-testid="fit-label" style={{
                 display: "inline-block", fontSize: 12, fontWeight: 700,
-                color: bandColor(positioning.overallPositioningLabel),
-                background: `${bandColor(positioning.overallPositioningLabel)}1a`,
-                border: `1px solid ${bandColor(positioning.overallPositioningLabel)}55`,
+                color: bandColor(positioning),
+                background: `${bandColor(positioning)}1a`,
+                border: `1px solid ${bandColor(positioning)}55`,
                 borderRadius: 8, padding: "3px 10px", marginBottom: 8,
               }}>
-                {positioning.overallPositioningLabel}
+                {labelText(positioning, locale)}
               </div>
 
               <SubBar label={t(locale, "fit.admissibility")} score={positioning.admissibility?.academicReadinessScore} range={positioning.scoreRanges?.admissibility} color="#63b3ed" />
@@ -444,9 +606,9 @@ export default function CalibratedFitCard({ collegeValues, positioning, loading,
               <SubBar label={t(locale, "fit.fitdim")} score={positioning.fit?.institutionalPriorityFitScore} range={positioning.scoreRanges?.fit} color="#68d391" />
               <SubBar label={t(locale, "fit.confidence_dim")} score={positioning.confidence?.evidenceConfidenceScore} color="#9f7aea" />
 
-              {positioning.admissibility?.summary && (
-                <div style={{ fontSize: 10, color: "#8a8a9a", marginTop: 4, lineHeight: 1.5 }}>
-                  {positioning.admissibility.summary}
+              {summaryText(positioning.admissibility, locale) && (
+                <div data-testid="fit-summary" style={{ fontSize: 10, color: "#8a8a9a", marginTop: 4, lineHeight: 1.5 }}>
+                  {summaryText(positioning.admissibility, locale)}
                 </div>
               )}
             </>
@@ -454,11 +616,19 @@ export default function CalibratedFitCard({ collegeValues, positioning, loading,
 
           {positioning.profileComparison && <ProfileComparison pc={positioning.profileComparison} locale={locale} withLikelihood={!insufficient} />}
 
-          {positioning.confidence?.evidenceConfidence && (
-            <div style={{ fontSize: 10, marginTop: 6 }}>
+          {/* Notes the rows above do not already say (a note's own row
+              shows the GPA scale and the assumed admit rate). */}
+          {extraNotes.length > 0 && (
+            <div data-testid="fit-notes" style={{ marginTop: 6 }}>
+              {extraNotes.map((note, i) => <div key={i} style={{ fontSize: 10, color: "#fbd38d", lineHeight: 1.5 }}>{note}</div>)}
+            </div>
+          )}
+
+          {confidenceKey && (
+            <div data-testid="fit-confidence" style={{ fontSize: 10, marginTop: 6 }}>
               <span style={{ color: "#6a6a7a" }}>{t(locale, "fit.confidence")}: </span>
-              <span style={{ color: confColor(positioning.confidence.evidenceConfidence), fontWeight: 600 }}>
-                {positioning.confidence.evidenceConfidence}
+              <span style={{ color: confColor(confidenceKey), fontWeight: 600 }}>
+                {tr(locale, `fit.conf_${confidenceKey}`, null, positioning.confidence?.evidenceConfidence || confidenceKey)}
               </span>
             </div>
           )}
@@ -468,45 +638,66 @@ export default function CalibratedFitCard({ collegeValues, positioning, loading,
             const p = positioning.dataProvenance;
             const isCds = p.kind === "cds_store" || p.kind === "cds_live" || p.kind === "cds_web";
             const bits = [];
-            if (p.kind === "cds_web") bits.push("CDS · AI web-read");
-            else if (isCds) bits.push(p.validated ? "CDS · validated" : p.verification === "consistent" ? "CDS · school document" : "CDS · unverified");
-            else if (p.kind === "baseline_only") bits.push("IPEDS baseline");
+            if (p.kind === "cds_web") bits.push(t(locale, "fit.source_cds_web"));
+            else if (isCds) bits.push(t(locale, p.validated ? "fit.source_cds_validated" : p.verification === "consistent" ? "fit.source_cds_document" : "fit.source_cds_unverified"));
+            else if (p.kind === "baseline_only") bits.push(t(locale, "fit.source_baseline"));
             // A Scorecard-sourced read printed no source line at all, and a
             // read with nothing behind it must not claim one (fit-5).
             else if (p.kind === "college_scorecard") bits.push(t(locale, "fit.source_scorecard"));
             else if (p.kind === "none") bits.push(t(locale, "fit.source_none"));
             if (p.yearLabel || p.year) bits.push(String(p.yearLabel || p.year));
-            if (finiteOrNull(p.admitRatePercent) != null) bits.push(`admit ${p.admitRatePercent}%`);
+            if (finiteOrNull(p.admitRatePercent) != null) bits.push(t(locale, "fit.source_admit", { pct: p.admitRatePercent }));
             // Admit rate specifically pulled from a web search (no CDS/IPEDS).
             if (p.admitRate?.source === "web" && finiteOrNull(p.admitRate.admitRatePercent) != null) {
-              bits.push(`admit ${p.admitRate.admitRatePercent}% (web${p.admitRate.season ? ` · ${p.admitRate.season}` : ""})`);
+              bits.push(t(locale, p.admitRate.season ? "fit.source_admit_web_season" : "fit.source_admit_web", { pct: p.admitRate.admitRatePercent, season: p.admitRate.season || "" }));
             }
-            if (!bits.length) return null;
+            // A field the College Scorecard filled where the main source
+            // had none: the read names it rather than crediting the CDS.
+            const filled = p.kind === "college_scorecard" ? [] : Object.entries(p.fieldSources || {})
+              .filter(([, source]) => source === "college_scorecard")
+              .map(([field]) => tr(locale, `fit.field_${field}`, null, field.replace(/_/g, " ")));
+            // Where the test policy came from, and an unconfirmed one said so.
+            const policy = p.testPolicy;
+            const policyLine = !policy ? null
+              : policy.source === "official_site" ? t(locale, "fit.policy_source_official", { date: String(policy.checkedAt || "").slice(0, 10) || "—" })
+                : policy.source === "cds" ? t(locale, "fit.policy_source_cds")
+                  : policy.source === "unknown" ? t(locale, "fit.policy_source_unknown") : null;
+            if (!bits.length && !filled.length && !policyLine) return null;
             return (
-              <div style={{ fontSize: 9, marginTop: 4, color: "#6a8ab5" }}>
-                <span style={{ color: "#55606e" }}>Source: </span>
-                {p.sourceUrl
-                  ? <a href={p.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ color: "#6a8ab5", textDecoration: "none" }}>↗ {bits.join(" · ")}</a>
-                  : <span>{bits.join(" · ")}</span>}
+              <div data-testid="fit-source" style={{ fontSize: 9, marginTop: 4, color: "#6a8ab5", lineHeight: 1.5 }}>
+                {bits.length > 0 && (
+                  <div>
+                    <span style={{ color: "#55606e" }}>{t(locale, "fit.source_label")}: </span>
+                    {p.sourceUrl
+                      ? <a href={p.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ color: "#6a8ab5", textDecoration: "none" }}>↗ {bits.join(" · ")}</a>
+                      : <span>{bits.join(" · ")}</span>}
+                  </div>
+                )}
+                {filled.length > 0 && <div>{t(locale, "fit.source_filled_scorecard", { fields: filled.join(", ") })}</div>}
+                {policyLine && <div>{policyLine}</div>}
               </div>
             );
           })()}
 
-          {!insufficient && Array.isArray(positioning.mainRedFlags) && positioning.mainRedFlags.length > 0 && (
-            <div style={{ marginTop: 8 }}>
+          {positioning.degraded && (
+            <div data-testid="fit-degraded" style={{ fontSize: 9, color: "#f6ad55", marginTop: 4, lineHeight: 1.5 }}>{t(locale, "fit.degraded")}</div>
+          )}
+
+          {!insufficient && redFlags.length > 0 && (
+            <div data-testid="fit-redflags" style={{ marginTop: 8 }}>
               <div style={{ fontSize: 9, color: "#fc8181", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>
                 {t(locale, "fit.redflags")}
               </div>
-              {positioning.mainRedFlags.slice(0, 3).map((f, i) => (
+              {redFlags.slice(0, 3).map((f, i) => (
                 <div key={i} style={{ fontSize: 10, color: "#cbb", lineHeight: 1.5 }}>• {f}</div>
               ))}
             </div>
           )}
 
-          {!insufficient && positioning.recommendedPositioningStrategy && (
-            <div style={{ marginTop: 8, fontSize: 10, color: "#9ae6b4", lineHeight: 1.5 }}>
+          {!insufficient && strategyText(positioning, locale) && (
+            <div data-testid="fit-strategy" style={{ marginTop: 8, fontSize: 10, color: "#9ae6b4", lineHeight: 1.5 }}>
               <span style={{ color: "#6a6a7a" }}>{t(locale, "fit.strategy")}: </span>
-              {positioning.recommendedPositioningStrategy}
+              {strategyText(positioning, locale)}
             </div>
           )}
 
@@ -516,10 +707,10 @@ export default function CalibratedFitCard({ collegeValues, positioning, loading,
               <button
                 onClick={() => onVerify()}
                 disabled={verifying}
-                title="Re-check the numbers and policy behind this read against College Scorecard and the school's own admissions pages"
+                title={t(locale, "fit.verify_title")}
                 style={{ fontSize: 10, color: verifying ? "#666" : "#8ec5ff", background: "rgba(142,197,255,0.08)", border: "1px solid rgba(142,197,255,0.25)", borderRadius: 6, padding: "3px 8px", cursor: verifying ? "default" : "pointer" }}
               >{verifying ? t(locale, "fit.verifying") : t(locale, "fit.verify")}</button>
-              {verification?.error && <div style={{ fontSize: 10, color: "#fc8181", marginTop: 4 }}>{verification.error}</div>}
+              {verification?.error && <div data-testid="fit-verify-error" style={{ fontSize: 10, color: "#fc8181", marginTop: 4 }}>{verificationErrorText(verification, locale)}</div>}
               {verification && !verification.error && <VerificationPanel v={verification} locale={locale} />}
             </div>
           )}
@@ -557,7 +748,7 @@ export default function CalibratedFitCard({ collegeValues, positioning, loading,
         </div>
       )}
       {values && <div data-testid="fit-matrix">
-        <div style={{ fontSize: 10, color: "#6a6a7a", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>{values.fallback === "cds_admission_factors" ? "Admission priorities (CDS)" : "Core values"}</div>
+        <div style={{ fontSize: 10, color: "#6a6a7a", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>{t(locale, values.fallback === "cds_admission_factors" ? "fit.values_heading_cds" : "fit.values_heading")}</div>
         {(values.values || []).map((v) => {
           const coverage = values.fit?.perValueCoverage?.find((p) => p.theme === v.theme);
           return (
@@ -580,7 +771,13 @@ export default function CalibratedFitCard({ collegeValues, positioning, loading,
           );
         })}
       </div>}
-      {values?.cached && <div style={{ fontSize: 9, color: "#555", marginTop: 4 }}>Cached {new Date(values.extractedAt).toLocaleDateString()}</div>}
+      {values?.cached && (
+        <div style={{ fontSize: 9, color: "#555", marginTop: 4 }}>
+          {Number.isFinite(new Date(values.extractedAt).getTime())
+            ? t(locale, "fit.cached_on", { date: new Date(values.extractedAt).toLocaleDateString(locale === "ko" ? "ko-KR" : "en-US") })
+            : t(locale, "fit.cached_short")}
+        </div>
+      )}
       {values?.refreshedAt && (
         <div data-testid="fit-refreshed" style={{ fontSize: 9, color: "#6a8ab5", marginTop: 4 }}>
           {t(locale, "fit.refreshed")} · {new Date(values.refreshedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}

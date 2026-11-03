@@ -7,6 +7,8 @@ const COPY = {
     title: "Counselor administrator",
     lede: "Configure the three secrets used by this installation. The administrator cannot inspect student profiles, chats, or application records.",
     loading: "Loading administrator status...",
+    statusError: "The administrator status could not be loaded, so this page cannot tell whether an administrator exists yet. The server may be starting up; try again in a moment.",
+    retry: "Try again",
     createTitle: "Create administrator account",
     loginTitle: "Administrator sign in",
     password: "Password",
@@ -101,6 +103,8 @@ const COPY = {
     title: "상담사 관리자",
     lede: "이 설치에서 사용하는 세 가지 비밀 키를 설정합니다. 관리자는 학생 프로필, 대화 또는 지원 기록을 볼 수 없습니다.",
     loading: "관리자 상태를 불러오는 중...",
+    statusError: "관리자 상태를 불러오지 못해 관리자 계정이 이미 있는지 알 수 없습니다. 서버가 시작되는 중일 수 있으니 잠시 후 다시 시도해 주세요.",
+    retry: "다시 시도",
     createTitle: "관리자 계정 만들기",
     loginTitle: "관리자 로그인",
     password: "비밀번호",
@@ -234,6 +238,7 @@ function groupByBand(rows) {
 export default function AdminApp() {
   const [locale, setLocale] = useState(() => navigator.language?.toLowerCase().startsWith("ko") ? "ko" : "en");
   const [bootstrapped, setBootstrapped] = useState(null);
+  const [statusFailed, setStatusFailed] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [csrfToken, setCsrfToken] = useState("");
   const [password, setPassword] = useState("");
@@ -269,14 +274,22 @@ export default function AdminApp() {
     document.documentElement.lang = locale === "ko" ? "ko" : "en";
   }, [locale]);
 
-  useEffect(() => {
+  // A status request that fails says nothing about whether an administrator
+  // exists. It used to be read as "not bootstrapped", so a cold start's 502
+  // showed the create-administrator form (and hid model management on the
+  // website); the state now stays unknown, with a retry.
+  function loadStatus() {
+    setStatusFailed(false);
+    setMessage(null);
     jsonRequest("/api/admin/status")
       .then((body) => {
         setBootstrapped(Boolean(body.bootstrapped));
         setWebDeployment(Boolean(body.webDeployment));
       })
-      .catch((error) => { setBootstrapped(false); setMessage({ type: "error", text: error.message }); });
-  }, []);
+      .catch(() => { setBootstrapped(null); setStatusFailed(true); });
+  }
+
+  useEffect(() => { loadStatus(); }, []);
 
   const normalizedSecrets = useMemo(() => {
     if (!secrets) return {};
@@ -555,7 +568,13 @@ export default function AdminApp() {
         <p className="admin-lede">{webDeployment ? c.webLede : c.lede}</p>
         {message && <p className={"admin-alert " + message.type} role={message.type === "error" ? "alert" : "status"}>{message.text}</p>}
 
-        {bootstrapped === null && <p role="status">{c.loading}</p>}
+        {bootstrapped === null && !statusFailed && <p role="status">{c.loading}</p>}
+        {bootstrapped === null && statusFailed && (
+          <div className="admin-alert error" role="alert">
+            <p>{c.statusError}</p>
+            <button className="admin-secondary" type="button" onClick={loadStatus}>{c.retry}</button>
+          </div>
+        )}
 
         {bootstrapped !== null && !authenticated && (
           <section className="admin-panel" aria-labelledby="admin-auth-title">

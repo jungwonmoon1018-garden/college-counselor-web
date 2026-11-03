@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import CalibratedFitCard, { valuesErrorText } from "./CalibratedFitCard.jsx";
+import CalibratedFitCard, { labelKeyOf, valuesErrorText, verificationErrorText } from "./CalibratedFitCard.jsx";
+import { STRINGS } from "../i18n.js";
 
 // The positioning payload's profileComparison block: what the College Fit
 // read compared the student's own record with (tests by section, the GPA
@@ -354,5 +355,176 @@ describe("CalibratedFitCard when the values read failed", () => {
     render(<CalibratedFitCard collegeValues={{ displayName: "Stanford University", values: [] }} positioning={positioning} loading={false} onAddTarget={() => {}} targetListFull />);
     expect(screen.queryByRole("button", { name: "➕ target" })).not.toBeInTheDocument();
     expect(screen.getByTestId("fit-target-full")).toHaveTextContent("list full (8)");
+  });
+});
+
+// In Korean mode the card printed the headline band, the summary, the
+// flags, the strategy, the confidence, the source line and the whole
+// double-check in English beside Korean bars (fit-10). The engine now
+// sends stable codes beside its English, and the card translates them.
+const codedRead = {
+  ...positioning,
+  overallPositioningLabel: "Reach",
+  labelKey: "reach",
+  admissibility: { academicReadinessScore: 62, summary: "academically stretched", summaryKey: "stretched" },
+  confidence: { evidenceConfidence: "Very Low", evidenceConfidenceKey: "very_low", evidenceConfidenceScore: 30 },
+  mainRedFlags: [
+    "SAT Math (700) sits below this school's 25th percentile (770), which a quantitative major will notice.",
+    "Weak major-relevant coursework for an ambitious intended major.",
+  ],
+  mainRedFlagCodes: [
+    { code: "math_below_band", params: { test: "SAT", value: 700, low: 770 } },
+    { code: "weak_major_coursework" },
+  ],
+  recommendedPositioningStrategy: "Treat this as a selective reach. Fix the most visible preparation gaps and make the major story sharper and more school-specific.",
+  strategyKey: "reach_gaps",
+  dataNotes: [],
+  dataNoteKeys: [],
+  dataProvenance: {
+    kind: "cds_store", validated: true, yearLabel: "2025-26", sourceUrl: "https://example.edu/cds.pdf",
+    fieldSources: { acceptance_rate: "cds_store", sat_range: "college_scorecard" },
+    testPolicy: { bucket: null, source: "unknown" },
+  },
+};
+
+const ENGLISH_WORDS = /High reach|Highly competitive|\bReach\b|academically stretched|Very Low|Weak major-relevant|Treat this as|IPEDS baseline|CDS · validated|Source:|not available|label unchanged|Official site|Admit rate|SAT middle 50%|Testing policy|unavailable this time/;
+
+const verification = {
+  verdict: "discrepancies_found",
+  checkedAt: "2026-11-01T10:00:00Z",
+  cached: true,
+  checks: [
+    { field: "acceptance_rate", label: "Admit rate", used: null, live: "49%", liveSource: "College Scorecard (live IPEDS)", liveSourceKind: "college_scorecard", status: "filled" },
+    { field: "sat_range", label: "SAT middle 50%", used: "1330–1490", live: "1330–1490", liveSource: "College Scorecard (live IPEDS)", liveSourceKind: "college_scorecard", status: "consistent" },
+    { field: "act_range", label: "ACT middle 50%", used: null, live: null, status: "unavailable" },
+    {
+      field: "test_policy", label: "Testing policy", used: "test-optional / de-emphasized", usedBucket: "test_optional_or_deemphasized",
+      live: "official-site parser: tests considered or required vs model (quote verified): test-optional / de-emphasized", liveBucket: null,
+      readers: [
+        { reader: "official-site parser", readerKey: "official_site_parser", bucket: "test_considered_or_required", value: "tests considered or required" },
+        { reader: "model (quote verified)", readerKey: "model_quote_verified", bucket: "test_optional_or_deemphasized", value: "test-optional / de-emphasized" },
+      ],
+      status: "inconclusive",
+    },
+    { field: "deadline_early_decision", label: "Early Decision deadline", plan: "early_decision", live: "2026-11-01", liveSource: "https://example.edu/apply", status: "info" },
+  ],
+  officialSite: { status: "robots_disallowed" },
+  modelReview: { status: "failed", error: "x" },
+  recomputed: { changedInputs: ["acceptance_rate"], overallPositioningLabel: "Competitive", labelKey: "competitive", labelChanged: true },
+  original: { overallPositioningLabel: "Reach", labelKey: "reach" },
+};
+
+describe("CalibratedFitCard in Korean", () => {
+  afterEach(() => cleanup());
+
+  it("says the label, summary, flags, strategy, confidence and sources in Korean", () => {
+    const { container } = render(<CalibratedFitCard collegeValues={{ displayName: "Example University", values: [] }} positioning={codedRead} loading={false} locale="ko" />);
+    expect(screen.getByTestId("fit-label")).toHaveTextContent("도전");
+    expect(screen.getByTestId("fit-summary")).toHaveTextContent("학업 수준이 합격생 범위에 못 미침");
+    expect(screen.getByTestId("fit-redflags")).toHaveTextContent("SAT 수학 점수(700)가 이 학교의 25퍼센타일(770)보다 낮습니다.");
+    expect(screen.getByTestId("fit-redflags")).toHaveTextContent("관련 과목 수강이 약합니다");
+    expect(screen.getByTestId("fit-strategy")).toHaveTextContent("선발이 까다로운 도전 학교로 생각하세요.");
+    expect(screen.getByTestId("fit-confidence")).toHaveTextContent("매우 낮음");
+    const source = screen.getByTestId("fit-source");
+    expect(source).toHaveTextContent("출처: ↗ CDS · 검증됨 · 2025-26");
+    expect(source).toHaveTextContent("College Scorecard에서 보충: SAT 범위");
+    expect(source).toHaveTextContent("시험 정책: 어느 출처에서도 확인되지 않음");
+    expect(container.textContent).not.toMatch(ENGLISH_WORDS);
+    expect(container.textContent).not.toMatch(NEVER);
+  });
+
+  it("the same read in English reads as the engine wrote it, and the band keeps its color", () => {
+    const { container } = render(<CalibratedFitCard collegeValues={{ displayName: "Example University", values: [] }} positioning={codedRead} loading={false} locale="en-US" />);
+    const label = screen.getByTestId("fit-label");
+    expect(label).toHaveTextContent("Reach");
+    expect(label.style.color).toBe("rgb(246, 173, 85)");
+    expect(screen.getByTestId("fit-strategy")).toHaveTextContent(codedRead.recommendedPositioningStrategy);
+    expect(screen.getByTestId("fit-redflags")).toHaveTextContent(codedRead.mainRedFlags[0]);
+    expect(screen.getByTestId("fit-confidence")).toHaveTextContent("Very low");
+    expect(container.textContent).not.toMatch(NEVER);
+  });
+
+  it("a payload cached before the codes still reads, translated where its English is known", () => {
+    const old = { ...positioning, overallPositioningLabel: "High reach", confidence: { evidenceConfidence: "Medium" }, recommendedPositioningStrategy: "Treat this as a high reach." };
+    expect(labelKeyOf(old)).toBe("high_reach");
+    const { container } = render(<CalibratedFitCard collegeValues={{ displayName: "X", values: [] }} positioning={old} loading={false} locale="ko" />);
+    expect(screen.getByTestId("fit-label")).toHaveTextContent("상향 도전");
+    expect(screen.getByTestId("fit-label").style.color).toBe("rgb(245, 101, 101)");
+    expect(screen.getByTestId("fit-summary")).toHaveTextContent("학업 수준이 합격생 범위에 못 미침");
+    expect(screen.getByTestId("fit-confidence")).toHaveTextContent("보통");
+    // No code: the flag and strategy stay as the engine wrote them rather
+    // than going blank.
+    expect(screen.getByTestId("fit-redflags")).toHaveTextContent("SAT Math (700)");
+    expect(screen.getByTestId("fit-strategy")).toHaveTextContent("Treat this as a high reach.");
+    expect(container.textContent).not.toMatch(NEVER);
+    // An unknown code shows the English sentence, never the raw key.
+    cleanup();
+    render(<CalibratedFitCard collegeValues={{ displayName: "X", values: [] }} positioning={{ ...codedRead, mainRedFlagCodes: [{ code: "something_new" }, { code: "weak_major_coursework" }] }} loading={false} locale="ko" />);
+    expect(screen.getByTestId("fit-redflags")).toHaveTextContent("SAT Math (700) sits below");
+    expect(screen.getByTestId("fit-redflags")).not.toHaveTextContent("fit.flag_");
+  });
+
+  it("the double-check panel reads in Korean: checks, a filled value, readers, the re-read label and the site status", () => {
+    const { container } = render(<CalibratedFitCard collegeValues={{ displayName: "X", values: [] }} positioning={codedRead} loading={false} locale="ko" onVerify={() => {}} verification={verification} />);
+    const panel = screen.getByTestId("fit-verification");
+    expect(panel).toHaveTextContent("실시간 출처가 저장된 데이터와 다름");
+    expect(panel).toHaveTextContent("저장된 결과");
+    expect(panel).toHaveTextContent("합격률: 결과에는 값이 없었음 · 실시간 49% (College Scorecard 실시간)");
+    expect(panel).toHaveTextContent("SAT 중간 50%: 적합도 계산값 1330–1490");
+    expect(panel).toHaveTextContent("ACT 중간 50%: 확인 불가");
+    expect(panel).toHaveTextContent("시험 정책: 적합도 계산값 테스트 옵셔널 / 비중 낮음 · 실시간 공식 사이트 판독: 시험 점수 고려 또는 필수 · AI 판독 (인용 확인됨): 테스트 옵셔널 / 비중 낮음");
+    expect(panel).toHaveTextContent("얼리 디시전 마감일: 2026-11-01");
+    expect(screen.getByTestId("fit-recomputed")).toHaveTextContent("실시간 입력값 기준: 합격 가능성 보통 (이전: 도전)");
+    expect(panel).toHaveTextContent("공식 페이지 2차 판독: 이번에는 사용할 수 없음");
+    expect(panel).toHaveTextContent("공식 사이트: 사이트가 자동 판독을 허용하지 않음");
+    expect(container.textContent).not.toMatch(ENGLISH_WORDS);
+    expect(container.textContent).not.toMatch(NEVER);
+  });
+
+  it("a recomputed read whose label did not move says so, and an unknown site status is not printed raw", () => {
+    const steady = { ...verification, recomputed: { ...verification.recomputed, labelChanged: false }, officialSite: { status: "fetch failed: ECONNRESET" } };
+    render(<CalibratedFitCard collegeValues={{ displayName: "X", values: [] }} positioning={codedRead} loading={false} locale="en-US" onVerify={() => {}} verification={steady} />);
+    expect(screen.getByTestId("fit-recomputed")).toHaveTextContent("With live inputs: Competitive (label unchanged)");
+    expect(screen.getByTestId("fit-verification")).toHaveTextContent("Official site: couldn't be read this time");
+    expect(screen.getByTestId("fit-verification")).not.toHaveTextContent("ECONNRESET");
+  });
+
+  it("a double-check that failed says what went wrong and whether to retry, in the card's language", () => {
+    expect(verificationErrorText({ status: 401 }, "en-US")).toMatch(/session ended/i);
+    expect(verificationErrorText({ status: 402 }, "ko")).toContain("다음 달까지");
+    expect(verificationErrorText({ status: 429, code: "rate_limited" }, "en-US")).toMatch(/try again/);
+    expect(verificationErrorText({ status: 0, code: "network_error" }, "ko")).toContain("인터넷 연결");
+    expect(verificationErrorText({ status: 500 }, "en-US")).toMatch(/Trying again may work/);
+    render(<CalibratedFitCard collegeValues={{ displayName: "X", values: [] }} positioning={codedRead} loading={false} locale="ko" onVerify={() => {}} verification={{ error: "HTTP 503", status: 503 }} />);
+    expect(screen.getByTestId("fit-verify-error")).toHaveTextContent("이번에는 재확인을 마치지 못했습니다.");
+    expect(screen.getByTestId("fit-verify-error")).not.toHaveTextContent("HTTP 503");
+  });
+
+  it("a degraded read says a source did not answer", () => {
+    render(<CalibratedFitCard collegeValues={{ displayName: "X", values: [] }} positioning={{ ...codedRead, degraded: true }} loading={false} locale="ko" />);
+    expect(screen.getByTestId("fit-degraded")).toHaveTextContent("일부 데이터 출처가 응답하지 않아");
+  });
+
+  it("a note no row covers is shown once, in the card's language", () => {
+    const read = { ...codedRead, dataNotes: ["No admit rate is on file for this school; the likelihood assumes 50% until one is.", "Something new."], dataNoteKeys: ["admit_rate_assumed", "future_note"] };
+    render(<CalibratedFitCard collegeValues={{ displayName: "X", values: [] }} positioning={read} loading={false} locale="ko" />);
+    const notes = screen.getByTestId("fit-notes");
+    // The admit rate here is known (codedRead has no profileComparison
+    // admitRate), so the assumed-rate note has no row and is shown.
+    expect(notes).toHaveTextContent("50%로 가정해 계산합니다");
+    expect(notes).toHaveTextContent("Something new.");
+  });
+});
+
+// Every fit.* string the card can ask for exists in both languages, so a
+// Korean card never falls back to English for a key only English has.
+describe("fit strings", () => {
+  it("every fit.* key exists in English and Korean", () => {
+    const en = Object.keys(STRINGS["en-US"]).filter((k) => k.startsWith("fit."));
+    const ko = new Set(Object.keys(STRINGS.ko).filter((k) => k.startsWith("fit.")));
+    const missing = en.filter((k) => !ko.has(k));
+    expect(missing).toEqual([]);
+    const extra = [...ko].filter((k) => !STRINGS["en-US"][k]);
+    expect(extra).toEqual([]);
   });
 });

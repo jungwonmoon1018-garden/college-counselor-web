@@ -84,16 +84,22 @@ export function registerCollegesRoutes(app, deps) {
     }
   });
 
-  // DELETE /api/colleges/values — clear the cached extractions so the next
-  // lookup re-fetches (used when a cached extraction was wrong).
+  // DELETE /api/colleges/values — removed on 2026-11-03 (ui-8). It deleted
+  // every school's values read for every student: the cache is shared and
+  // has no student column, while the sidebar's dialog told the student it
+  // cleared "this account's entries". One click made every other student's
+  // next lookup re-extract on their own monthly AI budget, and a school
+  // whose site had since become unreadable lost a good, quote-verified read
+  // for everyone. A wrong read of one school is fixed by re-reading that
+  // school (POST above with force: true), which replaces its row only when
+  // the new read succeeds; the 90-day expiry retires the rest. The route
+  // answers 410 rather than disappearing so an older client says it failed
+  // instead of reporting a clear that did not happen.
   app.delete("/api/colleges/values", deps.studentLimiter, deps.requireStudentAuth, (_req, res) => {
-    try {
-      const deleted = deps.collegeResearchStmts.clearKind.run("values").changes || 0;
-      res.json({ deleted });
-    } catch (err) {
-      console.error("[COLLEGE-VALUES] cache clear failed:", err.message);
-      res.status(500).json({ error: "Cache clear failed" });
-    }
+    res.status(410).json({
+      error: "The shared college-values cache can't be cleared from a student account. Look the school up again with Re-read to refresh just that school.",
+      code: "values_cache_clear_removed",
+    });
   });
 
   app.post("/api/colleges/search", deps.scorecardLimiter, async (req, res) => {

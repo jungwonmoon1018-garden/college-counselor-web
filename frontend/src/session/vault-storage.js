@@ -4,6 +4,8 @@
 // ═══════════════════════════════════════════════════════════
 // ENCRYPTION
 // ═══════════════════════════════════════════════════════════
+import { safeGet, safeRemove, safeSet } from "./safe-storage.js";
+
 const te = new TextEncoder(), td = new TextDecoder();
 
 async function dk(pw, userSalt) {
@@ -26,24 +28,23 @@ export async function decrypt(blob, pw, userSalt) {
 // ═══════════════════════════════════════════════════════════
 // Encrypted cache storage. Account identity and session metadata are never
 // written here; the local backend is the authority for login and recovery.
+// Reads and writes go through safe-storage: set and delete used to touch
+// localStorage bare, so a browser that blocks site data threw out of the
+// auto-save and the logout cleanup. With storage refused, the encrypted blob
+// is held in memory for this page load.
 // ═══════════════════════════════════════════════════════════
 export const storageApi = {
   async get(key) {
     if (window?.storage?.get && window.storage !== storageApi) return window.storage.get(key);
-    try {
-      const value = window.localStorage.getItem(key);
-      return { value };
-    } catch {
-      return { value: null };
-    }
+    return { value: safeGet(key) };
   },
   async set(key, value) {
     if (window?.storage?.set && window.storage !== storageApi) return window.storage.set(key, value);
-    window.localStorage.setItem(key, value);
+    safeSet(key, value);
   },
   async delete(key) {
     if (window?.storage?.delete && window.storage !== storageApi) return window.storage.delete(key);
-    window.localStorage.removeItem(key);
+    safeRemove(key);
   }
 };
 

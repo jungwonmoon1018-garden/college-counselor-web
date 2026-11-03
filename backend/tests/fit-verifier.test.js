@@ -189,3 +189,36 @@ test("verifyCollegeFit orchestrates the three checks, re-scores on a policy chan
   assert.equal(blind.officialSite.status, "site_unresolved");
   assert.match(formatVerificationLine(blind), /could not be checked against live sources/);
 });
+
+// The card translated the verdict but printed every check label, policy
+// reading and source as English (fit-10). Each check now carries stable
+// keys beside its English text for the card; the chat keeps the English.
+test("each check carries stable keys the card can translate", async () => {
+  const scorecard = { acceptanceRate: 3.9, sat25: 1500, sat75: 1570, act25: 34, act75: 35 };
+  const policy = { testPolicy: { value: "test_required", evidence: "e", sourceUrl: "u" }, deadlines: { early_decision: { date: "2026-11-01", sourceUrl: "u", evidence: "e" } }, applicationFee: { amount: 90, sourceUrl: "u" } };
+  const modelPolicy = { value: "test_optional", evidence: "x", sourceUrl: "u", quoteVerified: true };
+  const byField = Object.fromEntries(compareFitInputs({ used, scorecard, policy, modelPolicy }).map((c) => [c.field, c]));
+  assert.equal(byField.acceptance_rate.liveSourceKind, "college_scorecard");
+  assert.equal(byField.sat_range.liveSourceKind, "college_scorecard");
+  assert.equal(byField.test_policy.usedBucket, "test_optional_or_deemphasized");
+  assert.deepEqual(byField.test_policy.readers.map((r) => [r.readerKey, r.bucket]), [
+    ["official_site_parser", "test_considered_or_required"],
+    ["model_quote_verified", "test_optional_or_deemphasized"],
+  ]);
+  assert.equal(byField.deadline_early_decision.plan, "early_decision");
+  // A check with no live value names no source kind.
+  const none = Object.fromEntries(compareFitInputs({ used, scorecard: null }).map((c) => [c.field, c]));
+  assert.equal(none.acceptance_rate.liveSourceKind, null);
+
+  const verification = await verifyCollegeFit({
+    school: { name: "Example University" }, used: { ...used, acceptanceRate: null },
+    lookupScorecard: async () => scorecard,
+    readPolicy: async () => ({ pages: [], policy: null, failure: "no_pages" }),
+    rescore: () => ({ finalPositioningScore: 20, overallPositioningLabel: "Reach", labelKey: "reach" }),
+    original: { finalPositioningScore: 10, overallPositioningLabel: "High reach", labelKey: "high_reach" },
+    now: NOW,
+  });
+  assert.equal(verification.checks.find((c) => c.field === "acceptance_rate").status, "filled");
+  assert.equal(verification.recomputed.labelKey, "reach");
+  assert.equal(verification.original.labelKey, "high_reach");
+});

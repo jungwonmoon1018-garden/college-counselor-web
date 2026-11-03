@@ -148,4 +148,31 @@ describe("AdminApp", () => {
     expect(screen.getByText(/The last check could not read OpenRouter's live catalog\. It retries on its own: /)).toBeVisible();
     expect(screen.queryByText(/every 14 days/)).toBeNull();
   }, 20_000);
+
+  // A cold start's 502 on the status request used to read as "no
+  // administrator yet" and show the create-administrator form (ui-12).
+  it("a failed status request offers a retry, never the create-administrator form", async () => {
+    let statusCalls = 0;
+    fetch.mockImplementation(async (path) => {
+      if (path === "/api/admin/status") {
+        statusCalls += 1;
+        return statusCalls === 1
+          ? { ok:false, status:502, json:async()=>({ error:"Bad gateway" }) }
+          : { ok:true, json:async()=>({ bootstrapped:true, webDeployment:true }) };
+      }
+      return { ok:false, json:async()=>({ error:"unexpected request" }) };
+    });
+
+    const user = userEvent.setup();
+    render(<AdminApp />);
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("The administrator status could not be loaded");
+    expect(screen.queryByRole("heading", { name:"Create administrator account" })).toBeNull();
+    expect(screen.queryByLabelText("Confirm password")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name:"Try again" }));
+    expect(await screen.findByRole("heading", { name:"Administrator sign in" })).toBeVisible();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(statusCalls).toBe(2);
+  }, 20_000);
 });
