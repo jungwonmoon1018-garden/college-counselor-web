@@ -52,9 +52,13 @@ through the adapter → deterministic fidelity check with one corrective retry,
 then a footnote → response. Utility JSON calls (the client's gatekeeper,
 validator, upload screener) skip the profile, the theme guard, and the gate.
 
-1. **Profile fidelity** (`chat-grounding.js`). Every grade, score, course,
-   AP score, and activity the model states must match the saved profile
-   exactly; `formatProfileForModel` is the only way the profile reaches the
+1. **Profile fidelity** (`chat-grounding.js`). Every grade level, grade,
+   score, course, AP score, and activity the model states must match the
+   saved profile exactly (the grade level is the server's own, computed from
+   the stored graduation year by `getStudentGrade`; a value counts as the
+   student's only when the sentence ties it to them, so comparisons with a
+   school's figures and stated targets are never "corrected");
+   `formatProfileForModel` is the only way the profile reaches the
    model and `checkProfileFidelity` is the only way it is checked. When you
    add a profile field, extend both together and add a case to
    `chat-grounding.test.js`. Attachment turns are exempt: the uploaded
@@ -85,7 +89,17 @@ validator, upload screener) skip the profile, the theme guard, and the gate.
    the lexicon. First-person safety statements trigger the deterministic
    crisis response; bare topic words (`emergency`, `abuse` as a topic,
    `end my essay`, `hopeless at chemistry`) never do; ordinary stress gets
-   the supportive 988 footer and a normal answer.
+   the supportive 988 footer and a normal answer. The two lexicons are built
+   from the same fragments and held equal by `crisis-lexicon-parity.test.js`
+   and the shared fixture `tests/fixtures/crisis-lexicon-cases.json`: change
+   both files and the fixture together, and pin every new phrasing in both
+   directions. Suicide, self-harm or a crisis line named as a topic (a
+   prevention club, a volunteer position) is answered with the 988 / 741741
+   footer (109 and 1388 in Korean), and that footer also rides on the error
+   of any failed turn about it, so the lines never depend on a paid call. The
+   deterministic reply is `buildCrisisChatReply` in `chat/rules-engine.js`,
+   used by `/api/chat` and the Council; the client ends the turn on it from
+   any call that carries the student's words.
 5. **Attachments** reach the model as their full extracted text (OCR fallback
    for scans); nothing is truncated on the client (`sanitizeInput` allows
    200k characters) and the classifier only ever sees the question, never
@@ -98,7 +112,11 @@ policy scout (`admissions-policy-scout.js`: deterministic reads of each
 tracked school's own pages, robots-honoring, SSRF-guarded) and the model
 catalog scout (`model-catalog-scout.js`: new OpenRouter chat models from
 trusted providers, sorted into price bands, offered in the counselor's picker
-and the adapter allowlist, pruned when they leave the catalog). Each carries a
+and the adapter allowlist, pruned when they leave the catalog, except that a
+model a tier is set to is never aged out or pruned while in use). A run that
+did no work (a sweep that read no school, a catalog check with no live
+catalog) is recorded as failed and retried with a backoff, not counted as
+completed. Each scout carries a
 version constant; bump it whenever its rules change so the next boot re-reads
 at once. A policy sweep reads every tracked school (the stored homepage
 stands in for a College Scorecard search, what was read in the last day is
@@ -106,6 +124,14 @@ skipped); `SWEEP_RULES_VERSION` tags how sweeps are sized, so a change there
 runs one sweep at the next boot without marking any reading stale, as a
 `SCOUT_VERSION` bump would. The three tier defaults (`llm-adapters/tier-defaults.js`) never
 change on their own, and the provider adapter is text-only.
+
+**Dates.** Admissions dates follow one module, `shared/admissions-cycle.js`
+(the Feb 1 planning pivot; its frontend twin is held equal by a test), the
+school year follows `shared/school-year.js` (Aug 1), and a date-only deadline
+is a calendar date (`shared/calendar-date.js`), overdue only once its day has
+ended Anywhere on Earth. No test may depend on today's date: inject a clock
+(`tests/helpers/fixed-clock.mjs`), because a test that passes today and fails
+next February turns CI red and blocks every deploy.
 
 **Memory and outbound requests.** The instance has 512 MB for the
 launcher, the server and the sidecar. Every heavy step on a document — a
