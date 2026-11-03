@@ -9,6 +9,8 @@ import { assembleProfileForGeneration } from "./verified-data.js";
 import { buildStudentCallLLM, safeParseJSON } from "./model-calls.js";
 import { extractGoalUnitIds } from "../storage/rag-engine.js";
 import { extractTargetSchoolNames } from "../cds/cds-search.js";
+import { planningCycleStartYear, typicalDeadlineDates } from "../shared/admissions-cycle.js";
+import { resolveCdsRecordForSchool } from "../cds/cds-store.js";
 
 let deps;
 export function bindNarrativeCalendar(serverDeps) { deps = serverDeps; }
@@ -145,14 +147,13 @@ export function admitRatePercentOf(value) {
 
 export async function getSchoolPriorities(schoolNames) {
   if (!Array.isArray(schoolNames) || !schoolNames.length) return [];
-  let loadValidatedRecord;
-  try { ({ loadValidatedRecord } = await import("../cds/cds-validator.js")); }
-  catch { return schoolNames.map((s) => ({ school: s, hasData: false })); }
-  const slugify = (n) => String(n).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
   const out = [];
   for (const name of schoolNames) {
     let rec = null;
-    try { rec = loadValidatedRecord(deps.ragStmts, slugify(name)); } catch { /* ignore */ }
+    // The canonical resolver (cds-store): an exact slug of the name missed
+    // the baseline's "Columbia University in the City of New York" and every
+    // "Georgia Tech" or "NYU", so those targets lost their C7 priorities.
+    try { rec = resolveCdsRecordForSchool(deps.ragStmts, name); } catch { /* ignore */ }
     if (!rec) { out.push({ school: name, hasData: false }); continue; }
     const factors = Object.entries(rec.c7 || {})
       .map(([k, label]) => ({ factor: k, label, weight: deps.C7_PRIORITY_WEIGHTS[label] ?? null }))
@@ -193,15 +194,15 @@ export function schoolPrioritiesPromptBlock(priorities) {
 // (always fresh), so the agent is never date-blind even without web access.
 // ───────────────────────────────────────────────────────────
 export function buildAdmissionsCalendar(now = new Date()) {
-  const y = now.getUTCFullYear();
   const m = now.getUTCMonth() + 1; // 1..12
   // A senior applying in the fall of `cycleStartYear` matriculates the next
   // fall (`cycleEntryYear`). The cycle rolls forward to the NEXT season once
   // RD season is over (February onward): from Feb–Jul the just-finished
   // cycle's EA/ED/RD/deposit dates are all in the past, so the relevant
   // deadlines to outline are the UPCOMING fall's. January is the one month
-  // still inside the active RD window, so it stays on that cycle.
-  const cycleStartYear = m >= 2 ? y : y - 1;
+  // still inside the active RD window, so it stays on that cycle. This is
+  // the planning cycle every deadline path shares (shared/admissions-cycle.js).
+  const cycleStartYear = planningCycleStartYear(now);
   const cycleEntryYear = cycleStartYear + 1;
   let phase;
   if (m >= 8 && m <= 10) phase = "early-application season — EA/ED apps due ~Nov 1";
@@ -234,13 +235,7 @@ export function buildAdmissionsCalendar(now = new Date()) {
     },
     // Concrete ISO fallbacks (parseable) so the UI can always create dated
     // deadline entries even when no per-school web data is available.
-    typicalISO: {
-      earlyEaEd: `${cycleStartYear}-11-01`,
-      regularDecision: `${cycleEntryYear}-01-01`,
-      financialAidPriority: `${cycleEntryYear}-02-01`,
-      fafsaOpens: `${cycleStartYear}-10-01`,
-      nationalDepositDeadline: `${cycleEntryYear}-05-01`,
-    },
+    typicalISO: typicalDeadlineDates(cycleStartYear),
     note: "Approximate US norms — exact dates vary by school and year; verify on each school's admissions/financial-aid site.",
   };
 }

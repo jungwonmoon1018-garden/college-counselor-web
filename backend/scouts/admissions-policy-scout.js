@@ -21,7 +21,8 @@
 
 import crypto from "node:crypto";
 import { assertSafeFetchTarget } from "../security/safe-fetch.js";
-import { expandCollegeAlias, slugifyCollege, currentAdmissionsCycle } from "../colleges/college-research.js";
+import { expandCollegeAlias, slugifyCollege } from "../colleges/college-research.js";
+import { planningCycle } from "../shared/admissions-cycle.js";
 import { insertFact } from "./fact-store.js";
 import { failedStreak, scoutRunDue } from "./scout-cadence.js";
 import { policyFields, extractPolicyFromPages, diffPolicies, SCOUT_VERSION, PLAN_LABELS, TEST_POLICY_LABELS } from "./policy-scout-extract.js";
@@ -137,7 +138,7 @@ function cycleExpiry(cycle) {
 export function writePolicyFacts(factStmts, { slug, schoolName, unitId, policy, checkedAt }) {
   if (!factStmts) return 0;
   let written = 0;
-  const cycle = policy.cycle || currentAdmissionsCycle();
+  const cycle = policy.cycle || planningCycle();
   for (const [key, field] of Object.entries(policyFields(policy))) {
     const domain = hostOf(field.sourceUrl);
     if (!domain) continue;
@@ -263,11 +264,15 @@ const HOMEPAGE_TRUST_MS = 45 * 24 * 60 * 60 * 1000;
 export const SWEEP_RULES_VERSION = 2;
 
 // Whether an automatic sweep is due: a cadence after the last one, at once
-// after a scout version or sweep rules change, or when forced.
+// after a scout version or sweep rules change, once the planning cycle has
+// moved on (Feb 1: every snapshot then belongs to the closed cycle and is no
+// longer current), or when forced. A run recorded before runs carried their
+// cycle does not count as another cycle's.
 export function policyScoutDue(lastRun, { cadenceMs, now = Date.now(), force = null } = {}) {
   const reason = force
     || (lastRun && lastRun.scoutVersion !== SCOUT_VERSION ? "scout_version_changed" : null)
-    || (lastRun && lastRun.sweepRules !== SWEEP_RULES_VERSION ? "sweep_rules_changed" : null);
+    || (lastRun && lastRun.sweepRules !== SWEEP_RULES_VERSION ? "sweep_rules_changed" : null)
+    || (lastRun?.cycle && lastRun.cycle !== planningCycle(new Date(now)) ? "planning_cycle_changed" : null);
   return scoutRunDue({ lastRun, cadenceMs, now, force: reason });
 }
 
@@ -299,7 +304,7 @@ export async function runPolicyScout(targets, {
       row = (target.unitId ? stmts.getSnapshotByUnitId.get(String(target.unitId)) : null) || stmts.getSnapshot.get(slugifyCollege(target.name)) || null;
     } catch { row = null; }
     const policy = row ? safeJson(row.policy_json) : null;
-    const current = Boolean(row) && policy?.scoutVersion === SCOUT_VERSION;
+    const current = Boolean(row) && snapshotIsCurrent({ policy }, now());
     const rank = !row ? 0 : current ? 2 : 1;
     const checkedAtMs = Date.parse(row?.checked_at || "");
     const ageMs = Number.isFinite(checkedAtMs) ? nowMs - checkedAtMs : Infinity;
@@ -332,7 +337,8 @@ export async function runPolicyScout(targets, {
   const startedAt = now().toISOString();
   // The version is recorded up front so an in-progress run reports the
   // scout that is actually running, not the previous run's.
-  stmts.insertRun.run(runId, startedAt, trigger, list.length, JSON.stringify({ scoutVersion: SCOUT_VERSION, sweepRules: SWEEP_RULES_VERSION, inProgress: true }));
+  const cycle = planningCycle(now());
+  stmts.insertRun.run(runId, startedAt, trigger, list.length, JSON.stringify({ scoutVersion: SCOUT_VERSION, sweepRules: SWEEP_RULES_VERSION, cycle, inProgress: true }));
   const fetcher = makeFetcher({ fetchImpl, assertTarget, sleep });
   const results = [];
   let cursor = 0;
@@ -358,7 +364,7 @@ export async function runPolicyScout(targets, {
   // nothing to read (every school read in the last day) is complete.
   const outcome = list.length > 0 && checked === 0 ? "failed" : "completed";
   const summary = {
-    runId, trigger, startedAt, finishedAt: now().toISOString(), scoutVersion: SCOUT_VERSION, sweepRules: SWEEP_RULES_VERSION,
+    runId, trigger, startedAt, finishedAt: now().toISOString(), scoutVersion: SCOUT_VERSION, sweepRules: SWEEP_RULES_VERSION, cycle,
     outcome, total: list.length, checked, failed, skipped: results.length - checked - failed, recentlyRead, changes,
     changed: results.filter((r) => r.changes?.length).map((r) => ({ school: r.school, changes: r.changes })),
     failures: results.filter((r) => r.status !== "ok").map((r) => ({ school: r.school, reason: r.reason })).slice(0, 40),
@@ -401,13 +407,17 @@ export function readPolicySnapshot(stmts, { unitId = null, name = null } = {}) {
   };
 }
 
-// A snapshot read by the scout version now running. One from an older
-// version (or from before versions were recorded) still answers, but the
-// school's pages are read again on demand the next time it is asked about:
-// Johns Hopkins kept a version-3 reading with no ED II date for a day
-// after the table fix shipped because the sweep never reached it.
-export function snapshotIsCurrent(snapshot) {
-  return snapshot?.policy?.scoutVersion === SCOUT_VERSION;
+// A snapshot read by the scout version now running, for the cycle students
+// are planning for. One from an older version (or from before versions were
+// recorded) still answers, but the school's pages are read again on demand
+// the next time it is asked about: Johns Hopkins kept a version-3 reading
+// with no ED II date for a day after the table fix shipped because the
+// sweep never reached it. A reading of another cycle is re-read the same
+// way: on Feb 1 the planning cycle moves on, and last fall's "Early
+// Decision: November 1" kept answering as the current deadline.
+export function snapshotIsCurrent(snapshot, now = new Date()) {
+  return snapshot?.policy?.scoutVersion === SCOUT_VERSION
+    && snapshot.policy.cycle === planningCycle(now);
 }
 
 // The calendar context and the deterministic deadline answer read the
@@ -418,7 +428,7 @@ export function snapshotAsDeadlineRecord(snapshot) {
   const record = {
     displayName: snapshot.school,
     slug: snapshot.slug,
-    cycle: snapshot.policy?.cycle || currentAdmissionsCycle(),
+    cycle: snapshot.policy?.cycle || planningCycle(),
     deadlines: {
       ea: pick("early_action", "restrictive_early_action"),
       ed: pick("early_decision"),
@@ -524,6 +534,7 @@ function summarizeRun(row) {
     outcome: runOutcome(row, summary),
     scoutVersion: summary?.scoutVersion ?? 1,
     sweepRules: Number(summary?.sweepRules) || 1,
+    cycle: typeof summary?.cycle === "string" ? summary.cycle : null,
     abandoned: summary?.abandoned === true,
     schoolsTotal: row.schools_total,
     recentlyRead: Number(summary?.recentlyRead) || 0,

@@ -47,4 +47,23 @@ describe("NarrativeEditor", () => {
   // 4.1.11 queues each test's steps behind the other files' (see
   // AdminApp.test.jsx), and on 2026-10-09 it crossed the 5 s default.
   }, 20_000);
+
+  // The server sends SQLite's "YYYY-MM-DD HH:MM:SS" in UTC. Read raw, Chrome
+  // took it for local time (a 14:00 KST save read 05:00) and Safari showed
+  // "Saved Invalid Date". The expected label is computed from the UTC instant,
+  // so this holds in any time zone.
+  it("shows the saved time as the viewer's local time", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url) => {
+      const path = String(url).split("?")[0];
+      const body = path === "/api/ec/narrative/active"
+        ? { id: "nar_1", narrative_text: STORY, created_at: "2026-11-03 05:00:00", source: "student" }
+        : { error: "Not found" };
+      return { ok: path === "/api/ec/narrative/active", status: path === "/api/ec/narrative/active" ? 200 : 404, headers: { get: () => "application/json" }, json: async () => body, text: async () => JSON.stringify(body) };
+    }));
+    render(<NarrativeEditor />);
+    expect(await screen.findByDisplayValue(STORY)).toBeInTheDocument();
+    const when = new Date("2026-11-03T05:00:00Z").toLocaleString("en-US");
+    expect(screen.getByText((text) => text.includes(when))).toBeInTheDocument();
+    expect(screen.queryByText(/Invalid Date/)).not.toBeInTheDocument();
+  }, 20_000);
 });

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { narrative as narrativeApi } from "../api.js";
 import { t } from "../i18n.js";
+import { formatServerDateTime } from "../profile/dates.js";
 
 // ═══════════════════════════════════════════════════════════════════════
 // NarrativeEditor — write/edit the student's personal story (100–1500 chars,
@@ -207,7 +208,10 @@ export default function NarrativeEditor({ locale = "en-US", onSaved, targetSchoo
         )}
         {savedAt && (
           <div style={{ alignSelf: "center", fontSize: 11, color: "#555", marginLeft: "auto" }}>
-            {t(locale, "narrative.saved_at", { when: new Date(savedAt).toLocaleString(locale === "ko" ? "ko-KR" : "en-US") })}
+            {/* The server's time is SQLite UTC with no zone: Chrome read it
+                as local time (05:00 for a 14:00 KST save) and Safari as
+                Invalid Date. formatServerDateTime reads it as UTC. */}
+            {t(locale, "narrative.saved_at", { when: formatServerDateTime(savedAt, String(locale).startsWith("ko") ? "ko-KR" : "en-US") })}
           </div>
         )}
       </div>

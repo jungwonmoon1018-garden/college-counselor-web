@@ -18,24 +18,23 @@ import { buildTranscriptParseMessages, parseTranscriptModelReply } from "../acad
 import { normalizeSyncInput, previousFromSnapshot } from "../academics/profile-input.js";
 import { ExtractionError, SUPPORTED_MIME_TYPES, extractPdfOCR, extractText, isSupportedMime } from "../shared/file-extractors.js";
 import { resolveLocale, t } from "../shared/i18n.js";
+import { anywhereOnEarthToday, calendarDateOf, dueValueMs, normalizeDueValue, referenceToday } from "../shared/calendar-date.js";
+import { cycleOfDate } from "../shared/admissions-cycle.js";
+import { DEADLINE_CATEGORIES, DEADLINE_TITLE_MAX, deadlineDateOutside } from "../shared/deadline-rules.js";
 
 // A deadline's name and date are held to the same rules on create, bulk
-// create and edit. The name is what the list, the reminders and the chat
-// show, and had no cap; 200 characters is a long sentence. A date before
-// 2000 or more than six years out is a typing slip (a ninth grader's
-// furthest real deadline is about four years away): a year typed as 0202
-// or 20266 was stored as given and sorted to the ends of the list.
-const DEADLINE_TITLE_MAX = 200;
-const DEADLINE_CATEGORIES = ["personal", "admissions", "financial_aid", "test", "other"];
-const DEADLINE_EARLIEST_MS = Date.UTC(2000, 0, 1);
-const DEADLINE_YEARS_AHEAD = 6;
+// create and edit; the rules and their reasons live in
+// shared/deadline-rules.js, beside the copy the tracker's form carries.
+//
+// A category the student typed is kept as typed (trimmed, 40 characters):
+// anything outside the five known ones used to become "personal" without a
+// word, so "Essay" vanished on save.
+const DEADLINE_CATEGORY_MAX = 40;
 
-// The allowed window ({ from, to } as dates) when `ms` falls outside it.
-function deadlineDateOutside(ms, now = Date.now()) {
-  const latest = new Date(now);
-  latest.setUTCFullYear(latest.getUTCFullYear() + DEADLINE_YEARS_AHEAD);
-  if (ms >= DEADLINE_EARLIEST_MS && ms <= latest.getTime()) return null;
-  return { from: new Date(DEADLINE_EARLIEST_MS).toISOString().slice(0, 10), to: latest.toISOString().slice(0, 10) };
+function deadlineCategory(value, fallback) {
+  if (DEADLINE_CATEGORIES.includes(value)) return value;
+  const typed = typeof value === "string" ? value.trim().slice(0, DEADLINE_CATEGORY_MAX) : "";
+  return typed || fallback;
 }
 
 // The stored profile as GET /api/students/profile returns it; a sync refused
@@ -770,21 +769,23 @@ export function registerStudentsRoutes(app, deps) {
       if (!dueAt || typeof dueAt !== "string") {
         return res.status(400).json({ error: "dueAt (ISO-8601) required" });
       }
-      const parsed = Date.parse(dueAt);
-      if (!Number.isFinite(parsed)) {
+      // A date is stored as the YYYY-MM-DD the student picked (see
+      // shared/calendar-date.js); only a real instant is stored as one.
+      const due = normalizeDueValue(dueAt);
+      if (!due) {
         return res.status(400).json({ error: "dueAt must be a parseable ISO-8601 date", friendlyMessage: t("deadlines.due_at_invalid", locale) });
       }
-      const outside = deadlineDateOutside(parsed);
+      const outside = deadlineDateOutside(dueValueMs(due));
       if (outside) {
         return res.status(400).json({ error: `dueAt must fall between ${outside.from} and ${outside.to}`, friendlyMessage: t("deadlines.due_at_range", locale, outside) });
       }
-      const cat = DEADLINE_CATEGORIES.includes(category) ? category : "personal";
+      const cat = deadlineCategory(category, "personal");
       const id = crypto.randomUUID();
       deps.ragStmts.deadlines.insert.run(
         id,
         req.studentId,
         title.trim(),
-        new Date(parsed).toISOString(),
+        due,
         cat,
         notes ? String(notes).slice(0, 2000) : null,
         Array.isArray(collegeIds) ? JSON.stringify(collegeIds.slice(0, 20).map(String)) : null,
@@ -801,36 +802,48 @@ export function registerStudentsRoutes(app, deps) {
   // POST /api/students/deadlines/bulk — create several deadlines in ONE request.
   // Used when a target school is added (Early/RD/financial-aid/commit at once)
   // so we don't fire 4+ separate POSTs and trip the rate limiter (HTTP 429).
-  // De-dupes against the student's existing deadline titles (case-insensitive).
+  //
+  // A row is a duplicate only of the same title in the same admissions cycle
+  // (the cycle its date falls in): titles carry no year, so title-only
+  // de-duplication let last cycle's "Harvard — Regular Decision" block this
+  // cycle's forever. An item already past everywhere (before today Anywhere
+  // on Earth) is not created: a school added on Nov 3 got an Early reminder
+  // due Nov 1, overdue on the day it was made. Each skipped item is listed
+  // with its reason, so the client can tell the student.
   app.post("/api/students/deadlines/bulk", deps.studentLimiter, deps.requireStudentAuth, (req, res) => {
     try {
       const items = Array.isArray(req.body?.items) ? req.body.items.slice(0, 20) : null;
       if (!items || items.length === 0) return res.status(400).json({ error: "items (non-empty array) required" });
       const existing = deps.ragStmts.deadlines.listByStudent.all(req.studentId) || [];
-      const existingTitles = new Set(existing.map((d) => String(d.title || "").trim().toLowerCase()));
+      const keyOf = (title, due) => `${String(title || "").trim().toLowerCase()}|${cycleOfDate(calendarDateOf(due) || String(due || "").slice(0, 10)) || ""}`;
+      const existingKeys = new Set(existing.map((d) => keyOf(d.title, d.due_at)));
+      const earliest = anywhereOnEarthToday();
       const created = [];
-      let skipped = 0;
+      const skippedItems = [];
       for (const it of items) {
         const title = String(it?.title || "").trim();
-        const due = Date.parse(it?.dueAt);
+        const due = normalizeDueValue(it?.dueAt);
+        const skip = (reason) => skippedItems.push({ title: title.slice(0, DEADLINE_TITLE_MAX), reason });
         // An item the single create would refuse is skipped and counted.
-        if (!title || title.length > DEADLINE_TITLE_MAX || !Number.isFinite(due) || deadlineDateOutside(due)) { skipped += 1; continue; }
-        if (existingTitles.has(title.toLowerCase())) { skipped += 1; continue; }
+        if (!title || title.length > DEADLINE_TITLE_MAX || !due || deadlineDateOutside(dueValueMs(due))) { skip("invalid"); continue; }
+        if ((calendarDateOf(due) || due.slice(0, 10)) < earliest) { skip("past"); continue; }
+        const key = keyOf(title, due);
+        if (existingKeys.has(key)) { skip("duplicate"); continue; }
         const cat = DEADLINE_CATEGORIES.includes(it?.category) ? it.category : "admissions";
         const id = crypto.randomUUID();
         deps.ragStmts.deadlines.insert.run(
-          id, req.studentId, title, new Date(due).toISOString(), cat,
+          id, req.studentId, title, due, cat,
           it?.notes ? String(it.notes).slice(0, 2000) : null,
           Array.isArray(it?.collegeIds)
             ? JSON.stringify(it.collegeIds.slice(0, 20).map(String))
             : null,
           "open",
         );
-        existingTitles.add(title.toLowerCase());
+        existingKeys.add(key);
         const row = deps.ragStmts.deadlines.getById.get(id, req.studentId);
         if (row) created.push(deps.shapeDeadline(row));
       }
-      res.status(201).json({ ok: true, created, createdCount: created.length, skipped });
+      res.status(201).json({ ok: true, created, createdCount: created.length, skipped: skippedItems.length, skippedItems });
     } catch (err) {
       console.error("[deadlines] bulk create error:", err.message);
       res.status(500).json({ error: "Bulk create failed" });
@@ -843,7 +856,12 @@ export function registerStudentsRoutes(app, deps) {
       const locale = resolveLocale(req);
       const rows = deps.ragStmts.deadlines.listByStudent.all(req.studentId) || [];
       const now = Date.now();
-      const shaped = rows.map((r) => deps.shapeDeadline(r, now));
+      // Days count from the student's own date when the client sends it
+      // (?today=YYYY-MM-DD, accepted only if it is today somewhere on
+      // Earth), else from Anywhere-on-Earth today, so a deadline is never
+      // called overdue while its date is still running for the student.
+      const today = referenceToday(req.query?.today, now);
+      const shaped = rows.map((r) => deps.shapeDeadline(r, now, today));
       const upcoming = shaped.filter((d) => d.status === "open" && d.daysUntil >= 0);
       const overdue = shaped.filter((d) => d.status === "open" && d.daysUntil < 0);
       const done = shaped.filter((d) => d.status === "done");
@@ -873,6 +891,17 @@ export function registerStudentsRoutes(app, deps) {
           { count: upcoming.length, title: next?.title, days: next?.daysUntil },
         );
       }
+      // The tracker's chip at the top of the chat reads `summary`; the
+      // server never sent one (it read r.summary from the first commit), so
+      // the chip never rendered. The top-level counts stay for older clients.
+      const summary = {
+        overdue: overdueCount,
+        dueIn7: upcoming.filter((d) => d.daysUntil <= 7).length,
+        dueIn30: upcoming.filter((d) => d.daysUntil <= 30).length,
+        upcoming: upcoming.length,
+        friendlyMessage,
+        today,
+      };
       res.json({
         ok: true,
         count: visible.length,
@@ -880,6 +909,7 @@ export function registerStudentsRoutes(app, deps) {
         overdueCount,
         doneCount: done.length,
         deadlines: visible,
+        summary,
         locale,
         friendlyMessage,
         overdueCulled: cullOverdue ? overdue.length : 0,
@@ -913,10 +943,11 @@ export function registerStudentsRoutes(app, deps) {
         if (typeof title === "string" && title.trim().length > DEADLINE_TITLE_MAX) {
           return res.status(400).json({ error: `title must be ${DEADLINE_TITLE_MAX} characters or fewer`, friendlyMessage: t("deadlines.title_too_long", locale, { max: DEADLINE_TITLE_MAX }) });
         }
-        if (dueAt && !Number.isFinite(Date.parse(dueAt))) {
+        const due = dueAt ? normalizeDueValue(dueAt) : null;
+        if (dueAt && !due) {
           return res.status(400).json({ error: "dueAt must be a parseable ISO-8601 date", friendlyMessage: t("deadlines.due_at_invalid", locale) });
         }
-        const outside = dueAt ? deadlineDateOutside(Date.parse(dueAt)) : null;
+        const outside = due ? deadlineDateOutside(dueValueMs(due)) : null;
         if (outside) {
           return res.status(400).json({ error: `dueAt must fall between ${outside.from} and ${outside.to}`, friendlyMessage: t("deadlines.due_at_range", locale, outside) });
         }
@@ -925,9 +956,9 @@ export function registerStudentsRoutes(app, deps) {
         }
         deps.ragStmts.deadlines.updateFields.run(
           title ? title.trim() || null : null,
-          dueAt ? new Date(Date.parse(dueAt)).toISOString() : null,
-          // An unknown category leaves the stored one as it is.
-          DEADLINE_CATEGORIES.includes(category) ? category : null,
+          due,
+          // A blank category leaves the stored one; a typed one is kept.
+          deadlineCategory(category, null),
           notes !== undefined ? (notes ? String(notes).slice(0, 2000) : null) : null,
           Array.isArray(collegeIds) ? JSON.stringify(collegeIds.slice(0, 20).map(String)) : null,
           id,

@@ -2,7 +2,8 @@
 // lookup, removing a target and convening the Strategy Council. App() keeps each hook and its dependency array and calls these with the
 // render's bindings as `ctx`. Moved out of App.jsx on 2026-09-20.
 import { resolveTargetUnitId } from "../profile/profile-analysis.js";
-import { clientTypicalISO } from "../chat/chat-orchestrator.js";
+import { clientTypicalISO, cycleLabel, cycleStartYearOf, planningCycleStartYear, shiftDateToCycle, typicalDeadlineDates } from "../profile/admissions-cycle.js";
+import { calendarDateOf, daysUntilDue } from "../profile/dates.js";
 import { fitProfileFingerprint } from "../profile/fit-refresh.js";
 import { createCouncilPayload, formatCouncilResult, councilErrorMessage } from "../profile/strategy-council.js";
 import { targetListHas } from "../profile/target-schools.js";
@@ -10,27 +11,40 @@ import { targetListHas } from "../profile/target-schools.js";
 // When a school is added to the target list, create its key deadlines in
 // the Deadlines tab: Early (EA/ED), Regular Decision, Financial aid, and
 // Commit-by. Dates come from the per-school web lookup when available, else
-// the typical-cycle ISO fallbacks — so every added school gets dated
-// deadlines. Skips rounds with no parseable date and de-dupes by title.
+// the typical-cycle fallbacks — so every added school gets dated
+// deadlines. Skips rounds with no parseable date.
 // `targetSchools` is the list the school was just added to. A school that
 // is not on it gets no deadlines: a ninth school used to be cut from a full
 // list while its four or five deadlines (and the model-backed calendar read
 // behind them) were still created, and the only cascade that removes them
 // is removing the school from the list, which the student could not do.
 // Called without the list, the creator runs as it always has.
-export async function createDeadlinesForSchool(ctx, school, { targetSchools } = {}) {
+//
+// The reminders are for the student's own application cycle (the server's
+// `studentCycle`, from their class year), not the senior cycle the calendar
+// outlines: a sophomore who added Harvard on Nov 3 got this year's Early
+// date, overdue the day it was made, and RD for an application she files
+// two years later. A school's published date for an earlier cycle is
+// carried to hers on the same month and day and labeled approximate, a
+// round whose date has already passed is skipped, and the student is told
+// what was added and what was not (ctx.notify, when the caller passes one;
+// the result is returned either way).
+export async function createDeadlinesForSchool(ctx, school, { targetSchools, now = new Date() } = {}) {
   const {
-    authedFetch,
+    authedFetch, locale = "en-US", notify,
   } = ctx;
   const name = String(school || "").trim();
-  if (!name) return;
-  if (Array.isArray(targetSchools) && !targetListHas(targetSchools, name)) return;
+  if (!name) return null;
+  if (Array.isArray(targetSchools) && !targetListHas(targetSchools, name)) return null;
   const unitId = resolveTargetUnitId(name);
   // Try the calendar/web lookup (advanced model researches real dates), but
   // never block deadline creation on it — fall back to client typical dates
   // so deadlines are added even if the web call is rate-limited/unavailable.
-  let iso = clientTypicalISO();
+  const planningStart = planningCycleStartYear(now);
+  let ownStart = planningStart; // the student's cycle; the planning cycle until the server says
+  let iso = clientTypicalISO(now);
   let sd = {};       // per-school dates: read from the school's pages, or its Common Data Set
+  let schoolStart = null; // the cycle those dates are for
   let srcUrl = null; // source URL when read from the school's pages
   let cdsLabel = null; // set when the dates come from the school's Common Data Set (previous cycle, rolled forward)
   try {
@@ -46,22 +60,24 @@ export async function createDeadlinesForSchool(ctx, school, { targetSchools } = 
     });
     if (r.ok) {
       const body = await r.json();
-      if (body?.calendar?.typicalISO) iso = body.calendar.typicalISO;
+      const own = body?.studentCycle;
+      if (Number.isInteger(own?.startYear)) {
+        ownStart = own.startYear;
+        iso = own.typicalISO || typicalDeadlineDates(ownStart);
+      } else if (body?.calendar?.typicalISO) {
+        iso = body.calendar.typicalISO;
+      }
       const entry = (body?.schools || []).find(s => String(s.school).toLowerCase() === name.toLowerCase());
       sd = entry?.deadlines || {};
+      schoolStart = cycleStartYearOf(entry?.cycle) ?? planningStart;
       if (entry?.source === "cds") cdsLabel = entry.sourceLabel || "its Common Data Set";
       else if (entry?.source && entry.source !== "typical") srcUrl = entry.source;
     }
   } catch (err) { console.warn("[DEADLINES] calendar lookup failed, using typical dates:", err?.message); }
 
-  const toISO = (...cands) => {
-    for (const c of cands) {
-      if (!c) continue;
-      const ts = Date.parse(c);
-      if (Number.isFinite(ts)) return new Date(ts).toISOString();
-    }
-    return null;
-  };
+  const entryYear = ownStart + 1;
+  // Typical dates for a cycle after the planning one are a projection too.
+  const projectedTypical = ownStart > planningStart;
   // Two kinds of entry, never confused: a date read from the school's own
   // pages is the school's deadline and says where it came from; a date
   // from the typical-cycle table is an approximate planning window and is
@@ -73,18 +89,41 @@ export async function createDeadlinesForSchool(ctx, school, { targetSchools } = 
     : `${name}'s published date for the current cycle. Re-check ${name}'s official site before you rely on it.`;
   const typicalNote = `Approximate planning window from typical US cycle dates — NOT ${name}'s verified deadline. Look up the exact date on ${name}'s official admissions or financial-aid page and edit this entry.`;
   const cdsNote = `Closing date ${name} reported in ${cdsLabel} for its previous cycle, rolled forward to this cycle. Institutional, but confirm this year's date on ${name}'s admissions page.`;
+  const carriedNote = `${name}'s ${schoolStart != null ? cycleLabel(schoolStart) : "current"} date carried forward to your cycle (applying in fall ${ownStart} for Fall ${entryYear} entry). ${name} has not published that cycle's dates yet; check its admissions page when it does and edit this entry.`;
+  const approxTitle = (round) => `${name} — ${round} (approximate — for Fall ${entryYear} entry)`;
+  const past = [];
   const mk = (round, schoolVal, typicalVal, category) => {
-    const fromSchool = Boolean(schoolVal && Number.isFinite(Date.parse(schoolVal)));
-    const date = toISO(schoolVal, typicalVal);
+    // The school's date when it is for this student's cycle, or carried
+    // forward to it from an earlier one; a later cycle's date is not hers.
+    let date = null;
+    let kind = "typical";
+    const schoolDate = calendarDateOf(schoolVal);
+    if (schoolDate && schoolStart != null && schoolStart <= ownStart) {
+      date = schoolStart === ownStart ? schoolDate : shiftDateToCycle(schoolDate, schoolStart, ownStart);
+      kind = schoolStart === ownStart ? "school" : "carried";
+    }
+    if (!date) date = calendarDateOf(typicalVal);
     if (!date) return null;
-    const title = fromSchool
-      ? (cdsLabel ? `${name} — ${round} (from Common Data Set — confirm)` : `${name} — ${round}`)
-      : `${name} — ${round} (approximate — verify)`;
+    // A round already over for this cycle gets no reminder (and no typical
+    // stand-in either: the real date has passed).
+    if (daysUntilDue(date, now) < 0) { past.push(round); return null; }
+    let title;
+    let notes;
+    if (kind === "school") {
+      title = cdsLabel ? `${name} — ${round} (from Common Data Set — confirm)` : `${name} — ${round}`;
+      notes = cdsLabel ? cdsNote : webNote;
+    } else if (kind === "carried") {
+      title = approxTitle(round);
+      notes = carriedNote;
+    } else {
+      title = projectedTypical ? approxTitle(round) : `${name} — ${round} (approximate — verify)`;
+      notes = typicalNote;
+    }
     return {
       title,
-      dueAt: date,
+      dueAt: date, // the calendar date itself (profile/dates.js)
       category,
-      notes: fromSchool ? (cdsLabel ? cdsNote : webNote) : typicalNote,
+      notes,
       ...(unitId ? { collegeIds: [unitId] } : {}),
     };
   };
@@ -97,16 +136,49 @@ export async function createDeadlinesForSchool(ctx, school, { targetSchools } = 
     mk("Financial aid", sd.financialAid, iso.financialAidPriority, "financial_aid"),
     mk("Commit by", sd.commitBy, iso.nationalDepositDeadline, "admissions"),
   ].filter(Boolean);
-  if (!items.length) return;
-  // ONE bulk request (server de-dupes by title) — avoids the multi-POST
-  // burst that was tripping the rate limiter (HTTP 429).
-  try {
-    await authedFetch("/api/students/deadlines/bulk", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items }),
-    });
-  } catch (err) { console.warn("[DEADLINES] bulk create failed:", err?.message); }
+  const result = { school: name, cycleEntryYear: entryYear, created: 0, past, duplicates: 0, message: "" };
+  if (items.length) {
+    // ONE bulk request (the server de-dupes by title within a cycle and
+    // skips what is already past) — avoids the multi-POST burst that was
+    // tripping the rate limiter (HTTP 429).
+    try {
+      const r = await authedFetch("/api/students/deadlines/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items }),
+      });
+      const body = r?.ok && typeof r.json === "function" ? await r.json().catch(() => null) : null;
+      if (body) {
+        result.created = Number(body.createdCount ?? body.created?.length ?? 0) || 0;
+        for (const skipped of Array.isArray(body.skippedItems) ? body.skippedItems : []) {
+          if (skipped?.reason === "duplicate") result.duplicates += 1;
+          else if (skipped?.reason === "past") past.push(String(skipped.title || "").replace(`${name} — `, ""));
+        }
+      }
+    } catch (err) { console.warn("[DEADLINES] bulk create failed:", err?.message); }
+  }
+  result.message = deadlineCreationMessage(result, locale);
+  if (result.message && typeof notify === "function") notify(result.message);
+  return result;
+}
+
+// What the student is told after a school's reminders are made: how many
+// were added, which rounds were skipped because their date had passed, and
+// how many were already on the list. Nothing to tell, nothing said.
+export function deadlineCreationMessage({ school, created = 0, past = [], duplicates = 0, cycleEntryYear }, locale = "en-US") {
+  if (!created && !past.length && !duplicates) return "";
+  const ko = String(locale || "").toLowerCase().startsWith("ko");
+  const parts = [];
+  if (ko) {
+    if (created) parts.push(`${school}: Fall ${cycleEntryYear} 입학 기준 마감일 ${created}개를 마감일 목록에 추가했어요.`);
+    if (past.length) parts.push(`${past.join(", ")} 마감일은 이미 지나서 추가하지 않았어요.`);
+    if (duplicates) parts.push(`${duplicates}개는 이미 목록에 있어요.`);
+    return created ? parts.join(" ") : `${school}: ${parts.join(" ")}`;
+  }
+  if (created) parts.push(`${school}: added ${created} deadline${created === 1 ? "" : "s"} for Fall ${cycleEntryYear} entry to your Deadlines list.`);
+  if (past.length) parts.push(`Skipped ${past.join(", ")}: that date has already passed.`);
+  if (duplicates) parts.push(`${duplicates} ${duplicates === 1 ? "was" : "were"} already on your list.`);
+  return created ? parts.join(" ") : `${school}: ${parts.join(" ")}`;
 }
 
 // ─── College values + fit ───

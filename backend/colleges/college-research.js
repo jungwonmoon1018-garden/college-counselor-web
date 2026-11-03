@@ -16,6 +16,7 @@
 
 import { assertSafeFetchTarget } from "../security/safe-fetch.js";
 import { searchScorecard } from "./college-scorecard.js";
+import { cycleInProgress, planningCycle } from "../shared/admissions-cycle.js";
 
 export const VALUES_TTL_DAYS = 90;
 export const DEADLINES_TTL_DAYS = 30;
@@ -74,11 +75,11 @@ export function slugifyCollege(name) {
 
 // Admissions cycle label for a date: Aug–Dec belong to the cycle that closes
 // the FOLLOWING spring (e.g. Sep 2026 → "2026-27"), Jan–Jul to the one
-// closing that spring (e.g. Feb 2027 → "2026-27").
+// closing that spring (e.g. Feb 2027 → "2026-27"). This is the cycle in
+// progress, a label only: deadlines are researched, cached and resolved for
+// the planning cycle (shared/admissions-cycle.js), which moves on Feb 1.
 export function currentAdmissionsCycle(now = new Date()) {
-  const y = now.getUTCFullYear();
-  const startYear = now.getUTCMonth() >= 7 ? y : y - 1;
-  return `${startYear}-${String((startYear + 1) % 100).padStart(2, "0")}`;
+  return cycleInProgress(now);
 }
 
 export function htmlToText(html) {
@@ -488,7 +489,10 @@ export async function researchCollegeDeadlines({
   collegeName = expandCollegeAlias(collegeName);
   const slug = slugifyCollege(collegeName);
   if (!slug) throw researchError("bad_name", "A college name is required.");
-  const cycle = currentAdmissionsCycle(now);
+  // The cycle students are planning for: from February the Aug-1 label still
+  // named the cycle that had just closed, so the prompt asked for last
+  // fall's (already past) dates and the cache kept them under that key.
+  const cycle = planningCycle(now);
   const cacheKey = `deadlines:${slug}:${cycle}`;
   if (!force) {
     const cached = cacheRead(stmts, cacheKey, DEADLINES_TTL_DAYS, now);
@@ -605,5 +609,5 @@ export function buildValuesFromCds(record, now = new Date()) {
 export function readCachedDeadlines(stmts, collegeName, now = new Date()) {
   const slug = slugifyCollege(expandCollegeAlias(collegeName));
   if (!slug) return null;
-  return cacheRead(stmts, `deadlines:${slug}:${currentAdmissionsCycle(now)}`, DEADLINES_TTL_DAYS, now);
+  return cacheRead(stmts, `deadlines:${slug}:${planningCycle(now)}`, DEADLINES_TTL_DAYS, now);
 }

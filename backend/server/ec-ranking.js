@@ -9,6 +9,7 @@ import { parseLLMJson, safeParseJSON } from "./model-calls.js";
 import { matchMajorBucket as matchMajorBucketFn } from "../activities/ec-vectorizer.js";
 import { getPrestigeExplanation } from "../activities/friendly-labels.js";
 import { projectStrengthToLegacyVector } from "../activities/ec-strength-vectorizer.js";
+import { calendarDateOf, daysUntilDue } from "../shared/calendar-date.js";
 
 let deps;
 export function bindEcRanking(serverDeps) { deps = serverDeps; }
@@ -174,17 +175,24 @@ export function shouldCullOverdue(nowMs) {
   return new Date(nowMs ?? Date.now()).getMonth() < deps.OVERDUE_RESHOW_MONTH;
 }
 
-export function shapeDeadline(row, nowMs) {
+// A date-only deadline is counted in calendar days from `today` (the
+// client's local date when it sends one, else Anywhere-on-Earth today; see
+// shared/calendar-date.js). It used to be Math.round of milliseconds from a
+// UTC-midnight instant, which flipped a row to overdue at 12:00 UTC on its
+// own due day. dueAt goes back as the YYYY-MM-DD the student typed, so no
+// browser shifts it by a day; dueDate is null only for a timed row.
+export function shapeDeadline(row, nowMs, today = null) {
   if (!row) return null;
-  const due = row.due_at ? new Date(row.due_at).getTime() : null;
   const n = nowMs || Date.now();
-  const daysUntil = due != null ? Math.round((due - n) / 86400000) : null;
+  const dueDate = calendarDateOf(row.due_at);
+  const daysUntil = row.due_at ? daysUntilDue(row.due_at, { nowMs: n, today }) : null;
   let collegeIds = [];
   try { if (row.college_ids_json) collegeIds = JSON.parse(row.college_ids_json); } catch {}
   return {
     id: row.id,
     title: row.title,
-    dueAt: row.due_at,
+    dueAt: dueDate || row.due_at,
+    dueDate,
     category: row.category,
     notes: row.notes,
     status: row.status,

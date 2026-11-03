@@ -3,11 +3,15 @@
 // fields and the diff between two reads, with SCOUT_VERSION, the constant to
 // bump whenever these rules change. Moved out of admissions-policy-scout.js
 // on 2026-09-20, which re-exports what it exported.
-import { currentAdmissionsCycle } from "../colleges/college-research.js";
+import { planningCycle, planningCycleStartYear, resolveCycleDate as resolvePlanningCycleDate } from "../shared/admissions-cycle.js";
 
 // Bumped whenever discovery or extraction changes; a boot after a bump
-// re-scouts immediately instead of waiting for the next cadence.
-export const SCOUT_VERSION = 4;
+// re-scouts immediately instead of waiting for the next cadence. Version 5
+// (2026-11) reads every page for the planning cycle (shared/admissions-cycle.js):
+// a yearless date lands in the cycle students are planning for, not the
+// one that rolled over on Aug 1, and a snapshot of another cycle is no
+// longer current.
+export const SCOUT_VERSION = 5;
 
 // ─── Pure extraction ───────────────────────────────────────────────────
 export const TEST_POLICY_LABELS = Object.freeze({
@@ -60,22 +64,14 @@ function splitSentences(text) {
   return String(text || "").split(/(?<=[.!?])\s+|\n+/).map((s) => s.trim()).filter(Boolean);
 }
 
-function pad(n) { return String(n).padStart(2, "0"); }
-
 // Turn a month/day (optionally with a year) into the ISO date for the
-// admissions cycle in progress: Aug–Dec dates belong to the cycle's first
-// calendar year, Jan–Jul to its second.
+// planning cycle: Aug–Dec dates belong to the cycle's first calendar year,
+// Jan–Jul to its second, and a date outside that cycle is dropped. It used
+// to place dates in the cycle that rolled over on Aug 1 and drop anything
+// older than 150 days, so from February a yearless "November 1" was last
+// fall's and from April it was nothing at all.
 export function resolveCycleDate(month, day, year, now = new Date()) {
-  if (!(month >= 1 && month <= 12) || !(day >= 1 && day <= 31)) return null;
-  const cycle = currentAdmissionsCycle(now);
-  const startYear = Number(cycle.slice(0, 4));
-  const resolvedYear = year || (month >= 8 ? startYear : startYear + 1);
-  const iso = `${resolvedYear}-${pad(month)}-${pad(day)}`;
-  const ts = Date.parse(iso + "T00:00:00Z");
-  if (!Number.isFinite(ts)) return null;
-  const min = now.getTime() - 150 * 24 * 60 * 60 * 1000;
-  const max = now.getTime() + 560 * 24 * 60 * 60 * 1000;
-  return ts >= min && ts <= max ? iso : null;
+  return resolvePlanningCycleDate(month, day, year, now);
 }
 
 function datesIn(text, now) {
@@ -102,8 +98,8 @@ function yearsMentioned(sentence) {
 }
 
 export function extractTestPolicy(pages, now = new Date()) {
-  const cycle = currentAdmissionsCycle(now);
-  const entryYear = Number(cycle.slice(0, 4)) + 1;
+  // The entry year of the cycle the reading is for (its snapshot's cycle).
+  const entryYear = planningCycleStartYear(now) + 1;
   let best = null;
   for (const page of pages) {
     for (const sentence of splitSentences(page.text)) {
@@ -431,7 +427,7 @@ export function extractApplicationFee(pages) {
 
 export function extractPolicyFromPages(pages, now = new Date()) {
   return {
-    cycle: currentAdmissionsCycle(now),
+    cycle: planningCycle(now),
     // The rules that produced this reading; a snapshot from an older scout
     // is re-read on demand (snapshotIsCurrent) and ahead of fresh ones in
     // the next sweep.

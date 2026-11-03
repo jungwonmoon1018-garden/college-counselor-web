@@ -460,9 +460,11 @@ test("a sweep reads schools without a snapshot first, then older-version ones, t
   put("example-university", "Example University", "2026-09-01T00:00:00.000Z", { cycle: "2026-27", scoutVersion: SCOUT_VERSION, deadlines: {} });
   put("old-college", "Old College", "2026-09-02T00:00:00.000Z", { cycle: "2026-27", scoutVersion: SCOUT_VERSION - 1, deadlines: {} });
   put("older-college", "Older College", "2026-08-20T00:00:00.000Z", { cycle: "2026-27", deadlines: {} }); // before versions were recorded
-  assert.equal(snapshotIsCurrent(readPolicySnapshot(stores.stmts, { name: "Example University" })), true);
-  assert.equal(snapshotIsCurrent(readPolicySnapshot(stores.stmts, { name: "Old College" })), false);
-  assert.equal(snapshotIsCurrent(readPolicySnapshot(stores.stmts, { name: "Older College" })), false);
+  // At the suite's fixed clock: a snapshot is current only for the planning
+  // cycle, so the real date would make this pin expire on Feb 1.
+  assert.equal(snapshotIsCurrent(readPolicySnapshot(stores.stmts, { name: "Example University" }), NOW), true);
+  assert.equal(snapshotIsCurrent(readPolicySnapshot(stores.stmts, { name: "Old College" }), NOW), false);
+  assert.equal(snapshotIsCurrent(readPolicySnapshot(stores.stmts, { name: "Older College" }), NOW), false);
 
   // Four targets, room for three: the fresh Example University is the one
   // left out, and the never-read school goes first.
@@ -537,6 +539,13 @@ test("a sweep records the sizing rules it ran under, and one under older rules m
   assert.equal(policyScoutDue(after, { cadenceMs, now: NOW.getTime() + cadenceMs + 1 }).reason, "cadence_elapsed");
   // A newer scout version, or a counselor's force, still wins.
   assert.equal(policyScoutDue({ ...after, scoutVersion: SCOUT_VERSION - 1 }, { cadenceMs, now: NOW.getTime() }).reason, "scout_version_changed");
+  // The run records the planning cycle it read for; once Feb 1 moves the
+  // planning cycle on, every snapshot is another cycle's and a sweep is due
+  // at once. A run from before runs carried a cycle does not count.
+  assert.equal(after.cycle, "2026-27");
+  assert.equal(policyScoutDue(after, { cadenceMs, now: Date.parse("2027-01-31T23:00:00Z") }).reason, "cadence_elapsed");
+  assert.equal(policyScoutDue({ ...after, finishedAt: "2027-01-31T20:00:00.000Z", lastFinishedAt: "2027-01-31T20:00:00.000Z" }, { cadenceMs, now: Date.parse("2027-02-01T01:00:00Z") }).reason, "planning_cycle_changed");
+  assert.equal(policyScoutDue({ ...after, cycle: null }, { cadenceMs, now: NOW.getTime() + 3600_000 }).due, false);
   assert.equal(policyScoutDue(after, { cadenceMs, now: NOW.getTime(), force: "manual" }).reason, "manual");
   // No sweep yet at all: due.
   assert.equal(policyScoutDue(null, { cadenceMs, now: NOW.getTime() }).reason, "never_ran");

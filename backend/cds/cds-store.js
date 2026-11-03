@@ -18,6 +18,8 @@ import { fileURLToPath } from "node:url";
 
 import { persistAndValidate, loadValidatedRecord, loadAllValidatedRecords, loadLatestValidation } from "./cds-validator.js";
 import { normalizeSchoolName } from "./cds-search.js";
+import { cycleDate, cycleLabel, planningCycleStartYear } from "../shared/admissions-cycle.js";
+import { expandCollegeAlias } from "../colleges/college-research.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_PARSED_CDS_DIR = path.join(__dirname, "..", "tools", "cds-cache", "parsed");
@@ -28,18 +30,17 @@ export const DEFAULT_PARSED_CDS_DIR = path.join(__dirname, "..", "tools", "cds-c
 // forward year — far better than the generic "January 1" fallback, still
 // not this year's verified deadline. Callers label them accordingly. A
 // month of August or later belongs to the cycle's start year (the fall the
-// application is submitted); January to July to the entry year.
-export function cdsDeadlinesForCycle(record, now = new Date()) {
+// application is submitted); January to July to the entry year. The cycle
+// is the planning cycle (shared/admissions-cycle.js) unless the caller
+// names a later one, as a junior's own application cycle is.
+export function cdsDeadlinesForCycle(record, now = new Date(), { startYear = null } = {}) {
   const dates = record?.extras?.dates;
   if (!dates || typeof dates !== "object") return null;
-  const y = now.getUTCFullYear();
-  const m = now.getUTCMonth() + 1;
-  const cycleStartYear = m >= 2 ? y : y - 1;
+  const cycleStartYear = Number.isInteger(startYear) ? startYear : planningCycleStartYear(now);
   const iso = (entry) => {
     const mmdd = entry?.mmdd;
     if (!/^\d{2}-\d{2}$/.test(String(mmdd || ""))) return null;
-    const month = Number(mmdd.slice(0, 2));
-    return `${month >= 8 ? cycleStartYear : cycleStartYear + 1}-${mmdd}`;
+    return cycleDate(cycleStartYear, Number(mmdd.slice(0, 2)), Number(mmdd.slice(3, 5)));
   };
   const deadlines = {
     ea: iso(dates.eaClosing),
@@ -53,7 +54,7 @@ export function cdsDeadlinesForCycle(record, now = new Date()) {
   if (!Object.values(deadlines).some(Boolean)) return null;
   return {
     deadlines,
-    cycle: `${cycleStartYear}-${String(cycleStartYear + 1).slice(-2)}`,
+    cycle: cycleLabel(cycleStartYear),
     label: `${record.school || "the school"} Common Data Set${record.yearLabel ? ` ${record.yearLabel}` : ""}`,
     sourceUrl: record.sourceUrl || null,
   };
@@ -282,6 +283,21 @@ export function resolveStoredCdsRecord(ragStmts, { schoolName, slug } = {}) {
     if (score > bestScore) { bestScore = score; best = rec; }
   }
   return best;
+}
+
+// The stored record for a school as a student or the IPEDS baseline names
+// it: the name as given, then its common short form expanded ("Georgia
+// Tech", "UIUC", "NYU"). Two routes looked records up by an exact slug of
+// the name instead, so "Columbia University in the City of New York" (the
+// baseline's name) and every abbreviation silently had no Common Data Set,
+// and the narrative and course plans were tailored without them.
+export function resolveCdsRecordForSchool(ragStmts, schoolName) {
+  const name = String(schoolName || "").trim();
+  if (!name) return null;
+  const direct = resolveStoredCdsRecord(ragStmts, { schoolName: name });
+  if (direct) return direct;
+  const expanded = expandCollegeAlias(name);
+  return expanded && expanded !== name ? resolveStoredCdsRecord(ragStmts, { schoolName: expanded }) : null;
 }
 
 // A record is "validated" when it was checked against ground truth during

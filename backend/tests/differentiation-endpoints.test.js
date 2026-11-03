@@ -134,7 +134,10 @@ test("calendar context deadline research is opt-in, consent-gated, and cache-fir
 
 test("bulk deadlines endpoint exists (collapses the add-school burst)", () => {
   assert.match(SERVER, /app\.post\("\/api\/students\/deadlines\/bulk",\s*studentLimiter,\s*requireStudentAuth/);
-  assert.match(SERVER, /existingTitles/);
+  // De-duplicated on the title within a cycle (the cycle its date falls
+  // in): title-only de-duplication let last cycle's rows block this one's.
+  assert.match(SERVER, /existingKeys/);
+  assert.match(SERVER, /cycleOfDate\(/);
 });
 
 // ─── Imports wired ──────────────────────────────────────────────────────

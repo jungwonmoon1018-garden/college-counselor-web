@@ -164,3 +164,63 @@ describe("createDeadlinesForSchool", () => {
     expect(authedFetch.mock.calls.map(([path]) => path)).toEqual(["/api/calendar/context", "/api/students/deadlines/bulk"]);
   });
 });
+
+// input-8 / ui-3: reminders are made for the student's own cycle, never
+// dated in the past, and the student is told what was skipped. Every clock
+// is injected; dates are local calendar dates.
+describe("createDeadlinesForSchool dates reminders for the student's own cycle", () => {
+  const NOV_3 = new Date(2026, 10, 3, 12, 0); // planning cycle 2026-27
+  const bulkItems = (authedFetch) => JSON.parse(authedFetch.mock.calls.find(([p]) => p === "/api/students/deadlines/bulk")[1].body).items;
+
+  it("gives a senior no Early reminder once Nov 1 has passed, and sends dates as dates", async () => {
+    const authedFetch = vi.fn(async (path) => {
+      if (String(path).includes("/api/calendar/context")) throw new Error("offline");
+      return reply({ createdCount: 3, skippedItems: [] });
+    });
+    const notify = vi.fn();
+    const result = await createDeadlinesForSchool({ authedFetch, notify }, "Rice University", { now: NOV_3 });
+    const items = bulkItems(authedFetch);
+    expect(items.map((i) => [i.title, i.dueAt])).toEqual([
+      ["Rice University — Regular Decision (approximate — verify)", "2027-01-01"],
+      ["Rice University — Financial aid (approximate — verify)", "2027-02-01"],
+      ["Rice University — Commit by (approximate — verify)", "2027-05-01"],
+    ]);
+    expect(result.past).toEqual(["Early (EA/ED)"]);
+    expect(notify).toHaveBeenCalledWith("Rice University: added 3 deadlines for Fall 2027 entry to your Deadlines list. Skipped Early (EA/ED): that date has already passed.");
+  });
+
+  it("carries a school's dates to a sophomore's cycle and labels them approximate", async () => {
+    const typical2028 = { earlyEaEd: "2028-11-01", regularDecision: "2029-01-01", financialAidPriority: "2029-02-01", fafsaOpens: "2028-10-01", nationalDepositDeadline: "2029-05-01" };
+    const authedFetch = vi.fn(async (path) => (String(path).includes("/api/calendar/context")
+      ? reply({
+        calendar: { typicalISO: { earlyEaEd: "2026-11-01" } },
+        studentCycle: { cycle: "2028-29", startYear: 2028, entryYear: 2029, projected: true, typicalISO: typical2028 },
+        schools: [{ school: "Harvard University", deadlines: { ed: "2026-11-01", rd: "2027-01-05" }, source: "https://college.harvard.edu/admissions", cycle: "2026-27" }],
+      })
+      : reply({ createdCount: 4, skippedItems: [] })));
+    await createDeadlinesForSchool({ authedFetch }, "Harvard University", { now: NOV_3 });
+    const items = bulkItems(authedFetch);
+    expect(items.map((i) => [i.title, i.dueAt])).toEqual([
+      ["Harvard University — Early (EA/ED) (approximate — for Fall 2029 entry)", "2028-11-01"],
+      ["Harvard University — Regular Decision (approximate — for Fall 2029 entry)", "2029-01-05"],
+      ["Harvard University — Financial aid (approximate — for Fall 2029 entry)", "2029-02-01"],
+      ["Harvard University — Commit by (approximate — for Fall 2029 entry)", "2029-05-01"],
+    ]);
+    expect(items[1].notes).toMatch(/2026-27 date carried forward to your cycle/);
+  });
+
+  it("keeps a school's own date for a senior and says what was already listed, in Korean too", async () => {
+    const authedFetch = vi.fn(async (path) => (String(path).includes("/api/calendar/context")
+      ? reply({
+        studentCycle: { cycle: "2026-27", startYear: 2026, entryYear: 2027, projected: false, typicalISO: { earlyEaEd: "2026-11-01", regularDecision: "2027-01-01", financialAidPriority: "2027-02-01", nationalDepositDeadline: "2027-05-01" } },
+        schools: [{ school: "MIT", deadlines: { ea: "2026-11-01", rd: "2027-01-05" }, source: "https://mitadmissions.org/apply", cycle: "2026-27" }],
+      })
+      : reply({ createdCount: 1, skippedItems: [{ title: "MIT — Financial aid (approximate — verify)", reason: "duplicate" }, { title: "MIT — Commit by (approximate — verify)", reason: "duplicate" }] })));
+    const notify = vi.fn();
+    const result = await createDeadlinesForSchool({ authedFetch, notify, locale: "ko" }, "MIT", { now: NOV_3 });
+    const items = bulkItems(authedFetch);
+    expect(items[0]).toMatchObject({ title: "MIT — Regular Decision", dueAt: "2027-01-05" });
+    expect(result).toMatchObject({ created: 1, duplicates: 2, past: ["Early (EA/ED)"] });
+    expect(notify).toHaveBeenCalledWith("MIT: Fall 2027 입학 기준 마감일 1개를 마감일 목록에 추가했어요. Early (EA/ED) 마감일은 이미 지나서 추가하지 않았어요. 2개는 이미 목록에 있어요.");
+  });
+});

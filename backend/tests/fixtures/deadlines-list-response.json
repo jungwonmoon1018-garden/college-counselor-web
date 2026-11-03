@@ -1,0 +1,46 @@
+{
+  "ok": true,
+  "count": 2,
+  "upcomingCount": 1,
+  "overdueCount": 1,
+  "doneCount": 0,
+  "deadlines": [
+    {
+      "id": "d-overdue",
+      "title": "Scholarship essay",
+      "dueAt": "2026-10-01",
+      "dueDate": "2026-10-01",
+      "category": "financial_aid",
+      "notes": null,
+      "status": "open",
+      "collegeIds": [],
+      "daysUntil": -33,
+      "createdAt": "2026-09-20 14:05:09",
+      "updatedAt": "2026-09-20 14:05:09"
+    },
+    {
+      "id": "d-soon",
+      "title": "MIT — Early Action",
+      "dueAt": "2026-11-06",
+      "dueDate": "2026-11-06",
+      "category": "admissions",
+      "notes": null,
+      "status": "open",
+      "collegeIds": ["166683"],
+      "daysUntil": 3,
+      "createdAt": "2026-09-20 14:05:09",
+      "updatedAt": "2026-09-20 14:05:09"
+    }
+  ],
+  "summary": {
+    "overdue": 1,
+    "dueIn7": 1,
+    "dueIn30": 1,
+    "upcoming": 1,
+    "friendlyMessage": "1 deadline already passed — snooze or mark done.",
+    "today": "2026-11-03"
+  },
+  "locale": "en-US",
+  "friendlyMessage": "1 deadline already passed — snooze or mark done.",
+  "overdueCulled": 0
+}
