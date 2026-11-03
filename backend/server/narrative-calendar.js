@@ -9,7 +9,8 @@ import { assembleProfileForGeneration } from "./verified-data.js";
 import { buildStudentCallLLM, safeParseJSON } from "./model-calls.js";
 import { extractGoalUnitIds } from "../storage/rag-engine.js";
 import { extractTargetSchoolNames } from "../cds/cds-search.js";
-import { planningCycleStartYear, typicalDeadlineDates } from "../shared/admissions-cycle.js";
+import { closingCycleStartYear, cycleLabel, planningCycleStartYear, typicalDeadlineDates } from "../shared/admissions-cycle.js";
+import { anywhereOnEarthToday } from "../shared/calendar-date.js";
 import { resolveCdsRecordForSchool } from "../cds/cds-store.js";
 
 let deps;
@@ -196,12 +197,11 @@ export function schoolPrioritiesPromptBlock(priorities) {
 export function buildAdmissionsCalendar(now = new Date()) {
   const m = now.getUTCMonth() + 1; // 1..12
   // A senior applying in the fall of `cycleStartYear` matriculates the next
-  // fall (`cycleEntryYear`). The cycle rolls forward to the NEXT season once
-  // RD season is over (February onward): from Feb–Jul the just-finished
-  // cycle's EA/ED/RD/deposit dates are all in the past, so the relevant
-  // deadlines to outline are the UPCOMING fall's. January is the one month
-  // still inside the active RD window, so it stays on that cycle. This is
-  // the planning cycle every deadline path shares (shared/admissions-cycle.js).
+  // fall (`cycleEntryYear`). The outline rolls forward to the NEXT season
+  // once the main RD window is over (February onward), so the deadlines it
+  // lists are the UPCOMING fall's. January is the one month still inside
+  // that window, so it stays on that cycle. This is the planning cycle every
+  // deadline path shares (shared/admissions-cycle.js).
   const cycleStartYear = planningCycleStartYear(now);
   const cycleEntryYear = cycleStartYear + 1;
   let phase;
@@ -210,6 +210,33 @@ export function buildAdmissionsCalendar(now = new Date()) {
   else if (m === 12) phase = "early decisions releasing; RD apps due ~Jan 1";
   else if (m === 1) phase = "regular-decision deadlines (~Jan 1-15)";
   else phase = "planning the upcoming cycle — research, essays, and target list for applications this fall";
+  // The cycle the outline left on Feb 1 is not over (to Jul 31): late
+  // regular deadlines, decisions and the May 1 deposit are still ahead, and
+  // the seniors are still in it. With only the planning cycle outlined, a
+  // senior asking in February was told her deposit was due May 1 of the
+  // following year. The phase carries it too, because the phase is the line
+  // the chat's date preamble prints (frontend chat-orchestrator.js).
+  const closingStart = closingCycleStartYear(now);
+  let closingCycle = null;
+  if (closingStart != null) {
+    const entry = closingStart + 1;
+    const depositISO = `${entry}-05-01`;
+    const depositPassed = anywhereOnEarthToday(now.getTime()) > depositISO;
+    closingCycle = {
+      cycle: cycleLabel(closingStart),
+      cycleStartYear: closingStart,
+      cycleEntryYear: entry,
+      applicationCycle: `Class entering Fall ${entry}`,
+      rdDecisionsRelease: `mid-Mar–early-Apr ${entry}`,
+      nationalDepositDeadline: `May 1 ${entry}`,
+      depositISO,
+      depositPassed,
+      note: `Seniors applying for Fall ${entry} entry are still in this cycle until Jul 31 ${entry}: date their deposit, decisions and any late regular deadline in ${entry}, not by the planning cycle above.`,
+    };
+    phase += depositPassed
+      ? `; for seniors, the ${closingCycle.cycle} cycle is closing — its May 1 ${entry} enrollment deposit date has passed`
+      : `; for seniors, the ${closingCycle.cycle} cycle is closing — late regular deadlines, decisions and the May 1 ${entry} enrollment deposit are still ahead`;
+  }
   return {
     today: now.toISOString().slice(0, 10),
     cycleStartYear,
@@ -236,6 +263,7 @@ export function buildAdmissionsCalendar(now = new Date()) {
     // Concrete ISO fallbacks (parseable) so the UI can always create dated
     // deadline entries even when no per-school web data is available.
     typicalISO: typicalDeadlineDates(cycleStartYear),
+    ...(closingCycle ? { closingCycle } : {}),
     note: "Approximate US norms — exact dates vary by school and year; verify on each school's admissions/financial-aid site.",
   };
 }

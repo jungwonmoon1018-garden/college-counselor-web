@@ -2,7 +2,7 @@
 // lookup, removing a target and convening the Strategy Council. App() keeps each hook and its dependency array and calls these with the
 // render's bindings as `ctx`. Moved out of App.jsx on 2026-09-20.
 import { resolveTargetUnitId } from "../profile/profile-analysis.js";
-import { clientTypicalISO, cycleLabel, cycleStartYearOf, planningCycleStartYear, shiftDateToCycle, typicalDeadlineDates } from "../profile/admissions-cycle.js";
+import { clientTypicalISO, cycleLabel, dateForOwnCycle, planningCycleStartYear, typicalDeadlineDates } from "../profile/admissions-cycle.js";
 import { calendarDateOf, daysUntilDue } from "../profile/dates.js";
 import { fitProfileFingerprint } from "../profile/fit-refresh.js";
 import { createCouncilPayload, formatCouncilResult, councilErrorMessage } from "../profile/strategy-council.js";
@@ -29,6 +29,13 @@ import { targetListHas } from "../profile/target-schools.js";
 // round whose date has already passed is skipped, and the student is told
 // what was added and what was not (ctx.notify, when the caller passes one;
 // the result is returned either way).
+//
+// Each date is placed by the cycle it falls in, not by the reading's one
+// cycle label (dateForOwnCycle). From Feb to Jul a school's page holds next
+// fall's Early Action beside this winter's Regular Decision, and the scout
+// files that reading under the planning cycle: dated by the label, a junior
+// got the closing cycle's February 15 as the school's own deadline and a
+// senior whose RD was twelve days away was told it had passed.
 export async function createDeadlinesForSchool(ctx, school, { targetSchools, now = new Date() } = {}) {
   const {
     authedFetch, locale = "en-US", notify,
@@ -44,7 +51,6 @@ export async function createDeadlinesForSchool(ctx, school, { targetSchools, now
   let ownStart = planningStart; // the student's cycle; the planning cycle until the server says
   let iso = clientTypicalISO(now);
   let sd = {};       // per-school dates: read from the school's pages, or its Common Data Set
-  let schoolStart = null; // the cycle those dates are for
   let srcUrl = null; // source URL when read from the school's pages
   let cdsLabel = null; // set when the dates come from the school's Common Data Set (previous cycle, rolled forward)
   try {
@@ -69,7 +75,6 @@ export async function createDeadlinesForSchool(ctx, school, { targetSchools, now
       }
       const entry = (body?.schools || []).find(s => String(s.school).toLowerCase() === name.toLowerCase());
       sd = entry?.deadlines || {};
-      schoolStart = cycleStartYearOf(entry?.cycle) ?? planningStart;
       if (entry?.source === "cds") cdsLabel = entry.sourceLabel || "its Common Data Set";
       else if (entry?.source && entry.source !== "typical") srcUrl = entry.source;
     }
@@ -89,18 +94,22 @@ export async function createDeadlinesForSchool(ctx, school, { targetSchools, now
     : `${name}'s published date for the current cycle. Re-check ${name}'s official site before you rely on it.`;
   const typicalNote = `Approximate planning window from typical US cycle dates — NOT ${name}'s verified deadline. Look up the exact date on ${name}'s official admissions or financial-aid page and edit this entry.`;
   const cdsNote = `Closing date ${name} reported in ${cdsLabel} for its previous cycle, rolled forward to this cycle. Institutional, but confirm this year's date on ${name}'s admissions page.`;
-  const carriedNote = `${name}'s ${schoolStart != null ? cycleLabel(schoolStart) : "current"} date carried forward to your cycle (applying in fall ${ownStart} for Fall ${entryYear} entry). ${name} has not published that cycle's dates yet; check its admissions page when it does and edit this entry.`;
+  const carriedNote = (fromStart) => `${name}'s ${cycleLabel(fromStart)} date carried forward to your cycle (applying in fall ${ownStart} for Fall ${entryYear} entry). ${name} has not published that cycle's dates yet; check its admissions page when it does and edit this entry.`;
   const approxTitle = (round) => `${name} — ${round} (approximate — for Fall ${entryYear} entry)`;
   const past = [];
   const mk = (round, schoolVal, typicalVal, category) => {
     // The school's date when it is for this student's cycle, or carried
     // forward to it from an earlier one; a later cycle's date is not hers.
+    // The cycle is the date's own, never the reading's label.
     let date = null;
     let kind = "typical";
+    let carriedFrom = null;
     const schoolDate = calendarDateOf(schoolVal);
-    if (schoolDate && schoolStart != null && schoolStart <= ownStart) {
-      date = schoolStart === ownStart ? schoolDate : shiftDateToCycle(schoolDate, schoolStart, ownStart);
-      kind = schoolStart === ownStart ? "school" : "carried";
+    const placed = schoolDate ? dateForOwnCycle(schoolDate, ownStart) : null;
+    if (placed) {
+      date = placed.date;
+      kind = placed.kind;
+      carriedFrom = placed.fromStartYear;
     }
     if (!date) date = calendarDateOf(typicalVal);
     if (!date) return null;
@@ -114,7 +123,7 @@ export async function createDeadlinesForSchool(ctx, school, { targetSchools, now
       notes = cdsLabel ? cdsNote : webNote;
     } else if (kind === "carried") {
       title = approxTitle(round);
-      notes = carriedNote;
+      notes = carriedNote(carriedFrom);
     } else {
       title = projectedTypical ? approxTitle(round) : `${name} — ${round} (approximate — verify)`;
       notes = typicalNote;

@@ -29,9 +29,11 @@ function rowCycleStart(row) {
 export function schoolsDueForNewCycle({ targetSchools, deadlines, studentCycle } = {}) {
   const own = studentCycle?.startYear;
   if (!Number.isInteger(own)) return [];
-  // A known class year that applied before the planning cycle (a senior from
-  // Feb 1 on) has had its own cycle: the server then plans in the next one,
-  // and next year's reminders would be noise for a student who has applied.
+  // A known class year whose own cycle is over (a senior from Aug 1 on) has
+  // had it: the server then plans in the next one, and next year's reminders
+  // would be noise for a student who has applied. Until Jul 31 a senior
+  // stays in their own, closing cycle (applicationCycleStartYear), so their
+  // reminders are made for it and this check does not fire.
   const classOf = Number(studentCycle?.classOf);
   if (Number.isInteger(classOf) && classOf > 0 && classOf - 1 < own) return [];
   const rows = Array.isArray(deadlines) ? deadlines : [];

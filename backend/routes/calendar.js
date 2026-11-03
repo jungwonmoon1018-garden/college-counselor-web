@@ -41,6 +41,7 @@ export function registerCalendarRoutes(app, deps) {
         projected: ownStart > planningCycleStartYear(now),
         typicalISO: typicalDeadlineDates(ownStart),
       };
+      const cdsStart = Math.min(ownStart, planningCycleStartYear(now));
       const targetSchools = deps.resolveTargetSchools(req.studentId, req.body?.targetSchools);
 
       const wantsResearch = req.body?.research === true && targetSchools.length <= 3;
@@ -102,12 +103,17 @@ export function registerCalendarRoutes(app, deps) {
         // Last institutional fallback before the typical-cycle table: the
         // closing dates the school reported in its Common Data Set, rolled
         // forward to this cycle. Labeled as such — the client titles these
-        // "(from Common Data Set — confirm)".
+        // "(from Common Data Set — confirm)". A senior from Feb 1 to Jul 31
+        // is still in the closing cycle, a year before the planning one:
+        // placed in the planning cycle, her March 1 regular deadline came
+        // back as next year's and the client dropped it as not hers. The
+        // dates go in the earlier of her cycle and the planning cycle, so
+        // anyone later still gets the planning cycle's, carried forward.
         let cdsDates = null;
         if (!record) {
           try {
             const stored = resolveStoredCdsRecord(deps.ragStmts, { schoolName: school });
-            cdsDates = stored ? cdsDeadlinesForCycle(stored) : null;
+            cdsDates = stored ? cdsDeadlinesForCycle(stored, now, { startYear: cdsStart }) : null;
           } catch { cdsDates = null; }
         }
         schools.push(record

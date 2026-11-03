@@ -237,6 +237,59 @@ describe("createDeadlinesForSchool dates reminders for the student's own cycle",
     expect(result).toMatchObject({ created: 1, duplicates: 2, past: ["Early (EA/ED)"] });
     expect(notify).toHaveBeenCalledWith("MIT: Fall 2027 입학 기준 마감일 1개를 마감일 목록에 추가했어요. Early (EA/ED) 마감일은 이미 지나서 추가하지 않았어요. 2개는 이미 목록에 있어요.");
   });
+
+  // time-1: a yearless page read on Feb 3 holds next fall's Early Action
+  // beside this winter's Regular Decision under one record cycle (2027-28).
+  // Dating every slot by that label gave a junior the closing cycle's
+  // February 15 as the school's own date, and told a senior, whose RD was
+  // twelve days away, that it had already passed. Each date is placed by
+  // its own cycle.
+  describe("a February reading that mixes two cycles", () => {
+    const FEB_3 = new Date(2027, 1, 3, 12, 0); // planning cycle 2027-28, closing 2026-27
+    const mixedReading = (startYear, createdCount) => vi.fn(async (path) => (String(path).includes("/api/calendar/context")
+      ? reply({
+        studentCycle: { cycle: `${startYear}-${String((startYear + 1) % 100)}`, startYear, entryYear: startYear + 1, projected: false, typicalISO: { earlyEaEd: `${startYear}-11-01`, regularDecision: `${startYear + 1}-01-01`, financialAidPriority: `${startYear + 1}-02-01`, fafsaOpens: `${startYear}-10-01`, nationalDepositDeadline: `${startYear + 1}-05-01` } },
+        schools: [{
+          school: "Example University",
+          deadlines: { ea: "2027-11-01", rd: "2027-02-15" },
+          labels: { rd: "Regular Decision (2026-27 cycle)" },
+          source: "https://example.edu/apply/deadlines",
+          cycle: "2027-28",
+        }],
+      })
+      : reply({ createdCount, skippedItems: [] })));
+
+    it("gives a junior next fall's Early date as the school's and carries RD to her own cycle", async () => {
+      const authedFetch = mixedReading(2027, 4);
+      const result = await createDeadlinesForSchool({ authedFetch }, "Example University", { now: FEB_3 });
+      const items = bulkItems(authedFetch);
+      expect(items.map((i) => [i.title, i.dueAt])).toEqual([
+        ["Example University — Early (EA/ED)", "2027-11-01"],
+        ["Example University — Regular Decision (approximate — for Fall 2028 entry)", "2028-02-15"],
+        ["Example University — Financial aid (approximate — verify)", "2028-02-01"],
+        ["Example University — Commit by (approximate — verify)", "2028-05-01"],
+      ]);
+      expect(items[0].notes).toMatch(/published date, read from https:\/\/example\.edu/);
+      expect(items[1].notes).toMatch(/2026-27 date carried forward to your cycle/);
+      expect(result.past).toEqual([]);
+    });
+
+    it("gives a senior this winter's RD as the school's date and skips only what has passed", async () => {
+      const authedFetch = mixedReading(2026, 2);
+      const notify = vi.fn();
+      const result = await createDeadlinesForSchool({ authedFetch, notify }, "Example University", { now: FEB_3 });
+      const items = bulkItems(authedFetch);
+      expect(items.map((i) => [i.title, i.dueAt])).toEqual([
+        ["Example University — Regular Decision", "2027-02-15"],
+        ["Example University — Commit by (approximate — verify)", "2027-05-01"],
+      ]);
+      expect(items[0].notes).toMatch(/published date, read from https:\/\/example\.edu/);
+      // Next fall's Early Action is the junior's, not the senior's: her
+      // Early round is the closing cycle's, already over.
+      expect(result.past).toEqual(["Early (EA/ED)", "Financial aid"]);
+      expect(notify).toHaveBeenCalledWith("Example University: added 2 deadlines for Fall 2027 entry to your Deadlines list. Skipped Early (EA/ED), Financial aid: that date has already passed.");
+    });
+  });
 });
 
 // chat-9: the Council route answers a provider failure as 502/504 with the

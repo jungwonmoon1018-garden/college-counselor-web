@@ -119,6 +119,19 @@ const scoutOptions = (stores, fetchImpl) => ({
 
 const TARGET = { name: "Example University", website: "https://exampleu.edu" };
 
+// A school's facts as the store serves them at `at`, the scout's own clock.
+// getFactsByEntity drops a fact once SQLite's julianday('now') passes its
+// expiry, and no injected clock moves SQLite's (tests/helpers/fixed-clock.mjs
+// moves JS only): the facts these tests file under the 2026-27 cycle expire
+// 2027-08-01, so on the wall clock the file would have failed from that day.
+// The read is the store's own statement with 'now' bound to `at`, so an
+// expired fact still drops out, at the clock the scout ran on.
+function factsAt(stores, entityId, at) {
+  const sql = stores.factStmts.getFactsByEntity.source;
+  assert.equal(sql.split("julianday('now')").length, 2, "getFactsByEntity reads the expiry against now once");
+  return stores.db.prepare(sql.replace("julianday('now')", "julianday(?)")).all("university", entityId, at.toISOString());
+}
+
 test("robots.txt groups and longest-match rules are honored", () => {
   const groups = parseRobots("User-agent: *\nDisallow: /private\nAllow: /private/open\n\nUser-agent: CollegeCounselorBot\nDisallow: /bot-only\n");
   assert.equal(robotsAllows(groups, "/admission"), true);
@@ -385,11 +398,16 @@ test("a closing-cycle deadline is filed under its own cycle, and its roll to the
   const policy = extractPolicyFromPages(pages, feb3);
   assert.equal(policy.deadlines.regular_decision.date, "2027-02-15");
   writePolicyFacts(stores.factStmts, { slug: "example-university", schoolName: "Example University", unitId: null, policy, checkedAt: feb3.toISOString() });
-  const byKey = Object.fromEntries(stores.factStmts.getFactsByEntity.all("university", "example-university").map((f) => [f.fact_key, f]));
+  const byKey = Object.fromEntries(factsAt(stores, "example-university", feb3).map((f) => [f.fact_key, f]));
   assert.equal(byKey.deadline_regular_decision.academic_year, "2026-27");
   assert.equal(byKey.deadline_regular_decision.expires_at, "2027-08-01T00:00:00.000Z");
   assert.equal(byKey.deadline_early_action.academic_year, "2027-28");
   assert.equal(byKey.deadline_early_action.expires_at, "2028-08-01T00:00:00.000Z");
+  // Once the closing cycle has ended, its date is no longer served; next
+  // fall's still is.
+  const afterClose = Object.fromEntries(factsAt(stores, "example-university", new Date("2027-08-02T12:00:00Z")).map((f) => [f.fact_key, f]));
+  assert.equal(afterClose.deadline_regular_decision, undefined);
+  assert.equal(afterClose.deadline_early_action?.fact_value, byKey.deadline_early_action.fact_value);
 
   const mar1 = extractPolicyFromPages(pages, new Date("2027-03-01T12:00:00Z"));
   assert.equal(mar1.deadlines.regular_decision.date, "2028-02-15");
@@ -417,7 +435,7 @@ test("a scout run snapshots a school, writes verified facts, and logs changes on
   assert.equal(new Set(pagesFetched).size, pagesFetched.length, "pages are de-duplicated by their final URL");
   assert.equal(pagesFetched.filter((u) => u.startsWith("https://admission.exampleu.edu")).length, 1);
 
-  const facts = stores.factStmts.getFactsByEntity.all("university", "example-university");
+  const facts = factsAt(stores, "example-university", NOW);
   const byKey = Object.fromEntries(facts.map((f) => [f.fact_key, f]));
   assert.equal(byKey.test_policy.fact_value, "test-optional (through 2027)");
   assert.equal(byKey.test_policy.source_domain, "exampleuadmissions.org");
@@ -453,7 +471,7 @@ test("a scout run snapshots a school, writes verified facts, and logs changes on
       ["Testing policy", "test-optional (through 2027)", "test scores required", "high"],
     ],
   );
-  const updated = stores.factStmts.getFactsByEntity.all("university", "example-university");
+  const updated = factsAt(stores, "example-university", later);
   assert.equal(updated.find((f) => f.fact_key === "test_policy").fact_value, "test scores required");
   assert.equal(updated.find((f) => f.fact_key === "deadline_early_decision").fact_value, "2026-11-15");
   assert.equal(readPolicySnapshot(stores.stmts, { name: "Example University" }).changedAt, later.toISOString());
