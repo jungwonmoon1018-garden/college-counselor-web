@@ -5,18 +5,26 @@ import { resolveTargetUnitId } from "../profile/profile-analysis.js";
 import { clientTypicalISO } from "../chat/chat-orchestrator.js";
 import { fitProfileFingerprint } from "../profile/fit-refresh.js";
 import { createCouncilPayload, formatCouncilResult, councilErrorMessage } from "../profile/strategy-council.js";
+import { targetListHas } from "../profile/target-schools.js";
 
 // When a school is added to the target list, create its key deadlines in
 // the Deadlines tab: Early (EA/ED), Regular Decision, Financial aid, and
 // Commit-by. Dates come from the per-school web lookup when available, else
 // the typical-cycle ISO fallbacks — so every added school gets dated
 // deadlines. Skips rounds with no parseable date and de-dupes by title.
-export async function createDeadlinesForSchool(ctx, school) {
+// `targetSchools` is the list the school was just added to. A school that
+// is not on it gets no deadlines: a ninth school used to be cut from a full
+// list while its four or five deadlines (and the model-backed calendar read
+// behind them) were still created, and the only cascade that removes them
+// is removing the school from the list, which the student could not do.
+// Called without the list, the creator runs as it always has.
+export async function createDeadlinesForSchool(ctx, school, { targetSchools } = {}) {
   const {
     authedFetch,
   } = ctx;
   const name = String(school || "").trim();
   if (!name) return;
+  if (Array.isArray(targetSchools) && !targetListHas(targetSchools, name)) return;
   const unitId = resolveTargetUnitId(name);
   // Try the calendar/web lookup (advanced model researches real dates), but
   // never block deadline creation on it — fall back to client typical dates
@@ -110,35 +118,65 @@ export async function createDeadlinesForSchool(ctx, school) {
 // `refresh` re-reads the school already shown after the profile changed:
 // the old card stays up until the new read lands, a failed re-read keeps
 // it, and the body is stamped so the card can say it was re-read.
+//
+// Only the newest lookup may paint the card. Both calls take seconds (the
+// values read is a model call over the school's pages, and positioning can
+// wait on a live Common Data Set read), the Look up button re-enables as
+// soon as the values land, and the target chips and Enter key start a
+// lookup with no loading check at all. A student who opened Harvard and then
+// Ohio State saw Harvard's late "High reach" land under Ohio State's values,
+// and the double-check then verified a different school from the one whose
+// label was shown (fit-11). `lookupStateRef` (useCollegeFit) carries a
+// sequence number: each lookup takes the next one and aborts the one before,
+// and a response whose number is no longer current is dropped, along with
+// its loading flags, which belong to the lookup that replaced it.
 export async function lookupCollege(ctx, collegeName, hintUrl, { refresh = false } = {}) {
   const {
-    data, fitFingerprintRef, locale, setCollegePositioning, setCollegePositioningLoading, setCollegeValues,
-    setCollegeValuesLoading, setCollegeVerification,
+    data, fitFingerprintRef, locale, lookupStateRef, setCollegePositioning, setCollegePositioningLoading, setCollegeValues,
+    setCollegeValuesLoading, setCollegeVerification, setCollegeVerifying,
   } = ctx;
   const token = window.__CC_SESSION_TOKEN__;
   if (!token || !collegeName) return;
+  const lookup = beginLookup(lookupStateRef, { collegeName, hintUrl, refresh });
   fitFingerprintRef.current = fitProfileFingerprint(data);
   setCollegeValuesLoading(true);
-  if (!refresh) setCollegePositioning(null);
+  // A new school clears the card at once. Clearing only the positioning
+  // left the previous school's values up under the new lookup, the first
+  // half of one card painted from two schools.
+  if (!refresh) {
+    setCollegeValues(null);
+    setCollegePositioning(null);
+  }
   setCollegeVerification(null);
+  // A double-check still running belongs to the read being replaced.
+  setCollegeVerifying?.(false);
   try {
     const r = await fetch("/api/colleges/values", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, "X-CollegeApp-Locale": locale },
       body: JSON.stringify({ collegeName, hintUrl }),
+      signal: lookup.signal,
     });
-    const body = await r.json();
-    if (r.ok) setCollegeValues(refresh ? { ...body, refreshedAt: new Date().toISOString() } : body);
-    else if (!refresh) setCollegeValues({ error: body.error || `HTTP ${r.status}` });
+    const body = await r.json().catch(() => null);
+    if (!lookup.current()) return;
+    if (r.ok && body) setCollegeValues(refresh ? { ...body, refreshedAt: new Date().toISOString() } : body);
+    // The code and status travel with the message so the card can say, in
+    // the student's language, why the values part is missing (402 budget,
+    // 403 consent, 404 unreadable site) while the fit read still shows.
+    else if (!refresh) setCollegeValues({ error: body?.error || `HTTP ${r.status}`, code: body?.code || null, status: r.status });
   } catch (err) {
-    if (!refresh) setCollegeValues({ error: err.message || "lookup failed" });
+    if (!lookup.current()) return;
+    if (!refresh) setCollegeValues({ error: err.message || "lookup failed", code: "network_error", status: 0 });
   } finally {
-    setCollegeValuesLoading(false);
+    if (lookup.current()) setCollegeValuesLoading(false);
   }
 
   // Calibrated fit (reach/target/safety) — separate, non-blocking call.
   // Positioning depends on CDS resolution which can miss for obscure
   // schools; CalibratedFitCard falls back to values-coverage when absent.
+  // It runs whatever the values read answered: the read is deterministic,
+  // needs no AI consent or budget, and the server keeps it for the chat,
+  // so the card shows it even when the values part failed (fit-7).
   setCollegePositioningLoading(true);
   try {
     const major = (data?.majorInterest || data?.profile?.majorInterest || null);
@@ -146,18 +184,61 @@ export async function lookupCollege(ctx, collegeName, hintUrl, { refresh = false
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, "X-CollegeApp-Locale": locale },
       body: JSON.stringify({ targets: [{ schoolName: collegeName }], ...(major ? { major } : {}) }),
+      signal: lookup.signal,
     });
     const pbody = await pr.json().catch(() => ({}));
+    if (!lookup.current()) return;
     if (pr.ok && Array.isArray(pbody.targets) && pbody.targets.length > 0) {
       setCollegePositioning(pbody.targets[0]);
     } else if (!refresh) {
       setCollegePositioning(null);
     }
   } catch {
-    if (!refresh) setCollegePositioning(null);
+    if (lookup.current() && !refresh) setCollegePositioning(null);
   } finally {
-    setCollegePositioningLoading(false);
+    if (lookup.current()) {
+      setCollegePositioningLoading(false);
+      lookup.finish();
+    }
   }
+}
+
+// The sequence a lookup runs under. `stateRef.current` holds the newest
+// sequence number, the controller that can abort it, the fresh lookup still
+// in flight (`pending`, which a profile refresh restarts instead of
+// re-reading the card it is about to replace) and the last fresh request
+// (`lastRequest`, the name a positioning-only card is refreshed by). Without
+// a state ref every response applies, as before.
+function beginLookup(stateRef, { collegeName, hintUrl, refresh }) {
+  const state = stateRef?.current;
+  if (!state) return { signal: undefined, current: () => true, finish: () => {} };
+  try { state.controller?.abort(); } catch { /* an abort never blocks the next lookup */ }
+  const controller = typeof AbortController === "function" ? new AbortController() : null;
+  const seq = (state.seq || 0) + 1;
+  state.seq = seq;
+  state.controller = controller;
+  state.pending = refresh ? null : { collegeName, hintUrl };
+  if (!refresh) state.lastRequest = { collegeName, hintUrl };
+  return {
+    signal: controller?.signal,
+    current: () => state.seq === seq,
+    finish: () => {
+      if (state.seq !== seq) return;
+      state.controller = null;
+      state.pending = null;
+    },
+  };
+}
+
+// Drops whatever lookup is in flight: the student cleared the card, so
+// nothing from before may paint it.
+export function cancelLookup(stateRef) {
+  const state = stateRef?.current;
+  if (!state) return;
+  try { state.controller?.abort(); } catch { /* ignore */ }
+  state.seq = (state.seq || 0) + 1;
+  state.controller = null;
+  state.pending = null;
 }
 
 export function removeTargetSchool(ctx, name) {

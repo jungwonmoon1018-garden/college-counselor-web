@@ -9,7 +9,8 @@ import { gpaNumber, validateGpa } from "../profile/gpa.js";
 import { useState } from "react";
 import SidebarSection from "../components/SidebarSection.jsx";
 import CloseButton from "../components/CloseButton.jsx";
-import CalibratedFitCard from "../components/CalibratedFitCard.jsx";
+import CalibratedFitCard, { valuesErrorText } from "../components/CalibratedFitCard.jsx";
+import { MAX_TARGET_SCHOOLS, targetListHas } from "../profile/target-schools.js";
 import EcEvidence, { ChatEvidenceSync } from "../components/EcEvidence.jsx";
 import PrestigeCard from "../components/PrestigeCard.jsx";
 import { GRADE_SCALE } from "../app-shared.js";
@@ -322,6 +323,18 @@ export default function Sidebar(props) {
     user,
     verifyCollegeFit,
   } = props;
+  // The College Fit card stands on either read. The values read needs AI
+  // consent, budget and a readable official site; the positioning read
+  // needs none of them, and the server keeps it for the chat. The card used
+  // to render only with values, so a 402 or a blocked site hid a computed
+  // read the chat then quoted (fit-7). The name follows the values when
+  // they answered, else the read, else what the student looked up.
+  const valuesOk = Boolean(collegeValues && !collegeValues.error);
+  const valuesError = collegeValues?.error ? collegeValues : null;
+  const showFitCard = valuesOk || Boolean(collegePositioning) || Boolean(valuesError && collegePositioningLoading);
+  const positioningName = collegePositioning?.schoolName && collegePositioning.schoolName !== "Unknown school" ? collegePositioning.schoolName : "";
+  const fitSchoolName = (valuesOk && collegeValues.displayName) || positioningName || collegeValuesQuery.trim();
+  const targetListFull = targetSchools.length >= MAX_TARGET_SCHOOLS;
   return (
     <>
     {sidebarOpen && <div className="cc-sidebar-backdrop" data-testid="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
@@ -430,7 +443,8 @@ export default function Sidebar(props) {
               // values stay visible and it looks like the new search
               // never fired. Cached result still re-appears instantly
               // on submit (server-side cache), so this isn't wasteful.
-              if (collegeValues) setCollegeValues(null);
+              // A card standing on the fit read alone clears the same way.
+              if (collegeValues || collegePositioning) setCollegeValues(null);
             }}
             onKeyDown={e => { if (e.key === "Enter" && collegeValuesQuery.trim()) lookupCollege(collegeValuesQuery.trim(), collegeValuesHint.trim() || undefined); }}
             style={{ flex:1,padding:"6px 9px",borderRadius:6,border:"1px solid rgba(255,255,255,0.06)",background:"rgba(255,255,255,0.02)",color:"#bbb",fontSize:11,outline:"none" }}
@@ -440,7 +454,7 @@ export default function Sidebar(props) {
             style={{ padding:"5px 10px",borderRadius:6,border:"1px solid rgba(104,211,145,0.25)",background:collegeValuesLoading?"rgba(255,255,255,0.04)":"rgba(104,211,145,0.10)",color:collegeValuesLoading?"#666":"#68d391",fontSize:11,fontWeight:600,cursor:(collegeValuesLoading||!collegeValuesQuery.trim())?"default":"pointer" }}>
             {collegeValuesLoading ? "…" : "Look up"}
           </button>
-          {(collegeValues || collegeValuesQuery) && !collegeValuesLoading && (
+          {(collegeValues || collegePositioning || collegeValuesQuery) && !collegeValuesLoading && (
             <button
               onClick={() => { setCollegeValues(null); setCollegeValuesQuery(""); }}
               title="Clear and start a new search"
@@ -491,22 +505,24 @@ export default function Sidebar(props) {
         >
           ↺ Clear cached college values
         </button>
-        {collegeValues && !collegeValues.error && (
+        {showFitCard && (
           <CalibratedFitCard
             collegeValues={collegeValues}
             positioning={collegePositioning}
             loading={collegePositioningLoading}
             locale={locale}
-            isTarget={targetSchools.some(s => s.toLowerCase() === String(collegeValues.displayName||"").toLowerCase())}
-            onAddTarget={() => addTargetSchool(collegeValues.displayName)}
+            schoolName={fitSchoolName}
+            isTarget={targetListHas(targetSchools, fitSchoolName)}
+            targetListFull={targetListFull}
+            onAddTarget={fitSchoolName ? () => addTargetSchool(fitSchoolName) : undefined}
             verification={collegeVerification}
             verifying={collegeVerifying}
-            onVerify={() => verifyCollegeFit(collegeValues.displayName, Boolean(collegeVerification))}
+            onVerify={() => verifyCollegeFit(fitSchoolName, Boolean(collegeVerification))}
           />
         )}
-        {collegeValues?.error && (
-          <div style={{fontSize:10,color:"#fc8181",padding:"6px 8px",borderRadius:6,background:"rgba(245,101,101,0.05)",border:"1px solid rgba(245,101,101,0.15)",marginBottom:14}}>
-            {collegeValues.error}
+        {valuesError && !showFitCard && (
+          <div role="alert" style={{fontSize:10,color:"#fc8181",padding:"6px 8px",borderRadius:6,background:"rgba(245,101,101,0.05)",border:"1px solid rgba(245,101,101,0.15)",marginBottom:14}}>
+            {valuesErrorText(valuesError, locale)}
           </div>
         )}
 
@@ -766,8 +782,15 @@ export default function Sidebar(props) {
             aria-label="Add a target university"
             style={{ flex:1,padding:"6px 10px",borderRadius:8,border:"1px solid rgba(255,255,255,0.08)",background:"rgba(255,255,255,0.03)",color:"#e8e6e3",fontSize:12,outline:"none" }}
           />
-          <button onClick={()=>addTargetSchool(targetSchoolInput)} disabled={!targetSchoolInput.trim()} style={{ padding:"6px 12px",borderRadius:8,border:"1px solid rgba(167,139,250,0.25)",background:"rgba(167,139,250,0.08)",color:"#c4b5fd",fontSize:12,cursor:targetSchoolInput.trim()?"pointer":"default" }}>Add</button>
+          <button onClick={()=>addTargetSchool(targetSchoolInput)} disabled={!targetSchoolInput.trim() || targetListFull} title={targetListFull ? tt(locale, "targets.cap_reached", { max: MAX_TARGET_SCHOOLS }) : undefined} style={{ padding:"6px 12px",borderRadius:8,border:"1px solid rgba(167,139,250,0.25)",background:"rgba(167,139,250,0.08)",color:targetListFull?"#6a6a7a":"#c4b5fd",fontSize:12,cursor:(targetSchoolInput.trim() && !targetListFull)?"pointer":"default" }}>Add</button>
         </div>
+        {/* A full list takes no ninth school (profile/target-schools.js);
+            the reason sits where the student is typing. */}
+        {targetListFull && (
+          <div role="status" data-testid="target-cap-note" style={{ fontSize:10,color:"#fbd38d",marginTop:-8,marginBottom:14,lineHeight:1.5 }}>
+            {tt(locale, "targets.cap_reached", { max: MAX_TARGET_SCHOOLS })}
+          </div>
+        )}
 
         {/* ─── Round 1-5 tools (narrative, candidates, deadlines) ─── */}
         {/* Three buttons that pop a full panel into <activePanel/>. The     */}

@@ -33,16 +33,24 @@ describe("Dashboard profile editing", () => {
   // What the sync answers; a test may replace it (a refused save, a save
   // with a field set aside).
   let syncReply;
+  // Every request the app made, and answers a test adds for other routes.
+  let calls;
+  let routeReply;
 
   beforeEach(() => {
     syncBodies = [];
     syncReply = null;
+    calls = [];
+    routeReply = null;
     if (!globalThis.crypto?.subtle) vi.stubGlobal("crypto", webcrypto);
     vi.stubGlobal("localStorage", memoryStorage());
     vi.stubGlobal("fetch", vi.fn(async (url, options = {}) => {
       const path = String(url);
       const method = String(options.method || "GET").toUpperCase();
-      const json = (body) => ({ ok: true, status: 200, json: async () => body, text: async () => JSON.stringify(body) });
+      calls.push({ method, path, body: typeof options.body === "string" ? options.body : null });
+      const json = (body, status = 200) => ({ ok: status < 400, status, json: async () => body, text: async () => JSON.stringify(body) });
+      const routed = routeReply?.(path, method, options, json);
+      if (routed) return routed;
       if (method === "POST" && path.includes("/api/students/auth")) return json({ token: "tok_test_1", studentId: "stu_test_1" });
       if (path.includes("/api/students/budget")) return json({ grade: 11 });
       if (path.includes("/api/students/export")) return json({ profile: { name: "Jiyeon Kim" } });
@@ -185,6 +193,13 @@ describe("Dashboard profile editing", () => {
     // A refused save used to show as synced: authedFetch resolves on 413.
     syncReply = () => ({ ok: false, status: 413, json: async () => ({ error: "Request body too large." }), text: async () => "" });
     await signIn();
+    // Signing in sends nothing on its own since the auto-save tracks what the
+    // server already holds (a stale device used to overwrite newer data), so
+    // the first edit is what goes out and meets the 413.
+    fireEvent.click(screen.getByRole("button", { name: "Edit AP Statistics score" }));
+    const apEditor = screen.getByTestId("ap-score-editor");
+    fireEvent.change(within(apEditor).getByLabelText("AP score"), { target: { value: "5" } });
+    fireEvent.click(within(apEditor).getByRole("button", { name: "Save" }));
     expect(await screen.findByText("Your profile is too large to save — shorten a long activity description and try again.", {}, { timeout: 5000 })).toBeInTheDocument();
 
     // A save that lands with a field set aside says which one.
@@ -259,5 +274,98 @@ describe("Dashboard profile editing", () => {
     }
     expect(chatCalls.some((c) => JSON.stringify(c.body.messages || []).includes("Which science course should I take senior year?"))).toBe(true);
     expect(screen.getByRole("log")).toHaveTextContent("Which science course should I take senior year?");
+  }, 40000);
+
+  // ui-9: the ninth school used to be cut from the list after the input had
+  // cleared, while its deadlines (and the model-backed calendar read behind
+  // them) were still created for a school the student could not see.
+  it("tells the student the target list is full and creates nothing for a ninth school", async () => {
+    const eight = ["Rice University", "Duke University", "Emory University", "Tufts University", "Brown University", "Yale University", "Vanderbilt University", "Northwestern University"];
+    window.localStorage.setItem("cc_targets_jiyeon@school.edu", JSON.stringify(eight));
+    await signIn();
+    expect(await screen.findByRole("button", { name: "Remove Northwestern University" })).toBeInTheDocument();
+    expect(screen.getByTestId("target-cap-note")).toHaveTextContent("Your target list holds 8 schools, the most it can. Remove one to add another.");
+    const input = screen.getByLabelText("Add a target university");
+    fireEvent.change(input, { target: { value: "Stanford University" } });
+    expect(screen.getByRole("button", { name: "Add" })).toBeDisabled();
+    fireEvent.keyDown(input, { key: "Enter" });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.getAllByRole("button", { name: /^Remove / })).toHaveLength(8);
+    expect(screen.queryByRole("button", { name: "Remove Stanford University" })).not.toBeInTheDocument();
+    expect(input).toHaveValue("Stanford University");
+    expect(JSON.parse(window.localStorage.getItem("cc_targets_jiyeon@school.edu"))).toEqual(eight);
+    // The deadline creator reads the school's calendar with research on, then
+    // posts the rows in bulk; neither happened. (The chat's own calendar read
+    // of the list runs at sign-in without research.)
+    const deadlineCalls = () => calls.filter((c) => (c.path.includes("/api/calendar/context") && /"research":true/.test(c.body || "")) || c.path.includes("/api/students/deadlines/bulk"));
+    expect(deadlineCalls()).toEqual([]);
+
+    // Removing one makes room, and the next add creates that school's deadlines.
+    fireEvent.click(screen.getByRole("button", { name: "Remove Rice University" }));
+    await waitFor(() => expect(screen.queryByTestId("target-cap-note")).not.toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    expect(await screen.findByRole("button", { name: "Remove Stanford University" })).toBeInTheDocument();
+    await waitFor(() => expect(deadlineCalls().map((c) => c.path)).toEqual(["/api/calendar/context", "/api/students/deadlines/bulk"]));
+    expect(deadlineCalls()[0].body).toContain("Stanford University");
+  }, 40000);
+
+  // fit-7: the values read answered 402 (budget) while the fit read was
+  // computed; the card shows the read, says why the values are missing, and
+  // double-checks the school the read is for.
+  it("shows the College Fit read when the values lookup fails, with the values part marked unavailable", async () => {
+    routeReply = (path, method, options, json) => {
+      if (path.includes("/api/colleges/values") && method === "POST") return json({ error: "The monthly AI budget doesn't allow this lookup right now.", code: "budget_exceeded" }, 402);
+      if (path.includes("/api/positioning/targets")) {
+        return json({ targets: [{
+          schoolName: "The University of Texas at Austin",
+          overallPositioningLabel: "Competitive",
+          labelKey: "competitive",
+          finalPositioningScore: 52.1,
+          admissibility: { academicReadinessScore: 74, summary: "academically plausible but not comfortable" },
+          competitiveness: { majorCompetitivenessScore: 48 },
+          fit: { institutionalPriorityFitScore: 60 },
+          confidence: { evidenceConfidence: "Medium", evidenceConfidenceScore: 61 },
+          scoreRanges: {},
+          mainRedFlags: [],
+          profileComparison: {
+            tests: { policy: "test_considered_or_required", advice: "submit", used: { test: "act", score: 33, band: { low: 29, high: 34 }, position: "within" }, sections: [], alternatives: [] },
+            gpa: { gpa: 3.9, average: 3.8, position: "within", basis: "average" },
+            admitRate: { used: 0.29, basis: "overall", overall: 0.29, earlyDecision: null },
+          },
+        }] });
+      }
+      if (path.includes("/api/positioning/verify")) return json({ verdict: "consistent", checks: [] });
+      return null;
+    };
+    await signIn();
+    const search = screen.getByPlaceholderText(/e\.g\. UC Berkeley/);
+    fireEvent.change(search, { target: { value: "UT Austin" } });
+    fireEvent.keyDown(search, { key: "Enter" });
+    const card = await screen.findByTestId("fit-card", {}, { timeout: 5000 });
+    await waitFor(() => expect(card).toHaveTextContent("Competitive"));
+    expect(card).toHaveTextContent("The University of Texas at Austin");
+    expect(screen.getByTestId("profile-comparison")).toHaveTextContent("Admit rate: 29% of all applicants");
+    expect(screen.getByTestId("fit-matrix-unavailable")).toHaveTextContent("This month's AI budget is used up");
+    expect(screen.queryByText("The monthly AI budget doesn't allow this lookup right now.")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "🔎 Double-check with the web" }));
+    await waitFor(() => expect(calls.some((c) => c.path.includes("/api/positioning/verify"))).toBe(true));
+    const verify = calls.find((c) => c.path.includes("/api/positioning/verify"));
+    expect(JSON.parse(verify.body).schoolName).toBe("The University of Texas at Austin");
+  }, 40000);
+
+  it("shows only the localized error when neither read answered", async () => {
+    routeReply = (path, method, options, json) => {
+      if (path.includes("/api/colleges/values") && method === "POST") return json({ error: "Couldn't read any pages from elm.edu.", code: "no_official_pages" }, 404);
+      if (path.includes("/api/positioning/targets")) return json({ error: "nothing" }, 500);
+      return null;
+    };
+    await signIn();
+    const search = screen.getByPlaceholderText(/e\.g\. UC Berkeley/);
+    fireEvent.change(search, { target: { value: "Elm College" } });
+    fireEvent.keyDown(search, { key: "Enter" });
+    expect(await screen.findByText("The school's official pages couldn't be read. Paste a specific official page URL above, such as its mission page, and look it up again.", {}, { timeout: 5000 })).toBeInTheDocument();
+    await waitFor(() => expect(calls.some((c) => c.path.includes("/api/positioning/targets"))).toBe(true));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByTestId("fit-card")).not.toBeInTheDocument();
   }, 40000);
 });

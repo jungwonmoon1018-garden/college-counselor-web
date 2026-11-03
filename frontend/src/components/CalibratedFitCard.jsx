@@ -1,4 +1,5 @@
 import { t } from "../i18n.js";
+import { MAX_TARGET_SCHOOLS } from "../profile/target-schools.js";
 
 // ═══════════════════════════════════════════════════════════════════════
 // CalibratedFitCard — replaces the single inflated "Fit: X%" with the
@@ -10,16 +11,69 @@ import { t } from "../i18n.js";
 // Props:
 //   collegeValues — the /api/colleges/values body (displayName, sourceUrl,
 //                   values[], fit.{overall,perValueCoverage}). Used for the
-//                   header, the core-values list, and the fallback.
+//                   header, the core-values list, and the fallback. When the
+//                   values read failed it is { error, code, status }, or
+//                   null: the card then stands on the positioning read, with
+//                   the values part marked unavailable (fit-7). It used to
+//                   be hidden behind the raw English error while the chat
+//                   quoted the label the server had computed and kept.
 //   positioning   — a single per-school positioning object (targets[0] from
 //                   /api/positioning/targets), or null while loading / when
 //                   unavailable.
 //   loading       — true while the positioning request is in flight.
+//   schoolName    — the name to show when neither read carries one.
+//   targetListFull — the target list holds its maximum, so ➕ target cannot
+//                   add this school (profile/target-schools.js).
 //   locale        — the app's locale. It wins over the locale the server
 //                   stamped on the values body: that one falls back to the
 //                   browser's Accept-Language, which put Korean placement
 //                   words on the card of a student using the app in English.
 // ═══════════════════════════════════════════════════════════════════════
+
+// The reads the engine withholds a label from (positioning-engine.js): a
+// record with no GPA of either kind and no SAT/ACT ("insufficient_student_
+// data", since positioning_v3). A thin record used to read "Reach" at a
+// 70%-admit school and "High reach" where nothing was known, with
+// "academically stretched" beside it; the card now says what is missing
+// instead of placing the student (fit-4). A school whose admit rate no
+// source held still gets a label today, starting from an assumed 50% that
+// the comparison block names; the school-side key is drawn the same way if
+// the engine starts withholding that one too (fit-5).
+const INSUFFICIENT_LABELS = {
+  insufficient_student_data: { badge: "fit.insufficient_student_data", hint: "fit.insufficient_student_hint" },
+  insufficient_school_data: { badge: "fit.insufficient_school_data", hint: "fit.insufficient_school_hint" },
+};
+
+function insufficientRead(positioning) {
+  if (!positioning) return null;
+  const key = String(positioning.labelKey || "");
+  if (INSUFFICIENT_LABELS[key]) return INSUFFICIENT_LABELS[key];
+  if (key.startsWith("insufficient_")) return INSUFFICIENT_LABELS.insufficient_student_data;
+  // A payload without the key still carries the label the engine gives it.
+  if (!key && positioning.overallPositioningLabel === "Not enough data yet") return INSUFFICIENT_LABELS.insufficient_student_data;
+  return null;
+}
+
+// Why the values part of the card is missing, in the student's language.
+// The values read needs AI consent, budget and a readable official site;
+// the fit read needs none of them, so it can stand without the values.
+export function valuesErrorText(valuesError, locale) {
+  const code = String(valuesError?.code || "");
+  const status = Number(valuesError?.status) || 0;
+  let key = "fit.values_error_generic";
+  if (code === "consent_required" || status === 403) key = "fit.values_error_consent";
+  else if (code === "budget_exceeded" || status === 402) key = "fit.values_error_budget";
+  else if (code === "openrouter_not_configured") key = "fit.values_error_not_configured";
+  else if (code === "school_site_not_found") key = "fit.values_error_not_found";
+  else if (code === "no_official_pages" || code === "values_not_found" || status === 404) key = "fit.values_error_unreadable";
+  return t(locale, key);
+}
+
+function finiteOrNull(value) {
+  if (value == null || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
 
 // Map the positioning label to a reach/target/safety color band. Higher
 // position = stronger standing for the student.
@@ -42,10 +96,13 @@ function confColor(level) {
 // SubBar renders a point estimate and, when `range` is supplied and has real
 // width (low-confidence schools), an honest uncertainty band behind the fill
 // plus a low–high numeric label instead of a single over-precise number.
+// A score the payload does not carry draws an empty bar and a dash, never a
+// 0 the read did not compute.
 function SubBar({ label, score, color, range }) {
-  const pct = Math.max(0, Math.min(100, Number(score) || 0));
-  const lo = range ? Math.max(0, Math.min(100, Number(range.low) || 0)) : null;
-  const hi = range ? Math.max(0, Math.min(100, Number(range.high) || 0)) : null;
+  const known = finiteOrNull(score);
+  const pct = known == null ? 0 : Math.max(0, Math.min(100, known));
+  const lo = known != null && range ? Math.max(0, Math.min(100, Number(range.low) || 0)) : null;
+  const hi = known != null && range ? Math.max(0, Math.min(100, Number(range.high) || 0)) : null;
   const hasBand = lo != null && hi != null && hi - lo >= 1;
 
   return (
@@ -64,7 +121,7 @@ function SubBar({ label, score, color, range }) {
         )}
       </div>
       <div style={{ width: hasBand ? 52 : 28, fontSize: 10, color: "#8a8a9a", textAlign: "right", flexShrink: 0 }}>
-        {hasBand ? `${Math.round(lo)}–${Math.round(hi)}` : Math.round(pct)}
+        {known == null ? "—" : hasBand ? `${Math.round(lo)}–${Math.round(hi)}` : Math.round(pct)}
       </div>
     </div>
   );
@@ -122,7 +179,7 @@ function VerificationPanel({ v, locale }) {
       )}
       {v.recomputed && (
         <div style={{ fontSize: 10, marginTop: 6, color: v.recomputed.labelChanged ? "#f6ad55" : "#9ae6b4" }}>
-          {t(locale, "fit.recomputed")}: <strong>{v.recomputed.overallPositioningLabel}</strong>
+          {t(locale, "fit.recomputed")}: <strong>{insufficientRead(v.recomputed) ? t(locale, insufficientRead(v.recomputed).badge) : v.recomputed.overallPositioningLabel}</strong>
           {v.recomputed.labelChanged ? ` (was ${v.original?.overallPositioningLabel})` : " (label unchanged)"}
         </div>
       )}
@@ -205,46 +262,94 @@ function evidenceText(e, locale) {
   return parts.join(" · ");
 }
 
-function ProfileComparison({ pc, locale }) {
+// The test policy the read used, as the card speaks of it. Only a policy
+// that was read says "required or considered": an unread one used to come
+// through as required, so a student without scores was told tests were
+// required at UCLA, which does not consider them (fit-6).
+function testPolicyKind(policy) {
+  const v = String(policy || "").toLowerCase();
+  if (!v || v === "unknown") return "unknown";
+  if (/blind|free/.test(v)) return "blind";
+  if (/optional|deemphas|de-emphas/.test(v)) return "optional";
+  if (/required|considered|flexible/.test(v)) return "required";
+  return "unknown";
+}
+
+const NO_TEST_KEYS = {
+  required: "fit.cmp_no_tests",
+  optional: "fit.cmp_no_tests_optional",
+  blind: "fit.cmp_no_tests_blind",
+  unknown: "fit.cmp_no_tests_unknown",
+};
+
+function ProfileComparison({ pc, locale, withLikelihood = true }) {
   const rows = [];
   // The admit rate the read started from. For a regular-round applicant it
   // is the pool outside Early Decision when the school's counts give one,
-  // lower than the headline rate wherever ED admits are counted in it.
+  // lower than the headline rate wherever ED admits are counted in it. A
+  // rate no source held says so rather than leaving the row out.
   const admit = pc.admitRate;
-  if (admit?.used != null) {
+  const admitUsed = finiteOrNull(admit?.used);
+  if (admitUsed != null) {
     const pct = (v) => Math.round(v * 1000) / 10;
+    const overall = finiteOrNull(admit.overall);
+    const ed = finiteOrNull(admit.earlyDecision);
     const value = admit.basis === "outside_early_decision"
-      ? [fill(t(locale, "fit.cmp_admit_regular"), { used: pct(admit.used) }),
-        admit.overall != null ? fill(t(locale, "fit.cmp_admit_overall"), { overall: pct(admit.overall) }) : null,
-        admit.earlyDecision != null ? fill(t(locale, "fit.cmp_admit_ed"), { ed: pct(admit.earlyDecision) }) : null].filter(Boolean).join(" · ")
-      : fill(t(locale, "fit.cmp_admit_all"), { used: pct(admit.used) });
+      ? [fill(t(locale, "fit.cmp_admit_regular"), { used: pct(admitUsed) }),
+        overall != null ? fill(t(locale, "fit.cmp_admit_overall"), { overall: pct(overall) }) : null,
+        ed != null ? fill(t(locale, "fit.cmp_admit_ed"), { ed: pct(ed) }) : null].filter(Boolean).join(" · ")
+      : fill(t(locale, "fit.cmp_admit_all"), { used: pct(admitUsed) });
     rows.push({ label: t(locale, "fit.cmp_admit"), value, tone: "unknown" });
+  } else if (admit) {
+    rows.push({ label: t(locale, "fit.cmp_admit"), value: t(locale, "fit.cmp_admit_unavailable"), tone: "unknown" });
+    // The likelihood still starts somewhere; the card says from what. A
+    // read with no label has no likelihood to start.
+    const assumed = withLikelihood ? finiteOrNull(admit.assumedForLikelihood) : null;
+    if (assumed != null) rows.push({ value: fill(t(locale, "fit.cmp_admit_assumed"), { pct: Math.round(assumed * 100) }), tone: "note", sub: true });
   }
   const tests = pc.tests;
+  // The engine marks a test-blind school beside its optional bucket.
+  const policyKind = tests?.blind ? "blind" : testPolicyKind(tests?.policy);
   if (tests?.used) {
     const u = tests.used;
     const band = u.band ? `${u.band.low}–${u.band.high}` : null;
     const shown = u.convertedFrom ? `${u.test.toUpperCase()} ${u.score} (≈ ${u.equivalent})` : `${u.test.toUpperCase()} ${u.score}`;
-    rows.push({ label: t(locale, "fit.cmp_tests"), value: band ? `${shown} · ${band} · ${t(locale, `fit.pos_${u.position}`)}` : shown, tone: u.position });
+    rows.push({ label: t(locale, "fit.cmp_tests"), value: band ? `${shown} · ${band} · ${t(locale, `fit.pos_${u.position || "unknown"}`)}` : shown, tone: u.position });
     for (const s of tests.sections || []) {
-      rows.push({ label: s.label, value: `${s.value} · ${s.band.low}–${s.band.high} · ${t(locale, `fit.pos_${s.position}`)}`, tone: s.position, sub: true });
+      if (!s?.band) continue;
+      rows.push({ label: s.label, value: `${s.value} · ${s.band.low}–${s.band.high} · ${t(locale, `fit.pos_${s.position || "unknown"}`)}`, tone: s.position, sub: true });
     }
     if (tests.distribution) rows.push({ value: fill(t(locale, "fit.cmp_distribution"), tests.distribution), tone: "unknown", sub: true });
     if (tests.advice === "withhold") rows.push({ value: t(locale, "fit.advice_withhold"), tone: "note", sub: true });
     else if (tests.advice === "borderline") rows.push({ value: t(locale, "fit.advice_borderline"), tone: "note", sub: true });
+    else if (tests.advice === "not_considered" || policyKind === "blind") rows.push({ value: t(locale, "fit.advice_not_considered"), tone: "note", sub: true });
+    if (policyKind === "unknown") rows.push({ value: t(locale, "fit.policy_unknown"), tone: "note", sub: true });
   } else if (tests) {
-    rows.push({ label: t(locale, "fit.cmp_tests"), value: t(locale, tests.policy === "test_optional_or_deemphasized" ? "fit.cmp_no_tests_optional" : "fit.cmp_no_tests"), tone: "unknown" });
+    rows.push({ label: t(locale, "fit.cmp_tests"), value: t(locale, NO_TEST_KEYS[policyKind]), tone: "unknown" });
   }
   const g = pc.gpa;
-  if (g && g.gpa != null) {
+  if (g && (g.gpa != null || (g.basis === "weighted_only" && g.comparedGpa != null))) {
     const parts = [];
     // A weighted average (above 4.0) is compared with the weighted GPA.
     const weighted = g.averageScale === "weighted";
     if (g.average != null) parts.push(`${t(locale, "fit.cmp_average")} ${g.average}${weighted ? ` (${t(locale, "fit.cmp_weighted")})` : ""}`);
     if (g.band) parts.push(`${t(locale, "fit.cmp_band")} ${g.band.low}–${g.band.high}`);
-    const shownGpa = weighted && g.comparedGpa != null && g.comparedGpa !== g.gpa ? `${g.gpa} (${t(locale, "fit.cmp_weighted")} ${g.comparedGpa})` : `${g.gpa}`;
-    rows.push({ label: t(locale, "fit.cmp_gpa"), value: `${shownGpa}${parts.length ? ` · ${parts.join(", ")}` : ""}${g.position !== "unknown" ? ` · ${t(locale, `fit.pos_${g.position}`)}` : ""}`, tone: g.position });
+    // A weighted GPA alone is read as min(weighted, 4.0) against an
+    // unweighted class; the row says that is what was compared.
+    const weightedOnly = g.gpa == null;
+    const weightedValue = g.weightedGpa ?? g.weighted ?? null;
+    const shownGpa = weightedOnly
+      ? (weightedValue != null
+        ? fill(t(locale, "fit.cmp_gpa_weighted_only"), { weighted: weightedValue, compared: g.comparedGpa })
+        : fill(t(locale, "fit.cmp_gpa_weighted_only_bare"), { compared: g.comparedGpa }))
+      : (weighted && g.comparedGpa != null && g.comparedGpa !== g.gpa ? `${g.gpa} (${t(locale, "fit.cmp_weighted")} ${g.comparedGpa})` : `${g.gpa}`);
+    const position = g.position && g.position !== "unknown" ? ` · ${t(locale, `fit.pos_${g.position}`)}` : "";
+    rows.push({ label: t(locale, "fit.cmp_gpa"), value: `${shownGpa}${parts.length ? ` · ${parts.join(", ")}` : ""}${position}`, tone: g.position || "unknown" });
     if (g.placement) rows.push({ value: fill(t(locale, "fit.cmp_gpa_placement"), { above: g.placement.shareAbove, band: g.placement.band }), tone: "unknown", sub: true });
+    if (weightedOnly) rows.push({ value: t(locale, "fit.gpa_weighted_only_note"), tone: "note", sub: true });
+    // An unweighted GPA above 4.0 is on a scale the profile does not name:
+    // it was not read as a 4.0-scale GPA, and the card asks for the scale.
+    if (g.basis === "scale_unknown" || g.note === "gpa_scale_unknown") rows.push({ value: t(locale, "fit.gpa_scale_unknown_note"), tone: "note", sub: true });
   }
   // The course load behind the rigor component: APs taken (courses, or
   // exams no course names) with how many carry scores, IB, dual enrollment
@@ -262,7 +367,9 @@ function ProfileComparison({ pc, locale }) {
   const a = pc.apExams;
   if (a && a.count) {
     const relevant = a.relevant?.length ? ` · ${t(locale, "fit.cmp_ap_relevant")} ${a.relevant.map((x) => `${x.name} ${x.score}`).join(", ")}` : "";
-    rows.push({ label: t(locale, "fit.cmp_ap"), value: `${a.count} ${t(locale, "fit.cmp_ap_exams")} · ${t(locale, "fit.cmp_average")} ${a.average}${relevant}`, tone: a.average >= 4 ? "above" : a.average >= 3 ? "within" : "below" });
+    const average = finiteOrNull(a.average);
+    const shownAverage = average != null ? ` · ${t(locale, "fit.cmp_average")} ${average}` : "";
+    rows.push({ label: t(locale, "fit.cmp_ap"), value: `${a.count} ${t(locale, "fit.cmp_ap_exams")}${shownAverage}${relevant}`, tone: average == null ? "unknown" : average >= 4 ? "above" : average >= 3 ? "within" : "below" });
   }
   if (!rows.length) return null;
   return (
@@ -278,47 +385,74 @@ function ProfileComparison({ pc, locale }) {
   );
 }
 
-export default function CalibratedFitCard({ collegeValues, positioning, loading, isTarget, onAddTarget, verification, verifying, onVerify, locale: appLocale }) {
-  const locale = appLocale || collegeValues?.locale || "en-US";
-  const hasPositioning = positioning && positioning.overallPositioningLabel;
+export default function CalibratedFitCard({ collegeValues, positioning, loading, isTarget, onAddTarget, targetListFull, verification, verifying, onVerify, schoolName, locale: appLocale }) {
+  // The values body when the values read answered; otherwise what went
+  // wrong with it. Either way the card can stand on the positioning read.
+  const values = collegeValues && !collegeValues.error ? collegeValues : null;
+  const valuesError = collegeValues?.error ? collegeValues : null;
+  const locale = appLocale || values?.locale || "en-US";
+  const hasPositioning = Boolean(positioning && (positioning.overallPositioningLabel || positioning.labelKey));
+  const insufficient = hasPositioning ? insufficientRead(positioning) : null;
+  const engineName = positioning?.schoolName && positioning.schoolName !== "Unknown school" ? positioning.schoolName : null;
+  const title = values?.displayName || engineName || schoolName || "";
 
   return (
-    <div style={{ background: "rgba(104,211,145,0.05)", border: "1px solid rgba(104,211,145,0.15)", borderRadius: 8, padding: 10, marginBottom: 14 }}>
+    <div data-testid="fit-card" style={{ background: "rgba(104,211,145,0.05)", border: "1px solid rgba(104,211,145,0.15)", borderRadius: 8, padding: 10, marginBottom: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8, gap: 8 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: "#cfe5d8" }}>{collegeValues.displayName}</div>
+        <div style={{ fontSize: 12, fontWeight: 600, color: "#cfe5d8" }}>{title}</div>
         {loading && <div style={{ fontSize: 10, color: "#8a8a9a" }}>…</div>}
         {!loading && onAddTarget && (
           isTarget
             ? <span style={{ fontSize: 9, color: "#9ce5b6", whiteSpace: "nowrap" }}>🎯 target</span>
-            : <button onClick={onAddTarget} title="Add to your target schools" style={{ fontSize: 9, color: "#c4b5fd", background: "rgba(167,139,250,0.10)", border: "1px solid rgba(167,139,250,0.3)", borderRadius: 6, padding: "2px 6px", cursor: "pointer", whiteSpace: "nowrap" }}>➕ target</button>
+            : targetListFull
+              ? <span data-testid="fit-target-full" title={t(locale, "targets.cap_reached", { max: MAX_TARGET_SCHOOLS })} style={{ fontSize: 9, color: "#8a8a9a", whiteSpace: "nowrap" }}>{t(locale, "targets.cap_short", { max: MAX_TARGET_SCHOOLS })}</span>
+              : <button onClick={onAddTarget} title="Add to your target schools" style={{ fontSize: 9, color: "#c4b5fd", background: "rgba(167,139,250,0.10)", border: "1px solid rgba(167,139,250,0.3)", borderRadius: 6, padding: "2px 6px", cursor: "pointer", whiteSpace: "nowrap" }}>➕ target</button>
         )}
       </div>
 
       {/* ── Calibrated band (preferred) ── */}
       {hasPositioning ? (
         <div style={{ marginBottom: 10 }}>
-          <div style={{
-            display: "inline-block", fontSize: 12, fontWeight: 700,
-            color: bandColor(positioning.overallPositioningLabel),
-            background: `${bandColor(positioning.overallPositioningLabel)}1a`,
-            border: `1px solid ${bandColor(positioning.overallPositioningLabel)}55`,
-            borderRadius: 8, padding: "3px 10px", marginBottom: 8,
-          }}>
-            {positioning.overallPositioningLabel}
-          </div>
+          {insufficient ? (
+            // No label: a neutral badge that says what to add. The bars,
+            // the "academically stretched" summary, the red flags and the
+            // strategy text all describe a placement the read did not make.
+            <>
+              <div data-testid="fit-insufficient" style={{
+                display: "inline-block", fontSize: 12, fontWeight: 700,
+                color: "#cbd5e0", background: "rgba(160,174,192,0.10)", border: "1px solid rgba(160,174,192,0.35)",
+                borderRadius: 8, padding: "3px 10px", marginBottom: 6,
+              }}>
+                {t(locale, insufficient.badge)}
+              </div>
+              <div style={{ fontSize: 10, color: "#a0aec0", lineHeight: 1.5, marginBottom: 4 }}>{t(locale, insufficient.hint)}</div>
+            </>
+          ) : (
+            <>
+              <div style={{
+                display: "inline-block", fontSize: 12, fontWeight: 700,
+                color: bandColor(positioning.overallPositioningLabel),
+                background: `${bandColor(positioning.overallPositioningLabel)}1a`,
+                border: `1px solid ${bandColor(positioning.overallPositioningLabel)}55`,
+                borderRadius: 8, padding: "3px 10px", marginBottom: 8,
+              }}>
+                {positioning.overallPositioningLabel}
+              </div>
 
-          <SubBar label={t(locale, "fit.admissibility")} score={positioning.admissibility?.academicReadinessScore} range={positioning.scoreRanges?.admissibility} color="#63b3ed" />
-          <SubBar label={t(locale, "fit.competitiveness")} score={positioning.competitiveness?.majorCompetitivenessScore} range={positioning.scoreRanges?.competitiveness} color="#f6ad55" />
-          <SubBar label={t(locale, "fit.fitdim")} score={positioning.fit?.institutionalPriorityFitScore} range={positioning.scoreRanges?.fit} color="#68d391" />
-          <SubBar label={t(locale, "fit.confidence_dim")} score={positioning.confidence?.evidenceConfidenceScore} color="#9f7aea" />
+              <SubBar label={t(locale, "fit.admissibility")} score={positioning.admissibility?.academicReadinessScore} range={positioning.scoreRanges?.admissibility} color="#63b3ed" />
+              <SubBar label={t(locale, "fit.competitiveness")} score={positioning.competitiveness?.majorCompetitivenessScore} range={positioning.scoreRanges?.competitiveness} color="#f6ad55" />
+              <SubBar label={t(locale, "fit.fitdim")} score={positioning.fit?.institutionalPriorityFitScore} range={positioning.scoreRanges?.fit} color="#68d391" />
+              <SubBar label={t(locale, "fit.confidence_dim")} score={positioning.confidence?.evidenceConfidenceScore} color="#9f7aea" />
 
-          {positioning.admissibility?.summary && (
-            <div style={{ fontSize: 10, color: "#8a8a9a", marginTop: 4, lineHeight: 1.5 }}>
-              {positioning.admissibility.summary}
-            </div>
+              {positioning.admissibility?.summary && (
+                <div style={{ fontSize: 10, color: "#8a8a9a", marginTop: 4, lineHeight: 1.5 }}>
+                  {positioning.admissibility.summary}
+                </div>
+              )}
+            </>
           )}
 
-          {positioning.profileComparison && <ProfileComparison pc={positioning.profileComparison} locale={locale} />}
+          {positioning.profileComparison && <ProfileComparison pc={positioning.profileComparison} locale={locale} withLikelihood={!insufficient} />}
 
           {positioning.confidence?.evidenceConfidence && (
             <div style={{ fontSize: 10, marginTop: 6 }}>
@@ -337,10 +471,14 @@ export default function CalibratedFitCard({ collegeValues, positioning, loading,
             if (p.kind === "cds_web") bits.push("CDS · AI web-read");
             else if (isCds) bits.push(p.validated ? "CDS · validated" : p.verification === "consistent" ? "CDS · school document" : "CDS · unverified");
             else if (p.kind === "baseline_only") bits.push("IPEDS baseline");
+            // A Scorecard-sourced read printed no source line at all, and a
+            // read with nothing behind it must not claim one (fit-5).
+            else if (p.kind === "college_scorecard") bits.push(t(locale, "fit.source_scorecard"));
+            else if (p.kind === "none") bits.push(t(locale, "fit.source_none"));
             if (p.yearLabel || p.year) bits.push(String(p.yearLabel || p.year));
-            if (p.admitRatePercent != null) bits.push(`admit ${p.admitRatePercent}%`);
+            if (finiteOrNull(p.admitRatePercent) != null) bits.push(`admit ${p.admitRatePercent}%`);
             // Admit rate specifically pulled from a web search (no CDS/IPEDS).
-            if (p.admitRate?.source === "web" && p.admitRate.admitRatePercent != null) {
+            if (p.admitRate?.source === "web" && finiteOrNull(p.admitRate.admitRatePercent) != null) {
               bits.push(`admit ${p.admitRate.admitRatePercent}% (web${p.admitRate.season ? ` · ${p.admitRate.season}` : ""})`);
             }
             if (!bits.length) return null;
@@ -354,7 +492,7 @@ export default function CalibratedFitCard({ collegeValues, positioning, loading,
             );
           })()}
 
-          {Array.isArray(positioning.mainRedFlags) && positioning.mainRedFlags.length > 0 && (
+          {!insufficient && Array.isArray(positioning.mainRedFlags) && positioning.mainRedFlags.length > 0 && (
             <div style={{ marginTop: 8 }}>
               <div style={{ fontSize: 9, color: "#fc8181", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>
                 {t(locale, "fit.redflags")}
@@ -365,7 +503,7 @@ export default function CalibratedFitCard({ collegeValues, positioning, loading,
             </div>
           )}
 
-          {positioning.recommendedPositioningStrategy && (
+          {!insufficient && positioning.recommendedPositioningStrategy && (
             <div style={{ marginTop: 8, fontSize: 10, color: "#9ae6b4", lineHeight: 1.5 }}>
               <span style={{ color: "#6a6a7a" }}>{t(locale, "fit.strategy")}: </span>
               {positioning.recommendedPositioningStrategy}
@@ -388,30 +526,40 @@ export default function CalibratedFitCard({ collegeValues, positioning, loading,
         </div>
       ) : (
         // ── Fallback: limited data → values coverage only, no fabricated band ──
-        !loading && (
+        !loading && values && (
           <div style={{ fontSize: 10, color: "#fbd38d", marginBottom: 8, lineHeight: 1.5 }}>
             {t(locale, "fit.limited")}
-            {collegeValues.fit && (
-              <span style={{ color: "#68d391", marginLeft: 6 }}>{collegeValues.fit.overall}%</span>
+            {finiteOrNull(values.fit?.overall) != null && (
+              <span style={{ color: "#68d391", marginLeft: 6 }}>{values.fit.overall}%</span>
             )}
           </div>
         )
       )}
 
-      {collegeValues.sourceUrl && (
-        <a href={collegeValues.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 9, color: "#6a8ab5", textDecoration: "none", display: "block", marginBottom: 8, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>↗ {collegeValues.sourceUrl}</a>
+      {/* ── The values part failed: say why, and keep the read above ── */}
+      {!values && (
+        <div data-testid="fit-matrix-unavailable" style={{ fontSize: 10, lineHeight: 1.5 }}>
+          <div style={{ fontSize: 10, color: "#6a6a7a", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            {t(locale, "fit.values_heading")} · <span style={{ color: "#fbd38d" }}>{t(locale, "fit.values_unavailable")}</span>
+          </div>
+          {valuesError && <div style={{ color: "#a0aec0" }}>{valuesErrorText(valuesError, locale)}</div>}
+        </div>
+      )}
+
+      {values?.sourceUrl && (
+        <a href={values.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 9, color: "#6a8ab5", textDecoration: "none", display: "block", marginBottom: 8, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>↗ {values.sourceUrl}</a>
       )}
 
       {/* ── Core values + per-value coverage (kept from the original view) ── */}
-      {collegeValues.note && (
+      {values?.note && (
         <div style={{ fontSize: 9, color: "#f6ad55", background: "rgba(246,173,85,0.08)", border: "1px solid rgba(246,173,85,0.2)", borderRadius: 6, padding: "5px 8px", marginBottom: 8, lineHeight: 1.5 }}>
-          {collegeValues.note}
+          {values.note}
         </div>
       )}
-      <div data-testid="fit-matrix">
-        <div style={{ fontSize: 10, color: "#6a6a7a", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>{collegeValues.fallback === "cds_admission_factors" ? "Admission priorities (CDS)" : "Core values"}</div>
-        {(collegeValues.values || []).map((v) => {
-          const coverage = collegeValues.fit?.perValueCoverage?.find((p) => p.theme === v.theme);
+      {values && <div data-testid="fit-matrix">
+        <div style={{ fontSize: 10, color: "#6a6a7a", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>{values.fallback === "cds_admission_factors" ? "Admission priorities (CDS)" : "Core values"}</div>
+        {(values.values || []).map((v) => {
+          const coverage = values.fit?.perValueCoverage?.find((p) => p.theme === v.theme);
           return (
             <div key={v.theme} style={{ marginBottom: 8, paddingBottom: 8, borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: "#ddd" }}>
@@ -431,11 +579,11 @@ export default function CalibratedFitCard({ collegeValues, positioning, loading,
             </div>
           );
         })}
-      </div>
-      {collegeValues.cached && <div style={{ fontSize: 9, color: "#555", marginTop: 4 }}>Cached {new Date(collegeValues.extractedAt).toLocaleDateString()}</div>}
-      {collegeValues.refreshedAt && (
+      </div>}
+      {values?.cached && <div style={{ fontSize: 9, color: "#555", marginTop: 4 }}>Cached {new Date(values.extractedAt).toLocaleDateString()}</div>}
+      {values?.refreshedAt && (
         <div data-testid="fit-refreshed" style={{ fontSize: 9, color: "#6a8ab5", marginTop: 4 }}>
-          {t(locale, "fit.refreshed")} · {new Date(collegeValues.refreshedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          {t(locale, "fit.refreshed")} · {new Date(values.refreshedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
         </div>
       )}
     </div>
