@@ -242,3 +242,40 @@ test("the model sees the student's own fundraising total and event count; a fami
   assert.doesNotMatch(wire, /60,000/);
   assert.match(wire, /\[ANNUAL_INCOME_\d{2}\]/);
 });
+
+// Three ways the student's private details got past the provider redactor
+// on this branch: a household income in an activity description (rewritten
+// as "35,000 USD"), a parent's income said with "brought in", and a name
+// with a common word in it ("Jimin Park from").
+test("a family income in an activity or in the question, and a name like Jimin Park, stay masked at the provider", async () => {
+  const token = await registerConsentedStudent("family-money");
+  const synced = await request("POST", "/api/students/sync", {
+    token,
+    body: {
+      profile: { gpa: { unweighted: 3.8 } },
+      activities: [
+        {
+          name: "Family Responsibilities",
+          role: "Shop helper",
+          category: "family_responsibilities",
+          hoursPerWeek: 20,
+          description: "Work at my parents' shop, which brings in about $180,000 a year; our household income is only $35,000.",
+        },
+        { name: "Food Bank Volunteer", role: "Founder", category: "community_service", description: "Raised $4,500 for the Seoul food bank." },
+      ],
+      majorInterest: "Computer Science",
+      goals: [],
+    },
+  });
+  assert.equal(synced.status, 200, JSON.stringify(synced.data));
+
+  const turn = await chat(token, "Hi, I'm Jimin Park from Seoul. My parents brought in $60k last year, will I get aid?");
+  assert.equal(turn.status, 200, `${JSON.stringify(turn.data)}\n${serverOutput}`);
+  const calls = loggedModelCalls();
+  const wire = JSON.stringify(calls[calls.length - 1].messages);
+  assert.doesNotMatch(wire, /180,000|35,000|60k|Jimin Park/);
+  assert.match(wire, /\[STUDENT_NAME_\d{2}\] from Seoul/);
+  assert.match(wire, /My parents brought in \[ANNUAL_INCOME_\d{2}\] last year/);
+  // The student's own fundraising total still reads as USD.
+  assert.match(wire, /Raised 4,500 USD for the Seoul food bank/);
+});

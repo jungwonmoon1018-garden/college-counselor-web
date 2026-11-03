@@ -53,6 +53,21 @@ test("compat provider redactor exports redact and restore only restorable tokens
   assert.match(restored.response.content[0].text, /\[SSN_01\]/);
 });
 
+// The chat payload path, where an aid question carries a parent's income:
+// "brought in" and "grossed" used to rewrite it as "N USD" for the provider.
+test("a parent's income said with an achievement verb stays masked in the model payload", () => {
+  const redacted = redactProviderPayload({
+    messages: [
+      { role: "user", content: "My parents brought in $60k last year, will I get aid?" },
+      { role: "user", content: "My dad grossed $150,000 last year. We raised $4,500 for the food bank." },
+    ],
+  }, "student-1");
+  const serialized = JSON.stringify(redacted.payload.messages);
+  assert.doesNotMatch(serialized, /60k|150,000/);
+  assert.match(serialized, /My parents brought in \[ANNUAL_INCOME_01\] last year/);
+  assert.match(serialized, /My dad grossed \[ANNUAL_INCOME_02\] last year\. We raised 4,500 USD for the food bank\./);
+});
+
 test("callLLM redacts the fixed OpenRouter request body before fetch", async () => {
   let captured = "";
   const result = await callLLM({

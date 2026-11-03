@@ -92,24 +92,52 @@ const PII_PATTERNS = [
 const MONEY_AMOUNT = /(?:\bUS)?\$\s*((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)(\s?(?:k|K|m|M|MM|bn|million|billion|thousand)\b)?/g;
 const MONEY_INCOME_CONTEXT = /\b(?:incomes?|salar(?:y|ies)|wages?|paychecks?|agi|adjusted\s+gross|gross|taxable|tax(?:es)?|w-?2s?|1040|assets?|savings|saved|net\s+worth|investments?|401\s*\(?k\)?|ira|home\s+equity|mortgage|rent|debts?|loans?|inheritance|child\s+support|alimony|ssi|unemployment|efc|sai|expected\s+family\s+contribution|student\s+aid\s+index|(?:per|a|an|each|every)\s+(?:year|month|week|hour)|annual(?:ly)?|yearly|monthly|weekly|hourly)\b|\/\s*(?:hr|hour|h|yr|year|mo|month|wk|week)\b|소득|연봉|월급|재산|자산|연수입/i;
 const MONEY_ACHIEVEMENT_BEFORE = /\b(?:raised|raise|raising|fundraised|fundraising|collected|collect|collecting|donated|donate|donating|generated|generating|secured|securing|won|win|winning|awarded|granted|brought\s+in|sold|grossed|netted|totaling|totalling|matched)\s+(?:(?:over|about|around|nearly|almost|roughly|approximately|more\s+than|up\s+to|at\s+least|another|an\s+additional|a\s+total\s+of|a|an|the)\s+)*$/i;
-const MONEY_FAMILY_SUBJECT = /\b(?:famil(?:y|ies)|household|parents?|mom|mother|dad|father|guardians?|step-?(?:mom|dad|mother|father|parents?)|grand(?:ma|pa|mother|father|parents?)|aunt|uncle|we|our|us|earn(?:s|ed|ing)?|makes?|made|making|paid|pay|pays|paying|spend|spends|spent|afford|cost\s+us|left\s+me|gave\s+me|give\s+me|gives\s+me|owe[sd]?|borrow(?:ed)?|lend|lent|contribut\w*|support\w*)\b/i;
+const FAMILY_NOUN_SOURCE = String.raw`famil(?:y|ies)|household|parents?|mom|mother|dad|father|guardians?|step-?(?:mom|dad|mother|father|parents?)|grand(?:ma|pa|mother|father|parents?)|aunt|uncle`;
+// A family member named before the amount: "My parents brought in $60k" is
+// an income however the verb reads.
+const MONEY_FAMILY_NOUN = new RegExp(String.raw`\b(?:${FAMILY_NOUN_SOURCE})\b`, "i");
+const MONEY_FAMILY_SUBJECT = new RegExp(String.raw`\b(?:${FAMILY_NOUN_SOURCE}|we|our|us|earn(?:s|ed|ing)?|makes?|made|making|paid|pay|pays|paying|spend|spends|spent|afford|cost\s+us|left\s+me|gave\s+me|give\s+me|gives\s+me|owe[sd]?|borrow(?:ed)?|lend|lent|contribut\w*|support\w*)\b`, "i");
 const MONEY_ACHIEVEMENT_AFTER = /^\s*(?:(?:in|of)\s+(?:donations?|funding|funds|grants?|sponsorships?|prizes?|prize\s+money|scholarships?|sales|revenue|profits?|merchandise|supplies)\b|worth\s+of\b|(?:research\s+)?(?:grant|prize|award|scholarship|sponsorship|fundraiser|donation|stipend)s?\b|for\s+(?:the\s+|a\s+|an\s+|local\s+|our\s+)?(?:[\w'’-]+\s+){0,3}?(?:charit(?:y|ies)|relief|research|foundation|fund|bank|shelter|hospital|cause|victims|children|kids|refugees|survivors|patients|nonprofit|non-profit|ngo|unicef|habitat|orphanage|library|clinic|drive)\b)/i;
+// After a family member, only a cause makes the amount a fundraising
+// total. Sales, revenue, profits and funding are a family business's money,
+// and "for my college fund" is the family's savings.
+const MONEY_CAUSE_AFTER = /^\s*(?:(?:in|of)\s+(?:donations?|sponsorships?|prizes?|prize\s+money|scholarships?)\b|(?:prize|award|scholarship|fundraiser|donation)s?\b|for\s+(?!(?:my|our|his|her|their)\b)(?:the\s+|a\s+|an\s+|local\s+)?(?:(?!(?:my|our|his|her|their)\b)[\w'’-]+\s+){0,3}?(?:charit(?:y|ies)|relief|research|foundation|fund|bank|shelter|hospital|cause|victims|children|kids|refugees|survivors|patients|nonprofit|non-profit|ngo|unicef|habitat|orphanage|library|clinic|drive)\b)/i;
 
 function moneyAsUsd(_match, amount, suffix = "") {
   return `${amount}${suffix || ""} USD`;
+}
+
+// What makes a dollar figure in an activity the family's rather than the
+// student's: a parent, a relative or the household, or a word for income,
+// tax, savings or debt. A Family Responsibilities entry ("my parents' shop
+// brings in $180,000 a year", "$600/month to my mom for rent") is where a
+// family income turns up in an activity. Plural "families" and "households"
+// are the people an activity served ("for 30 families in need"), and
+// "low-income" before them says who was helped, so neither counts.
+const FAMILY_FINANCE = /\b(?:family|household|parents?|moms?|mother|dads?|father|step-?(?:mom|dad|mother|father|parents?)|grand(?:ma|pa|mother|father|parents?)|guardians?|aunts?|uncles?|incomes?|salar(?:y|ies)|agi|adjusted\s+gross|taxable|tax(?:es)?|assets?|savings|net\s+worth|mortgage|rent|debts?|loans?|inheritance|child\s+support|alimony|efc|sai|expected\s+family\s+contribution|student\s+aid\s+index)\b|소득|연봉|월급|재산|자산|연수입|부모|가족|엄마|아빠|어머니|아버지/i;
+const SERVED_GROUP = /\b(?:low|lower|middle|moderate)[-\s]income\s+(?=(?:families|households|students|kids|children|youth|communities|neighborhoods|residents|schools|seniors|people|individuals|areas)\b)/gi;
+
+function namesFamilyMoney(text) {
+  return FAMILY_FINANCE.test(text.replace(SERVED_GROUP, ""));
 }
 
 /**
  * The student's own dollar amounts, written as prompts write money
  * ("$4,500" → "4,500 USD", "$15/hr" → "15 USD/hr"), so the provider
  * redactor has no dollar sign to mask. For text the student wrote about an
- * activity (name, role, description); free text that may carry a family
- * income keeps its "$" and the redactor's context rules.
+ * activity (name, role, description). An amount whose clause names the
+ * family's money keeps its "$", and the redactor's context rules mask it
+ * (or write a fundraising total as USD themselves): this function rewrote
+ * every "$" until 2026-11-03, so a household income in a description
+ * reached the provider as "35,000 USD".
  */
 export function writeMoneyAsUsd(value) {
   if (typeof value !== "string" || value.length === 0) return "";
   if (!value.includes("$")) return value;
-  return value.replace(MONEY_AMOUNT, moneyAsUsd);
+  return value.replace(MONEY_AMOUNT, (match, amount, suffix, offset, whole) => {
+    const { before, after } = clauseAround(whole, offset, offset + match.length);
+    return namesFamilyMoney(before) || namesFamilyMoney(after) ? match : moneyAsUsd(match, amount, suffix);
+  });
 }
 
 function clauseAround(whole, start, end) {
@@ -121,6 +149,12 @@ function clauseAround(whole, start, end) {
 function achievementAmountAsUsd(match, offset, whole, captures) {
   const { before, after } = clauseAround(whole, offset, offset + match.length);
   if (MONEY_INCOME_CONTEXT.test(before) || MONEY_INCOME_CONTEXT.test(after)) return null;
+  // The achievement verbs ("brought in", "grossed", "netted", "secured") used
+  // to be read first, so "My parents brought in $60k last year" reached the
+  // provider as "60k USD". A family member before the amount masks it unless
+  // a cause follows ("My mom and I raised $2,000 for the shelter"); "we" and
+  // "our" alone do not, so "Our club raised $2,500" still reads as USD.
+  if (MONEY_FAMILY_NOUN.test(before) && !MONEY_CAUSE_AFTER.test(after)) return null;
   if (MONEY_ACHIEVEMENT_BEFORE.test(before)) return moneyAsUsd(match, captures[0], captures[1]);
   if (MONEY_FAMILY_SUBJECT.test(before)) return null;
   if (MONEY_ACHIEVEMENT_AFTER.test(after)) return moneyAsUsd(match, captures[0], captures[1]);
@@ -149,9 +183,22 @@ function isEventNotAddress(match, offset, whole) {
 const COMMON_CAPITALIZED_WORDS = new Set(("school schools student students member members kid kids children volunteer volunteers donor donors patient patients senior seniors resident residents family families teacher teachers player players athlete athletes refugee refugees immigrant immigrants veteran veterans scout scouts peer peers tutee tutees mentee mentees camper campers participant participants delegate delegates judge judges speaker speakers leader leaders officer officers representative representatives team teams club clubs society council center program project summer science math research art arts music honor national international global world state regional county city community local model debate robotics middle high elementary university college academy award awards prize medal medals grant scholarship food bank habitat humanity red cross cancer hospital church temple library museum park camp league association foundation institute department olympiad competition tournament championship varsity junior freshman sophomore english korean spanish chinese french history biology chemistry physics computer coding engineering business united nations youth teen girls boys women men people friends classmates mentors coaches parents guests visitors attendees alumni interns workers staff faculty nurses doctors engineers scientists artists musicians writers readers learners supplies books toys clothes meals donations funds")
   .split(/\s+/));
 
+// A pair that ends in a group of people ("Syrian Refugees from", "Seoul
+// Students from") is never a name, whatever the first word is.
+const GROUP_NOUNS = new Set(("students members kids children volunteers donors patients seniors residents families teachers players athletes refugees immigrants veterans scouts peers tutees mentees campers participants delegates judges speakers leaders officers representatives girls boys women men people friends classmates mentors coaches parents guests visitors attendees alumni interns workers staff faculty nurses doctors engineers scientists artists musicians writers readers learners")
+  .split(/\s+/));
+// Common words that are also common surnames: "Summer Park" is a person.
+const SURNAME_WORDS = new Set(["park", "english"]);
+
+// Until 2026-11-03 one common word kept the pair, so "Jimin Park from",
+// "Summer Lee from" and "Mark English from" reached the provider unmasked.
+// A pair is kept only when it ends in a group of people or both words are
+// common nouns, and a pair that may be a name is masked.
 function isCommonNounPair(match) {
-  const words = match.replace(/\s+from$/i, "").trim().split(/\s+/);
-  return words.some((word) => COMMON_CAPITALIZED_WORDS.has(word.toLowerCase()));
+  const words = match.replace(/\s+from$/i, "").trim().split(/\s+/).map((word) => word.toLowerCase());
+  const last = words.at(-1);
+  if (GROUP_NOUNS.has(last)) return true;
+  return !SURNAME_WORDS.has(last) && words.every((word) => COMMON_CAPITALIZED_WORDS.has(word));
 }
 
 const PROVIDER_REDACTION_PATTERNS = [

@@ -229,6 +229,22 @@ test("a misstated score in a comparison is corrected, and the correction names o
   assert.doesNotMatch(retryWire, /the reply said 1550/);
 });
 
+// The second item of a list had no binder of its own, so "your 3.82 GPA and
+// 1520 SAT" went to the student with the invented 1520 and no footnote.
+test("an invented score later in a list of the student's numbers is corrected", async () => {
+  const token = await registerWithProfile("fidelity-list");
+  const wrong = "With your 3.82 GPA and 1520 SAT, you're a strong candidate for Michigan.";
+  const fixed = "With your 3.82 GPA and 1450 SAT, you're a strong candidate for Michigan.";
+  const marker = `MOCKREPLY:${b64(wrong)}: MOCKRETRY:${b64(fixed)}:`;
+  const turn = await chat(token, "Am I competitive for Michigan?", marker, "fidelity-list-1");
+  assert.equal(turn.data._meta.profileFidelity?.resolved, "retry");
+  assert.deepEqual(turn.data._meta.profileFidelity.contradictions.map((c) => [c.kind, c.stated]), [["sat", "1520"]]);
+  assert.equal(turn.data.answer, fixed);
+  const calls = callsFor(marker);
+  assert.equal(calls.length, 2, "one draft call plus one corrective retry");
+  assert.match(JSON.stringify(calls[1].messages), /- SAT: recorded 1450 \(the reply said 1520\)/);
+});
+
 // An AP exam with no score on record was never checked, and the profile
 // block said nothing when there were no AP scores at all.
 test("a score invented for an AP course still in progress is corrected, and the profile says no AP scores are recorded", async () => {

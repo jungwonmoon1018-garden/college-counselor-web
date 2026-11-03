@@ -221,6 +221,33 @@ test("a capitalized common-noun pair before 'from' is not a student name; a name
   assert.equal(named.tokenMap["[STUDENT_NAME_01]"], "Jane Kim");
 });
 
+// One common word was enough to keep a pair, so "Jimin Park from" (park),
+// "Summer Lee from" (summer) and "Mark English from" (english) reached the
+// provider unmasked. A pair is kept only when it ends in a group of people
+// or both words are common nouns, and Park, the third commonest Korean
+// surname, never makes a pair common.
+test("a name with one common word in it is still masked; a group of people is not a name", () => {
+  for (const [text, name] of [
+    ["Hi, I'm Jimin Park from Seoul Foreign School.", "Jimin Park"],
+    ["My name is Sarah Park from Fairfax.", "Sarah Park"],
+    ["I'm Summer Lee from Irvine.", "Summer Lee"],
+    ["My counselor Mark English from my school wrote my letter.", "Mark English"],
+    ["Summer Park from Busan is my study partner.", "Summer Park"],
+  ]) {
+    const r = redactProviderText(text);
+    assert.match(r.text, /\[STUDENT_NAME_01\] from/, text);
+    assert.equal(r.tokenMap["[STUDENT_NAME_01]"], name, text);
+  }
+  for (const clean of [
+    "Taught 30 Middle School Students from Seoul.",
+    "Hosted Syrian Refugees from the local shelter.",
+    "Tutored Seoul Students from three schools.",
+    "Mentored Team Members from other clubs.",
+    "Ran the Robotics Club from 2023 to 2025.",
+    "Attended a Summer Program from June to August.",
+  ]) assert.equal(redactProviderText(clean).text, clean);
+});
+
 test("fundraising and prize amounts reach the model as 'N USD'; family money is still masked", () => {
   const cases = [
     ["Raised $4,500 for the Seoul food bank", "Raised 4,500 USD for the Seoul food bank"],
@@ -244,6 +271,32 @@ test("fundraising and prize amounts reach the model as 'N USD'; family money is 
     assert.doesNotMatch(r.text, /\$|\d{2},\d{3}|85k|\b15\b/, disclosure);
     assert.match(r.text, /\[ANNUAL_INCOME_01\]/, disclosure);
   }
+});
+
+// The achievement verbs ("brought in", "grossed", "netted", "secured") were
+// read before the family subject, so a parent's income in an aid question
+// reached the provider as "60k USD". A family noun before the amount masks
+// it unless what follows names a cause ("for the shelter").
+test("an achievement verb after a family subject does not unmask a family income", () => {
+  for (const disclosure of [
+    "My parents brought in $60k last year, will I get aid?",
+    "My dad grossed $150,000 last year.",
+    "My family netted $90,000 from our restaurant.",
+    "My mom brought in $70,000 last year.",
+    "My parents secured $200,000 for the house.",
+    "My stepdad generated $85,000 in sales commissions.",
+    "My family netted $90,000 in profits from our restaurant.",
+    "My parents raised $30,000 for my college fund.",
+  ]) {
+    const r = redactProviderText(disclosure);
+    assert.doesNotMatch(r.text, /\d{2,3}(?:,\d{3}|k)|USD/, disclosure);
+    assert.match(r.text, /\[ANNUAL_INCOME_01\]/, disclosure);
+  }
+  for (const [input, expected] of [
+    ["Our club raised $2,500 in donations last spring.", "Our club raised 2,500 USD in donations last spring."],
+    ["We raised $4,500 for the food bank.", "We raised 4,500 USD for the food bank."],
+    ["My mom and I raised $2,000 for the shelter.", "My mom and I raised 2,000 USD for the shelter."],
+  ]) assert.equal(redactProviderText(input).text, expected, input);
 });
 
 test("money rewriting is idempotent through both provider passes and survives restorePII", () => {
@@ -270,4 +323,39 @@ test("writeMoneyAsUsd writes a student's dollar amounts the way prompts write mo
   assert.equal(writeMoneyAsUsd(undefined), "");
   // Once rewritten, the provider redactor has no dollar sign to mask.
   assert.equal(redactProviderText(writeMoneyAsUsd("earned $15/hr tutoring")).text, "earned 15 USD/hr tutoring");
+});
+
+// An activity description is free text as well: a Family Responsibilities
+// entry carries the parents' money, and writeMoneyAsUsd rewrote every "$",
+// so "our household income is only $35,000" reached the provider as
+// "35,000 USD" where it used to be [ANNUAL_INCOME_nn].
+test("writeMoneyAsUsd leaves a family's money for the redactor to mask", () => {
+  const shop = "Work 20 hrs/wk at my parents' shop, which brings in about $180,000 a year; I help because our household income is only $35,000 after costs.";
+  assert.equal(writeMoneyAsUsd(shop), shop);
+  const shopMasked = redactProviderText(writeMoneyAsUsd(shop)).text;
+  assert.doesNotMatch(shopMasked, /180,000|35,000|\$/);
+  assert.equal(shopMasked.match(/\[ANNUAL_INCOME_\d{2}\]/g)?.length, 2);
+
+  const rent = "Paid $15/hr; I give $600/month to my mom for rent.";
+  assert.equal(writeMoneyAsUsd(rent), "Paid 15 USD/hr; I give $600/month to my mom for rent.");
+  assert.equal(redactProviderText(writeMoneyAsUsd(rent)).text, "Paid 15 USD/hr; I give [ANNUAL_INCOME_01]/month to my mom for rent.");
+
+  for (const disclosure of [
+    "Help at the family restaurant, which nets $90,000 a year",
+    "Watch my siblings because my parents work two jobs for $40,000",
+    "Translate for my dad; his salary is $52,000",
+    "Paid off $8,000 of family debt",
+    "부모님 가게 연매출 $180,000",
+  ]) {
+    const r = redactProviderText(writeMoneyAsUsd(disclosure)).text;
+    assert.doesNotMatch(r, /\d{1,3},\d{3}/, disclosure);
+    assert.match(r, /\[ANNUAL_INCOME_01\]/, disclosure);
+  }
+  // The people an activity served are not the student's family, and a
+  // fundraising total with a parent in it is still the student's figure.
+  for (const [input, expected] of [
+    ["Raised $4,500 for low-income families", "Raised 4,500 USD for low-income families"],
+    ["Collected $1,200 for 30 families in need", "Collected 1,200 USD for 30 families in need"],
+    ["My mom and I raised $2,000 for the shelter", "My mom and I raised 2,000 USD for the shelter"],
+  ]) assert.equal(redactProviderText(writeMoneyAsUsd(input)).text, expected, input);
 });

@@ -209,8 +209,10 @@ export function formatProfileForModel(profile, limits = {}) {
     lines.push(`Activities (${activities.length} recorded — hours, years, and descriptions are exactly what the student entered; do not assume more depth than is written):`);
     // The activity's own text writes money as "4,500 USD": the provider
     // redactor masks a "$" figure as an income token, so "earned $15/hr" and
-    // "raised $4,500" reached the model as [ANNUAL_INCOME_nn]. Goals and the
-    // major are left alone, since a family income could appear there.
+    // "raised $4,500" reached the model as [ANNUAL_INCOME_nn]. A figure in a
+    // clause about the family's money ("our household income is $35,000")
+    // keeps its "$" for the redactor to mask. Goals and the major are left
+    // alone, since a family income could appear there.
     for (const activity of activities.slice(0, maxActivities)) {
       const parts = [writeMoneyAsUsd(presentText(activity.name))];
       if (presentText(activity.role)) parts[0] += ` — ${writeMoneyAsUsd(presentText(activity.role))}`;
@@ -662,10 +664,166 @@ function boundValueMentions(text, patterns, { section = null } = {}) {
       const value = Number(raw.replace(/,/g, ""));
       if (!Number.isFinite(value)) continue;
       const scoped = Boolean(m.groups.s || m.groups.s0) || Boolean(sectionAfter && sectionAfter.test(text.slice(vEnd, vEnd + 40)));
-      found.set(vStart, { value, raw, at: vStart, scoped });
+      // `from`/`to` and `parallel` let a list carry on from this value:
+      // "you have a 3.95 GPA, a 1520 SAT" repeats the article the binder used.
+      const parallel = /(?:^|\s)an?\s+(?:\S+\s+){0,2}$/i.test(text.slice(m.index, vStart));
+      found.set(vStart, { value, raw, at: vStart, scoped, from: m.index, to: end, parallel });
     }
   }
   return [...found.values()].sort((a, b) => a.at - b.at);
+}
+
+// ─── Lists ────────────────────────────────────────────────────────────
+// A reply states a student's numbers as a list more often than one at a
+// time: "your 3.95 GPA and 1520 SAT", "you have a 3.95 GPA, a 1520 SAT and
+// a 5 on AP Biology", "your stats (3.95 GPA, 1520 SAT)". The binders above
+// tie only the first item to the student, so until 2026-11-03 an invented
+// second figure got no retry and no footnote. A list is read on from a value
+// the check has already bound (or from "your stats (", "your numbers —"),
+// one item at a time and only across a joiner, so a verb, a comparison or
+// another owner ends it: "Your 1450 SAT is below WashU's 1500", "Your 1380
+// SAT and Stanford's 1520" and "Most admits have a 3.95 GPA and 1520 SAT"
+// read as before. An item keeps the binder's shape or it is not the
+// student's: "your 3.95 GPA and 1520 SAT" shares the "your", and "you have
+// a 3.95 GPA, a 1520 SAT" repeats the binder's article, but "your 3.72 GPA
+// and a 1520 SAT" gives the second noun a determiner of its own, which is
+// how a reply names a target ("…, you'd be competitive").
+const LIST_JOINER_RE = /\s*,\s*(?:and\s+|plus\s+|as\s+well\s+as\s+)?|\s+(?:and|plus|&|as\s+well\s+as)\s+|\s*[—–]\s*|\s*점?\s*(?:와|과|및)\s*/y;
+// An aside after an item ("your 3.82 GPA (4.31 weighted) and 1450 SAT").
+const LIST_ASIDE_RE = /\s*\([^()\n]{1,40}\)/y;
+// "your stats (…)", "your numbers — …", "your profile: …": the student's
+// own figures follow, whatever article each one carries.
+const LIST_NOUN_BINDER_RE = new RegExp(String.raw`(?<![A-Za-z])[Yy]our\s+(?:(?:${EN_ADJ}|academic|test|testing|admissions?|key|core|main)\s+){0,2}(?:stats|statistics|numbers|scores|metrics|profile|credentials|academics|record|results)(?:\s*(?:\(|:|—|–)\s*|,\s*|\s+(?:are|were|include|including)\s+)`, "g");
+const AP_LIST_ITEM_SOURCE = String.raw`(?<v>[1-5])\s+(?:on|in|for)\s+(?:(?:the|your)\s+)?AP\s+(?=[A-Z0-9])`;
+const AP_LIST_ITEM_RE = new RegExp(String.raw`(?:(?<det>[Yy]our|an?)\s+)?${AP_LIST_ITEM_SOURCE}`, "yd");
+// "You scored a 5 on AP Statistics and a 1520 on the SAT": an AP score the
+// student holds starts a list too.
+const AP_LIST_BINDER_RE = new RegExp(String.raw`(?<![A-Za-z])(?:[Yy]our\s+|[Yy]ou(?:['’]ve|\s+have|\s+had|\s+already|\s+also)?\s+(?:scored|got|gotten|earned|received|made|pulled|have|had)\s+(?<det>an?\s+)?)${AP_LIST_ITEM_SOURCE}`, "gd");
+
+function listItemPatterns(label, section, value) {
+  const s = section ? String.raw`(?:\s+(?<s>${section}))?` : "";
+  const s0 = section ? String.raw`(?:(?<s0>${section})\s+)?` : "";
+  const ks = section ? String.raw`(?:(?<s>${section})\s*)?` : "";
+  const det = String.raw`(?:(?<det>[Yy]our|an?)\s+)?`;
+  return [
+    // "1520 SAT", "a 1520 SAT", "a 1520 on the SAT"
+    ["numberFirst", new RegExp(String.raw`${det}(?:${EN_ADJ}\s+){0,2}(?<v>${value})\s+(?:(?:on|in)\s+(?:the\s+|your\s+)?)?${EN_PRE_LABEL}(?:${label})${s}`, "yd")],
+    // "SAT of 1520", "SAT: 1520", "SAT 1520"
+    ["labelFirst", new RegExp(String.raw`${det}(?:${EN_ADJ}\s+){0,2}${s0}(?:${label})${s}${EN_FILLER}${EN_LINK}(?<v>${value})`, "yd")],
+    // "SAT 점수 1520점"
+    ["koItem", new RegExp(String.raw`(?:${label})\s*${ks}${KO_LINK}(?<v>${value})`, "yd")],
+  ];
+}
+
+const LIST_ITEM_SPECS = [
+  { key: "gpa", patterns: listItemPatterns(GPA_LABEL_SOURCE, null, GPA_VALUE_SOURCE) },
+  ...Object.keys(TEST_LABEL_SOURCES).map((key) => ({ key, patterns: listItemPatterns(TEST_LABEL_SOURCES[key], TEST_SECTION_SOURCES[key] || null, SCORE_VALUE_SOURCE) })),
+];
+
+function stickyLength(re, text, at) {
+  re.lastIndex = at;
+  const m = re.exec(text);
+  return m ? m[0].length : null;
+}
+
+// Where an AP exam's name ends ("AP Biology", "AP Biology exam"), or null.
+// readCoursePhrase counts the space after the last word, which a joiner
+// needs.
+function apExamEnd(text, start) {
+  const { phrase, end } = readCoursePhrase(text, start);
+  if (!phrase) return null;
+  const stop = start + text.slice(start, end).trimEnd().length;
+  const exam = text.slice(stop, stop + 8).match(/^\s+exam\b/);
+  return stop + (exam ? exam[0].length : 0);
+}
+
+function readListItem(text, at) {
+  for (const { key, patterns } of LIST_ITEM_SPECS) {
+    for (const [form, re] of patterns) {
+      re.lastIndex = at;
+      const m = re.exec(text);
+      if (!m?.indices?.groups?.v) continue;
+      const [vStart, vEnd] = m.indices.groups.v;
+      return { key, form, raw: m.groups.v, vStart, vEnd, start: at, end: m.index + m[0].length, det: m.groups.det || "", scoped: Boolean(m.groups.s || m.groups.s0) };
+    }
+  }
+  AP_LIST_ITEM_RE.lastIndex = at;
+  const ap = AP_LIST_ITEM_RE.exec(text);
+  if (!ap) return null;
+  const end = apExamEnd(text, ap.index + ap[0].length);
+  if (end == null) return null;
+  return { key: "ap", form: "ap", vStart: ap.indices.groups.v[0], start: at, end, det: ap.groups.det || "" };
+}
+
+// Read the list on from `pos`, adding each item the binder at `from` ties
+// to the student. `owned` is a noun binder ("your stats ("); `parallel` a
+// binder whose value carried an article ("you have a 3.95 GPA").
+function walkList(text, from, pos, { owned = false, parallel = false, first = false }, out) {
+  let at = pos;
+  for (let count = 0; count < 8; count += 1) {
+    if (!(first && count === 0)) {
+      let joiner = stickyLength(LIST_JOINER_RE, text, at);
+      if (joiner == null) {
+        const aside = stickyLength(LIST_ASIDE_RE, text, at);
+        if (aside == null) return;
+        joiner = stickyLength(LIST_JOINER_RE, text, at + aside);
+        if (joiner == null) return;
+        at += aside;
+      }
+      at += joiner;
+    }
+    const item = readListItem(text, at);
+    if (!item) return;
+    const article = /^an?$/i.test(item.det);
+    if (article && !owned && !parallel) return;
+    if (item.form !== "ap") {
+      if (VALUE_TAIL_BLOCK_RE.test(text.slice(item.vEnd, item.vEnd + 20))) return;
+      if (item.form === "numberFirst" && COUNTED_AFTER_LABEL_RE.test(text.slice(item.end, item.end + 24))) return;
+    }
+    // An item with an article of its own is a fresh noun phrase: a modal
+    // after it ("…, and a 1520 SAT would make you competitive") makes it a
+    // plan, as it does for an unbound value.
+    const possessed = owned || !article;
+    if (!attributed(text, possessed ? from : item.start, item.end, possessed)) return;
+    if (item.form === "ap") {
+      out.apAt.add(item.vStart);
+    } else {
+      const value = Number(item.raw.replace(/,/g, ""));
+      if (!Number.isFinite(value)) return;
+      const list = out.byKey.get(item.key) || [];
+      list.push({ value, raw: item.raw, at: item.vStart, scoped: item.scoped });
+      out.byKey.set(item.key, list);
+    }
+    at = item.end;
+  }
+}
+
+// Every list item the text ties to the student, by label ("gpa", "sat", …),
+// and the positions of AP scores listed with the student's figures, which
+// count as the student's ("a 5 on AP Biology" after "you have a 3.95 GPA").
+function listedValueMentions(text, bound) {
+  const out = { byKey: new Map(), apAt: new Set() };
+  for (const mention of bound) {
+    walkList(text, mention.from, mention.to, { parallel: mention.parallel }, out);
+  }
+  for (const m of text.matchAll(LIST_NOUN_BINDER_RE)) {
+    walkList(text, m.index, m.index + m[0].length, { owned: true, first: true }, out);
+  }
+  for (const m of text.matchAll(AP_LIST_BINDER_RE)) {
+    const end = apExamEnd(text, m.index + m[0].length);
+    if (end == null || AP_NOT_EXAM_AFTER_RE.test(text.slice(end, end + 40))) continue;
+    if (!attributed(text, m.index, end, true)) continue;
+    walkList(text, m.index, end, { parallel: Boolean(m.groups.det) }, out);
+  }
+  return out;
+}
+
+// The bound mentions under one label with the listed ones added, in order.
+function withListed(bound, listed) {
+  if (!listed?.length) return bound;
+  const byAt = new Map(bound.map((m) => [m.at, m]));
+  for (const item of listed) if (!byAt.has(item.at)) byAt.set(item.at, item);
+  return [...byAt.values()].sort((a, b) => a.at - b.at);
 }
 
 // Every recorded sitting of a test: all totals and section scores are true,
@@ -778,8 +936,9 @@ const AP_NOT_EXAM_AFTER_RE = /^\s+(?:practice|mock|unit|FRQ|MCQ|quiz|progress ch
 // Every score the text states for one exam, under the given names, as
 // { score, possessed }. `possessed` marks a score the phrase ties to the
 // student ("you scored a 5 on", "your 5 on", "AP Statistics (4)", "…5점을
-// 받은 것").
-function apScoreMentions(text, aliases, { caseSensitive = false } = {}) {
+// 받은 것"), or one listed with the student's figures (`listedAt`, the
+// positions listedValueMentions found).
+function apScoreMentions(text, aliases, { caseSensitive = false, listedAt = null } = {}) {
   const found = [];
   if (!aliases.length) return found;
   const re = aliasRegExp(aliases, caseSensitive ? "g" : "gi");
@@ -792,7 +951,7 @@ function apScoreMentions(text, aliases, { caseSensitive = false } = {}) {
     const b = before.match(AP_SCORE_BEFORE_RE);
     if (b) {
       const at = start - before.length + b.index + b.groups.pre.length;
-      const possessed = AP_POSSESSED_BEFORE_RE.test(text.slice(Math.max(0, at - 40), at));
+      const possessed = AP_POSSESSED_BEFORE_RE.test(text.slice(Math.max(0, at - 40), at)) || Boolean(listedAt?.has(at));
       if (attributed(text, at, end, possessed)) found.push({ score: Number(b.groups.score), possessed });
       continue;
     }
@@ -885,9 +1044,16 @@ export function checkProfileFidelity(answerText, profile) {
     if (ko && attributed(text, lm.index, end + ko[0].length, false)) flagInvented(`${lm[1]} ${phrase}`, normalizeGrade(ko[1]));
   }
 
+  // Every value a binder ties to the student, then the rest of any list it
+  // starts ("your 3.95 GPA and 1520 SAT"), under whichever label each item
+  // carries.
+  const gpaBound = boundValueMentions(text, GPA_PATTERNS);
+  const testBound = new Map(Object.values(TEST_SPECS).map((spec) => [spec.key, boundValueMentions(text, spec.patterns, { section: spec.section })]));
+  const listed = listedValueMentions(text, [...gpaBound, ...[...testBound.values()].flat()]);
+
   const gpaUnweighted = finiteNumber(profile.gpaUnweighted ?? profile.gpa?.unweighted);
   const gpaWeighted = finiteNumber(profile.gpaWeighted ?? profile.gpa?.weighted);
-  const gpas = boundValueMentions(text, GPA_PATTERNS).filter((m) => m.value > 0 && m.value <= 5);
+  const gpas = withListed(gpaBound, listed.byKey.get("gpa")).filter((m) => m.value > 0 && m.value <= 5);
   if (gpas.length) {
     const items = [
       gpaUnweighted != null ? { value: String(gpaUnweighted), scale: "unweighted" } : null,
@@ -909,7 +1075,7 @@ export function checkProfileFidelity(answerText, profile) {
   // model to downgrade the student's best score.
   const tests = Array.isArray(profile.testScores) ? profile.testScores.filter((t) => t && typeof t === "object") : [];
   for (const spec of Object.values(TEST_SPECS)) {
-    const mentions = boundValueMentions(text, spec.patterns, { section: spec.section });
+    const mentions = withListed(testBound.get(spec.key), listed.byKey.get(spec.key));
     if (!mentions.length) continue;
     const record = testRecord(tests, spec.key);
     for (const mention of mentions) {
@@ -991,7 +1157,7 @@ export function checkProfileFidelity(answerText, profile) {
   for (const entry of apByExam.values()) {
     const aliases = [...entry.aliases].sort((a, b) => b.length - a.length);
     const scores = [...entry.scores].sort((a, b) => b - a);
-    for (const { score: stated } of apScoreMentions(text, aliases)) {
+    for (const { score: stated } of apScoreMentions(text, aliases, { listedAt: listed.apAt })) {
       if (scores.includes(stated)) continue;
       const actual = !scores.length ? "no score recorded" : scores.length === 1 ? String(scores[0]) : `${scores.join(" and ")} (the exam was taken ${scores.length} times)`;
       const recorded = scores.length ? { items: scores.map((s) => ({ value: String(s) })), ...(scores.length > 1 ? { times: scores.length } : {}) } : null;
@@ -1009,7 +1175,7 @@ export function checkProfileFidelity(answerText, profile) {
   for (const exam of AP_EXAMS) {
     if (apByExam.has(exam.name)) continue;
     const aliases = apExamOnlyAliases(exam.name).filter((a) => !recordedNames.has(a.toLowerCase())).sort((a, b) => b.length - a.length);
-    const claimed = apScoreMentions(text, aliases, { caseSensitive: true }).filter((m) => m.possessed);
+    const claimed = apScoreMentions(text, aliases, { caseSensitive: true, listedAt: listed.apAt }).filter((m) => m.possessed);
     if (!claimed.length) continue;
     const course = courses.find((c) => apExamKey(courseDisplayName(c)) === exam.name && courseLevel(c) === "ap");
     const inProgress = Boolean(course && isInProgress(course.grade));

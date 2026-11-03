@@ -436,6 +436,50 @@ test("a value the reply ties to the student is still checked, even with a modal 
   assert.deepEqual(kinds("Students with a 3.9 GPA often apply early.", compared), []);
 });
 
+// The binders tie only the value right after "your" or "you scored" to the
+// student, so the second item of a list ("your 3.95 GPA and 1520 SAT") got
+// no retry and no footnote, nor did any item after "your stats (". The
+// commonest way a reply states a student's numbers is a list.
+test("every value in a list tied to the student is checked, not only the first", () => {
+  const record = { gpaUnweighted: 3.72, testScores: [{ test: "sat", totalScore: 1380 }], apScores: [{ exam: "Statistics", score: 4 }] };
+  for (const [text, want] of [
+    ["With your 3.95 GPA and 1520 SAT, you're a strong candidate.", ["gpa:3.95", "sat:1520"]],
+    ["Your GPA of 3.95 and SAT of 1520 are strong.", ["gpa:3.95", "sat:1520"]],
+    ["You have a 3.95 GPA, a 1520 SAT, and strong essays.", ["gpa:3.95", "sat:1520"]],
+    ["You have a 3.95 GPA, a 1520 SAT and a 5 on AP Biology.", ["gpa:3.95", "sat:1520", "ap_not_on_record:5"]],
+    ["Your 1520 SAT and 3.95 GPA are strong.", ["gpa:3.95", "sat:1520"]],
+    ["Your stats (3.95 GPA, 1520 SAT) are strong.", ["gpa:3.95", "sat:1520"]],
+    ["Your numbers — a 3.95 GPA and a 1520 SAT — are strong.", ["gpa:3.95", "sat:1520"]],
+    ["Your 3.72 GPA (4.1 weighted) and 1520 SAT are strong.", ["sat:1520"]],
+    ["You scored a 5 on AP Statistics and a 1520 on the SAT.", ["sat:1520", "ap_score:5"]],
+    ["You're in range with a 3.95 GPA and a 1520 SAT.", ["gpa:3.95", "sat:1520"]],
+    // A modal after a "your" list still states the record, as it does after
+    // a single "your 1500 SAT".
+    ["Your 3.95 GPA and 1520 SAT should help.", ["gpa:3.95", "sat:1520"]],
+    ["학생의 GPA 3.95와 SAT 1520점은 훌륭합니다.", ["gpa:3.95", "sat:1520"]],
+    // The recorded values.
+    ["With your 3.72 GPA and 1380 SAT, you're a strong candidate.", []],
+    ["You have a 3.72 GPA, a 1380 SAT and a 4 on AP Statistics.", []],
+    ["Your stats (3.72 GPA, 1380 SAT) are solid.", []],
+  ]) assert.deepEqual(kinds(text, record), want, text);
+  // A list of other people's numbers, a school's figure beside the
+  // student's, a target with its own article, a plan, a condition, a count
+  // or a range is not the student's record.
+  for (const text of [
+    "Most admits have a 3.95 GPA and 1520 SAT.",
+    "Michigan's middle 50% is 1340–1520 on the SAT, with a 3.9 GPA typical.",
+    "Your 1380 SAT and Stanford's 1520 SAT are far apart.",
+    "With your 3.72 GPA and a 1520 SAT, you'd be competitive at Northwestern.",
+    "Your 3.72 GPA and a 1520 SAT would open doors.",
+    "You have a 3.72 GPA, and a 1520 SAT would make you competitive.",
+    "Your 1380 SAT and 2 ACT sittings show persistence.",
+    "Your 3.72 GPA and 1500–1550 SAT range put you near the middle.",
+    "If your GPA is 3.95 and your SAT is 1520, apply early.",
+    "Your 1380 SAT (about a 29 ACT) is solid.",
+    "학생의 SAT 1380점과 스탠퍼드의 SAT 1520점은 차이가 큽니다.",
+  ]) assert.deepEqual(kinds(text, record), [], text);
+});
+
 // Every recorded sitting is a true score: the check read only the first
 // entry, so a retaker's newer 1450 was "corrected" to 1390 and the retry
 // told the model to downgrade the student's best score.
@@ -724,6 +768,22 @@ test("dollar amounts in an activity reach the model as USD, past the provider re
   const masked = redactProviderText(block).text;
   assert.match(masked, /4,500 USD/);
   assert.match(masked, /15 USD\/hr/);
+});
+
+// The activity rewrite took every "$", so a Family Responsibilities entry
+// sent the parents' income to the provider as "35,000 USD" on every turn.
+test("a family income in an activity description is still masked at the provider", async () => {
+  const { redactProviderText } = await import("../chat/content-moderation.js");
+  const block = formatProfileForModel({
+    activities: [
+      { name: "Family Responsibilities", category: "family", description: "Work 20 hrs/wk at my parents' shop, which brings in about $180,000 a year; our household income is only $35,000." },
+      { name: "Grocery clerk", role: "Cashier", description: "Paid $15/hr; I give $600/month to my mom for rent." },
+    ],
+  });
+  const masked = redactProviderText(block).text;
+  assert.doesNotMatch(masked, /180,000|35,000|\b600\b/);
+  assert.equal(masked.match(/\[ANNUAL_INCOME_\d{2}\]/g)?.length, 3);
+  assert.match(masked, /Paid 15 USD\/hr; I give \[ANNUAL_INCOME_\d{2}\]\/month to my mom for rent\./);
 });
 
 // Wave 1 follow-ups to the VERIFIED DATA block: a withheld or stale College
