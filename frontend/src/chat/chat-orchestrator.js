@@ -66,6 +66,30 @@ function buildHistoryMsgs(history) {
 // 6:30 PM in Los Angeles on a deadline day the model was told it was
 // tomorrow and called the deadline past-due, and a morning in Seoul read as
 // yesterday.
+//
+// From Feb 1 to Jul 31 the calendar also carries the cycle the seniors are
+// still in (backend/server/narrative-calendar.js, closingCycle), a year
+// before the planning cycle the typical dates outline. It gets its own line
+// here: printed only through the phase suffix, it never told the model which
+// year a senior's deposit and late deadlines fall in. A school's dates read
+// for a cycle other than the planning one (a senior's Common Data Set dates
+// in the spring) are marked with it, since the heading names the planning
+// cycle.
+function cycleEntryOf(label) {
+  const m = /^(\d{4})-(\d{2})$/.exec(String(label ?? ""));
+  return m ? Number(m[1]) + 1 : null;
+}
+
+function closingCycleLine(cc) {
+  const entry = Number(cc?.cycleEntryYear);
+  if (!Number.isInteger(entry)) return null;
+  const deposit = cc.nationalDepositDeadline || `May 1 ${entry}`;
+  const state = cc.depositPassed
+    ? `the ${deposit} enrollment deposit date has passed`
+    : `late regular deadlines and the ${deposit} enrollment deposit are still ahead${cc.rdDecisionsRelease ? `; RD decisions ${cc.rdDecisionsRelease}` : ""}`;
+  return `Closing cycle${cc.cycle ? ` ${cc.cycle}` : ""} (seniors, entering Fall ${entry}): ${state}.${cc.note ? ` ${cc.note}` : ""}`;
+}
+
 export function buildCalendarPreamble(cal, targetSchools = [], now = new Date()) {
   const today = localDateString(now);
   const lines = [
@@ -79,6 +103,8 @@ export function buildCalendarPreamble(cal, targetSchools = [], now = new Date())
       const d = c.typicalDeadlines;
       lines.push(`Typical US deadlines — EA/ED ${d.earlyEaEd}; RD ${d.regularDecision}; EA/ED decisions ${d.eaEdDecisionsRelease}; RD decisions ${d.rdDecisionsRelease}; FAFSA opens ${d.fafsaOpens}; CSS priority ${d.cssProfilePriority}; enrollment deposit ${d.nationalDepositDeadline}.`);
     }
+    const closing = c.closingCycle ? closingCycleLine(c.closingCycle) : null;
+    if (closing) lines.push(closing);
     if (c.typicalHsBreaks) {
       const b = c.typicalHsBreaks;
       lines.push(`Approx. high-school breaks — summer ${b.summer}; Thanksgiving ${b.thanksgiving}; winter ${b.winter}; spring ${b.spring}.`);
@@ -86,15 +112,21 @@ export function buildCalendarPreamble(cal, targetSchools = [], now = new Date())
   }
   const schools = cal?.schools || [];
   if (schools.length) {
-    lines.push(`Target-school deadlines (cycle entering Fall ${cal?.calendar?.cycleEntryYear || "?"}):`);
+    const planningEntry = cal?.calendar?.cycleEntryYear;
+    const rows = [];
+    let marked = false;
     for (const s of schools) {
       const d = s.deadlines;
       if (d && (d.ea || d.ed || d.rd || d.financialAid || d.decisionRelease || d.commitBy)) {
-        lines.push(`  • ${s.school}: EA ${d.ea || "—"}; ED ${d.ed || "—"}; RD ${d.rd || "—"}; financial aid ${d.financialAid || "—"}; decisions ${d.decisionRelease || "—"}; commit by ${d.commitBy || "—"}${s.source ? ` [${s.source}]` : ""}`);
+        const ownEntry = cycleEntryOf(s.cycle);
+        const ownCycle = ownEntry && ownEntry !== Number(planningEntry) ? ` (${s.cycle} cycle, entering Fall ${ownEntry})` : "";
+        if (ownCycle) marked = true;
+        rows.push(`  • ${s.school}${ownCycle}: EA ${d.ea || "—"}; ED ${d.ed || "—"}; RD ${d.rd || "—"}; financial aid ${d.financialAid || "—"}; decisions ${d.decisionRelease || "—"}; commit by ${d.commitBy || "—"}${s.source ? ` [${s.source}]` : ""}`);
       } else {
-        lines.push(`  • ${s.school}: specific dates not retrieved — use the typical US dates above and tell the student to verify on the school's site.`);
+        rows.push(`  • ${s.school}: specific dates not retrieved — use the typical US dates above and tell the student to verify on the school's site.`);
       }
     }
+    lines.push(`Target-school deadlines (cycle entering Fall ${planningEntry || "?"}${marked ? ", unless a school is marked with its own" : ""}):`, ...rows);
   } else if (Array.isArray(targetSchools) && targetSchools.length) {
     lines.push(`Target schools: ${targetSchools.join(", ")} (use typical US dates above).`);
   }

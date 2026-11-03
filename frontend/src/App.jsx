@@ -506,6 +506,7 @@ function StudentApp({ endedBy = null, onSessionEnd }) {
     setStudentRecoveryCode, setStudentRecoveryInput, setStudentRecoveryMessage, setStudentRecoveryOpen, setStudentRecoveryPassword, setSurveyStep,
     setUser, studentRecoveryInput, studentRecoveryPassword, user,
     endSession, setProfileReady, setShowLoginPass, setSyncBase, setSyncNote, setSyncStatus,
+    locale,
   });
 
   // Not memoized: the survey's Continue/Finish handler calls it from the

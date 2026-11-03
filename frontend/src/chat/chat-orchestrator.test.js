@@ -227,3 +227,99 @@ describe("the calendar preamble", () => {
     }
   });
 });
+
+// From Feb 1 to Jul 31 the calendar route's payload carries the cycle the
+// seniors are still in (backend/server/narrative-calendar.js, closingCycle),
+// a year before the planning cycle the typical dates outline. The preamble
+// printed only the phase, so the model never saw which year a senior's
+// deposit and late deadlines fall in, and a senior's Common Data Set dates
+// sat under the planning cycle's heading. The payloads below are injected in
+// the route's shape, so nothing here reads the clock.
+describe("the calendar preamble in the closing cycle", () => {
+  const closingNote = "Seniors applying for Fall 2027 entry are still in this cycle until Jul 31 2027: date their deposit, decisions and any late regular deadline in 2027, not by the planning cycle above.";
+  const calendarFor = ({ depositPassed = false, closing = true } = {}) => ({
+    today: "2027-02-03",
+    cycleStartYear: 2027,
+    cycleEntryYear: 2028,
+    schoolYear: "2027–2028",
+    applicationCycle: "Class entering Fall 2028",
+    phase: "planning the upcoming cycle — research, essays, and target list for applications this fall",
+    typicalDeadlines: {
+      earlyEaEd: "~Nov 1 2027 (some Nov 15)",
+      regularDecision: "~Jan 1–15 2028",
+      eaEdDecisionsRelease: "mid–late Dec 2027",
+      rdDecisionsRelease: "mid-Mar–early-Apr 2028",
+      fafsaOpens: "Oct 1 2027",
+      cssProfilePriority: "Nov 2027–Feb 2028 (varies)",
+      financialAidPriority: "often the ED/EA date, else ~Feb 1 2028",
+      nationalDepositDeadline: "May 1 2028",
+    },
+    typicalHsBreaks: { summer: "early-June–late-Aug 2027", thanksgiving: "late Nov 2027", winter: "~Dec 20 2027–early Jan 2028", spring: "~Mar–Apr 2028" },
+    ...(closing ? {
+      closingCycle: {
+        cycle: "2026-27",
+        cycleStartYear: 2026,
+        cycleEntryYear: 2027,
+        applicationCycle: "Class entering Fall 2027",
+        rdDecisionsRelease: "mid-Mar–early-Apr 2027",
+        nationalDepositDeadline: "May 1 2027",
+        depositISO: "2027-05-01",
+        depositPassed,
+        note: closingNote,
+      },
+    } : {}),
+  });
+  const at = new Date("2027-02-03T15:00:00Z");
+  const linesOf = (text) => text.split("\n");
+
+  it("adds a line for the seniors' cycle while its deposit is still ahead", () => {
+    const lines = linesOf(buildCalendarPreamble({ calendar: calendarFor() }, [], at));
+    const closing = lines.filter((l) => l.startsWith("Closing cycle"));
+    expect(closing).toEqual([
+      `Closing cycle 2026-27 (seniors, entering Fall 2027): late regular deadlines and the May 1 2027 enrollment deposit are still ahead; RD decisions mid-Mar–early-Apr 2027. ${closingNote}`,
+    ]);
+    // It follows the planning cycle's typical dates it is set against.
+    expect(lines.indexOf(closing[0])).toBe(lines.findIndex((l) => l.startsWith("Typical US deadlines")) + 1);
+  });
+
+  it("says the deposit date has passed once it has", () => {
+    const text = buildCalendarPreamble({ calendar: calendarFor({ depositPassed: true }) }, [], at);
+    expect(linesOf(text).filter((l) => l.startsWith("Closing cycle"))).toEqual([
+      `Closing cycle 2026-27 (seniors, entering Fall 2027): the May 1 2027 enrollment deposit date has passed. ${closingNote}`,
+    ]);
+    expect(text).not.toMatch(/still ahead/);
+  });
+
+  it("adds nothing from August to January, when the payload has no closing cycle", () => {
+    expect(buildCalendarPreamble({ calendar: calendarFor({ closing: false }) }, [], at)).not.toMatch(/Closing cycle/);
+    expect(buildCalendarPreamble(null, [], at)).not.toMatch(/Closing cycle/);
+    // A malformed block is left out rather than printed as "Fall NaN".
+    const broken = { ...calendarFor(), closingCycle: { cycle: "2026-27" } };
+    expect(buildCalendarPreamble({ calendar: broken }, [], at)).not.toMatch(/Closing cycle|NaN|undefined/);
+  });
+
+  it("marks a school dated in another cycle than the heading's", () => {
+    const schools = [
+      { school: "Example College", deadlines: { rd: "2027-03-01" }, source: "cds", cycle: "2026-27" },
+      { school: "Sample University", deadlines: { ea: "2027-11-01", rd: "2028-01-04" }, source: "https://admissions.sample.edu/dates", cycle: "2027-28" },
+      { school: "Typical Institute", deadlines: null, source: "typical" },
+    ];
+    const lines = linesOf(buildCalendarPreamble({ calendar: calendarFor(), schools }, [], at));
+    expect(lines).toContain("Target-school deadlines (cycle entering Fall 2028, unless a school is marked with its own):");
+    expect(lines).toContain("  • Example College (2026-27 cycle, entering Fall 2027): EA —; ED —; RD 2027-03-01; financial aid —; decisions —; commit by — [cds]");
+    expect(lines).toContain("  • Sample University: EA 2027-11-01; ED —; RD 2028-01-04; financial aid —; decisions —; commit by — [https://admissions.sample.edu/dates]");
+    expect(lines).toContain("  • Typical Institute: specific dates not retrieved — use the typical US dates above and tell the student to verify on the school's site.");
+  });
+
+  it("keeps the heading as it was when every school is in the planning cycle", () => {
+    const schools = [{ school: "Sample University", deadlines: { rd: "2028-01-04" }, source: "cds", cycle: "2027-28" }];
+    const lines = linesOf(buildCalendarPreamble({ calendar: calendarFor({ closing: false }), schools }, [], at));
+    expect(lines).toContain("Target-school deadlines (cycle entering Fall 2028):");
+    expect(lines).toContain("  • Sample University: EA —; ED —; RD 2028-01-04; financial aid —; decisions —; commit by — [cds]");
+  });
+
+  // The provider-side redactor masks dollar amounts; the block has none.
+  it("writes no dollar sign", () => {
+    expect(buildCalendarPreamble({ calendar: calendarFor(), schools: [] }, [], at)).not.toContain("$");
+  });
+});

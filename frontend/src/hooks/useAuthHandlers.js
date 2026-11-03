@@ -14,6 +14,7 @@ export function useAuthHandlers(ctx) {
     setStudentRecoveryCode, setStudentRecoveryInput, setStudentRecoveryMessage, setStudentRecoveryOpen, setStudentRecoveryPassword, setSurveyStep,
     setUser, studentRecoveryInput, studentRecoveryPassword, user,
     endSession, setProfileReady, setShowLoginPass, setSyncBase, setSyncNote, setSyncStatus,
+    locale,
   } = ctx;
   // One auth action at a time. PBKDF2 + the server round-trips make sign-in /
   // account creation take seconds (more on a cold backend), and the submit
@@ -42,12 +43,16 @@ export function useAuthHandlers(ctx) {
     }, ...args), [cFirst, cLast, cEmail, cGrade, cPass, cPass2, cAgeAttest, cConsentAI, cConsentData]);
 
   // ─── LOGIN ───
+  // The locale is the app's own, so a message sign-in shows (the saved
+  // profile that could not be read) is in the language picked on screen.
+  // Left out, handleLogin falls back to the stored pick (detectLocale).
   const [loginAttempts, setLoginAttempts] = useState({});
   const handleLogin = useCallback((...args) => handleLoginImpl({
       lEmail, lPass, loginAttempts, setData, setLError, setLoginAttempts,
       setMessages, setOfflineMode, setPassphrase, setScreen, setSurveyStep, setUser,
       setLPass, setProfileReady, setShowLoginPass, setSyncBase, setSyncNote, setSyncStatus,
-    }, ...args), [lEmail, lPass, loginAttempts]);
+      locale,
+    }, ...args), [lEmail, lPass, loginAttempts, locale]);
 
   const handleStudentRecovery = useCallback((...args) => handleStudentRecoveryImpl({
       lEmail, setLPass, setStudentRecoveryBusy, setStudentRecoveryInput, setStudentRecoveryMessage, setStudentRecoveryOpen,
