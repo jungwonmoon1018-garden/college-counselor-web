@@ -2,12 +2,14 @@
 // 2026-09-16 so the server file holds setup and helpers only. `deps` is
 // the server's routeDeps object: live getters onto the module bindings
 // these handlers use (ADMIN_COOKIE, DATA_DIR, ENCRYPTION_KEY, OPERATOR_LLM, SCORECARD_API_KEY, SCOUT_CADENCE_DAYS, WEB_CONFIG_KEY, WEB_DEPLOYMENT, WEB_SECRETS_READY, adminAuthLimiter, adminModelsPayload, adminSessionResponse, authStore, baselineCollegeNames, clearAdminCookie, db, hasAllowedAdminOrigin, hasDesktopBootstrapProof, maybeRunModelCatalogScout, modelCatalogStmts, policyScoutRunning, policyScoutSchedule, policyScoutStmts, readCookie, requireAdminNetwork, requireCounselorAuth, requireWebConfiguration, resolveBaselineCollegeRow, runScheduledPolicyScout, safeParseJSON, scheduleWebConfigurationRestart, studentLimiter, validateAdminSecret).
-import { lastRunSummary, listRecentChanges } from "../scouts/admissions-policy-scout.js";
+import { lastAutomaticRun, lastRunSummary, listRecentChanges } from "../scouts/admissions-policy-scout.js";
 import { detectSchoolMentions } from "../chat/chat-grounding.js";
 import { mergeWebModels, mergeWebSecret, readWebSecretConfig, writeWebSecretConfig } from "../security/web-secret-store.js";
 import { dynamicAllowedModelIds, setModelCandidateStatus } from "../scouts/model-catalog-scout.js";
 import { registerDynamicOpenRouterModels as adapterRegisterDynamicModels } from "../llm-adapters/index.js";
 import { OPENROUTER_MODEL_OPTIONS } from "../llm-adapters/tier-defaults.js";
+import { OPENROUTER_TARGETS } from "../scouts/openrouter-model-refresh.js";
+import { currentModelTierStatus } from "../server/schedulers.js";
 import fs from "node:fs";
 import path from "node:path";
 import { BACKUP_FILE_RE, listBackupFiles } from "../storage/db-backup.js";
@@ -28,14 +30,46 @@ function readOrStartWebConfig(deps) {
 
 const CONFIG_UNREADABLE_HELP = "The stored configuration was written under a different WEB_CONFIG_KEY. Restore that key, set WEB_CONFIG_KEY_PREVIOUS to it for one deploy so the store is re-wrapped, or re-enter every secret here.";
 
+const MODEL_TIERS = ["small", "medium", "large"];
+
+// Which tier of a model save is refused, or null. Only a tier whose value
+// changes is checked against the reviewed and discovered models; a tier
+// left as it is, or not sent, keeps its current model. Every save used to
+// re-check all three, so once the scout had dropped one tier's model the
+// counselor could not save a change to either of the other two until that
+// tier was changed too.
+export function refusedModelTier(requested, { current = {}, allowed = new Set() } = {}) {
+  const models = requested && typeof requested === "object" ? requested : {};
+  const sent = MODEL_TIERS.filter((tier) => models[tier] != null);
+  if (!sent.length) return MODEL_TIERS[0];
+  for (const tier of sent) {
+    const value = String(models[tier]).trim();
+    if (value && value === String(current[tier] || "")) continue;
+    if (!allowed.has(value)) return tier;
+  }
+  return null;
+}
+
+// The model page with each tier's status ('ok', 'not_in_catalog',
+// 'not_in_allowlist', 'no_price') beside it, for the admin page's banner.
+function modelsPage(deps, extra = {}) {
+  const payload = deps.adminModelsPayload();
+  return { ...extra, ...payload, tierStatus: payload.tierStatus || currentModelTierStatus() };
+}
+
 export function registerAdminRoutes(app, deps) {
+  // `lastAutomaticSweep` is the run the cadence counts; when it read none of
+  // its schools its outcome is "failed" and `nextRunAt` is the retry time.
   app.get("/api/admin/policy-scout/status", deps.studentLimiter, deps.requireCounselorAuth, (_req, res) => {
     try {
+      const schedule = deps.policyScoutSchedule();
       res.json({
         running: Boolean(deps.policyScoutRunning),
         cadenceDays: deps.SCOUT_CADENCE_DAYS,
-        nextRunAt: deps.policyScoutSchedule().nextRunAt,
+        nextRunAt: schedule.nextRunAt,
+        nextRunReason: schedule.reason,
         lastRun: lastRunSummary(deps.policyScoutStmts),
+        lastAutomaticSweep: lastAutomaticRun(deps.policyScoutStmts),
         runs: deps.policyScoutStmts.listRuns.all(10).map((row) => ({
           id: row.id, startedAt: row.started_at, finishedAt: row.finished_at, trigger: row.trigger,
           schoolsTotal: row.schools_total, schoolsChecked: row.schools_checked, schoolsFailed: row.schools_failed, changes: row.changes,
@@ -220,7 +254,7 @@ export function registerAdminRoutes(app, deps) {
   });
 
   app.get("/api/admin/models", deps.studentLimiter, deps.requireCounselorAuth, (_req, res) => {
-    res.json(deps.adminModelsPayload());
+    res.json(modelsPage(deps));
   });
 
   // Manual scout run from the admin page: refresh the catalog, list what is
@@ -228,7 +262,7 @@ export function registerAdminRoutes(app, deps) {
   app.post("/api/admin/models/scout/run", deps.studentLimiter, deps.requireCounselorAuth, async (_req, res) => {
     try {
       const summary = await deps.maybeRunModelCatalogScout("manual", { force: "manual" });
-      res.json({ ok: true, summary, ...deps.adminModelsPayload() });
+      res.json(modelsPage(deps, { ok: true, summary }));
     } catch (err) {
       console.error("[MODEL-SCOUT] manual run failed:", err.message);
       res.status(500).json({ error: "The catalog check failed.", message: String(err.message).slice(0, 200) });
@@ -236,12 +270,18 @@ export function registerAdminRoutes(app, deps) {
   });
 
   // Counselor review of a discovered model: dismiss it (hidden from the
-  // pickers and the allowlist) or list it again.
+  // pickers and the allowlist) or list it again. A model a tier is set to
+  // cannot be dismissed: the allowlist would drop it and every call on that
+  // tier would fail until the tier was changed.
   app.post("/api/admin/models/candidates", deps.studentLimiter, deps.requireCounselorAuth, (req, res) => {
     const modelId = String(req.body?.modelId || "").trim();
     const status = String(req.body?.status || "").trim();
     if (!modelId || !["listed", "dismissed"].includes(status)) {
       return res.status(400).json({ error: "modelId and a status of listed or dismissed are required." });
+    }
+    const usedBy = MODEL_TIERS.filter((tier) => OPENROUTER_TARGETS[tier] === modelId);
+    if (status === "dismissed" && usedBy.length) {
+      return res.status(409).json({ error: `The ${usedBy.join(" and ")} tier uses this model. Choose another model for that tier before dismissing it.`, code: "model_in_use", tiers: usedBy });
     }
     const row = setModelCandidateStatus(deps.modelCatalogStmts, modelId, status);
     if (!row) return res.status(404).json({ error: "That model is not a discovered candidate." });
@@ -252,10 +292,9 @@ export function registerAdminRoutes(app, deps) {
   app.put("/api/admin/models", deps.studentLimiter, deps.requireCounselorAuth, deps.requireWebConfiguration, (req, res) => {
     const models = req.body?.models || {};
     const allowed = new Set([...OPENROUTER_MODEL_OPTIONS.map(({ id }) => id), ...dynamicAllowedModelIds(deps.modelCatalogStmts)]);
-    for (const tier of ["small", "medium", "large"]) {
-      if (!allowed.has(String(models[tier] || ""))) {
-        return res.status(400).json({ error: `Choose a reviewed OpenRouter model for the ${tier} tier.` });
-      }
+    const refused = refusedModelTier(models, { current: OPENROUTER_TARGETS, allowed });
+    if (refused) {
+      return res.status(400).json({ error: `Choose a reviewed OpenRouter model for the ${refused} tier.`, code: "model_not_allowed", tier: refused });
     }
     try {
       const current = readOrStartWebConfig(deps);

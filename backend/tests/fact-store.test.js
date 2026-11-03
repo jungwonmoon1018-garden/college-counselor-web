@@ -7,6 +7,10 @@ import {
   insertFact,
   searchFacts,
   seedCollegeFacts,
+  lookupFact,
+  lookupFactsForEntity,
+  lookupFactsForTopic,
+  expireOldFacts,
 } from "../scouts/fact-store.js";
 
 function store() {
@@ -73,6 +77,42 @@ describe("fact search", () => {
     });
     assert.equal(searchFacts(stmts, "When is the MIT early action deadline?", 10).length, 1);
     assert.deepEqual(searchFacts(stmts, "%_%%", 10), []);
+    db.close();
+  });
+
+  // ISO expiries ("…T…Z") used to be compared with datetime('now') as
+  // text; "T" sorts after " ", so a fact stayed current for the whole UTC
+  // day it expired on.
+  it("compares ISO expiries as time, both ways, on the day they expire", () => {
+    const { db, stmts } = store();
+    const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const inAnHour = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+    const fact = (key, expires_at) => ({
+      topic_type: "school_policies",
+      entity_type: "university",
+      entity_id: "100",
+      entity_name: "Example University",
+      fact_key: key,
+      fact_value: `${key} value`,
+      source_domain: "example.edu",
+      confidence: "verified",
+      expires_at,
+    });
+    insertFact(stmts, fact("deadline_regular_decision", hourAgo));
+    insertFact(stmts, fact("test_policy", inAnHour));
+    insertFact(stmts, fact("application_fee", "not a date"));
+    const keys = (rows) => rows.map((row) => row.fact_key).sort();
+    assert.deepEqual(keys(lookupFactsForTopic(stmts, "school_policies")), ["test_policy"]);
+    assert.deepEqual(keys(lookupFactsForEntity(stmts, "university", "100")), ["test_policy"]);
+    assert.deepEqual(keys(searchFacts(stmts, "Example University", 10)), ["test_policy"]);
+    assert.equal(lookupFact(stmts, "100", "deadline_regular_decision"), null);
+    assert.deepEqual(keys(stmts.getVerifiedFacts.all()), ["test_policy"]);
+    // The expiry job marks the passed one (and the unreadable one), not the current one.
+    assert.deepEqual(expireOldFacts(stmts), { expired: 2 });
+    const confidence = Object.fromEntries(db.prepare("SELECT fact_key, confidence FROM canonical_facts").all().map((r) => [r.fact_key, r.confidence]));
+    assert.deepEqual(confidence, { deadline_regular_decision: "expired", test_policy: "verified", application_fee: "expired" });
+    // Expiring within the week counts the one an hour out.
+    assert.deepEqual(stmts.getExpiringSoon.all().map((row) => row.fact_key), ["test_policy"]);
     db.close();
   });
 

@@ -1,14 +1,15 @@
 // server/jobs.js — the scheduled background work: the standard batch jobs,
 // the opt-in and daily Common Data Set refreshes, the hourly due-checks of
-// the two scouts, and the OpenRouter catalog refresh timers. Moved out of
-// server.js on 2026-09-21; called from the same place, so what runs when at
-// boot is unchanged. `deps` is server.js's routeDeps object of live getters.
+// the two scouts and of the daily CDS refresh, and the OpenRouter catalog
+// refresh timers. Moved out of server.js on 2026-09-21; called from the same
+// place. `deps` is server.js's routeDeps object of live getters.
 import { registerJob, registerStandardJobs, startAllJobs } from "../scouts/batch-jobs.js";
 import { backupDatabases } from "../storage/db-backup.js";
 import { refreshAllCds, shouldRunCdsRefresh } from "../cds/cds-ingest-pipeline.js";
 import crypto from "node:crypto";
 import { SCOUT_DUE_CHECK_MS } from "../scouts/scout-cadence.js";
-import { maybeRunModelCatalogScout, maybeRunPolicyScout } from "./schedulers.js";
+import { CDS_REFRESH_BOOT_DELAY_MS, cdsRefreshDue, initCdsRefreshRuns, lastCdsRefreshRun, prepareCdsRefreshStatements, runRecordedCdsRefresh } from "../cds/cds-refresh-schedule.js";
+import { logModelTierProblems, maybeRunModelCatalogScout, maybeRunPolicyScout } from "./schedulers.js";
 import { OPENROUTER_CATALOG, configureOpenRouterCatalogCache, refreshOpenRouterCatalog, refreshOpenRouterTargets } from "../scouts/openrouter-model-refresh.js";
 import path from "node:path";
 
@@ -51,9 +52,16 @@ export function registerServerJobs(deps) {
   // and re-ingest every school each day, preferring the newest cycle — keeping
   // College Fit grounded in the freshest CDS. Deterministic parse (no LLM/key).
   // Enabled by default; set CDS_DAILY_REFRESH=0 to disable.
+  // It was a bare 24-hour setInterval, which a deploy or a configuration
+  // save restarts, so on busy days it never fired. It now runs the scouts'
+  // way (cds/cds-refresh-schedule.js): each run is recorded, an hourly check
+  // and one fifteen minutes after boot run it once the last finished run is
+  // a day old, and a refresh that read nothing is retried with a backoff.
   if (process.env.CDS_DAILY_REFRESH !== "0") {
-    registerJob("cds_daily_refresh", async () => {
-      if (!shouldRunCdsRefresh(Date.now())) return { skipped: "before June 1 (off-season)" };
+    initCdsRefreshRuns(deps.db);
+    const cdsRefreshStmts = prepareCdsRefreshStatements(deps.db);
+    let cdsRefreshRunning = null;
+    const refreshNow = async () => {
       const concurrency = Number(process.env.CDS_REFRESH_CONCURRENCY || 3) || 3;
       const r = await refreshAllCds(deps.ragStmts, { concurrency });
       console.log(`[BATCH] cds_daily_refresh: ${r.total} schools`, JSON.stringify(r.byStatus));
@@ -63,9 +71,27 @@ export function registerServerJobs(deps) {
         console.warn(`[BATCH] cds_daily_refresh held back ${held.slug} (${held.year} over stored ${held.storedYear}): ${held.reasons.join("; ")}`);
         try { deps.stmts.insertAudit.run(crypto.randomUUID(), new Date().toISOString(), "cds_refresh_held_back", held.slug.slice(0, 12), `${held.slug} ${held.year} over ${held.storedYear}: ${held.reasons.join("; ")}`.slice(0, 500), null); } catch (err) { console.warn("[BATCH] audit write failed:", err.message); }
       }
-      return { changed: true, ...r };
-    }, 24 * 60 * 60 * 1000, { enabled: true, runOnStartup: false });
-    console.log("[BOOT] CDS daily refresh scheduled (active June 1+; CDS_DAILY_REFRESH=0 to disable).");
+      return r;
+    };
+    const maybeRunCdsRefresh = async (trigger) => {
+      if (cdsRefreshRunning) return { skipped: "already_running" };
+      const schedule = cdsRefreshDue({ lastRun: lastCdsRefreshRun(cdsRefreshStmts), inSeason: shouldRunCdsRefresh(Date.now()) });
+      if (!schedule.due) return { skipped: schedule.reason, nextRunAt: schedule.nextRunAt };
+      cdsRefreshRunning = runRecordedCdsRefresh({ stmts: cdsRefreshStmts, refresh: refreshNow, trigger })
+        .finally(() => { cdsRefreshRunning = null; });
+      const run = await cdsRefreshRunning;
+      if (run.outcome === "failed") console.warn(`[BATCH] cds_daily_refresh ${trigger}: refreshed nothing${run.error ? ` (${run.error})` : ""}; retrying with a backoff.`);
+      const { result: _result, ...summary } = run;
+      return { changed: run.outcome === "completed", ...summary };
+    };
+    registerJob("cds_daily_refresh", () => maybeRunCdsRefresh("scheduled"), SCOUT_DUE_CHECK_MS, { enabled: true, runOnStartup: false });
+    if (process.env.NODE_ENV !== "test") {
+      const bootDelay = Number(process.env.CDS_REFRESH_BOOT_DELAY_MS) > 0 ? Number(process.env.CDS_REFRESH_BOOT_DELAY_MS) : CDS_REFRESH_BOOT_DELAY_MS;
+      setTimeout(() => {
+        maybeRunCdsRefresh("boot").catch((err) => console.warn("[BATCH] cds_daily_refresh boot check failed:", err?.message));
+      }, bootDelay).unref();
+    }
+    console.log("[BOOT] CDS refresh runs once a day June through December, checked hourly against its last run (CDS_DAILY_REFRESH=0 to disable).");
   }
 
   // Automatic scouts run every two weeks (SCOUT_CADENCE_DAYS overrides). A
@@ -119,8 +145,11 @@ export function startModelCatalogRefresh(deps) {
   // OpenRouter answers, and the chat route triggers one refresh itself when
   // it finds the catalog empty (see ensureOpenRouterCatalog).
   configureOpenRouterCatalogCache(path.join(deps.DATA_DIR, "openrouter-catalog.json"));
+  // After the first catalog read, one warning line per tier whose model
+  // cannot be called (a scout run that goes ahead logs its own).
   refreshOpenRouterCatalog()
-    .then(() => maybeRunModelCatalogScout("boot", { refreshCatalog: false }).catch((err) => console.warn("[MODEL-SCOUT] boot run failed:", err?.message)))
+    .then(() => maybeRunModelCatalogScout("boot", { refreshCatalog: false }).catch((err) => { console.warn("[MODEL-SCOUT] boot run failed:", err?.message); return null; }))
+    .then((ran) => { if (!ran || ran.skipped) logModelTierProblems("boot"); })
     .catch(err => console.warn("[OR-CATALOG] Boot refresh threw:", err.message));
   setInterval(() => {
     refreshOpenRouterCatalog().catch(err => console.warn("[OR-CATALOG] Daily refresh threw:", err.message));

@@ -17,8 +17,32 @@ export const SCOUT_DUE_CHECK_MS = 60 * 60 * 1000;
 // A run row that never recorded a finish time this long after it started
 // was cut short by a restart; it must not block the next run forever.
 export const ABANDONED_RUN_MS = 6 * 60 * 60 * 1000;
+// A run that finished without doing its work — a policy sweep that read
+// none of its schools, a catalog check with no live catalog — is recorded
+// with outcome "failed". It used to count as a completed run, so a short
+// outage around the boot sweep pushed the next attempt a full cadence out
+// and every snapshot went two weeks staler than intended. A failed run is
+// retried after an hour, then two, four, … doubling up to the cadence.
+export const RETRY_BASE_MS = 60 * 60 * 1000;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+// `streak` counts the failed runs in a row, the newest included.
+export function retryBackoffMs(streak, cadenceMs) {
+  const cadence = Number(cadenceMs) > 0 ? Number(cadenceMs) : DEFAULT_SCOUT_CADENCE_DAYS * DAY_MS;
+  const n = Math.min(Math.max(1, Math.floor(Number(streak) || 1)), 30);
+  return Math.min(RETRY_BASE_MS * 2 ** (n - 1), cadence);
+}
+
+// How many runs in a row failed, from run outcomes listed newest first.
+export function failedStreak(outcomes) {
+  let n = 0;
+  for (const outcome of outcomes || []) {
+    if (outcome !== "failed") break;
+    n += 1;
+  }
+  return n;
+}
 
 export function scoutCadenceMs(env = process.env) {
   const days = Number(env?.SCOUT_CADENCE_DAYS);
@@ -26,8 +50,9 @@ export function scoutCadenceMs(env = process.env) {
 }
 
 // `lastRun` is the newest run row that counts toward the cadence
-// ({ startedAt, finishedAt } or null). `force` is a reason string that
-// makes the run due regardless (e.g. "manual", "scout_version_changed").
+// ({ startedAt, finishedAt } or null, plus `outcome` and `failedStreak`
+// when the run failed). `force` is a reason string that makes the run due
+// regardless (e.g. "manual", "scout_version_changed").
 export function scoutRunDue({ lastRun = null, cadenceMs, now = Date.now(), force = null } = {}) {
   const nowMs = typeof now === "number" ? now : new Date(now).getTime();
   const cadence = Number(cadenceMs) > 0 ? Number(cadenceMs) : DEFAULT_SCOUT_CADENCE_DAYS * DAY_MS;
@@ -48,6 +73,12 @@ export function scoutRunDue({ lastRun = null, cadenceMs, now = Date.now(), force
       return { due: false, reason: "run_in_progress", nextRunAt: null, lastFinishedAt: null };
     }
     return { due: true, reason: "previous_run_abandoned", nextRunAt: null, lastFinishedAt: null };
+  }
+  if (lastRun.outcome === "failed") {
+    const wait = retryBackoffMs(lastRun.failedStreak, cadence);
+    const retryAt = new Date(finished + wait).toISOString();
+    if (nowMs - finished >= wait) return { due: true, reason: "previous_run_failed", nextRunAt: retryAt, lastFinishedAt };
+    return { due: false, reason: "retry_after_failure", nextRunAt: retryAt, lastFinishedAt };
   }
   const nextRunAt = new Date(finished + cadence).toISOString();
   if (nowMs - finished >= cadence) return { due: true, reason: "cadence_elapsed", nextRunAt, lastFinishedAt };

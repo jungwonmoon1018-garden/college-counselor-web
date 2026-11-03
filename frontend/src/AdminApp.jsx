@@ -83,6 +83,16 @@ const COPY = {
     scoutDismiss: "Dismiss",
     scoutRelist: "List again",
     scoutDismissed: "Dismissed",
+    scoutFailedLine: "The last check could not read OpenRouter's live catalog. It retries on its own: {when}.",
+    withinTheHour: "within the hour",
+    tierName_small: "Low tier",
+    tierName_medium: "Mid tier",
+    tierName_large: "High tier",
+    tierProblemsTitle: "Requests on a tier below are failing. Choose another model for that tier and save.",
+    tierStatus_not_in_catalog: "{tier}: OpenRouter no longer lists {model}.",
+    tierStatus_not_in_allowlist: "{tier}: {model} is no longer on the allowed model list, so every request on this tier is refused.",
+    tierStatus_no_price: "{tier}: {model} has no verified price in OpenRouter's catalog, so the budget check refuses every request on this tier.",
+    policySweepFailed: "The last admissions-policy sweep ({when}) read none of its {total} schools ({failed} failed). It retries on its own: {next}.",
     setupIncomplete: "Student access stays closed until all three secrets are configured.",
   },
   ko: {
@@ -158,6 +168,16 @@ const COPY = {
     scoutDismiss: "숨기기",
     scoutRelist: "다시 등록",
     scoutDismissed: "숨긴 모델",
+    scoutFailedLine: "마지막 확인에서 OpenRouter 실시간 카탈로그를 읽지 못했습니다. 자동으로 다시 시도합니다: {when}.",
+    withinTheHour: "1시간 이내",
+    tierName_small: "저가 등급",
+    tierName_medium: "중간 등급",
+    tierName_large: "고가 등급",
+    tierProblemsTitle: "아래 등급의 요청이 실패하고 있습니다. 해당 등급에 다른 모델을 선택해 저장하세요.",
+    tierStatus_not_in_catalog: "{tier}: OpenRouter에 {model} 모델이 더 이상 없습니다.",
+    tierStatus_not_in_allowlist: "{tier}: {model} 모델이 허용 목록에서 빠져 이 등급의 모든 요청이 거부됩니다.",
+    tierStatus_no_price: "{tier}: OpenRouter 카탈로그에 {model} 모델의 확인된 가격이 없어 예산 확인에서 이 등급의 모든 요청이 거부됩니다.",
+    policySweepFailed: "마지막 입학 정책 점검({when})에서 {total}개 학교 중 한 곳도 읽지 못했습니다(실패 {failed}개). 자동으로 다시 시도합니다: {next}.",
   },
 };
 
@@ -229,6 +249,8 @@ export default function AdminApp() {
   const [modelOptions, setModelOptions] = useState([]);
   const [candidates, setCandidates] = useState([]);
   const [catalogScout, setCatalogScout] = useState(null);
+  const [tierStatus, setTierStatus] = useState(null);
+  const [policyScout, setPolicyScout] = useState(null);
   const [scouting, setScouting] = useState(false);
   const [editing, setEditing] = useState(null);
   const [secretValue, setSecretValue] = useState("");
@@ -272,13 +294,38 @@ export default function AdminApp() {
     setModelOptions(status.options || []);
     setCandidates(status.candidates || []);
     setCatalogScout(status.catalogScout || null);
+    setTierStatus(status.tierStatus || null);
   }
 
   async function refreshModels() {
     if (!webDeployment) return null;
     const status = await jsonRequest("/api/admin/models");
     applyModelStatus(status);
+    // The policy scout's status only feeds the failed-sweep banner; a
+    // server without it leaves the page as it was.
+    jsonRequest("/api/admin/policy-scout/status").then(setPolicyScout).catch(() => setPolicyScout(null));
     return status;
+  }
+
+  // The tiers whose configured model cannot be called right now (the
+  // server's tierStatus): the model was dropped from the allowlist,
+  // OpenRouter no longer lists it, or it has no verified price.
+  function tierProblemLines() {
+    return TIERS
+      .map((tier) => ({ tier, entry: tierStatus?.[tier] }))
+      .filter(({ entry }) => entry && entry.status && entry.status !== "ok" && c[`tierStatus_${entry.status}`])
+      .map(({ tier, entry }) => fill(c[`tierStatus_${entry.status}`], { tier: c[`tierName_${tier}`], model: entry.model || "—" }));
+  }
+
+  function policySweepFailedLine() {
+    const sweep = policyScout?.lastAutomaticSweep;
+    if (!sweep || sweep.outcome !== "failed") return null;
+    return fill(c.policySweepFailed, {
+      when: formatWhen(sweep.finishedAt),
+      total: sweep.schoolsTotal ?? 0,
+      failed: sweep.schoolsFailed ?? 0,
+      next: policyScout.nextRunAt ? formatWhen(policyScout.nextRunAt) : c.withinTheHour,
+    });
   }
 
   // Counselor asks the scout to read the catalog right now.
@@ -331,6 +378,7 @@ export default function AdminApp() {
       ? fill(c.scoutLastRunLine, { when: formatWhen(last.finishedAt), trigger: last.trigger, catalog: last.catalogCount ?? 0, eligible: last.eligible ?? 0, added: last.added ?? 0 })
       : c.scoutNoRunLine];
     if (catalogScout.enabled === false) lines.push(c.scoutDisabledLine);
+    else if (last && last.outcome === "failed") lines.push(fill(c.scoutFailedLine, { when: catalogScout.nextRunAt && !catalogScout.due ? formatWhen(catalogScout.nextRunAt) : c.withinTheHour }));
     else if (catalogScout.nextRunAt && !catalogScout.due) lines.push(fill(c.scoutNextRunLine, { when: formatWhen(catalogScout.nextRunAt), days: catalogScout.cadenceDays }));
     else lines.push(c.scoutNextRunSoon);
     return lines;
@@ -478,6 +526,8 @@ export default function AdminApp() {
     setSecrets(null);
     setModels(null);
     setModelOptions([]);
+    setTierStatus(null);
+    setPolicyScout(null);
     setOneTimeRecovery("");
     setMessage(null);
   }
@@ -591,6 +641,13 @@ export default function AdminApp() {
 
             {webDeployment && models && (
               <>
+                {tierProblemLines().length > 0 && (
+                  <div className="admin-alert error" role="alert">
+                    <p>{c.tierProblemsTitle}</p>
+                    <ul>{tierProblemLines().map((line) => <li key={line}>{line}</li>)}</ul>
+                  </div>
+                )}
+                {policySweepFailedLine() && <p className="admin-alert setup" role="status">{policySweepFailedLine()}</p>}
                 <form className="admin-models" onSubmit={saveModels}>
                   <div>
                     <h2>{c.modelsTitle}</h2>

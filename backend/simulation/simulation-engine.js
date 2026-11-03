@@ -185,18 +185,22 @@ export function initSimulationStore(dataDir, options = {}) {
     CREATE INDEX IF NOT EXISTS idx_sim_vectors_expiry ON simulated_vectors(expires_at);
   `);
 
+  // Expiry is compared as time (julianday), not text: expires_at is an ISO
+  // string and datetime('now') is "YYYY-MM-DD HH:MM:SS", and "T" sorts after
+  // " ", so a minor's simulated profile was served and kept for up to a day
+  // past its expiry. An unreadable expiry counts as passed.
   const profileStmts = {
     insert: profileDb.prepare(`INSERT INTO simulated_profiles (id, student_id, scenario_name, scenario_json, base_profile_json, simulated_profile_json, positioning_json, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`),
-    get: profileDb.prepare(`SELECT * FROM simulated_profiles WHERE id = ? AND student_id = ? AND expires_at > datetime('now')`),
+    get: profileDb.prepare(`SELECT * FROM simulated_profiles WHERE id = ? AND student_id = ? AND julianday(expires_at) > julianday('now')`),
     delete: profileDb.prepare(`DELETE FROM simulated_profiles WHERE id = ? AND student_id = ?`),
-    cleanup: profileDb.prepare(`DELETE FROM simulated_profiles WHERE expires_at <= datetime('now')`),
+    cleanup: profileDb.prepare(`DELETE FROM simulated_profiles WHERE COALESCE(julianday(expires_at) <= julianday('now'), 1)`),
     count: profileDb.prepare(`SELECT COUNT(*) AS count FROM simulated_profiles`),
   };
   const vectorStmts = {
     insert: vectorDb.prepare(`INSERT INTO simulated_vectors (id, simulation_id, student_id, vector_type, vector_name, vector_json, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)`),
-    list: vectorDb.prepare(`SELECT * FROM simulated_vectors WHERE simulation_id = ? AND student_id = ? AND expires_at > datetime('now') ORDER BY vector_type, vector_name`),
+    list: vectorDb.prepare(`SELECT * FROM simulated_vectors WHERE simulation_id = ? AND student_id = ? AND julianday(expires_at) > julianday('now') ORDER BY vector_type, vector_name`),
     deleteBySimulation: vectorDb.prepare(`DELETE FROM simulated_vectors WHERE simulation_id = ? AND student_id = ?`),
-    cleanup: vectorDb.prepare(`DELETE FROM simulated_vectors WHERE expires_at <= datetime('now')`),
+    cleanup: vectorDb.prepare(`DELETE FROM simulated_vectors WHERE COALESCE(julianday(expires_at) <= julianday('now'), 1)`),
     count: vectorDb.prepare(`SELECT COUNT(*) AS count FROM simulated_vectors`),
   };
 

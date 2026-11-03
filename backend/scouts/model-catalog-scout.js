@@ -14,9 +14,12 @@
 // adapter allowlist; the three tier DEFAULTS never change on their own.
 // A counselor can dismiss a candidate; dismissed ids stay dismissed. Rows a
 // run does not confirm (gone from the catalog, or no longer eligible after
-// a rule change) are removed so the picker only ever shows current models.
+// a rule change) are removed so the picker only ever shows current models —
+// except a model a tier is set to, which stays listed (and allowed) while
+// it is in use: see runModelCatalogScout.
 
 import crypto from "node:crypto";
+import { failedStreak } from "./scout-cadence.js";
 
 export const TRUSTED_PROVIDERS = Object.freeze([
   "openai", "anthropic", "google", "deepseek", "meta-llama", "mistralai", "qwen",
@@ -34,8 +37,9 @@ export const TIER_PRICE_BANDS = Object.freeze({ small: 1.0, medium: 6.0 });
 // scout at once — regardless of the cadence — so rows an older rule set let
 // in are pruned rather than sitting in the picker for another two weeks.
 //   1: first rules   2: no ":suffix" variants / safety models, one-year age
-//   cap, unseen rows pruned
-export const MODEL_SCOUT_VERSION = 2;
+//   cap, unseen rows pruned   3: a model a tier is set to is exempt from the
+//   age cap and is never pruned while it is in use
+export const MODEL_SCOUT_VERSION = 3;
 export const MIN_CONTEXT_LENGTH = 32_000;
 // A "new model to add" is one that appeared within the last year; the long
 // tail of older catalog rows would only bury the picker.
@@ -118,33 +122,53 @@ export function prepareModelCatalogStatements(db) {
         context_length = excluded.context_length, created_at = COALESCE(excluded.created_at, model_catalog_candidates.created_at),
         last_seen = excluded.last_seen`),
     setStatus: db.prepare("UPDATE model_catalog_candidates SET status = ? WHERE model_id = ?"),
-    pruneUnseen: db.prepare("DELETE FROM model_catalog_candidates WHERE last_seen < ? AND status != 'dismissed'"),
+    listUnseen: db.prepare("SELECT model_id FROM model_catalog_candidates WHERE last_seen < ? AND status != 'dismissed'"),
+    deleteCandidate: db.prepare("DELETE FROM model_catalog_candidates WHERE model_id = ?"),
     insertRun: db.prepare("INSERT INTO model_catalog_runs (id, started_at, trigger, summary_json) VALUES (?, ?, ?, ?)"),
     finishRun: db.prepare("UPDATE model_catalog_runs SET finished_at = ?, catalog_count = ?, eligible = ?, added = ?, summary_json = ? WHERE id = ?"),
     lastRun: db.prepare("SELECT * FROM model_catalog_runs ORDER BY started_at DESC LIMIT 1"),
+    listRuns: db.prepare("SELECT * FROM model_catalog_runs ORDER BY started_at DESC LIMIT ?"),
   };
 }
 
 // ─── The scout run ─────────────────────────────────────────────────────
 // `catalog` is OPENROUTER_CATALOG ({ models, byId, reachable }); `knownIds`
-// are the packaged option ids, which never become candidates.
-export function runModelCatalogScout({ catalog, stmts, knownIds = new Set(), trigger = "scheduled", now = new Date() } = {}) {
+// are the packaged option ids, which never become candidates; `inUseIds`
+// are the models the three tiers are set to (OPENROUTER_TARGETS).
+//
+// A model a tier is set to is exempt from the one-year age cap and is never
+// pruned while a tier uses it. The cap and the prune came in with rule
+// version 2 without that exemption: a model the counselor picked when it
+// was new turned one year old while OpenRouter still served it, the next
+// run deleted its row, the adapter allowlist dropped it, and every call on
+// that tier failed with model_not_allowed for every student — triggered by
+// nothing but the calendar. An in-use row the rules alone would remove is
+// kept and reported in `inUseKept`, so the counselor's page can say why.
+export function runModelCatalogScout({ catalog, stmts, knownIds = new Set(), inUseIds = [], trigger = "scheduled", now = new Date() } = {}) {
   const runId = crypto.randomUUID();
   const startedAt = now.toISOString();
   stmts.insertRun.run(runId, startedAt, trigger, JSON.stringify({ inProgress: true, scoutVersion: MODEL_SCOUT_VERSION }));
   const models = Array.isArray(catalog?.models) ? catalog.models : [];
+  const inUse = new Set([...(inUseIds || [])].map((id) => String(id || "").trim()).filter(Boolean));
   const added = [];
   const kept = [];
+  const inUseKept = [];
+  const seen = new Set();
   const rejected = {};
   let eligible = 0;
   for (const model of models) {
     const verdict = classifyModelCandidate(model, now);
-    if (!verdict.eligible) {
+    seen.add(verdict.id);
+    const exempt = inUse.has(verdict.id);
+    const reasons = exempt ? verdict.reasons.filter((reason) => reason !== "older_than_a_year") : verdict.reasons;
+    if (reasons.length) {
       for (const reason of verdict.reasons) rejected[reason] = (rejected[reason] || 0) + 1;
+      if (exempt && stmts.get.get(verdict.id)) inUseKept.push({ id: verdict.id, reasons: verdict.reasons });
       continue;
     }
     if (knownIds.has(verdict.id)) continue;
     eligible += 1;
+    if (exempt && reasons.length !== verdict.reasons.length) inUseKept.push({ id: verdict.id, reasons: verdict.reasons });
     const existing = stmts.get.get(verdict.id);
     stmts.upsert.run(
       verdict.id, verdict.provider, model.name || verdict.id, verdict.tier,
@@ -157,12 +181,29 @@ export function runModelCatalogScout({ catalog, stmts, knownIds = new Set(), tri
   // Rows this run did not confirm leave the picker — a model that fell out
   // of the catalog, or one that an earlier, looser rule set let in (":batch"
   // variants, safety models). Dismissals are kept so a returning model stays
-  // dismissed. An empty catalog (OpenRouter unreachable) prunes nothing.
-  const pruned = models.length ? stmts.pruneUnseen.run(startedAt).changes : 0;
+  // dismissed. An empty catalog (OpenRouter unreachable) prunes nothing. A
+  // row a tier uses is never pruned: if OpenRouter stopped listing it, it is
+  // reported (the tier status says not_in_catalog) and the counselor
+  // chooses; calls resume on their own if the catalog lists it again.
+  let pruned = 0;
+  if (models.length) {
+    for (const { model_id: id } of stmts.listUnseen.all(startedAt)) {
+      if (inUse.has(id)) {
+        if (!seen.has(id)) inUseKept.push({ id, reasons: ["not_in_catalog"] });
+        continue;
+      }
+      pruned += stmts.deleteCandidate.run(id).changes;
+    }
+  }
+  // A check with no live catalog to read did not do its work: the cadence
+  // retries it within the hour (scout-cadence.js) instead of a fortnight
+  // later. A last-known catalog from the disk still feeds the picker, but
+  // only OpenRouter's live list shows what is new.
+  const outcome = models.length === 0 || catalog?.reachable === false ? "failed" : "completed";
   const summary = {
     runId, trigger, startedAt, finishedAt: new Date().toISOString(), scoutVersion: MODEL_SCOUT_VERSION,
-    catalogCount: models.length, reachable: catalog?.reachable ?? null,
-    eligible, added, kept: kept.length, pruned, rejected,
+    outcome, catalogCount: models.length, reachable: catalog?.reachable ?? null,
+    eligible, added, kept: kept.length, pruned, rejected, inUseKept,
   };
   stmts.finishRun.run(summary.finishedAt, models.length, eligible, added.length, JSON.stringify(summary), runId);
   return summary;
@@ -219,16 +260,62 @@ export function setModelCandidateStatus(stmts, modelId, status) {
   return stmts.get.get(modelId);
 }
 
+function runSummary(row) {
+  try { return row.summary_json ? JSON.parse(row.summary_json) : null; } catch { return null; }
+}
+
+function runOutcome(row, summary) {
+  if (summary?.abandoned === true) return "abandoned";
+  if (!row.finished_at) return "in_progress";
+  return summary?.outcome === "failed" ? "failed" : "completed";
+}
+
+// The newest run, with how many runs in a row have failed (the cadence's
+// retry backoff counts them).
 export function lastModelCatalogRun(stmts) {
-  const row = stmts.lastRun.get();
+  const rows = stmts.listRuns.all(25);
+  const row = rows[0];
   if (!row) return null;
-  let summary = null;
-  try { summary = row.summary_json ? JSON.parse(row.summary_json) : null; } catch { summary = null; }
+  const summary = runSummary(row);
   return {
     id: row.id, startedAt: row.started_at, finishedAt: row.finished_at, trigger: row.trigger,
+    outcome: runOutcome(row, summary),
+    failedStreak: failedStreak(rows.map((r) => runOutcome(r, runSummary(r)))),
     scoutVersion: summary?.scoutVersion ?? 1,
     abandoned: summary?.abandoned === true,
+    reachable: summary?.reachable ?? null,
     catalogCount: row.catalog_count, eligible: row.eligible, added: row.added, pruned: summary?.pruned ?? 0,
     addedIds: Array.isArray(summary?.added) ? summary.added.map((a) => a.id) : [],
+    inUseKept: Array.isArray(summary?.inUseKept) ? summary.inUseKept : [],
   };
+}
+
+// ─── Tier status ───────────────────────────────────────────────────────
+// Whether each tier's configured model can be called right now, in the
+// order the call path would refuse it: OpenRouter no longer lists it, the
+// adapter allowlist refuses it (model_not_allowed), or the budget has no
+// verified price for it (unknown_model_pricing). The admin page shows a
+// banner for any tier that is not "ok" and the server logs one at boot;
+// nothing switches the tier to another model on its own, because a
+// counselor's selection is never silently replaced. A status is one of
+// "ok", "not_in_catalog", "not_in_allowlist", "no_price".
+export function modelTierStatus({ targets = {}, catalog = null, isAllowed = () => true, pricingLookup = () => null } = {}) {
+  const byId = catalog?.byId instanceof Map ? catalog.byId : new Map();
+  const out = {};
+  for (const tier of ["small", "medium", "large"]) {
+    const model = String(targets?.[tier] || "").trim() || null;
+    let status = "ok";
+    if (!model) status = "not_in_allowlist";
+    else if (byId.size > 0 && !byId.has(model)) status = "not_in_catalog";
+    else if (!isAllowed(model)) status = "not_in_allowlist";
+    else if (!pricingLookup(model)) status = "no_price";
+    out[tier] = { model, status };
+  }
+  return out;
+}
+
+export function tierStatusProblems(status) {
+  return Object.entries(status || {})
+    .filter(([, entry]) => entry?.status && entry.status !== "ok")
+    .map(([tier, entry]) => ({ tier, model: entry.model, status: entry.status }));
 }

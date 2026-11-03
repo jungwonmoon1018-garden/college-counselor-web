@@ -23,7 +23,7 @@ import crypto from "node:crypto";
 import { assertSafeFetchTarget } from "../security/safe-fetch.js";
 import { expandCollegeAlias, slugifyCollege, currentAdmissionsCycle } from "../colleges/college-research.js";
 import { insertFact } from "./fact-store.js";
-import { scoutRunDue } from "./scout-cadence.js";
+import { failedStreak, scoutRunDue } from "./scout-cadence.js";
 import { policyFields, extractPolicyFromPages, diffPolicies, SCOUT_VERSION, PLAN_LABELS, TEST_POLICY_LABELS } from "./policy-scout-extract.js";
 import { hostOf, makeFetcher, resolveSchoolSite, gatherPolicyPages } from "./policy-scout-fetch.js";
 export { SCOUT_USER_AGENT, parseRobots, robotsAllows, makeFetcher, resolveSchoolSite, schoolRootHost, schoolDomainToken, rankedPolicyLinks } from "./policy-scout-fetch.js";
@@ -351,9 +351,15 @@ export async function runPolicyScout(targets, {
   const checked = results.filter((r) => r.status === "ok").length;
   const failed = results.filter((r) => r.status === "failed").length;
   const changes = results.reduce((sum, r) => sum + (r.changes?.length || 0), 0);
+  // A sweep that had schools to read and read none of them — outbound
+  // fetches failing right after a deploy, a DNS outage — did no work. It
+  // is kept in the log but marked failed, so the cadence retries it within
+  // the hour (scout-cadence.js) instead of a fortnight later. A sweep with
+  // nothing to read (every school read in the last day) is complete.
+  const outcome = list.length > 0 && checked === 0 ? "failed" : "completed";
   const summary = {
     runId, trigger, startedAt, finishedAt: now().toISOString(), scoutVersion: SCOUT_VERSION, sweepRules: SWEEP_RULES_VERSION,
-    total: list.length, checked, failed, skipped: results.length - checked - failed, recentlyRead, changes,
+    outcome, total: list.length, checked, failed, skipped: results.length - checked - failed, recentlyRead, changes,
     changed: results.filter((r) => r.changes?.length).map((r) => ({ school: r.school, changes: r.changes })),
     failures: results.filter((r) => r.status !== "ok").map((r) => ({ school: r.school, reason: r.reason })).slice(0, 40),
   };
@@ -494,9 +500,18 @@ export function lastRunSummary(stmts) {
 // The newest run that counts toward the automatic cadence: a boot or
 // scheduled sweep. A counselor's manual spot-check of a few schools must not
 // push the next full sweep out by another cadence.
+// A failed sweep carries how many automatic sweeps in a row have failed,
+// which sets how long the cadence waits before the next retry.
 export function lastAutomaticRun(stmts) {
-  const row = stmts.listRuns.all(25).find((r) => r.trigger !== "manual");
-  return row ? summarizeRun(row) : null;
+  const runs = stmts.listRuns.all(25).filter((r) => r.trigger !== "manual").map(summarizeRun);
+  if (!runs.length) return null;
+  return { ...runs[0], failedStreak: failedStreak(runs.map((r) => r.outcome)) };
+}
+
+function runOutcome(row, summary) {
+  if (summary?.abandoned === true) return "abandoned";
+  if (!row.finished_at) return "in_progress";
+  return summary?.outcome === "failed" ? "failed" : "completed";
 }
 
 function summarizeRun(row) {
@@ -506,6 +521,7 @@ function summarizeRun(row) {
     startedAt: row.started_at,
     finishedAt: row.finished_at,
     trigger: row.trigger,
+    outcome: runOutcome(row, summary),
     scoutVersion: summary?.scoutVersion ?? 1,
     sweepRules: Number(summary?.sweepRules) || 1,
     abandoned: summary?.abandoned === true,
