@@ -29,7 +29,7 @@
 
 import { vectorizeEC } from "../activities/ec-vectorizer.js";
 import { projectStrengthToLegacyVector } from "../activities/ec-strength-vectorizer.js";
-import { formatClassRank, formatSections, normalizeClassRank, testLabel } from "../academics/test-catalog.js";
+import { entryLabel, formatClassRank, formatSections, normalizeClassRank, scaleKey, sectionEntries } from "../academics/test-catalog.js";
 import { courseLevel, describeCourseRigor, LEVEL_LABELS, readCourseRigor } from "../academics/course-rigor.js";
 
 // ─── Fit scoring (rule-based, deterministic) ───────────────────────────
@@ -242,6 +242,12 @@ function activityTone(character) {
 // GPA, class rank, every test with its sections, and the AP exam results,
 // each with the hints that tie it to a priority and, when the College Fit
 // read for the school is supplied, its place against the enrolled class.
+//
+// Each line also carries labelKey and labelParams, the same reading as
+// codes and numbers: the label is English ("Course rigor: 2 AP", "Class
+// rank top 3%", "AP exams: ..."), and in Korean mode the card printed it
+// beside Korean bars (fit-10). The label stays for the chat and older
+// clients; the card translates the code.
 function academicEvidence(profile, comparison) {
   const items = [];
 
@@ -259,7 +265,8 @@ function academicEvidence(profile, comparison) {
     // The same units the comparison block shows (both come from
     // course-rigor.js; the College Fit read's copy wins when supplied).
     const detail = { units: read?.units ?? rigor.units, apTaken: rigor.apTaken, apScored: rigor.apScored, expectation: read?.expectation ?? null };
-    items.push({ kind: "rigor", hints: ACADEMIC_VALUE_HINTS.rigor, label: `Course rigor: ${describeCourseRigor(rigor)}`, tone, position, detail });
+    const labelParams = { apTaken: rigor.apTaken, apScored: rigor.apScored, ib: rigor.ib, dualEnrollment: rigor.dualEnrollment, aLevel: rigor.aLevel, honors: rigor.honors };
+    items.push({ kind: "rigor", hints: ACADEMIC_VALUE_HINTS.rigor, label: `Course rigor: ${describeCourseRigor(rigor)}`, labelKey: "course_rigor", labelParams, tone, position, detail });
   }
 
   const gpa = numberOrNull(profile?.gpaUnweighted ?? profile?.gpa?.unweighted);
@@ -272,7 +279,8 @@ function academicEvidence(profile, comparison) {
       : `Weighted GPA ${weighted}`;
     const tone = position ? positionTone(position) : ((gpa ?? Math.min(weighted, 4)) >= 3.5 ? "fair" : "weak");
     const detail = read?.average != null ? { average: read.average, weighted: read.averageScale === "weighted" } : null;
-    items.push({ kind: "gpa", hints: ACADEMIC_VALUE_HINTS.gpa, label, tone, position, detail });
+    const labelKey = gpa != null ? "gpa" : "gpa_weighted_only";
+    items.push({ kind: "gpa", hints: ACADEMIC_VALUE_HINTS.gpa, label, labelKey, labelParams: { unweighted: gpa, weighted }, tone, position, detail });
   }
 
   const rank = normalizeClassRank(profile?.classRank);
@@ -282,23 +290,36 @@ function academicEvidence(profile, comparison) {
     const position = shareAbove != null ? (shareAbove <= 10 ? "above" : shareAbove <= 50 ? "within" : "below") : null;
     const tone = position ? positionTone(position) : (rank.topPercent <= 10 ? "strong" : rank.topPercent <= 25 ? "fair" : "weak");
     const detail = read?.school?.topTenthPct != null ? { topTenthPct: read.school.topTenthPct } : null;
-    items.push({ kind: "rank", hints: ACADEMIC_VALUE_HINTS.rank, label: `Class rank ${formatClassRank(rank)}`, tone, position, detail });
+    const labelParams = { topPercent: rank.topPercent ?? null, rank: rank.rank ?? null, size: rank.size ?? null };
+    items.push({ kind: "rank", hints: ACADEMIC_VALUE_HINTS.rank, label: `Class rank ${formatClassRank(rank)}`, labelKey: "class_rank", labelParams, tone, position, detail });
   }
 
   for (const entry of Array.isArray(profile?.testScores) ? profile.testScores : []) {
     if (!entry || !entry.test || numberOrNull(entry.totalScore) == null) continue;
     const testKey = String(entry.test).toLowerCase();
+    // The College Fit read places one sitting per test (the best one,
+    // academics/test-sittings.js); an earlier or lower sitting of the same
+    // test is listed but not placed, or a retake's band and position would
+    // be printed beside the score it replaced.
+    const sameSitting = (r) => r && String(r.test || "").toLowerCase() === testKey && (r.score == null || Number(r.score) === Number(entry.totalScore));
     const usedRead = comparison?.tests?.used;
-    const used = usedRead && String(usedRead.test || "").toLowerCase() === testKey ? usedRead : null;
-    const alternative = used ? null : (comparison?.tests?.alternatives || []).find((a) => String(a?.test || "").toLowerCase() === testKey) || null;
+    const used = sameSitting(usedRead) ? usedRead : null;
+    const alternative = used ? null : (comparison?.tests?.alternatives || []).find(sameSitting) || null;
     const read = used || alternative;
     const position = read?.position && read.position !== "unknown" ? read.position : null;
     const sections = formatSections(entry);
-    const label = `${testLabel(entry.test)} ${entry.totalScore}${sections ? ` (${sections})` : ""}`;
+    // The entry's own scale names it ("TOEFL (1-6 band) 5.5", "PSAT 8/9 900").
+    const label = `${entryLabel(entry)} ${entry.totalScore}${sections ? ` (${sections})` : ""}`;
+    const labelParams = {
+      test: testKey,
+      scale: scaleKey(testKey, entry.scale),
+      total: numberOrNull(entry.totalScore),
+      sections: sectionEntries(entry).map(({ key, value }) => ({ key, value })),
+    };
     const withhold = Boolean(used) && comparison?.tests?.advice === "withhold";
     const tone = withhold ? "weak" : (position ? positionTone(position) : "fair");
     const detail = read?.band?.low != null && read?.band?.high != null ? { band: { low: read.band.low, high: read.band.high } } : null;
-    items.push({ kind: "test", hints: ACADEMIC_VALUE_HINTS.test, label, tone, position, detail, advice: withhold ? "withhold" : null });
+    items.push({ kind: "test", hints: ACADEMIC_VALUE_HINTS.test, label, labelKey: "test_score", labelParams, tone, position, detail, advice: withhold ? "withhold" : null });
   }
 
   const exams = (Array.isArray(profile?.apScores) ? profile.apScores : [])
@@ -307,7 +328,8 @@ function academicEvidence(profile, comparison) {
   if (exams.length) {
     const average = round1(exams.reduce((sum, e) => sum + e.score, 0) / exams.length);
     const names = exams.slice(0, 4).map((e) => `${e.name} ${e.score}`).join(", ") + (exams.length > 4 ? `, +${exams.length - 4} more` : "");
-    items.push({ kind: "ap", hints: ACADEMIC_VALUE_HINTS.ap, label: `AP exams: ${names}`, tone: average >= 4 ? "strong" : average >= 3 ? "fair" : "weak", position: null, detail: { average } });
+    const labelParams = { exams: exams.slice(0, 4).map(({ name, score }) => ({ name, score })), more: Math.max(0, exams.length - 4) };
+    items.push({ kind: "ap", hints: ACADEMIC_VALUE_HINTS.ap, label: `AP exams: ${names}`, labelKey: "ap_exams", labelParams, tone: average >= 4 ? "strong" : average >= 3 ? "fair" : "weak", position: null, detail: { average } });
   }
 
   return items;
@@ -425,7 +447,7 @@ export function computeFit(values, profile, options = {}) {
     }
     for (const c of courses) {
       if (c.perValue[i].score > 0.5) {
-        evidence.push({ kind: "course", label: `${c.name}${TYPE_LABELS[c.level] ? ` (${TYPE_LABELS[c.level]})` : ""}`, tone: c.tone, position: null });
+        evidence.push({ kind: "course", label: `${c.name}${TYPE_LABELS[c.level] ? ` (${TYPE_LABELS[c.level]})` : ""}`, labelKey: "course", labelParams: { name: c.name, level: TYPE_LABELS[c.level] ? c.level : null }, tone: c.tone, position: null });
       }
     }
     for (const a of activities) {

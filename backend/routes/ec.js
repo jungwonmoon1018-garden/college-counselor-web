@@ -6,6 +6,7 @@ import { EC_FACTORS, buildNextStepPlan, scoreAcademicStrength } from "../activit
 import { applyStrengthOverride, buildDefaultLLMClient, projectStrengthToLegacyVector, recomputeStudentECStrengthVectors, vectorizeECStrength } from "../activities/ec-strength-vectorizer.js";
 import { getActiveNarrative } from "../activities/narrative-store.js";
 import { enhancedCollegeMatch } from "../storage/rag-engine.js";
+import { sealText } from "../chat/chat-history.js";
 import path from "node:path";
 import crypto from "node:crypto";
 import { ExtractionError, MAX_FILE_BYTES, SUPPORTED_MIME_TYPES, extractText } from "../shared/file-extractors.js";
@@ -172,7 +173,9 @@ export function registerEcRoutes(app, deps) {
       const activities = deps.safeParseJSON(snap.activities_json, []);
       const courses = deps.safeParseJSON(snap.courses_json, []);
       const apScores = deps.safeParseJSON(snap.ap_scores_json, []);
-      const ecStrengthRows = ecStrengthStmts.getByStudent.all(req.studentId);
+      // This read named a variable that did not exist after the move out of
+      // server.js, so every plan request failed with a 500.
+      const ecStrengthRows = deps.ragStmts.strength.getByStudent.all(req.studentId);
 
       // Resolve target colleges: accept unitId list, else fall back to top college match
       let colleges = [];
@@ -303,10 +306,13 @@ export function registerEcRoutes(app, deps) {
         : null;
 
       try {
+        // The text is sealed at rest like a chat upload's (the vectorizer's
+        // attachmentText opens either). A direct upload's text used to sit in
+        // plaintext beside the sealed chat copies.
         deps.ragStmts.strength.insertAttachment.run(
           attachmentId, studentId, ecName,
           req.file.originalname, req.file.mimetype, req.file.size,
-          finalPath, extractedText, extractedHash, extractedText.length,
+          finalPath, extractedText ? sealText(extractedText) : extractedText, extractedHash, extractedText.length,
           extractionStatus, extractionError,
         );
       } catch (e) {
@@ -352,6 +358,57 @@ export function registerEcRoutes(app, deps) {
         error: extractionError,
       });
     });
+  });
+
+  // DELETE /api/ec/attachments/:id — the student removes one evidence file.
+  // Before this a wrong or sensitive upload could only go with the whole
+  // account, and kept feeding the strength read meanwhile. A direct upload's
+  // row is deleted and its file unlinked when no other row of the student's
+  // points at the same file (re-uploads of one file share it). A file
+  // attached in chat leaves a content-free marker (see markAttachmentRemoved)
+  // so reading the chat uploads again does not restore it; its text still
+  // sits in that chat turn until the conversation is deleted or ages out.
+  // The strength read is recomputed so the file stops counting at once.
+  app.delete("/api/ec/attachments/:id", deps.studentLimiter, deps.requireStudentAuth, async (req, res) => {
+    try {
+      const studentId = req.studentId;
+      const strength = deps.ragStmts.strength;
+      const row = strength.getAttachmentForStudent.get(String(req.params.id || ""), studentId);
+      if (!row || row.extraction_status === "removed") return res.status(404).json({ error: "Attachment not found", code: "attachment_not_found" });
+
+      const storagePath = String(row.storage_path || "");
+      const fromChat = storagePath.startsWith("chat://");
+      let fileRemoved = false;
+      if (fromChat) {
+        strength.markAttachmentRemoved.run(row.id, studentId);
+      } else {
+        strength.deleteAttachment.run(row.id, studentId);
+        const studentDir = path.resolve(deps.EC_ATTACHMENTS_DIR, String(studentId));
+        const resolved = path.resolve(storagePath);
+        const insideStudentDir = resolved.startsWith(studentDir + path.sep);
+        const stillReferenced = (strength.countAttachmentsAtPath.get(studentId, storagePath)?.n || 0) > 0;
+        if (insideStudentDir && !stillReferenced) {
+          try {
+            await fs.promises.rm(resolved, { force: true });
+            fileRemoved = true;
+          } catch (err) {
+            console.warn("[EC attachments] file unlink failed:", err.message);
+          }
+        }
+      }
+
+      let recomputed = false;
+      try {
+        await deps.recomputeStrengthForStudent(studentId);
+        recomputed = true;
+      } catch (err) {
+        console.warn("[EC attachments] recompute after delete failed:", err.message);
+      }
+      res.json({ deleted: true, id: row.id, origin: fromChat ? "chat" : "upload", fileRemoved, recomputed });
+    } catch (err) {
+      console.error("[EC attachments] delete error:", err.message);
+      res.status(500).json({ error: "Delete failed" });
+    }
   });
 
   

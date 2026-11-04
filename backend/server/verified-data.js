@@ -12,39 +12,96 @@ import { TOPIC_TYPES, enforceGates } from "../chat/policy-router.js";
 import { buildSystemPrompt } from "../chat/orchestration-engine.js";
 import { searchFacts } from "../scouts/fact-store.js";
 import { getEvidenceProfile } from "../storage/evidence-graph.js";
-import { formatPolicyLine, readPolicySnapshot, scoutSchool, snapshotAsDeadlineRecord, snapshotIsCurrent } from "../scouts/admissions-policy-scout.js";
+import { formatPolicyLine, makeFetcher, readPolicySnapshot, scoutSchool, snapshotAsDeadlineRecord, snapshotIsCurrent } from "../scouts/admissions-policy-scout.js";
 import { searchScorecard } from "../colleges/college-scorecard.js";
-import { cdsRecordToPositioningResult, cdsVerification, isCdsRecordValidated, resolveStoredCdsRecord, schoolNamesCompatible } from "../cds/cds-store.js";
-import { buildProfileComparison, buildStudentModel, compareApExams, compareCourseRigor, compareGpaToSchool, compareRankToSchool, compareTestsToSchool } from "../colleges/positioning-engine.js";
+import { assertSafeFetchTarget } from "../security/safe-fetch.js";
+import { isCdsRecordValidated, resolveStoredCdsRecord, schoolNamesCompatible } from "../cds/cds-store.js";
+import { POSITIONING_MODEL_VERSION, buildProfileComparison, buildStudentModel, scoreAcademicReadiness } from "../colleges/positioning-engine.js";
+import { localFitContext } from "./fit-context.js";
 import { getActiveNarrative } from "../activities/narrative-store.js";
-import { detectSchoolMentions, formatVerifiedDataBlock } from "../chat/chat-grounding.js";
+import { detectSchoolMentions, formatVerifiedDataBlock, unresolvedSchoolNames } from "../chat/chat-grounding.js";
 import { calculateDeadlineStatus, runFAFSAEligibilityCheck } from "../chat/rules-engine.js";
 
 let deps;
 export function bindVerifiedData(serverDeps) { deps = serverDeps; }
 
-export function rememberFitRead(studentId, target, { verification = null } = {}) {
+function latestSnapshotId(studentId) {
+  try { return deps.ragStmts.getLatestSnapshot.get(studentId)?.id ?? null; } catch { return null; }
+}
+
+// The student's College Fit read for a school, kept for the chat's
+// VERIFIED DATA block. The stored provenance carries what the read was
+// computed from (the profile snapshot and the engine version) and its
+// label key, so a later reader can tell a current read from an old one.
+//
+// A read the engine withheld a label from ("insufficient_student_data")
+// stores no label: the chat was told "use this exact label" for a "Reach"
+// computed from an empty record (fit-4).
+//
+// The double-check stays beside a read only while it describes that read:
+// the same label from the same snapshot and engine. The upsert keeps the
+// previous verification when a plain re-read passes none (server.js), so a
+// new "Competitive" read sat beside October's "with live inputs the read
+// moves to High reach" (fit-9). When the read moved, an explicit JSON null
+// is written, which the upsert takes in place of the old verdict.
+export function rememberFitRead(studentId, target, { verification = null, snapshotId = undefined } = {}) {
   try {
     const slug = slugifyCollege(target?.schoolName || "");
     if (!slug) return;
+    const withheld = String(target?.labelKey || "").startsWith("insufficient_");
+    const label = withheld ? null : (target.overallPositioningLabel || null);
+    const snapshot = snapshotId !== undefined ? snapshotId : latestSnapshotId(studentId);
+    const provenance = {
+      ...(target.dataProvenance || {}),
+      labelKey: target.labelKey ?? target.dataProvenance?.labelKey ?? null,
+      modelVersion: POSITIONING_MODEL_VERSION,
+      snapshotId: snapshot ?? null,
+    };
+    let verificationJson = verification ? JSON.stringify(verification) : null;
+    if (!verification) {
+      const previous = (deps.fitReadStmts.byStudent.all(studentId) || []).find((row) => row.slug === slug) || null;
+      if (previous?.verification_json && previous.verification_json !== "null") {
+        const before = safeParseJSON(previous.provenance_json, null) || {};
+        const sameRead = previous.label === label
+          && before.modelVersion === POSITIONING_MODEL_VERSION
+          && String(before.snapshotId ?? "") === String(snapshot ?? "");
+        if (!sameRead) verificationJson = "null";
+      }
+    }
     deps.fitReadStmts.upsert.run(
-      studentId, slug, target.schoolName, target.overallPositioningLabel || null, target.finalPositioningScore ?? null,
+      studentId, slug, target.schoolName, label, withheld ? null : (target.finalPositioningScore ?? null),
       target.admissibility?.academicReadinessScore ?? null, target.competitiveness?.majorCompetitivenessScore ?? null,
       target.fit?.institutionalPriorityFitScore ?? null, target.confidence?.evidenceConfidence || null,
-      JSON.stringify(target.dataProvenance || null), verification ? JSON.stringify(verification) : null,
+      JSON.stringify(provenance), verificationJson,
       new Date().toISOString(),
     );
   } catch (err) { console.warn("[fit-read] not saved:", err?.message); }
 }
 
+// The stored reads, each marked stale when it was computed by another
+// engine version or from an older profile snapshot. A stale read gives no
+// label (the chat's fit line needs one) and no double-check: rows written
+// before a version bump kept their old labels in the chat until the student
+// reopened that school (fit-9). `staleLabel` keeps what it said.
 export function fitReadsForStudent(studentId) {
   try {
-    return deps.fitReadStmts.byStudent.all(studentId).map((row) => ({
-      school: row.school, slug: row.slug, label: row.label, score: row.score,
-      admissibility: row.admissibility, competitiveness: row.competitiveness, fit: row.fit,
-      confidence: row.confidence, provenance: safeParseJSON(row.provenance_json, null),
-      verification: safeParseJSON(row.verification_json, null), computedAt: row.computed_at,
-    }));
+    const currentSnapshot = latestSnapshotId(studentId);
+    return deps.fitReadStmts.byStudent.all(studentId).map((row) => {
+      const provenance = safeParseJSON(row.provenance_json, null);
+      const stale = provenance?.modelVersion !== POSITIONING_MODEL_VERSION
+        || (currentSnapshot != null && String(provenance?.snapshotId ?? "") !== String(currentSnapshot));
+      return {
+        school: row.school, slug: row.slug,
+        label: stale ? null : row.label,
+        score: stale ? null : row.score,
+        admissibility: row.admissibility, competitiveness: row.competitiveness, fit: row.fit,
+        confidence: row.confidence, provenance,
+        verification: stale ? null : safeParseJSON(row.verification_json, null), computedAt: row.computed_at,
+        stale,
+        staleLabel: stale ? row.label : null,
+        labelKey: stale ? null : (provenance?.labelKey ?? null),
+      };
+    });
   } catch { return []; }
 }
 
@@ -96,33 +153,135 @@ export function regulatedChatGate(classification, studentId, userText, locale, {
       },
     };
   }
-  return { systemPrefix: buildSystemPrompt(classification) };
+  const rules = fafsaRuleTextForPrompt(userText, classification.subIntent);
+  return { systemPrefix: [buildSystemPrompt(classification), rules].filter(Boolean).join("\n\n") };
 }
 
-export async function scoutSchoolOnDemand(schoolName, { timeoutMs = 15_000 } = {}) {
+// The official rule text beside a FAFSA eligibility question the checklist
+// does not answer on its own (gate-9): "Am I eligible as a permanent
+// resident?" and "my parents are undocumented" went to the canned checklist
+// and were never addressed. They now reach the model as labeled general
+// guidance with the reviewed rules to cite, and an honest pointer for what
+// the rules do not settle. Nothing when no reviewed ruleset covers `now`:
+// the advisory prefix and the StudentAid.gov pointer stand alone.
+const FAFSA_RULES_TOPIC_RE = /\b(?:eligib\w*|qualif\w*|citizen\w*|residents?|green\s+card|daca|undocumented|non-?citizens?|ssn|social\s+security|visas?|immigra\w*|refugees?|asylum)\b|자격|영주권|시민권|체류|비자|사회\s*보장/i;
+
+export function fafsaRuleTextForPrompt(questionText, subIntent, { now = new Date() } = {}) {
+  const intent = String(subIntent || "").toLowerCase();
+  if (intent !== "eligibility" && !(intent === "fafsa" && FAFSA_RULES_TOPIC_RE.test(String(questionText || "")))) return "";
+  const check = runFAFSAEligibilityCheck({}, { now });
+  if (check.available === false) return "";
+  const lines = check.results.map((rule) => `- ${rule.label}: ${rule.description}${rule.note ? ` ${rule.note}` : ""} [Source: ${rule.source}]`);
+  for (const removed of check.removedRequirements || []) lines.push(`- ${removed.note} [Source: ${removed.source}]`);
+  return `OFFICIAL FAFSA ELIGIBILITY RULES (${check.sourceTitle}, for the ${check.academicYear} award year; reviewed text, not a determination). Answer the student's own situation from these where they apply and cite the source. For a case they do not settle (a parent or contributor without a Social Security number, a particular immigration status), say so plainly and send the student to studentaid.gov/apply-for-aid/fafsa/eligibility instead of guessing.${check.filingYearNote ? ` ${check.filingYearNote}` : ""}\n${lines.join("\n")}`;
+}
+
+// What `orAbort` resolves to when the signal fires first.
+const ABORTED = Symbol("aborted");
+
+// The promise's value, or ABORTED as soon as `signal` aborts. The promise
+// keeps its handlers, so a rejection after the abort is not left unhandled.
+function orAbort(promise, signal) {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.resolve(ABORTED);
+  let onAbort = null;
+  const aborted = new Promise((resolve) => {
+    onAbort = () => resolve(ABORTED);
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+  return Promise.race([promise, aborted]).finally(() => signal.removeEventListener("abort", onAbort));
+}
+
+// An on-demand read of a school's own pages, shared by every chat turn that
+// asks about that school while it runs (deps.onDemandScouts, by slug). Each
+// turn waits under its own signal (chat-11): one whose student cancelled or
+// timed out stops waiting at once ("aborted") instead of holding the request
+// for up to 15 s, and when the last turn waiting has gone that way the page
+// reads stop too. A wait that only times out leaves the read running, as it
+// always has, so the snapshot it writes answers the next question.
+export async function scoutSchoolOnDemand(schoolName, { timeoutMs = 15_000, signal = null } = {}) {
+  if (signal?.aborted) return "aborted";
   const row = deps.resolveBaselineCollegeRow(deps.db, { schoolName });
   const target = { name: row?.name || schoolName, unitId: row?.unit_id || null, website: row?.website || null };
   const key = slugifyCollege(target.name) || String(target.name).toLowerCase();
-  if (!deps.onDemandScouts.has(key)) {
-    const run = scoutSchool(target, { stmts: deps.policyScoutStmts, factStmts: deps.factStmts, scorecardKey: deps.SCORECARD_API_KEY || null })
-      .catch((err) => { console.warn("[policy-scout] on-demand read failed:", err?.message); return { status: "error" }; })
-      .finally(() => deps.onDemandScouts.delete(key));
-    deps.onDemandScouts.set(key, run);
+  let entry = deps.onDemandScouts.get(key);
+  if (!entry) {
+    const controller = new AbortController();
+    // The scout's own fetcher (robots.txt, the per-host delay, the safe-fetch
+    // target check), with the run's signal joined to each page's timeout.
+    // Once it aborts, every later page is refused at the target check, ahead
+    // of the per-host delay, so the run ends instead of walking its list.
+    const fetcher = makeFetcher({
+      assertTarget: (url) => {
+        controller.signal.throwIfAborted();
+        return assertSafeFetchTarget(url);
+      },
+      fetchImpl: (url, init = {}) => globalThis.fetch(url, {
+        ...init,
+        signal: init.signal ? AbortSignal.any([init.signal, controller.signal]) : controller.signal,
+      }),
+    });
+    const created = { controller, waiters: 0, run: null };
+    created.run = scoutSchool(target, { stmts: snapshotWritesUntilAborted(deps.policyScoutStmts, controller.signal), factStmts: deps.factStmts, scorecardKey: deps.SCORECARD_API_KEY || null, fetcher })
+      .catch((err) => {
+        if (controller.signal.aborted) return { status: "aborted" };
+        console.warn("[policy-scout] on-demand read failed:", err?.message);
+        return { status: "error" };
+      })
+      .finally(() => { if (deps.onDemandScouts.get(key) === created) deps.onDemandScouts.delete(key); });
+    deps.onDemandScouts.set(key, created);
+    entry = created;
   }
-  const result = await Promise.race([
-    deps.onDemandScouts.get(key),
-    new Promise((resolve) => setTimeout(() => resolve(null), timeoutMs).unref()),
-  ]);
-  if (!result) return "timeout";
-  if (["skipped", "failed", "error"].includes(result.status)) return result.status;
-  return "ok";
+  entry.waiters += 1;
+  let timer = null;
+  try {
+    const timedOut = new Promise((resolve) => { timer = setTimeout(() => resolve(null), timeoutMs); timer.unref?.(); });
+    const result = await orAbort(Promise.race([entry.run, timedOut]), signal);
+    if (result === ABORTED) return "aborted";
+    if (!result) return "timeout";
+    if (["skipped", "failed", "error", "aborted"].includes(result.status)) return result.status;
+    return "ok";
+  } finally {
+    clearTimeout(timer);
+    entry.waiters -= 1;
+    if (signal?.aborted && entry.waiters === 0) {
+      entry.controller.abort(new Error("Every chat turn waiting on this read has closed."));
+      // A turn that arrives now starts its own read rather than joining one
+      // that will store nothing.
+      if (deps.onDemandScouts.get(key) === entry) deps.onDemandScouts.delete(key);
+    }
+  }
 }
 
-export async function scorecardStatsOnDemand(schoolName) {
-  if (!deps.SCORECARD_API_KEY) return null;
+// The policy scout's statements for one on-demand read, with the snapshot
+// writes refused once the read is stopped. The fetcher answers a stopped
+// page as "no page", so a read cut off part-way still returned the pages it
+// had and scoutSchool stored that partial reading as the school's current
+// snapshot: the dates on the pages never read were gone for every student
+// until the cycle turned, since a current snapshot is never re-read on
+// demand (backend-1). The snapshot is the first write and the change rows
+// and facts follow it in the same tick, so refusing it refuses them all.
+function snapshotWritesUntilAborted(stmts, signal) {
+  if (!stmts) return stmts;
+  const gated = (stmt) => stmt && {
+    run: (...args) => {
+      signal.throwIfAborted();
+      return stmt.run(...args);
+    },
+  };
+  return { ...stmts, upsertSnapshot: gated(stmts.upsertSnapshot), insertChange: gated(stmts.insertChange) };
+}
+
+// The Scorecard's figures for one school. A turn whose student went away
+// stops waiting (null, as if nothing were found); the search's own request
+// is held to its 10 s timeout inside searchScorecard.
+export async function scorecardStatsOnDemand(schoolName, { signal = null } = {}) {
+  if (!deps.SCORECARD_API_KEY || signal?.aborted) return null;
   try {
     const wanted = expandCollegeAlias(schoolName);
-    const hit = pickScorecardHit((await searchScorecard(deps.SCORECARD_API_KEY, { name: wanted, limit: 20 }))?.results, wanted);
+    const found = await orAbort(searchScorecard(deps.SCORECARD_API_KEY, { name: wanted, limit: 20, signal }), signal);
+    if (found === ABORTED) return null;
+    const hit = pickScorecardHit(found?.results, wanted);
     if (!hit) return null;
     const parts = [];
     const rate = Number(hit.acceptanceRate);
@@ -148,53 +307,48 @@ export async function scorecardStatsOnDemand(schoolName) {
 // PII-light: names/descriptions of the student's OWN activities/courses are
 // their own data (no third-party PII); paid calls use the administrator's
 // fixed OpenRouter key and the student's monthly budget ledger.
+//
+// The grade level is the server's own (getStudentGrade, from the class the
+// student registered with), never one the client sends: the model could not
+// tell a freshman from a senior (fid-5). The GPA and testing statuses ride
+// along when the snapshot stores them. A read of `snap.profile_json` used
+// to sit here; profile_snapshots has no such column, so it never fired.
 export function assembleProfileForGeneration(studentId) {
   const snap = deps.ragStmts.getLatestSnapshot.get(studentId);
   if (!snap) return null;
-  const profile = snap.profile_json ? safeParseJSON(snap.profile_json, {}) : {};
+  let gradeLevel = null;
+  try { gradeLevel = deps.authStore?.getStudentGrade?.(studentId) ?? null; } catch { gradeLevel = null; }
   return {
-    gpaUnweighted: snap.gpa_unweighted ?? profile?.gpa?.unweighted ?? null,
-    gpaWeighted: snap.gpa_weighted ?? profile?.gpa?.weighted ?? null,
+    gradeLevel,
+    gpaStatus: snap.gpa_status ?? null,
+    testingStatus: snap.testing_status ?? null,
+    gpaUnweighted: snap.gpa_unweighted ?? null,
+    gpaWeighted: snap.gpa_weighted ?? null,
     classRank: safeParseJSON(snap.class_rank_json, null),
     courses: safeParseJSON(snap.courses_json, []),
     apScores: safeParseJSON(snap.ap_scores_json, []),
     testScores: safeParseJSON(snap.test_scores_json, []),
     activities: safeParseJSON(snap.activities_json, []),
-    majorInterest: snap.major_interest || profile?.majorInterest || null,
+    majorInterest: snap.major_interest || null,
     goals: safeParseJSON(snap.goals_json, []),
   };
 }
 
 // The student's record against one school's enrolled class — the same
 // reads the College Fit calculation makes (tests by section, GPA, class
-// rank, AP exams) from the stored Common Data Set and baseline row, with no
-// live fetch — so the priorities matrix under the fit card can place a
-// score against the school's middle 50% instead of only listing it. Null
-// when nothing is held for the school.
+// rank, AP exams, course load) from the same school context the card uses
+// (server/fit-context.js: the stored Common Data Set and baseline row, the
+// admit rate, the policy the school states this cycle), with no live
+// fetch — so the priorities matrix under the fit card places a score where
+// the card does. Null when nothing is held for the school.
 export function profileComparisonForSchool(studentId, schoolName) {
   try {
     if (!schoolName) return null;
     const snap = deps.ragStmts.getLatestSnapshot.get(studentId);
     if (!snap) return null;
     const wanted = expandCollegeAlias(String(schoolName));
-    const collegeRow = deps.resolveBaselineCollegeRow(deps.db, { schoolName: wanted });
-    const record = resolveStoredCdsRecord(deps.ragStmts, { schoolName: collegeRow?.name || wanted });
-    if (!record && !collegeRow) return null;
-    // A usable record (validated, or the school's own current document
-    // reading consistently) supplies the numbers; only an externally
-    // checked one counts as verified for the confidence read.
-    const validated = record ? isCdsRecordValidated(deps.ragStmts, record.slug) : false;
-    const verification = record ? cdsVerification(deps.ragStmts, record.slug) : "unverified";
-    const cds = record ? cdsRecordToPositioningResult(record, { validated: verification === "validated", verification }) : null;
-    const pick = (cdsVal, baseVal) => (record && validated ? (cdsVal ?? baseVal) : (baseVal ?? cdsVal));
-    const college = {
-      name: collegeRow?.name || record?.school || wanted,
-      sat25: pick(record?.enrolledSAT?.p25, collegeRow?.sat_25) ?? null,
-      sat75: pick(record?.enrolledSAT?.p75, collegeRow?.sat_75) ?? null,
-      act25: pick(record?.enrolledACT?.p25, collegeRow?.act_25) ?? null,
-      act75: pick(record?.enrolledACT?.p75, collegeRow?.act_75) ?? null,
-      avgGpaAdmitted: pick(record?.enrolledGPA?.avg, collegeRow?.avg_gpa_admitted) ?? cds?.parsed?.gpaAverage ?? null,
-    };
+    const context = localFitContext(deps, schoolName, { wanted });
+    if (!context) return null;
     const strengthRows = deps.ragStmts.strength.getByStudent.all(studentId);
     const student = buildStudentModel({
       gpa_unweighted: snap.gpa_unweighted,
@@ -206,14 +360,10 @@ export function profileComparisonForSchool(studentId, schoolName) {
       activities_json: snap.activities_json,
       major_interest: snap.major_interest,
     }, strengthRows, getActiveNarrative(deps.ragStmts.narrative, studentId));
-    const gpa = compareGpaToSchool(student, college, cds);
-    return buildProfileComparison({
-      tests: compareTestsToSchool(student, college, cds),
-      gpa,
-      classRank: compareRankToSchool(student, cds),
-      apExams: compareApExams(student),
-      rigor: compareCourseRigor(student, gpa.average),
-    });
+    // The readiness reads themselves, as buildPositioningForTarget takes
+    // them: the GPA average falls back to what the admit rate implies, and
+    // the rigor expectation follows it.
+    return buildProfileComparison(scoreAcademicReadiness(student, context.collegeContext, context.cdsForRead).reads);
   } catch (err) {
     console.warn("[COLLEGE-VALUES] profile comparison skipped:", err?.message);
     return null;
@@ -251,6 +401,10 @@ export function baselineCollegeNames() {
 export function buildVerifiedDataContext({ questionText, studentId, evidence = [], wantsCollegeData = false }) {
   const knownNames = [...baselineCollegeNames(), ...fitReadsForStudent(studentId).map((r) => r.school)];
   const names = detectSchoolMentions(questionText, { knownNames });
+  // Schools the question names that nothing is held for get a line saying
+  // so (fid-10): with no line the model answered from memory. Only the
+  // question's own names; a target school with no data is not news.
+  const asked = new Set(names.map((n) => n.toLowerCase()));
   if (wantsCollegeData) {
     for (const target of deps.resolveTargetSchools(studentId)) {
       const canonical = detectSchoolMentions(target, { knownNames, max: 1 })[0] || target;
@@ -259,6 +413,7 @@ export function buildVerifiedDataContext({ questionText, studentId, evidence = [
   }
   const schools = [];
   const fitReads = fitReadsForStudent(studentId);
+  const unheld = [];
   for (const name of names.slice(0, 8)) {
     const row = deps.resolveBaselineCollegeRow(deps.db, { schoolName: name });
     const cds = resolveStoredCdsRecord(deps.ragStmts, { schoolName: row?.name || name });
@@ -268,7 +423,10 @@ export function buildVerifiedDataContext({ questionText, studentId, evidence = [
     // verified data worth citing (its plan deadlines and test policy).
     let snapshot = null;
     try { snapshot = readPolicySnapshot(deps.policyScoutStmts, { unitId: row?.unit_id, name: row?.name || cds?.school || name }); } catch { snapshot = null; }
-    if (!row && !cds && !fitRead && !snapshot) continue;
+    if (!row && !cds && !fitRead && !snapshot) {
+      if (asked.has(name.toLowerCase())) unheld.push(name);
+      continue;
+    }
     const resolvedName = row?.name || cds?.school || fitRead?.school || snapshot?.school || name;
     if (schools.some((s) => schoolNamesCompatible(s.name, resolvedName))) continue;
     let policyLine = null;
@@ -286,10 +444,18 @@ export function buildVerifiedDataContext({ questionText, studentId, evidence = [
     });
     if (schools.length >= 4) break;
   }
+  // A college name the alias table and the baseline names both miss ("Elm
+  // Valley College") is unheld too, unless the baseline resolver knows it
+  // under another spelling.
+  for (const name of unresolvedSchoolNames(questionText, { knownNames })) {
+    let row = null;
+    try { row = deps.resolveBaselineCollegeRow(deps.db, { schoolName: name }); } catch { row = null; }
+    if (!row) unheld.push(name);
+  }
   const facts = (Array.isArray(evidence) ? evidence : [])
     .filter((f) => String(f?.confidence || "").toLowerCase() === "verified" && (f.source_url || f.source_domain))
     .slice(0, 5);
-  return formatVerifiedDataBlock({ schools, facts });
+  return formatVerifiedDataBlock({ schools, facts, unheld });
 }
 
 // True when the question names a school we hold official data for, so an
@@ -306,15 +472,22 @@ export function hasVerifiedCollegeData(questionText) {
   return false;
 }
 
-export function regulatedResultForChat(classification, payload) {
+// A FAFSA eligibility question reaches this only as a plain checklist
+// question (policy-router canHandleDeterministically). When no reviewed
+// ruleset covers `now` the check answers "No deterministic rule is
+// available", which the route reads as not answerable here: the question
+// goes to the model under the regulated advisory prefix instead of an empty
+// verified lane.
+export function regulatedResultForChat(classification, payload, { now = new Date() } = {}) {
   const subIntent = String(classification?.subIntent || "").toLowerCase();
   if (subIntent.includes("fafsa") || subIntent.includes("eligibility")) {
-    return runFAFSAEligibilityCheck(payload.fafsa_profile || payload.student_data || {});
+    return runFAFSAEligibilityCheck(payload.fafsa_profile || payload.student_data || {}, { now });
   }
   if (subIntent.includes("deadline")) {
     return calculateDeadlineStatus(
       payload.deadline || payload.deadline_date || null,
       payload.application_type || "regular_decision",
+      { now },
     );
   }
   return {

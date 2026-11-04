@@ -102,3 +102,30 @@ test("parseCDSXlsxFile falls back to the labelled C7 rows", async () => {
   assert.equal(parsed.c7.gpa, "not_considered");
   fs.rmSync(path.dirname(file), { recursive: true, force: true });
 });
+
+// ExcelJS loads a workbook whole. The refresh reads about thirty of them,
+// and the read ran beside a student's PDF text layer or OCR job instead of
+// waiting for the document lane every other heavy document step shares
+// (shared/file-extractors.js runDocumentJob), which the 192 MB server heap
+// depends on.
+test("a workbook is read in the document lane, after the step holding it", async () => {
+  const { runDocumentJob } = await import("../shared/file-extractors.js");
+  const file = await writeSampleWorkbook();
+  await extractItemsFromXlsx(file); // ExcelJS loaded, so only the lane can hold the parse back
+  let release = () => {};
+  const held = runDocumentJob(() => new Promise((resolve) => { release = resolve; }));
+  let settled = false;
+  const parsing = parseCDSXlsxFile(file).then((parsed) => { settled = true; return parsed; });
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    assert.equal(settled, false, "the workbook waits while a student's step holds the lane");
+  } finally {
+    // Free the lane even when the assertion fails: a held job keeps the
+    // process alive until the lane's 150-second give-up.
+    release();
+    await held;
+  }
+  const parsed = await parsing;
+  assert.equal(parsed.extractionMethod, "xlsx");
+  fs.rmSync(path.dirname(file), { recursive: true, force: true });
+});

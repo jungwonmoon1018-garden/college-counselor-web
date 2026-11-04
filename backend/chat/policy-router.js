@@ -62,48 +62,212 @@ export const STRATEGY_COUNCIL_SUBINTENTS = new Set([
 // ─── Escalation threshold: Sonnet must report confidence below this to escalate to Opus ───
 const OPUS_ESCALATION_THRESHOLD = 0.45;
 
-// ─── Keyword patterns for topic classification ───
+// ─── Crisis lexicon ───
+// Deterministic crisis triggers are STATEMENTS ABOUT THE STUDENT'S OWN
+// SAFETY, not topic words. The earlier lexicon fired on bare "abuse",
+// "emergency", "danger", "threatened" and on "end my …" — so "how do I end
+// my essay?" and "I volunteer in the emergency room" got the crisis
+// hotlines instead of an answer. Ordinary stress ("I'm hopeless at
+// chemistry", "overwhelmed") is not a crisis: the client adds a supportive
+// footer for that without blocking the answer.
+//
+// The client keeps the same list in frontend/src/chat/crisis-lexicon.js,
+// built from the same fragments. The two were once written separately and
+// drifted until 24 of 30 probe phrases disagreed (no Hangul on the client,
+// no "better off without me" here); backend/tests/crisis-lexicon-parity.test.js
+// now compares the pattern sources, the shared case fixture, the resource
+// list and the footers, so change both files together.
+
+// iOS and macOS insert a typographic apostrophe by default, and "I’m not
+// safe at home" missed both lexicons because every pattern spelled the
+// apostrophe in ASCII. Zero-width characters and line breaks split phrases
+// the same way. Every crisis check matches the text after this.
+export function normalizeForLexicon(text) {
+  let s = String(text ?? "");
+  try { s = s.normalize("NFKC"); } catch { /* keep the raw text */ }
+  return s
+    .replace(/[‘’‚‛′‵ʻʼ´`＇]/g, "'")
+    .replace(/[​-‏⁠﻿­]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// A topic noun right after suicide / self-harm / overdose makes it a topic
+// mention, not a disclosure: "suicide prevention club", "self-harm awareness
+// week", "overdose prevention program", "the 988 Suicide & Crisis Lifeline".
+// Students who run those programs could not get help presenting them. A
+// third party's attempt ("my brother's suicide attempt") is not a topic noun
+// and stays a crisis statement.
+const TOPIC_NOUNS = String.raw`(?:prevention|awareness|research|rates?|statistics?|stats|clubs?|walks?|training|programs?|weeks?|months?|hotlines?|lifelines?)`;
+const TOPIC_PAIR = String.raw`(?:suicide|self[\s-]?harm|overdose|crisis|mental[\s-]health|substance[\s-](?:use|abuse)|drug|opioid)s?`;
+const TOPIC_TAIL = String.raw`(?![\s/&-]+(?:(?:and|or)[\s/&-]+)?${TOPIC_PAIR}[\s-]+${TOPIC_NOUNS}\b|[\s-]+${TOPIC_NOUNS}\b)`;
+// Asking for a crisis line is a safety statement. With hotline and lifeline
+// among the topic nouns, "I need the suicide hotline number" became a topic
+// mention: it went to the gatekeeper and a paid model call, and a spent
+// budget, a withdrawn consent or an outage left the student who asked for the
+// number with an error note and no number. A lifeline named as an activity
+// ("a volunteer for the 988 Suicide & Crisis Lifeline") stays a topic.
+//
+// Two passes overshot in turn: volunteer positions and locker posters got
+// the crisis reply, then "whats the suicide hotline number" and "I need a
+// crisis hotline volunteer please" lost it. The rule is now one sentence: a
+// sentence that asks for the line is a request unless an activity
+// construction about the line is in the same sentence, and a genuinely
+// ambiguous one stays a request. Asking is a frame right before the name
+// (LINE_NEED, LINE_ASK), the line's number anywhere, or the name alone
+// ("Suicide hotline?").
+//
+// The activity constructions are a role noun right after the name
+// ("volunteer position", "internship", "club", "as my essay topic"), the
+// number put on a display place right after it (LINE_SPOT: on posters,
+// lockers or IDs, on a mirror or a stall door; "in the bathroom stall", "in
+// the hallway" and "in my classroom" say where the student is), and
+// anywhere in the sentence (LINE_ACTIVITY) "I could volunteer", "to
+// volunteer", "volunteer at the line", "takes teen volunteers", "hires high
+// schoolers", "posters with the line", "the number we put on lockers" or
+// "promote the line". A first-person need is a request even with a
+// volunteer or the line's possessive after it ("I need a crisis hotline
+// volunteer please", "I need the suicide hotline's help"); after the other
+// frames a volunteer who does something ("what are suicide hotline
+// volunteers trained to do") and a possessive that is no way to reach the
+// line ("its history") are topics.
+//
+// The match starts at a sentence boundary, so the activity check reads the
+// whole sentence, and every scan stops at the sentence's end or a fixed
+// width, which keeps the pattern linear on a long message.
+const LINE_NAME = String.raw`(?:988\s+|national\s+)?(?:suicide|crisis|self[\s-]?harm)(?:\s+prevention)?(?:\s*(?:&|and)\s*crisis)?\s+(?:hot|life|text\s+)line`;
+const LINE_PLACE = String.raw`(?:posters?|flyers?|fliers?|(?:student\s+)?ids?|id\s+cards?|lockers?(?!\s+rooms?\b)|badges?|stickers?|banners?|bookmarks?|wristbands?|lanyards?|t-?shirts?|magnets?|bulletin\s+boards?)`;
+const LINE_ROLE = String.raw`(?:positions?|jobs?|roles?|work|trainings?|internships?|interns?|shifts?|clubs?|projects?|essays?|fundraisers?|campaigns?|research|programs?|opportunit(?:y|ies)|experience|certifications?|volunteering|volunteered|as\s+(?:(?:my|an?|the|our)\s+)?(?:[\w'-]+\s+){0,2}?(?:topics?|examples?|essays?|subjects?|activit(?:y|ies)|ecs?|extracurriculars?|prompts?|stor(?:y|ies))|volunteers?\s+(?:positions?|jobs?|roles?|ages?|requirements?|applications?|hours|work|opportunit(?:y|ies)|programs?|experience|shifts?|trainings?|orientation|certifications?|interviews?|forms?|openings?|spots?|slots?))\b`;
+const LINE_DOES = String.raw`volunteers?\s+(?:do(?:es)?|did|gets?|are|is|was|were|ha(?:ve|s)|needs?|must|should|trained|trains?|earns?|makes?|works?|handles?|answers?|learns?|like)\b`;
+const LINE_SPOT = String.raw`(?:(?:on|onto|to|in|into|across|around|throughout|inside|for)\s+(?:[\w'-]+\s+){0,3}?${LINE_PLACE}|(?:on|onto)\s+(?:[\w'-]+\s+){0,3}?(?:mirrors?|stall\s+doors?|walls?))\b`;
+const LINE_PUT = String.raw`(?:'s)?(?:\s+(?:phone\s+)?numbers?)?\s+${LINE_SPOT}`;
+const LINE_OWN = String.raw`'s\s+(?!(?:(?:phone|text|contact|chat)\s+)?(?:numbers?|phone|contact|website|site|link|url|chat|text|hours|address|email|help|support|app)\b)`;
+const LINE_VERB = String.raw`(?:call(?:ing)?|text(?:ing)?|contact(?:ing)?|reach(?:ing)?|(?:talk|speak|chat)(?:ing|ting)?\s+(?:to|with)|find(?:ing)?|get(?:ting)?|have|use|try)`;
+// The student needs the line, or someone at it to talk to.
+const LINE_NEED = String.raw`(?:i\s+(?:(?:really|just|urgently|desperately|seriously|honestly|kinda|still)\s+)?(?:need|want|have\s+to|gotta|got\s+to|wanna|must)(?:\s+(?:you|u|someone|somebody)\s+to|\s+help|\s+to)?(?:\s+${LINE_VERB})?|(?:i'm|im|i\s+am)\s+(?:(?:gonna|going\s+to|about\s+to|trying\s+to)\s+${LINE_VERB}|calling|texting|contacting))`;
+// The student asks for it, in the first person or of the counselor, so a
+// specialist's draft ("if you're looking for a crisis line") does not ask.
+const LINE_ASK = String.raw`(?:(?:how|where)\s+(?:can|do|could|should|would)\s+(?:i|we|you|u)\s+(?:find|get|call|text|contact|reach)|how\s+(?:to|2)\s+(?:find|get|call|text|contact|reach)|(?:can|could|may|should)\s+i\s+${LINE_VERB}|(?:ok(?:ay)?|safe|fine|normal|weird|bad|wrong)\s+(?:to|if\s+i)\s+(?:call|text|contact|reach)|(?:can|could|would|will)\s+(?:you|u)\s+(?:please\s+)?(?:find|get|send|share|text|look\s+up|give|tell|show)(?:\s+me)?|(?:i'm|im|i\s+am)\s+looking\s+for|(?:do|did)\s+(?:you|u|ya)\s+(?:have|know|got)|(?:you|u|ya)\s+got|(?:any|some)\s*(?:one|body)\s+(?:have|has|got|know|knows)|is\s+there|(?:give|get|send|tell|show|find|text)\s+me|help\s+me\s+(?:find|get|call|reach|contact|text)|what(?:'s|s|\s+is|\s+are)|what\s+(?:phone\s+)?number\s+(?:is|for)|where(?:'s|s|\s+is|\s+are)|(?:phone\s+)?number\s+(?:for|of|to))`;
+const LINE_TO = String.raw`(?:\s+(?:someone|somebody|anyone|anybody|a\s+person|people))?(?:\s+(?:at|from|on|with))?[\s,]+(?:(?:a|an|the|your|ur|my|some|any)\s+)?(?:(?:nearest|closest|local|free|anonymous|teen|youth|24/7|24-hour)\s+)?`;
+const LINE_ACTIVITY = String.raw`(?:\bi(?:\s+(?:could|can|might|would|will|want\s+to|wanna|hope\s+to|plan\s+to|would\s+like\s+to)|'d(?:\s+like\s+to)?|'ll)\s+(?:(?:also|maybe|still|possibly|actually|really)\s+)?(?:volunteer|intern)|\bto\s+(?:volunteer|intern)|\b(?:volunteer(?:s|ed|ing)?|intern(?:s|ed|ing)?|work(?:s|ed|ing)?|serv(?:e|es|ed|ing)|train(?:s|ed|ing)?)\s+(?:at|for|with|on)\s+(?:(?:a|an|the|our|my|your|this|that|their|its)\s+)?(?:local\s+)?${LINE_NAME}|\b(?:promot(?:e|es|ed|ing)|advertis(?:e|es|ed|ing)|publiciz(?:e|es|ed|ing)|rais(?:e|es|ed|ing)\s+awareness\s+(?:of|about|for)|spread(?:s|ing)?\s+(?:the\s+word|awareness)\s+(?:of|about))\s+(?:(?:a|an|the|our|my|your|this|that|their|its)\s+)?(?:local\s+)?${LINE_NAME}|\b(?:takes?|taking|accepts?|accepting)\s+(?:[\w'-]+\s+){0,3}?(?:volunteers?|interns?)|\b(?:recruits?|recruiting|hires?|hiring|trains?)\s+(?:[\w'-]+\s+){0,3}?(?:volunteers?|interns?|teens?|students?|high\s*schoolers?|minors?|people|staff)|\b${LINE_PLACE}\s+(?:with|showing|listing|that\s+(?:has|have|shows?|lists?))\s+(?:(?:a|an|the|our|my|your)\s+)?${LINE_NAME}|\bnumbers?\b[^.!?;:]{0,40}?\b(?:put|puts|putting|print|prints|printed|printing|post|posts|posted|posting|add|adds|added|adding|stick|sticks|stuck|place|placed|include|included|list|listed)\s+(?:(?:it|them)\s+)?${LINE_SPOT})\b`;
+// The name alone is a request when it is the whole sentence, with please,
+// help or a question mark around it.
+const LINE_ALONE = String.raw`(?=(?:\s*(?:please|pls|plz|now|asap))*\s*(?:[?!]|\.?\s*$)|\s*(?:please|pls|plz)\b)`;
+const LINE_REQUEST = String.raw`(?:^|[.!?;:])(?![^.!?;:]*?${LINE_ACTIVITY})(?:[^.!?;:]*?\b(?:${LINE_NEED}${LINE_TO}${LINE_NAME}s?\b(?!\s+${LINE_ROLE}|${LINE_PUT})|${LINE_ASK}${LINE_TO}${LINE_NAME}s?\b(?!\s+(?:${LINE_ROLE}|${LINE_DOES})|${LINE_OWN}|${LINE_PUT})|${LINE_NAME}(?:'s)?\s+(?:phone\s+)?number\b(?!${LINE_PUT}))|[^\w.!?;:]*(?:(?:please|pls|plz|help(?:\s+me)?)[\s,]+)*(?:need\s+)?(?:(?:the|a|an|your)\s+)?${LINE_NAME}s?${LINE_ALONE})`;
+// "I hurt myself playing soccer" and "I cut myself off from social media"
+// are about a sports injury and a phone, and both got the hotlines. The
+// sports carve-out holds only while nothing later in the sentence says the
+// injury was meant: it used to skip "I hurt myself at practice on purpose"
+// and "… during the game because I wanted to feel something" on both sides.
+// "So I couldn't play junior season" is what an injury did, not a purpose,
+// and stays answered. The look ahead stops at the end of the sentence and
+// after 160 characters, so a long run of sports phrases stays linear.
+const SPORT_CONTEXT = String.raw`(?:playing|at\s+(?:practice|tryouts?|the\s+gym|(?:a|the)\s+(?:game|match|meet|race|tournament))|during\s+(?:practice|tryouts?|(?:a|the|my|our)\s+(?:\w+\s+)?(?:game|match|meet|race|season|tournament|practice|scrimmage))|in\s+(?:a|the|my)\s+(?:game|match|race|meet|tournament)|skiing|snowboarding|skating|running|lifting|training|practicing|working\s+out|dancing)`;
+const HARM_INTENT = String.raw`(?:on\s+purpose|purposely|purposefully|intentionally|deliberately|to\s+(?:feel\s+(?:something|anything|better|pain|real|numb|in\s+control)|punish\s+myself)|because\s+i\s+(?:want|wanted|needed)\s+to\s+(?:feel|hurt|punish|die|disappear|escape|get\s+out|skip|miss|stop)|so\s+(?:that\s+)?i\s+(?:(?:wouldn'?t|won'?t|don'?t|didn'?t)\s+have\s+to|could\s+(?:skip|miss|stay\s+home|get\s+out|avoid)))\b`;
+const HURT_IDIOM = String.raw`(?!\s+${SPORT_CONTEXT}(?![^.!?]{0,160}?\b${HARM_INTENT}))`;
+const CUT_IDIOM = String.raw`(?!\s+(?:off|some\s+slack|short))`;
+// "No reason to keep going with robotics" is about an activity; "no reason
+// to keep going", "… with my life" and "… with any of this" are not.
+const ACTIVITY_TAIL = String.raw`(?!\s+with\s+(?!(?:my\s+life|life|this|it|everything|anything|any\s+of\s+this)\b))`;
+const RELATION = String.raw`(?:dad|father|mom|mother|parents?|step-?\w+|foster\s+\w+|grand(?:pa|ma|father|mother|parents?)|coach|teacher|tutor|boyfriend|girlfriend|partner|uncle|aunt|brother|sister|cousin|guardian|relative|neighbou?r|boss|pastor|priest)`;
+const HARM_VERB = String.raw`(?:hits?|hitting|beats?|beating|abuses?|abused|abusing|touch(?:es|ed|ing)|molest(?:s|ed|ing)?|assault(?:s|ed|ing)?|hurts?|hurting|chok(?:es|ed|ing)|slap(?:s|ped|ping)?|punch(?:es|ed|ing)?)`;
+const THIRD_PARTY_VERB = String.raw`(?:hits?|hitting|beats?|beating|abuses?|abused|abusing|touch(?:es|ed|ing)|molest(?:s|ed|ing)?|grooming|groomed|raped?|assault(?:s|ed|ing)?|chok(?:es|ed|ing)|slap(?:s|ped|ping)?|punch(?:es|ed|ing)?)`;
+// An application emergency ("my Common App won't submit, it's an
+// emergency") is not a safety statement; any other "it's an emergency" is.
+const APPLICATION_WORDS = String.raw`(?:apps?|applications?|common\s+app|essays?|deadlines?|portal|submit\w*|upload\w*|forms?|fafsa|css\s+profile|transcripts?|homework|assignments?|exams?|tests?|quiz|sat|act|recommendations?|letters?|payments?|fees?|login|log\s+in|password|website)`;
+
+// Korean lexemes for the regulated and high-stakes gates. Korean is a
+// first-class locale, and until 2026-11-03 every topic pattern was English:
+// "스탠퍼드 조기 지원 마감일이 언제예요?" and "하버드 등록금이 얼마예요?" were
+// ordinary coaching, with no advisory prefix, no on-demand read of the
+// school's pages and no no-source reply (gate-12). No \b, which does not
+// work between Hangul syllables. A homework, project or club word right
+// before 마감 keeps a class deadline out, as "deadlines for school projects"
+// stays out in English; 기회비용 (opportunity cost) is not a price.
+const KO_NOT_ADMISSIONS = String.raw`(?:숙제|과제|프로젝트|리포트|보고서|동아리|대회)`;
+const KO_TOPIC = Object.freeze({
+  fafsa: String.raw`연방\s*(?:학생\s*)?(?:재정\s*)?(?:지원|보조)|연방\s*학자금`,
+  financial_aid_policy: String.raw`니드\s*(?:블라인드|어웨어)|css\s*프로(?:필|파일)|재정\s*(?:지원|보조)\s*정책`,
+  deadlines: String.raw`(?<!${KO_NOT_ADMISSIONS}\s?)마감\s*(?:일|날짜|기한|일자)|(?<!${KO_NOT_ADMISSIONS}\s?)마감(?:이|은|는)?\s*언제|(?:지원|원서|전형|얼리|조기|정시|디시전|액션|fafsa|css)[^.?!]{0,12}마감|원서\s*접수|(?:지원|접수|제출|신청)\s*(?:기한|기간)|언제까지\s*(?:지원|원서|접수|제출|신청)`,
+  financial_amounts: String.raw`학비|등록금|기숙사비|(?<!기회\s?)비용[^.?!]{0,10}(?:얼마|어느\s*정도)|(?:총|연간|1년|일년|대학)\s*비용|돈이?\s*얼마|장학금[^.?!]{0,20}(?:얼마|금액|액수|전액)|재정\s*(?:지원|보조)|학자금|순\s*비용|(?:펠|페일)\s*그랜트|메리트\s*(?:장학금|에이드)|근로\s*장학`,
+  official_stats: String.raw`합격률|합격\s*비율|경쟁률|입학률|평균\s*(?:sat|act|gpa|내신)|(?:sat|act)\s*(?:점수\s*)?(?:범위|평균|중간\s*50)|중간\s*50\s*%`,
+});
+
+function withKorean(pattern, korean) {
+  return new RegExp(`${pattern.source}|${korean}`, pattern.flags);
+}
+
 const PATTERNS = {
-  // Deterministic crisis triggers are STATEMENTS ABOUT THE STUDENT'S OWN
-  // SAFETY, not topic words. The earlier lexicon fired on bare "abuse",
-  // "emergency", "danger", "threatened" and on "end my …" — so "how do I end
-  // my essay?" and "I volunteer in the emergency room" got the crisis
-  // hotlines instead of an answer. Ordinary stress ("I'm hopeless at
-  // chemistry", "overwhelmed") is not a crisis: the client adds a supportive
-  // footer for that without blocking the answer.
   crisis: [
     // Self-harm / suicidal ideation, first person.
-    /\b(?:suicid\w*|kill(?:ing)?\s+myself|self[- ]?harm(?:ing)?|(?:want|wanted|wanting|going|ready)\s+to\s+die|wanna\s+die|end(?:ing)?\s+my\s+(?:own\s+)?life|end\s+it\s+all|take\s+my\s+(?:own\s+)?life|hurt(?:ing)?\s+myself|cut(?:ting)?\s+myself|don'?t\s+want\s+to\s+(?:live|be\s+alive|wake\s+up|exist|be\s+here)|no\s+reason\s+to\s+(?:live|go\s+on)|better\s+off\s+dead|not\s+worth\s+living|wish\s+i\s+(?:was|were)\s+dead|overdos(?:e|ing))\b/i,
+    new RegExp(String.raw`\b(?:suicid\w*\b${TOPIC_TAIL}|kill(?:ing)?\s+myself|self[\s-]?harm(?:ing|ed)?\b${TOPIC_TAIL}|(?:want|wanted|wanting|going|ready)\s+to\s+die|wanna\s+die|end(?:ing)?\s+my\s+(?:own\s+)?life|end\s+it\s+all|take\s+my\s+(?:own\s+)?life|hurt(?:ing)?\s+myself\b${HURT_IDIOM}|cut(?:ting)?\s+myself\b${CUT_IDIOM}|don'?t\s+want\s+to\s+(?:live|be\s+alive|wake\s+up|exist|be\s+here)|no\s+reason\s+to\s+(?:live|(?:go\s+on|keep\s+going)\b${ACTIVITY_TAIL})|better\s+off\s+dead|not\s+worth\s+living|wish\s+i\s+(?:was|were)\s+dead|overdos(?:e|ed|es|ing)\b${TOPIC_TAIL}|took\s+(?:too\s+many|a\s+(?:bunch|handful)\s+of|all\s+(?:of\s+)?(?:my|the))\s+(?:pills|meds|medications?|tablets))\b`, "i"),
+    // Asking for a crisis line. Its own pattern: it starts at a sentence
+    // boundary, which a leading \b would refuse after "!!" or a space.
+    new RegExp(LINE_REQUEST, "i"),
     // Abuse, assault, grooming — the student says it is happening to them.
-    /\b(?:(?:my|our)\s+(?:dad|father|mom|mother|parents?|step(?:dad|mom|father|mother)|coach|teacher|tutor|boyfriend|girlfriend|partner|uncle|aunt|brother|sister|cousin|guardian|relative)\s+(?:hits?|beats?|abuses?|touch(?:es|ed)|molest(?:s|ed)?|assault(?:s|ed)?|hurts?|chokes?|threatens?)\s+me|i(?:'m| am| was| have been| get| got)\s+(?:being\s+)?(?:physically|sexually|emotionally|verbally)?\s*(?:abused|molested|assaulted|raped|groomed|beaten)|(?:he|she|they|someone|an?\s+adult)\s+(?:is\s+|are\s+)?(?:hits?|beats?|abuses?|touch(?:es|ed)|molest(?:s|ed)|grooming|groomed|raped?|assaulted)\s+me|domestic\s+violence\s+(?:at|in)\s+(?:my\s+)?home)\b/i,
+    new RegExp(String.raw`\b(?:(?:my|our)\s+${RELATION}\s+(?:is\s+|keeps\s+|has\s+been\s+|always\s+|still\s+)?${HARM_VERB}\s+me|i(?:'?m|\s+am|\s+was|\s+have\s+been|'ve\s+been|\s+get|\s+got|\s+keep\s+getting)\s+(?:being\s+)?(?:(?:physically|sexually|emotionally|verbally)\s+)?(?:abused|molested|assaulted|raped|groomed|beaten)|(?:he|she|they|someone|somebody|an?\s+adult)\s+(?:is\s+|are\s+|keeps\s+|has\s+been\s+)?${THIRD_PARTY_VERB}\s+me|domestic\s+violence\s+(?:at|in)\s+(?:my\s+)?home)\b`, "i"),
+    // A threat of harm. "They threatened me with detention" and "my teacher
+    // threatened me with a zero" are school discipline, not danger.
+    new RegExp(String.raw`\bthreaten(?:s|ed|ing)?\s+(?:to\s+(?:hurt|kill|beat|hit|harm|rape|touch|shoot|stab)\s+me|me\b(?!\s+with\s+(?!(?:a\s+)?(?:knife|gun|weapon|violence|a\s+beating|death|bodily\s+harm|physical\s+harm)\b)))`, "i"),
     // Immediate danger — the student says they are not safe right now.
-    /\b(?:i(?:'m| am)\s+(?:in\s+danger|not\s+safe|unsafe|scared\s+(?:for\s+my\s+life|to\s+go\s+home))|(?:someone|he|she|they)\s+(?:is\s+|are\s+)?threaten(?:s|ing|ed)\s+(?:to\s+(?:hurt|kill)\s+)?me|(?:it'?s|this\s+is)\s+an\s+emergency|i\s+don'?t\s+feel\s+safe\s+(?:at\s+home|at\s+school|anywhere|here))\b/i,
+    // "In danger of failing AP Chem" is grades; "in danger", "in danger at
+    // home" and "in danger of being hurt" are not.
+    new RegExp(String.raw`\b(?:i(?:'?m|\s+am)\s+(?:in\s+danger\b(?!\s+of\s+(?!(?:being\s+)?(?:hurt|harmed|killed|attacked|beaten|abused|dying|death)\b))|not\s+safe|unsafe|(?:scared|afraid|terrified)\s+(?:for\s+my\s+life|to\s+go\s+(?:back\s+)?home))|i\s+(?:don'?t|do\s+not)\s+feel\s+safe\s+(?:at\s+home|at\s+school|anywhere|here|with\s+(?:my\s+)?\w+))\b`, "i"),
+    new RegExp(String.raw`^(?![\s\S]*\b${APPLICATION_WORDS}\b)[\s\S]*\b(?:it'?s|it\s+is|this\s+is)\s+an?\s+emergency\b`, "i"),
+    // Hopelessness about life itself, which the client always treated as a
+    // crisis and this list did not ("everyone would be better off without
+    // me" went to a paid Strategy Council review). Never fires on academic
+    // despair ("I give up on this essay").
+    new RegExp(String.raw`\b(?:no\s+point\s+(?:in|to)\s+(?:living|anything|going\s+on)|better\s+(?:off\s+)?without\s+me|nobody\s+would\s+(?:care|notice|miss\s+me)|disappear\s+(?:forever|for\s+good)|(?:just\s+)?want\s+to\s+disappear\b(?!\s+(?:from|into|for\s+(?:a|the)\s+(?:bit|while|day|weekend)))|give\s+up\s+on\s+(?:life|everything)|can'?t\s+go\s+on(?:\s+like\s+this)?|hate\s+my\s+life|life\s+is(?:n'?t|\s+not)\s+worth|don'?t\s+see\s+the\s+point\s+(?:of|in)\s+(?:anything|living|life))\b`, "i"),
     // Korean (a first-class locale here, with Korean crisis hotlines). No \b —
     // word boundaries behave poorly for CJK; match the lexemes directly.
-    /(자살|자해|죽고\s*싶|죽고싶|목숨을\s*끊|극단적\s*선택|살기\s*싫|죽어\s*버리고\s*싶)/,
-    /(학대|성추행|성폭행|폭행|가정폭력)(?:을|를)?\s*(?:당하|당했|당하고|받고|받았|겪|겪고)/,
-    /(위험에\s*처|안전하지\s*않|저는\s*위험해)/,
+    // Colloquial hyperbole ("화학 때문에 죽겠어요", "죽을 것 같이 바빠요")
+    // does not match. Asking for a crisis line's number ("자살 상담전화 번호
+    // 알려주세요") is a safety statement, as in English; volunteering at one
+    // ("자살예방상담전화에서 봉사했어요") stays a topic, and so does putting the
+    // number up ("번호를 사물함마다 붙였어요"), which in Korean is said after
+    // the number. 넣다 also means dialing the number or saving it to a phone
+    // ("번호 넣었는데 연결이 안 돼요" went from crisis to topic), so it puts
+    // the number up only when a display place (사물함, 포스터, 게시판, 학생증)
+    // is named in the same sentence ("학생증에 번호를 넣자고"), and not even then
+    // when the sentence says the number was dialed or will not connect
+    // ("포스터 보고 번호 넣었는데 연결이 안 돼요", "지금 넣어도 돼요?").
+    /(자살(?!\s*(?:예방|방지|률|율|통계|연구|인식|캠페인|동아리|프로그램|교육|상담전화))|자해(?!\s*(?:예방|방지|인식|연구|통계|캠페인|동아리|프로그램|교육))|죽고\s*싶|목숨을\s*끊|극단적\s*선택|살기\s*싫|죽어\s*버리고\s*싶|살고\s*싶지\s*않|살\s*이유가\s*없|살\s*가치가\s*없|사라지고\s*싶|없어지고\s*싶|삶을\s*끝내|인생을\s*끝내|손목을\s*(?:긋|그었|그어)|(?:^|[^가-힣])(?:나|내가|제가|저)\s*(?:없으면|없는\s*게|없어지면)\s*(?:다들\s*|모두\s*|가족도\s*)?(?:더\s*)?(?:나을|낫|행복할)|(?:자살|자해)\s*(?:예방\s*)?(?:상담\s*)?(?:전화\s*)?번호(?![^.?!]{0,30}?(?:붙였|붙이자|붙여\s*놓|인쇄했|인쇄하자|새겼|게시했|배포했|나눠\s*줬|홍보했))(?![^.?!]{0,30}?(?:사물함|포스터|게시판|학생증|전단|스티커|배너|현수막|책갈피|명찰|팔찌|티셔츠)[^.?!]{0,20}?넣(?!어도|으면)(?![^.?!]{0,40}?(?:연결|통화|걸어|걸었|걸면|걸어도|안\s*돼|안\s*되|안\s*받)))(?!(?<=(?:사물함|포스터|게시판|학생증|전단|스티커|배너|현수막|책갈피|명찰|팔찌|티셔츠)[^.?!]{0,40})[^.?!]{0,30}?넣(?!어도|으면)(?![^.?!]{0,40}?(?:연결|통화|걸어|걸었|걸면|걸어도|안\s*돼|안\s*되|안\s*받)))|(?:자살|자해)\s*(?:예방\s*)?상담\s*(?:전화|센터)\s*(?:좀\s*)?(?:알려|가르쳐))/,
+    /((?:학대|성추행|성폭행|폭행|가정폭력)(?:을|를)?\s*(?:당하|당했|당하고|받고|받았|겪|겪고)|(?:아빠|엄마|아버지|어머니|부모님|새아빠|새엄마|계부|계모|오빠|형|누나|언니|삼촌|이모|고모|할아버지|할머니|선생님|코치|남자\s*친구|남친|여자\s*친구|여친)(?:가|이|께서|는|은)?\s*(?:저를|나를|절|날)?\s*(?:자꾸\s*|계속\s*|매일\s*|또\s*)?(?:때려|때렸|때린|때리|해칠|해치려|만져|만졌|만지)|(?:아빠|엄마|아버지|어머니|부모님|새아빠|새엄마|계부|계모|오빠|형|누나|언니|삼촌|선생님|코치|남자\s*친구|남친|여자\s*친구|여친)(?:한테|에게|께)\s*(?:자꾸\s*|계속\s*|매일\s*|또\s*)?(?:맞고\s*있|맞았|맞아요|맞는다|맞아))/,
+    /(위험에\s*처|안전하지\s*않|저는\s*위험해|집에\s*가(?:기|는\s*(?:게|것이))\s*(?:무서|두려))/,
   ],
   regulated: {
-    fafsa: /\bfafsa\b|\bstudent\s*aid\s*index\b|\bsai\b|\befc\b|\bexpected\s*family\s*contribution\b|\bfederal\s*student\s*aid\b|\bstudentaid\.gov\b|\bfsa\s*id\b|\bcontributor\b.*\bfafsa\b/i,
+    fafsa: withKorean(/\bfafsa\b|\bstudent\s*aid\s*index\b|\bsai\b|\befc\b|\bexpected\s*family\s*contribution\b|\bfederal\s*student\s*aid\b|\bstudentaid\.gov\b|\bfsa\s*id\b|\bcontributor\b.*\bfafsa\b/i, KO_TOPIC.fafsa),
     // "school records" alone is how students describe their transcript; the
     // regulated sense needs a rights / access / disclosure word nearby.
-    ferpa: /\bferpa\b|\bfamily\s*educational\s*rights\b|\bstudent\s*privacy\b|\b(?:education|school)\s+records?\b[^.?!]{0,60}\b(?:rights?|access|privacy|amend\w*|disclos\w*|release\w*|consent|request\w*|see|view)\b|\b(?:rights?|access|privacy|amend\w*|disclos\w*|release\w*|consent|request\w*)\b[^.?!]{0,60}\b(?:education|school)\s+records?\b/i,
-    financial_aid_policy: /\bneed[- ]blind\b|\bneed[- ]aware\b|\bcss\s*profile\b|\binstitutional\s*aid\b|\binstitutional\s*methodology\b|\bfinancial\s*aid\s*policy\b/i,
+    // "Student privacy" likewise: "my app project is about student privacy
+    // online" is an activity, "my student privacy rights" is FERPA.
+    ferpa: /\bferpa\b|\bfamily\s*educational\s*rights\b|\bstudent\s*privacy\b(?=[^.?!]{0,40}\b(?:rights?|records?|ferpa|office)\b)|\b(?:education|school)\s+records?\b[^.?!]{0,60}\b(?:rights?|access|privacy|amend\w*|disclos\w*|release\w*|consent|request\w*|see|view)\b|\b(?:rights?|access|privacy|amend\w*|disclos\w*|release\w*|consent|request\w*)\b[^.?!]{0,60}\b(?:education|school)\s+records?\b/i,
+    financial_aid_policy: withKorean(/\bneed[- ]blind\b|\bneed[- ]aware\b|\bcss\s*profile\b|\binstitutional\s*aid\b|\binstitutional\s*methodology\b|\bfinancial\s*aid\s*policy\b/i, KO_TOPIC.financial_aid_policy),
     // Federal-aid eligibility only. "Am I eligible for Princeton" and
     // scholarship qualification questions are coaching.
     eligibility: /\b(?:am\s+i|are\s+we|is\s+my\s+\w+|do\s+i|would\s+i|will\s+i|can\s+i)\s+(?:be\s+|still\s+)?(?:eligible|qualify|qualified)\b[^.?!]{0,60}\b(?:fafsa|federal|financial\s+aid|student\s+aid|pell|loans?|grants?|work[- ]study|aid)\b|\b(?:fafsa|federal\s+(?:student\s+)?aid|pell|financial\s+aid|student\s+aid)\b[^.?!]{0,40}\b(?:eligib\w*|qualif\w*)\b|\bcitizenship\s+requirement\b|\bselective\s+service\b/i,
-    // Bare "legal" ("legal studies", "paralegal") is not a compliance question.
-    legal_compliance: /\blegal\s+(?:rights?|requirements?|obligations?|status|issues?|questions?)\b|\bcompliance\b|\bregulations?\b|\b(?:federal|state)\s+law\b|\btitle\s+ix\b|\bada\s+accommodations?\b/i,
+    // Bare "legal" ("legal studies", "paralegal") is not a compliance
+    // question, and neither are bare "compliance" and "regulations": an EPA
+    // internship, a Model UN committee and an AP Gov unit all got the
+    // regulated prefix and a Department of Education pointer. They count
+    // here next to the student's own school.
+    legal_compliance: /\blegal\s+(?:rights?|requirements?|obligations?|status|issues?|questions?)\b|\b(?:federal|state)\s+law\b|\btitle\s+ix\b|\bada\s+accommodations?\b|\b(?:my|our)\s+(?:high\s+)?(?:school|college|university|district)\b[^.?!]{0,60}\b(?:complian\w*|violat\w*|regulations?)\b|\b(?:complian\w*|violat\w*|regulations?)\b[^.?!]{0,40}\b(?:my|our)\s+(?:high\s+)?(?:school|college|university|district)\b/i,
   },
   high_stakes: {
     // "Early decision" on its own is a strategy topic ("should I apply
-    // ED?"); it counts here only next to a date word.
-    deadlines: /\bdeadlines?\b|\bdue\s+dates?\b|\bwhen\s+(?:is|are|do|does|did|will)\b[^.?!]{0,60}\b(?:due|deadline|close|open|apply\s+by)\b|\bpriority\s+deadline\b|\bapplications?\s+(?:closes?|opens?)\b|\brolling\s+admissions?\b/i,
-    // Money questions, not every "how much" or "scholarship" mention.
-    financial_amounts: /\bhow\s+much\b[^.?!]{0,50}\b(?:costs?|tuition|pay|aid|money|loans?|scholarships?|price|afford\w*|owe|borrow|expensive)\b|\b(?:tuition|net\s+price|sticker\s+price|cost\s+of\s+attendance|room\s+and\s+board|afford\w*)\b|\b(?:pell|merit\s+aid|financial\s+aid|need[- ]based\s+aid|student\s+loans?|federal\s+loans?|work[- ]study|stipends?)\b|\b(?:scholarships?|grants?|loans?)\b[^.?!]{0,40}(?:\b(?:amount|worth|how\s+much|dollars?|cover|pays?|full[- ]ride|full\s+tuition|money)\b|\$)|\$\s?\d/i,
+    // ED?"); it counts here only next to a date word. Rolling admissions at
+    // a summer program or camp is an activity (and see ORDINARY_SENSE).
+    deadlines: withKorean(/\bdeadlines?\b|\bdue\s+dates?\b|\bwhen\s+(?:is|are|do|does|did|will)\b[^.?!]{0,60}\b(?:due|deadline|close|open|apply\s+by)\b|\bpriority\s+deadline\b|\bapplications?\s+(?:closes?|opens?)\b|\brolling\s+admissions?\b(?![^.?!]{0,40}\b(?:summer|programs?|camps?|internships?|clubs?|experience)\b)/i, KO_TOPIC.deadlines),
+    // Money questions, not every "how much" or "scholarship" mention. Bare
+    // "afford" ("I can't afford to waste time on a fifth AP"), "pay
+    // attention" and a dollar figure from a tutoring business were all
+    // financial_amounts and ended an EC answer with "contact the college's
+    // financial aid office". Afford counts with a family subject or a
+    // college, tuition or cost object; a dollar figure next to a cost word.
+    financial_amounts: withKorean(/\bhow\s+much\b[^.?!]{0,50}\b(?:costs?|tuition|pay(?!\s+attention)|aid|money|loans?|scholarships?|price|owe|borrow|expensive)\b|\b(?:tuition|net\s+price|sticker\s+price|cost\s+of\s+attendance|room\s+and\s+board)\b|\b(?:my\s+(?:family|parents?|mom|dad|mother|father)|we|our\s+family)\b[^.?!]{0,20}\bafford\b|\bafford(?:s|ed|ing)?\s+(?:to\s+(?:go|attend|pay|study|enroll|live)\b|(?:the\s+)?(?:college|colleges|universit\w*|tuition|costs?|price|fees?|out[- ]of[- ]state|private\s+(?:college|school|universit\w*))\b|it\b)|\baffordab(?:le|ility)\b(?![^.?!]{0,30}\b(?:summer|programs?|camps?|hobby|hobbies|equipment|supplies|laptops?|calculators?|books?)\b)|\b(?:pell|merit\s+aid|financial\s+aid|need[- ]based\s+aid|student\s+loans?|federal\s+loans?|work[- ]study|stipends?)\b|\b(?:scholarships?|grants?|loans?)\b[^.?!]{0,40}(?:\b(?:amount|worth|how\s+much|dollars?|cover|pays?|full[- ]ride|full\s+tuition|money)\b|\$)|\$\s?\d[\d,.]*\s*k?\b[^.?!]{0,40}\b(?:tuition|costs?|price|fees?|aid|loans?|per\s+year|a\s+year)\b|\b(?:tuition|costs?|price|fees?|aid|loans?)\b[^.?!]{0,40}\$\s?\d/i, KO_TOPIC.financial_amounts),
     school_policies: /\btest[- ]optional\b|\btest[- ]required\b|\bsuperscore\b|\bscore\s*choice\b|\bapplication\s*requirement\b|\brequired\s*document\b/i,
-    official_stats: /\bacceptance\s*rate\b|\badmission\s*rate\b|\bclass\s*profile\b|\bmiddle\s*50\b|\b(25th|75th)\s*percentile\b/i,
+    official_stats: withKorean(/\bacceptance\s*rate\b|\badmission\s*rate\b|\bclass\s*profile\b|\bmiddle\s*50\b|\b(25th|75th)\s*percentile\b/i, KO_TOPIC.official_stats),
   },
   coaching: {
     ec_strategy: /\bextracurricular(s)?\b|\becs?\b|\bactivit(y|ies)\b|\bspike\b|\bhook\b|\bsummer\s*(program|activit|plan)\b|\bleadership\b|\bvolunteer\b|\binternship\b|\bresearch\b/i,
@@ -114,6 +278,17 @@ const PATTERNS = {
     gpa_benchmark: /\bgpa\b|\bsat\b|\bact\b|\bpercentile\b|\bbenchmark\b|\bhow\s*(do|does)\s*(my|i)\s*(compare|stack)\b/i,
   },
 };
+
+// A topic word used in its everyday sense. "How do I manage deadlines for
+// school projects?" is about homework, not an admissions date, and got the
+// official-source footer; a deadline counts only when nothing marks it as
+// a class, club or program deadline, or when an admissions word is there
+// too ("the summer program's application deadline" is still a lookup).
+const NON_ADMISSIONS_DEADLINE_RE = /\b(?:projects?|homework|assignments?|lab\s+reports?|papers?|club|clubs|team|competitions?|science\s+fair|hackathons?|tournaments?|summer\s+programs?|camps?|internships?|newspaper|yearbook|job|shifts?|midterms?|finals)\b/i;
+const ADMISSIONS_CONTEXT_RE = /\b(?:applications?|apply(?:ing)?|admissions?|early\s+(?:decision|action)|regular\s+decision|ed(?:\s?ii|2)?|r?ea|rd|fafsa|css|common\s+app|coalition|universit(?:y|ies)|colleges?|financial\s+aid|scholarships?|enroll\w*|deposits?|commit\w*|transcripts?)\b/i;
+const ORDINARY_SENSE = Object.freeze({
+  deadlines: (text) => NON_ADMISSIONS_DEADLINE_RE.test(text) && !ADMISSIONS_CONTEXT_RE.test(text),
+});
 
 const TOPIC_SOURCE_DOMAINS = Object.freeze({
   fafsa: ["studentaid.gov", "fsapartners.ed.gov"],
@@ -201,9 +376,25 @@ export function isVerifiedEvidenceForTopic(evidence, subIntent, { now = new Date
 // crisis words back — e.g. a chat-thread title. Keeps one canonical check so
 // the two never drift.
 export function isCrisisText(text) {
-  const s = (text || "").trim();
+  const s = normalizeForLexicon(text);
   if (!s) return false;
   return PATTERNS.crisis.some((pattern) => pattern.test(s));
+}
+
+// Read by the parity test against the client's copy; not for matching.
+export const CRISIS_PATTERNS = Object.freeze([...PATTERNS.crisis]);
+
+// Suicide, self-harm, overdose or a crisis line named anywhere. Checked only
+// after the crisis patterns have said no, so a match marks a topic mention
+// ("our suicide prevention club"): answered normally, with the resource
+// footer. "We added the crisis hotline number to every locker" names no
+// suicide, and without the line here it would be answered with no lines.
+export const CRISIS_TOPIC_RE = /\b(?:suicid\w*|self[\s-]?harm\w*|overdos\w*|crisis\s+(?:hot|life|text\s+)lines?)\b|자살|자해/i;
+
+export function isCrisisTopicMention(text) {
+  const s = normalizeForLexicon(text);
+  if (!s || PATTERNS.crisis.some((pattern) => pattern.test(s))) return false;
+  return CRISIS_TOPIC_RE.test(s);
 }
 
 // ─── Main classification function ───
@@ -222,20 +413,20 @@ export function classifyTopic(query, conversationContext = {}) {
     };
   }
 
-  // 1. Crisis detection — always first, highest priority
-  for (const pattern of PATTERNS.crisis) {
-    if (pattern.test(text)) {
-      return {
-        topicType: TOPIC_TYPES.CRISIS,
-        intent: "crisis_detected",
-        subIntent: null,
-        sourceConstraint: "none",
-        modelTier: MODEL_TIERS.NONE,
-        gates: ["crisis_protocol"],
-        confidence: 0.95,
-        rationale: "Crisis keywords detected. Route to deterministic crisis response.",
-      };
-    }
+  // 1. Crisis detection — always first, highest priority. Matched on the
+  // normalized question (typographic apostrophes, zero-width characters),
+  // not on `text`, which the topic patterns below still read as before.
+  if (isCrisisText(query)) {
+    return {
+      topicType: TOPIC_TYPES.CRISIS,
+      intent: "crisis_detected",
+      subIntent: null,
+      sourceConstraint: "none",
+      modelTier: MODEL_TIERS.NONE,
+      gates: ["crisis_protocol"],
+      confidence: 0.95,
+      rationale: "Crisis keywords detected. Route to deterministic crisis response.",
+    };
   }
 
   // 2. Regulated topics
@@ -256,7 +447,7 @@ export function classifyTopic(query, conversationContext = {}) {
 
   // 3. High-stakes topics
   for (const [subIntent, pattern] of Object.entries(PATTERNS.high_stakes)) {
-    if (pattern.test(text)) {
+    if (pattern.test(text) && !ORDINARY_SENSE[subIntent]?.(text)) {
       return {
         topicType: TOPIC_TYPES.HIGH_STAKES,
         intent: "high_stakes",
@@ -320,14 +511,20 @@ export function classifyTopic(query, conversationContext = {}) {
 const LOOKUP_ASK_RE = /\b(?:when|what|what's|whats|which|how\s+many|give\s+me|tell\s+me|list|show\s+me|find|look\s+up|do\s+you\s+(?:know|have)|is\s+(?:it|the|there))\b/i;
 const GUIDANCE_RE = /\b(?:should|shouldn't|would\s+it|worth|better|best|vs\.?|versus|differ\w*|compar\w*|means?|meaning|explain|understand|why|how\s+(?:do|does|did|can|could|should|important|much\s+do(?:es)?)|strateg\w*|chances?|odds|decide|deciding|decided|choos\w*|pros|cons|matters?|good\s+idea|bad\s+idea|advice|advise|recommend\w*|plan|planning|prepar\w*|manag\w*|organiz\w*|keep\s+track|tips?|help\s+me|thoughts?|opinion|ok(?:ay)?\s+to|worr\w*|stress\w*|realistic|competitive|likely|typical\w*|usually|generally|in\s+general|on\s+average|improve|increase|boost|affect|impact|prioriti\w*|handle|balance|too\s+late|missed|miss|extension|extend|late)\b/i;
 
+// The Korean ask and guidance words (gate-12): 언제 / 몇 / 얼마 ask for a
+// date or a figure; 할까 / 어떻게 / 중요 / 전략 ask what to do with one, so
+// "얼리 디시전 지원해야 할까요?" (should I apply ED?) is never refused.
+const KO_LOOKUP_ASK_RE = /언제|몇|얼마|무엇|뭐(?:예요|에요|야|죠|지|인가)|어디|알려\s*주|찾아\s*주/;
+const KO_GUIDANCE_RE = /할까|좋을까|나을까|어떻게|전략|차이|왜|추천|중요|괜찮|의미|뜻이|비교|가능성|확률|도움|조언|준비|놓쳤|늦었|연장|보통|대략|일반적/;
+
 export function isLookupQuestion(query, subIntent) {
   const text = String(query || "").trim();
   if (!text) return false;
   const intent = String(subIntent || "").toLowerCase();
   if (intent !== "deadlines" && intent !== "official_stats") return false;
-  if (GUIDANCE_RE.test(text)) return false;
+  if (GUIDANCE_RE.test(text) || KO_GUIDANCE_RE.test(text)) return false;
   const words = text.split(/\s+/).filter(Boolean).length;
-  return LOOKUP_ASK_RE.test(text) || words <= 8;
+  return LOOKUP_ASK_RE.test(text) || KO_LOOKUP_ASK_RE.test(text) || words <= 8;
 }
 
 // ─── Compliance gate enforcement ───
@@ -528,10 +725,25 @@ export function canHandleDeterministically(topicType, subIntent, query = "") {
   // federal FAFSA checklist buried real questions under boilerplate. Require
   // both an eligibility verb AND explicit federal-aid context.
   if (topicType === TOPIC_TYPES.REGULATED && (subIntent === "fafsa" || subIntent === "eligibility") && String(query || "").trim()) {
-    return /\b(eligib\w*|qualif\w*)\b/i.test(query)
-      && /\b(fafsa|federal|financial\s+aid|student\s+aid|pell|loan|grant)\b/i.test(query);
+    return isFafsaChecklistQuestion(query);
   }
   return true;
+}
+
+// The checklist lists the federal requirements; it cannot weigh a student's
+// own situation. "Am I eligible for FAFSA as a permanent resident?" and "do
+// I qualify for federal aid if my parents are undocumented?" got "6
+// eligibility item(s) have not been confirmed yet" and nothing about
+// permanent residents or a contributor without an SSN (gate-9). A question
+// that names a situation, or asks why or what if, goes to the model as
+// labeled general guidance with the official rule text beside it.
+const FAFSA_SITUATION_RE = /\b(?:as\s+an?|if|since|because|even\s+though|although|unless|while\s+(?:i|my)|with(?:out)?\s+(?:a|an|my|no|our)|when\s+(?:i|my)|why|what\s+(?:if|happens)|my\s+(?:parents?|mom|dad|mother|father|family|guardian|status|visa|income)|permanent\s+residents?|green\s+card|daca|dreamers?|undocumented|international|visas?|non-?citizens?|citizenship\s+status|ssn|social\s+security|drugs?|convict\w*|felon\w*|default\w*|incarcerat\w*|prison|jail|foster|homeless|ward|independent|divorc\w*|separated|married|ged|home-?school\w*|tps|refugees?|asylum|immigra\w*|parole|part[- ]time|community\s+college|grad(?:uate)?\s+school|abroad|another\s+country)\b/i;
+
+export function isFafsaChecklistQuestion(query) {
+  const text = String(query || "");
+  return /\b(eligib\w*|qualif\w*)\b/i.test(text)
+    && /\b(fafsa|federal|financial\s+aid|student\s+aid|pell|loan|grant)\b/i.test(text)
+    && !FAFSA_SITUATION_RE.test(text);
 }
 
 // ─── Check Opus budget ───

@@ -1,6 +1,6 @@
 // One sequential Council stage with structured output and citation validation.
 
-import { callLLM, resolveTierDefault } from "../llm-adapters/index.js";
+import { callLLM, resolveTierDefault, sumUsage } from "../llm-adapters/index.js";
 import { isReasoningModel } from "../llm-adapters/tier-defaults.js";
 import { llmLog, llmDebug } from "../llm-adapters/llm-log.js";
 
@@ -123,10 +123,15 @@ export class Councilor {
       priorOutputs,
     });
     let lastError = null;
+    let lastProviderError = null;
+    // Usage over every try. A seat that failed to parse twice used to report
+    // usage null, reconciled as 0 USD, for two calls the operator paid for.
+    let usage = null;
 
     for (let attempt = 0; attempt < PARSE_TRIES; attempt++) {
+      let response;
       try {
-        const response = await this.callModel({
+        response = await this.callModel({
           provider: adapter.provider,
           apiKey: adapter.apiKey,
           model: adapter.model,
@@ -136,6 +141,36 @@ export class Councilor {
           temperature: 0.2,
           signal,
         });
+      } catch (error) {
+        // The student closed the request: stop, do not abstain. A try
+        // already billed rides on the error, so convene can reconcile the
+        // stage at it before the route releases the rest (backend-3).
+        if (signal?.aborted) {
+          if (usage && error && typeof error === "object") error.billedUsage = usage;
+          throw error;
+        }
+        // A stall or a rejected key is not retried here: the adapter already
+        // made its own two attempts at a stall, a rejected key stays
+        // rejected, and a second round only doubled a 105 s wait during an
+        // outage. A transient 5xx or network error gets the second try. The
+        // abstention says it was the provider, so the Council can stop
+        // rather than run three more seats into the same outage and answer
+        // "no recommendation from the available context".
+        lastError = error;
+        lastProviderError = error;
+        llmDebug("COUNCIL", "sequential stage provider error", {
+          role: this.role,
+          attempt,
+          status: error?.status,
+          code: error?.code,
+        });
+        const transient = error?.code === "network_error" || (error?.code === "http_error" && Number(error?.status) >= 500);
+        if (transient) continue;
+        break;
+      }
+      lastProviderError = null;
+      if (response?.usage) usage = sumUsage(usage, response.usage);
+      try {
         const raw = Array.isArray(response?.content)
           ? response.content.map((part) => part.text || "").join("").trim()
           : String(response?.text || "").trim();
@@ -161,7 +196,7 @@ export class Councilor {
           role: this.role,
           model: adapter.model,
           provider: adapter.provider,
-          usage: response?.usage || null,
+          usage,
         };
         if (this.role === "Data Checker" && checked.invalid.length > 0 && checked.valid.length === 0) {
           result.stance = "oppose";
@@ -179,6 +214,7 @@ export class Councilor {
       }
     }
 
+    const providerFailed = Boolean(lastProviderError);
     return {
       role: this.role,
       stance: "modify",
@@ -187,11 +223,19 @@ export class Councilor {
       citations: [],
       invalid_citations: [],
       citation_validation: { valid: 0, invalid: 0 },
-      reasoning: "Provider error or unparseable output: " + (lastError?.message || "unknown error"),
+      reasoning: (providerFailed ? "Provider error: " : "Unparseable output: ") + (lastError?.message || "unknown error"),
       model: adapter.model,
       provider: adapter.provider,
-      usage: null,
+      usage,
       abstained: true,
+      abstain_reason: providerFailed ? "provider" : "unparseable",
+      ...(providerFailed ? {
+        provider_error: {
+          status: Number.isInteger(lastProviderError?.status) ? lastProviderError.status : null,
+          code: typeof lastProviderError?.code === "string" ? lastProviderError.code : null,
+          message: String(lastProviderError?.message || "").slice(0, 300),
+        },
+      } : {}),
     };
   }
 }

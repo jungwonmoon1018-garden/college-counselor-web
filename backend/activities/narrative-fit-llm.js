@@ -24,23 +24,43 @@ export function initNarrativeFitCacheTable(db) {
       reason TEXT,
       model TEXT,
       provider TEXT,
-      created_at TEXT DEFAULT (datetime('now'))
+      created_at TEXT DEFAULT (datetime('now')),
+      narrative_hash TEXT
     );
   `);
   const columns = db.prepare('PRAGMA table_info(narrative_fit_cache)').all().map((row) => row.name);
   if (!columns.includes('provider')) {
     db.exec('ALTER TABLE narrative_fit_cache ADD COLUMN provider TEXT');
   }
+  // A row's reason is the model's words about how an activity fits the
+  // student's narrative, and its key is a hash of hashes, so account erasure
+  // (server/student-data.js) could not find it. Each row now records the
+  // narrative's hash beside the key, and erasure deletes by it. Rows written
+  // before the column record no narrative and could never be erased, so they
+  // are dropped once, here; they are a cache and are re-read on demand.
+  if (!columns.includes('narrative_hash')) {
+    db.transaction(() => {
+      db.exec('ALTER TABLE narrative_fit_cache ADD COLUMN narrative_hash TEXT');
+      db.exec('DELETE FROM narrative_fit_cache');
+    })();
+  }
+  db.exec('CREATE INDEX IF NOT EXISTS idx_narrative_fit_cache_narrative ON narrative_fit_cache(narrative_hash)');
 }
 
 export function prepareNarrativeFitCacheStatements(db) {
+  const put = db.prepare(`
+    INSERT OR REPLACE INTO narrative_fit_cache
+      (cache_key, score, reason, model, provider, narrative_hash, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+  `);
   return {
     get: db.prepare('SELECT * FROM narrative_fit_cache WHERE cache_key = ?'),
-    put: db.prepare(`
-      INSERT OR REPLACE INTO narrative_fit_cache
-        (cache_key, score, reason, model, provider, created_at)
-      VALUES (?, ?, ?, ?, ?, datetime('now'))
-    `),
+    // The narrative's hash is the last argument, so a caller from before the
+    // column (tests that seed the cache with five) still binds.
+    put: {
+      run: (cacheKey, score, reason, model, provider, narrativeHash = null) =>
+        put.run(cacheKey, score, reason, model, provider, narrativeHash),
+    },
   };
 }
 
@@ -120,7 +140,7 @@ export async function callHaikuForNarrativeFit({
     const score = clamp01(Number(parsed.score));
     if (!Number.isFinite(score)) return null;
     const reason = String(parsed.reason || '').slice(0, 240);
-    stmts.put.run(cacheKey, score, reason, adapter.model, adapter.provider);
+    stmts.put.run(cacheKey, score, reason, adapter.model, adapter.provider, narrativeHash ?? null);
     return { score, reason, cached: false };
   } catch {
     return null;

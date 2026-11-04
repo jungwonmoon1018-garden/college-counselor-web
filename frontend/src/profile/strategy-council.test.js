@@ -88,3 +88,41 @@ describe("Strategy Council client contract", () => {
     expect(result.council).toBe(false);
   });
 });
+
+// chat-9 / decision B: the Council route's codes. A provider outage used to
+// end as a 200 "no recommendation from the available context", and a 429 or
+// a refused key read as a generic failure.
+describe("Council error copy by code", () => {
+  it("tells the student an outage is not about their profile, in Korean too", () => {
+    expect(councilErrorMessage(503, { code: "COUNCIL_PROVIDER_UNAVAILABLE" }, "en-US")).toMatch(/isn't about your profile/);
+    expect(councilErrorMessage(503, { code: "COUNCIL_PROVIDER_UNAVAILABLE" }, "ko")).toMatch(/잠시 후 다시 시도/);
+  });
+  it("shares the chat copy for the codes both routes send", () => {
+    expect(councilErrorMessage(429, { code: "rate_limited", retryAfterSeconds: 30 }, "en-US")).toMatch(/Wait 30 seconds/);
+    expect(councilErrorMessage(502, { code: "provider_auth_failed" }, "en-US")).toMatch(/still signed in/);
+    expect(councilErrorMessage(402, {}, "en-US")).toMatch(/remaining monthly AI budget/i);
+  });
+
+  // The route sends the outage as the shared code with councilCode beside
+  // it; reading `code` alone missed it, and a refused key is not an outage.
+  it("reads the route's real provider-failure shape", () => {
+    const outage = { error: "The AI service could not answer right now.", code: "provider_error", councilCode: "COUNCIL_PROVIDER_UNAVAILABLE", stage: "Strategist" };
+    expect(councilErrorMessage(502, outage, "en-US")).toMatch(/isn't about your profile/);
+    expect(councilErrorMessage(504, { ...outage, code: "provider_timeout" }, "ko")).toMatch(/학생의 정보가 부족해서가 아니에요/);
+    expect(councilErrorMessage(502, { ...outage, code: "provider_auth_failed", upstreamStatus: 401 }, "en-US")).toMatch(/still signed in/);
+    expect(councilErrorMessage(503, { code: "openrouter_not_configured" }, "en-US")).toMatch(/isn't set up on this site/);
+  });
+
+  // Every 400 and 500 used to hand back the server's English.
+  it("words the Council's own refusals in the student's language", () => {
+    expect(councilErrorMessage(400, { error: "missing question", code: "COUNCIL_QUESTION_MISSING" }, "ko")).toMatch(/2,000자 이하/);
+    expect(councilErrorMessage(400, { error: "decision_type is invalid", code: "COUNCIL_DECISION_TYPE_INVALID" }, "ko")).toMatch(/새로 고친/);
+    expect(councilErrorMessage(500, { error: "The internal Council budget reservation conflicted.", code: "council_budget_conflict" }, "ko")).toMatch(/서버에서 문제가/);
+    expect(councilErrorMessage(500, { error: "x", code: "internal_error" }, "en-US")).toMatch(/problem on the server/);
+    expect(councilErrorMessage(503, { code: "COUNCIL_BUDGET_UNAVAILABLE" }, "en-US")).not.toMatch(/device|administrator/);
+  });
+
+  it("shows a blocked question's own reply", () => {
+    expect(councilErrorMessage(400, { error: "I can't help write that essay for you.", code: "COUNCIL_INPUT_BLOCKED", blocked: true }, "en-US")).toBe("I can't help write that essay for you.");
+  });
+});

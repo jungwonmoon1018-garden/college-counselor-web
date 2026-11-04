@@ -4,7 +4,8 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { composeAnswer, composeDeterministicAnswer } from "../chat/answer-composer.js";
+import { composeAnswer, composeDeterministicAnswer, questionConcernsSubIntent } from "../chat/answer-composer.js";
+import { runFAFSAEligibilityCheck, selectFafsaRuleset } from "../chat/rules-engine.js";
 
 describe("composeDeterministicAnswer", () => {
   it("composes FAFSA eligibility answer", () => {
@@ -156,5 +157,49 @@ describe("composeAnswer", () => {
     assert.equal(composeAnswer(base).actions.length, 1);
     const deterministic = composeAnswer({ ...base, modelOutput: null, questionText: "biomedical engineering plan" });
     assert.equal(deterministic.actions.length, 1);
+  });
+
+  // gate-11: legal_compliance had no topic pattern, so every answer the
+  // classifier filed there ended with "The relevant official source".
+  it("knows when a question is about law or compliance", () => {
+    assert.equal(questionConcernsSubIntent("legal_compliance", "I interned at a law firm"), false);
+    assert.equal(questionConcernsSubIntent("legal_compliance", "Is my school in compliance with Title IX?"), true);
+    assert.equal(questionConcernsSubIntent("legal_compliance", "What are my legal rights if the school loses my transcript?"), true);
+  });
+});
+
+describe("the FAFSA checklist in the composed answer", () => {
+  const classification = { topicType: "regulated", subIntent: "eligibility" };
+  // A fixed clock inside the 2026-27 ruleset's window, so the test does not
+  // turn red on the day that ruleset lapses.
+  const now = new Date("2026-11-03T12:00:00.000Z");
+
+  // The rule text is official and verified only while its ruleset is
+  // current; the expiry check is the guardrail and stays.
+  it("lists each rule of the current ruleset as a verified fact with its source", () => {
+    const ruleset = selectFafsaRuleset(now);
+    assert.ok(ruleset);
+    const composed = composeDeterministicAnswer({ classification, result: runFAFSAEligibilityCheck({}, { now }), now });
+    assert.ok(composed.verified_facts.length >= 5);
+    assert.ok(composed.verified_facts.every((fact) => fact.source?.url && fact.source.academicYear === ruleset.academicYear));
+    assert.equal(composed.no_verified_answer, false);
+  });
+
+  it("never stamps a rule as verified once its ruleset has expired", () => {
+    const result = runFAFSAEligibilityCheck({}, { now });
+    const afterExpiry = new Date(Date.parse(result.expiresAt) + 24 * 60 * 60 * 1000);
+    const composed = composeDeterministicAnswer({ classification, result, now: afterExpiry });
+    assert.equal(composed.verified_facts.length, 0);
+  });
+
+  // "Citizenship: unknown" was filed as a fact "calculated from information
+  // supplied by the student" when the student had supplied nothing.
+  it("files only what the student supplied in the student lane", () => {
+    const blank = composeDeterministicAnswer({ classification, result: runFAFSAEligibilityCheck({}, { now }), now });
+    assert.equal(blank.claims.filter((claim) => claim.lane === "student_provided_fact").length, 0);
+    const partial = composeDeterministicAnswer({ classification, result: runFAFSAEligibilityCheck({ citizenship: true }, { now }), now });
+    const student = partial.claims.filter((claim) => claim.lane === "student_provided_fact").map((claim) => claim.statement);
+    assert.equal(student.length, 1);
+    assert.match(student[0], /Citizenship.*: pass/);
   });
 });

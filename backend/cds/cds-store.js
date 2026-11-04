@@ -18,6 +18,9 @@ import { fileURLToPath } from "node:url";
 
 import { persistAndValidate, loadValidatedRecord, loadAllValidatedRecords, loadLatestValidation } from "./cds-validator.js";
 import { normalizeSchoolName } from "./cds-search.js";
+import { isOlderCycle } from "./cds-ingest-pipeline.js";
+import { cycleDate, cycleLabel, planningCycleStartYear } from "../shared/admissions-cycle.js";
+import { expandCollegeAlias } from "../colleges/college-research.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_PARSED_CDS_DIR = path.join(__dirname, "..", "tools", "cds-cache", "parsed");
@@ -28,18 +31,17 @@ export const DEFAULT_PARSED_CDS_DIR = path.join(__dirname, "..", "tools", "cds-c
 // forward year — far better than the generic "January 1" fallback, still
 // not this year's verified deadline. Callers label them accordingly. A
 // month of August or later belongs to the cycle's start year (the fall the
-// application is submitted); January to July to the entry year.
-export function cdsDeadlinesForCycle(record, now = new Date()) {
+// application is submitted); January to July to the entry year. The cycle
+// is the planning cycle (shared/admissions-cycle.js) unless the caller
+// names a later one, as a junior's own application cycle is.
+export function cdsDeadlinesForCycle(record, now = new Date(), { startYear = null } = {}) {
   const dates = record?.extras?.dates;
   if (!dates || typeof dates !== "object") return null;
-  const y = now.getUTCFullYear();
-  const m = now.getUTCMonth() + 1;
-  const cycleStartYear = m >= 2 ? y : y - 1;
+  const cycleStartYear = Number.isInteger(startYear) ? startYear : planningCycleStartYear(now);
   const iso = (entry) => {
     const mmdd = entry?.mmdd;
     if (!/^\d{2}-\d{2}$/.test(String(mmdd || ""))) return null;
-    const month = Number(mmdd.slice(0, 2));
-    return `${month >= 8 ? cycleStartYear : cycleStartYear + 1}-${mmdd}`;
+    return cycleDate(cycleStartYear, Number(mmdd.slice(0, 2)), Number(mmdd.slice(3, 5)));
   };
   const deadlines = {
     ea: iso(dates.eaClosing),
@@ -53,7 +55,7 @@ export function cdsDeadlinesForCycle(record, now = new Date()) {
   if (!Object.values(deadlines).some(Boolean)) return null;
   return {
     deadlines,
-    cycle: `${cycleStartYear}-${String(cycleStartYear + 1).slice(-2)}`,
+    cycle: cycleLabel(cycleStartYear),
     label: `${record.school || "the school"} Common Data Set${record.yearLabel ? ` ${record.yearLabel}` : ""}`,
     sourceUrl: record.sourceUrl || null,
   };
@@ -108,12 +110,95 @@ export function normalizeCdsTestPolicy(policy) {
   return "test_considered_or_required";
 }
 
+// The test policy a stored record can support, read from the record itself.
+// Until parser version 8 a C8A row the parser did not read was stored as
+// "test_required", so a stored "required" from an older parse may be a
+// default rather than a reading: 175 of the 299 committed records said
+// required, among them UCLA (test-blind), Michigan, Kansas and Occidental
+// (test-optional). The record carries its own evidence against such a
+// default, and this reads it at every load, so no re-parse is needed:
+//
+//   No SAT band and no ACT band: a school that requires scores reports
+//   them, so nothing in the document backs "required". When C7 rates
+//   standardized tests "not considered" and reads sanely otherwise (GPA
+//   and rigor considered), the school reads no scores: test-blind (UCLA,
+//   UC Irvine). Otherwise the policy is unknown. C7 alone does not decide:
+//   misread C7 tables rate MIT's test scores and rigor "not considered".
+//   C9's submission shares: at a school that requires scores nearly every
+//   enrolled student sent one, so the SAT and ACT shares sum to about 100
+//   or more (some send both; Yale's 2025-26 class 92, Harvard's 106). Under
+//   80 the class was admitted without them: test-optional (Michigan 73,
+//   Kansas 58, Occidental 28).
+//
+// Otherwise an old "required" stands, as do every value a version-8 parse
+// stored and every optional or blind reading. Returns { value, basis }:
+// value is the CDS vocabulary ("test_required", "test_optional",
+// "test_blind") or null for unknown.
+const POLICY_DEFAULT_ERA_VERSION = 8;
+const REQUIRED_SUBMISSION_SHARE = 80;
+export function readCdsTestPolicy(record) {
+  const raw = String(record?.testPolicy || "").trim().toLowerCase();
+  if (!raw) return { value: null, basis: "not_read" };
+  const required = raw === "test_required" || raw === "required";
+  const parserVersion = Number(record?.parserVersion) || 0;
+  if (!required || parserVersion >= POLICY_DEFAULT_ERA_VERSION) return { value: raw, basis: "cds" };
+  const submitting = record?.extras?.submitting;
+  const sat = Number(submitting?.satPct);
+  const act = Number(submitting?.actPct);
+  if (Number.isFinite(sat) || Number.isFinite(act)) {
+    const share = (Number.isFinite(sat) ? sat : 0) + (Number.isFinite(act) ? act : 0);
+    return share < REQUIRED_SUBMISSION_SHARE
+      ? { value: "test_optional", basis: "submission_share" }
+      : { value: raw, basis: "cds" };
+  }
+  if (record?.enrolledSAT?.p25 == null && record?.enrolledACT?.p25 == null) {
+    const c7 = record?.c7 || {};
+    const rating = (...keys) => keys.map((k) => c7[k]).find((v) => v != null);
+    const notConsidered = (v) => v === "not_considered" || v === 0;
+    const tests = rating("test_scores", "standardizedTests", "standardized_tests");
+    const sane = [rating("gpa", "academicGpa", "academic_gpa"), rating("rigor")].every((v) => v != null && !notConsidered(v));
+    if (notConsidered(tests) && sane) return { value: "test_blind", basis: "c7_not_considered" };
+    return { value: null, basis: "unsupported_default" };
+  }
+  return { value: raw, basis: "cds" };
+}
+
 // ─── Ingest: disk → cds_records ────────────────────────────────────────
+// Whether a stored record is ahead of a committed parsed file: a later
+// cycle, or the same cycle read by a newer parser. The committed files are
+// a floor, not the latest word: the June–December refresh stores the newer
+// documents, and every boot used to write the files back over its rows
+// (2024-25 read by parser 6, with the "test_required" that version 8 stopped
+// defaulting to, in place of 2025-26 read by parser 8), which the next
+// refresh then re-parsed, about 140 documents on the 512 MB instance. A
+// file without a cycle label never replaces a row that has one. `stored`
+// and `parsed` are record-shaped ({ yearLabel, parserVersion }); a file
+// without a parser version counts as 2, as persistAndValidate stores it.
+export function storedCdsIsAhead(stored, parsed) {
+  if (!stored) return false;
+  const storedLabel = stored.yearLabel || null;
+  const diskLabel = parsed?.yearLabel || null;
+  if (storedLabel && !diskLabel) return true;
+  if (isOlderCycle(diskLabel, storedLabel)) return true;
+  return storedLabel === diskLabel && (Number(stored.parserVersion) || 0) > (Number(parsed?.parserVersion ?? 2) || 0);
+}
+
+function storedCdsRow(ragStmts, slug) {
+  try {
+    const row = ragStmts.cds.getBySlug.get(slug);
+    return row ? { yearLabel: row.year_label, parserVersion: row.parser_version } : null;
+  } catch {
+    return null;
+  }
+}
+
 // Reads every parsed record file (skips _meta files) and upserts it via the
-// existing validated-persist path so corrections/overrides are reapplied.
-// Idempotent: safe to call on every boot.
-export async function ingestParsedCdsCache(ragStmts, { dir = DEFAULT_PARSED_CDS_DIR } = {}) {
-  const result = { dir, ingested: 0, skipped: 0, errors: [] };
+// existing validated-persist path so corrections/overrides are reapplied,
+// except over a stored record that is ahead of the file (storedCdsIsAhead);
+// `force` writes every file regardless. Idempotent: safe to call on every
+// boot.
+export async function ingestParsedCdsCache(ragStmts, { dir = DEFAULT_PARSED_CDS_DIR, force = false } = {}) {
+  const result = { dir, ingested: 0, skipped: 0, keptNewer: 0, errors: [] };
   let files;
   try {
     files = fs.readdirSync(dir);
@@ -129,6 +214,11 @@ export async function ingestParsedCdsCache(ragStmts, { dir = DEFAULT_PARSED_CDS_
       const parsed = JSON.parse(fs.readFileSync(full, "utf8"));
       if (!parsed?.slug && !parsed?.school) { result.skipped++; continue; }
       if (!parsed.slug) parsed.slug = slugifySchoolName(parsed.school);
+      if (!force && storedCdsIsAhead(storedCdsRow(ragStmts, parsed.slug), parsed)) {
+        result.skipped++;
+        result.keptNewer++;
+        continue;
+      }
       await persistAndValidate(ragStmts, parsed, { sourceKind: parsed.source || "cds_cache" });
       result.ingested++;
     } catch (err) {
@@ -169,8 +259,7 @@ export async function ensureCdsStoreSeeded(ragStmts, { dir = DEFAULT_PARSED_CDS_
       // the new sections.
       const stored = loadAllValidatedRecords(ragStmts);
       const storedWithExtras = stored.filter((record) => record.extras && Object.keys(record.extras).length).length;
-      const storedLabel = new Map(stored.map((record) => [record.slug, record.yearLabel || null]));
-      const storedVersion = new Map(stored.map((record) => [record.slug, Number(record.parserVersion) || 0]));
+      const storedBySlug = new Map(stored.map((record) => [record.slug, record]));
       let diskWithExtras = 0;
       // A parsed record replaced on disk by a newer document (Columbia's
       // General Studies CDS swapped for the Columbia College and Engineering
@@ -178,15 +267,20 @@ export async function ensureCdsStoreSeeded(ragStmts, { dir = DEFAULT_PARSED_CDS_
       // the old document's numbers on every deployment that was already
       // populated. A file re-parsed by a newer parser version (the ACT
       // sections, score-range and GPA distributions of version 4) is
-      // re-ingested for the same reason.
+      // re-ingested for the same reason. A label that differs because the
+      // refresh stored a newer cycle than the file is not a changed
+      // document (storedCdsIsAhead): it used to set off a full re-ingest on
+      // every boot.
       const relabeled = [];
       const reparsed = [];
       try {
         for (const slug of diskSlugs) {
           const parsed = JSON.parse(fs.readFileSync(path.join(dir, `${slug}.json`), "utf8"));
           if (parsed?.extras && Object.keys(parsed.extras).length) diskWithExtras++;
-          if (parsed?.yearLabel && storedLabel.has(slug) && storedLabel.get(slug) !== parsed.yearLabel) relabeled.push(slug);
-          if (storedVersion.has(slug) && (Number(parsed?.parserVersion) || 0) > storedVersion.get(slug)) reparsed.push(slug);
+          const row = storedBySlug.get(slug);
+          if (!row || storedCdsIsAhead(row, parsed)) continue;
+          if (parsed?.yearLabel && (row.yearLabel || null) !== parsed.yearLabel) relabeled.push(slug);
+          else if ((Number(parsed?.parserVersion) || 0) > (Number(row.parserVersion) || 0)) reparsed.push(slug);
         }
       } catch { /* unreadable file → treat as no extras */ }
       const extrasBehind = diskWithExtras > 0 && storedWithExtras === 0;
@@ -197,7 +291,8 @@ export async function ensureCdsStoreSeeded(ragStmts, { dir = DEFAULT_PARSED_CDS_
       if (reparsed.length) console.log(`[cds-store] re-ingesting ${reparsed.length} parsed CDS record(s) from a newer parser version: ${reparsed.slice(0, 8).join(", ")}${reparsed.length > 8 ? ", …" : ""}`);
     }
   }
-  const res = await ingestParsedCdsCache(ragStmts, { dir });
+  const res = await ingestParsedCdsCache(ragStmts, { dir, force });
+  if (res.keptNewer) console.log(`[cds-store] kept ${res.keptNewer} stored CDS record(s) newer than the committed files`);
   return { seeded: true, ...res };
 }
 
@@ -229,6 +324,21 @@ export function resolveStoredCdsRecord(ragStmts, { schoolName, slug } = {}) {
     if (score > bestScore) { bestScore = score; best = rec; }
   }
   return best;
+}
+
+// The stored record for a school as a student or the IPEDS baseline names
+// it: the name as given, then its common short form expanded ("Georgia
+// Tech", "UIUC", "NYU"). Two routes looked records up by an exact slug of
+// the name instead, so "Columbia University in the City of New York" (the
+// baseline's name) and every abbreviation silently had no Common Data Set,
+// and the narrative and course plans were tailored without them.
+export function resolveCdsRecordForSchool(ragStmts, schoolName) {
+  const name = String(schoolName || "").trim();
+  if (!name) return null;
+  const direct = resolveStoredCdsRecord(ragStmts, { schoolName: name });
+  if (direct) return direct;
+  const expanded = expandCollegeAlias(name);
+  return expanded && expanded !== name ? resolveStoredCdsRecord(ragStmts, { schoolName: expanded }) : null;
 }
 
 // A record is "validated" when it was checked against ground truth during
@@ -268,6 +378,7 @@ export function cdsRecordToPositioningResult(record, { liveFallback = null, unit
     : (liveFallback?.parsed?.admitRatePercent ?? null);
 
   const extras = record.extras && typeof record.extras === "object" ? record.extras : {};
+  const testPolicyRead = readCdsTestPolicy(record);
   const parsed = {
     c7: record.c7 && Object.keys(record.c7).length ? record.c7 : (liveFallback?.parsed?.c7 ?? null),
     admitRatePercent,
@@ -282,7 +393,11 @@ export function cdsRecordToPositioningResult(record, { liveFallback = null, unit
     actComposite: record.enrolledACT
       ? { low: record.enrolledACT.p25 ?? null, high: record.enrolledACT.p75 ?? null }
       : (liveFallback?.parsed?.actComposite ?? null),
-    testPolicy: normalizeCdsTestPolicy(record.testPolicy) ?? liveFallback?.parsed?.testPolicy ?? null,
+    // The policy the record supports (readCdsTestPolicy), its bucket for
+    // the read, and the raw value so a test-blind school reads no score.
+    testPolicy: normalizeCdsTestPolicy(testPolicyRead.value) ?? liveFallback?.parsed?.testPolicy ?? null,
+    testPolicyValue: testPolicyRead.value,
+    testPolicyBasis: testPolicyRead.basis,
     // The wider read the College Fit calculation compares the student's own
     // sections, rank and GPA against: C9 section bands and score-range
     // tables, C10 class-rank shares, C11 GPA distribution, and the share of

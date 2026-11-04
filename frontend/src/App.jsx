@@ -12,14 +12,14 @@ import "./components/SpikeFinder.jsx";
 import "./components/CalibratedFitCard.jsx";
 import "./components/CourseSequencer.jsx";
 import "./components/TranscriptImportCard.jsx";
-import { mergeImportedCourses, currentYearKey } from "./profile/transcript-utils.js";
+import { mergeImportedCourses, mergeSurveyImport, currentYearKey, courseKey, MAX_PROFILE_COURSES } from "./profile/transcript-utils.js";
 import DisclosurePanel from "./components/DisclosurePanel.jsx";
 import MethodologyPanel from "./components/MethodologyPanel.jsx";
-import { detectLocale, t as tt } from "./i18n.js";
+import { detectLocale, saveLocale, t as tt } from "./i18n.js";
 import "./profile/fit-refresh.js";
 import "./profile/dates.js";
 import { TEST_SCORE_LIMITS, validateTestEntry, blankTestForm, entryToForm, formToEntry } from "./profile/test-scores.js";
-import { validateGpa } from "./profile/gpa.js";
+import { hasGpa, validateGpa } from "./profile/gpa.js";
 import "./profile/strategy-council.js";
 import Sidebar from "./screens/Sidebar.jsx";
 import { GRADE_SCALE } from "./app-shared.js";
@@ -30,16 +30,20 @@ import LoginScreen from "./screens/LoginScreen.jsx";
 import { S, dots } from "./app-shared.js";
 import CreateAccountScreen from "./screens/CreateAccountScreen.jsx";
 import "./session/vault-storage.js";
-import { ONBOARDING_CONSENT_TYPES, grantOnboardingConsents } from "./session/server-session.js";
+import { healMissingConsents } from "./session/server-session.js";
+import { unknownConsentTypes } from "./session/consent-needs.js";
+import ConsentNeeded from "./components/ConsentNeeded.jsx";
+import { closeStudentSession } from "./session/end-session.js";
 import "./profile/profile-analysis.js";
 import { MAX_SCHOOL_FILE_SIZE_BYTES } from "./chat/chat-files.js";
 import { _tryReAuth } from "./chat/chat-client.js";
+import { isSessionExpiryResponse } from "./chat/chat-errors.js";
 import "./chat/markdown.jsx";
 import "./chat/chat-orchestrator.js";
 import ChatScreen from "./screens/ChatScreen.jsx";
 import { send as sendImpl } from "./handlers/chat-send.js";
 import "./handlers/auth-handlers.js";
-import { handleSurveyComplete as handleSurveyCompleteImpl, hydrateSurveyFromCurrentData as hydrateSurveyFromCurrentDataImpl, reconcileWithBackendProfile as reconcileWithBackendProfileImpl, editECFromProfile as editECFromProfileImpl } from "./handlers/survey-handlers.js";
+import { handleSurveyComplete as handleSurveyCompleteImpl, hydrateSurveyFromCurrentData as hydrateSurveyFromCurrentDataImpl, reconcileWithBackendProfile as reconcileWithBackendProfileImpl, editECFromProfile as editECFromProfileImpl, UNPLACED_YEAR } from "./handlers/survey-handlers.js";
 import { createDeadlinesForSchool as createDeadlinesForSchoolImpl, conveneStrategyCouncil as conveneStrategyCouncilImpl } from "./handlers/school-handlers.js";
 import { useCreateAccountForm } from "./hooks/useCreateAccountForm.js";
 import { useSurveyForm } from "./hooks/useSurveyForm.js";
@@ -50,9 +54,13 @@ import { useSessionLifecycle } from "./hooks/useSessionLifecycle.js";
 import { useChatTools } from "./hooks/useChatTools.js";
 import { useAuthHandlers } from "./hooks/useAuthHandlers.js";
 import { useChatFiles } from "./hooks/useChatFiles.js";
+import { useSyncBase } from "./hooks/useSyncBase.js";
 
 
 const SURVEY_YEARS = ["freshman","sophomore","junior","senior"];
+
+// What the login screen says about the session that just ended.
+const SESSION_END_NOTICES = { expired: "Session expired due to inactivity. Please sign in again." };
 
 
 function getPassphraseStrength(passphrase) {
@@ -74,18 +82,25 @@ function makeExportFilename(user) {
   return `${safeName}_vault_${stamp}.enc.json`;
 }
 
-function formatUserFacingError(error) {
-  const msg = String(error?.message || "").toLowerCase();
-  if (msg.includes("api 429") || msg.includes("rate limit")) return "The system is busy right now. Please try again in a minute.";
-  if (msg.includes("api 413") || msg.includes("too large")) return "Your message was too long. Try a shorter question or smaller file.";
-  if (msg.includes("timed out") || msg.includes("took too long")) return "The counselor took too long to respond, so the request was stopped. Please try again.";
-  if (msg.includes("failed to fetch") || msg.includes("network")) return "Check your internet connection and try again.";
-  if (/no api key|not configured|missing .*api key/i.test(msg)) return "Chat isn't configured yet. Ask this device's administrator to configure OpenRouter.";
-  return "Something went wrong while answering that. Please try again.";
+
+// The session boundary. Everything a signed-in student touches — the draft
+// and its attachments, the open thread, the College Fit card, the survey
+// answers, the login and create-account fields — is state inside
+// StudentApp, and ending a session (log out, the inactivity expiry, deleting
+// the account) remounts it with a new key, so the next person at a shared
+// school or family computer starts from empty state. The exits used to reset
+// their own hand-kept lists instead: B's composer showed A's typed question,
+// B's sidebar A's fit card and scores, a new account's survey A's GPA and
+// courses, and B's first message went to A's thread id.
+export default function App() {
+  const [session, setSession] = useState({ epoch: 0, endedBy: null });
+  const onSessionEnd = useCallback((reason) => {
+    setSession((s) => ({ epoch: s.epoch + 1, endedBy: reason || "logout" }));
+  }, []);
+  return <StudentApp key={session.epoch} endedBy={session.endedBy} onSessionEnd={onSessionEnd} />;
 }
 
-
-export default function App() {
+function StudentApp({ endedBy = null, onSessionEnd }) {
   const [screen, setScreen] = useState(S.LOADING);
 
   const {
@@ -105,12 +120,16 @@ export default function App() {
     setSImportBusy, setSImportNote, setSNoGpaYet, setSNoTestsYet, setSTestCategory, setSTestInput,
     setSTests, setSurveyError, setSurveyStep, setsMajorInterest, surveyError, surveyStep,
   } = useSurveyForm();
+  // The course list as last rendered, for the survey's transcript import,
+  // which reads it after a wait of several seconds (importTranscript).
+  const sCoursesRef = useRef(sCourses);
+  sCoursesRef.current = sCourses;
   const {
     lEmail, lError, lPass, setLEmail, setLError, setLPass,
     setShowLoginPass, setStudentRecoveryBusy, setStudentRecoveryCode, setStudentRecoveryInput, setStudentRecoveryMessage, setStudentRecoveryOpen,
     setStudentRecoveryPassword, showLoginPass, studentRecoveryBusy, studentRecoveryCode, studentRecoveryInput, studentRecoveryMessage,
     studentRecoveryOpen, studentRecoveryPassword,
-  } = useLoginForm();
+  } = useLoginForm({ initialError: SESSION_END_NOTICES[endedBy] || "" });
 
   // Chat state
   const [user, setUser] = useState(null); // { name, email, grade }
@@ -120,6 +139,9 @@ export default function App() {
   // available. This avoids storing GPA, activities, and family contact data as
   // plaintext in localStorage.
   const [data, setData] = useState({ profile:null, activities:[], studyNotes:[], documents:[] });
+  // The profile's sync base and whether this session has joined its data
+  // with the server's (profile/profile-reconcile.js).
+  const { getSyncBase, profileReady, setProfileReady, setSyncBase, syncBase, syncInFlightRef } = useSyncBase();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -133,6 +155,9 @@ export default function App() {
   const [reauthStatus, setReauthStatus] = useState("idle"); // idle | attempting | ok | failed
   const [syncStatus, setSyncStatus] = useState("idle");     // idle | ok | partial | failed
   const [syncNote, setSyncNote] = useState("");             // overrides the default "didn't sync" toast text
+  // The scores the last save set aside, by row (profile/set-aside-rows.js);
+  // the sidebar marks each one and offers to fix or remove it.
+  const [setAsideRows, setSetAsideRows] = useState(null);
   // True during the last minute before the inactivity sign-out — rendered as a
   // prominent toast so the auto-lock never silently eats a drafted message.
   const [expiryWarning, setExpiryWarning] = useState(false);
@@ -165,10 +190,20 @@ export default function App() {
   // it's actually safe in the DB, just unreachable without a token.
   //   1. If no token, re-auth before the request.
   //   2. On 401, re-auth ONCE and retry.
+  // Every request also carries this session's abort signal, so ending the
+  // session stops what is still in flight instead of letting it land in the
+  // next student's screen.
+  const sessionAbortRef = useRef(null);
+  if (!sessionAbortRef.current) sessionAbortRef.current = new AbortController();
   const authedFetch = useCallback(async (path, opts = {}) => {
     const proxyUrl = window.__CC_PROXY_URL__ || "/api/chat";
+    const sessionSignal = sessionAbortRef.current.signal;
+    const signal = opts.signal && typeof AbortSignal.any === "function"
+      ? AbortSignal.any([opts.signal, sessionSignal])
+      : (opts.signal || sessionSignal);
     const doFetch = (tok) => fetch(path, {
       ...opts,
+      signal,
       headers: {
         ...(opts.headers || {}),
         ...(tok ? { Authorization: `Bearer ${tok}` } : {}),
@@ -180,7 +215,10 @@ export default function App() {
       token = window.__CC_SESSION_TOKEN__;
     }
     let r = await doFetch(token);
-    if (r.status === 401) {
+    // Only a 401 about the session signs in again. The Council and the other
+    // model routes forwarded an upstream OpenRouter 401 as their own, and each
+    // one set off a hidden sign-in against the per-IP login limit.
+    if (r.status === 401 && await isSessionExpiryResponse(r)) {
       const ok = await _tryReAuth(proxyUrl);
       if (ok) r = await doFetch(window.__CC_SESSION_TOKEN__);
     }
@@ -194,7 +232,7 @@ export default function App() {
   const {
     addTargetSchool, authedFetchRef, collegePositioning, collegePositioningLoading, collegeValues, collegeValuesHint,
     collegeValuesLoading, collegeValuesQuery, collegeVerification, collegeVerifying, createDeadlinesRef, deadlineRefreshKey,
-    lookupCollege, lookupCollegeRef, refreshCollegeFit, removeTargetSchool, setCollegeValues, setCollegeValuesHint,
+    lookupCollege, lookupCollegeRef, refreshCollegeFit, refreshDeadlines, removeTargetSchool, rereadCollegeValues, setCollegeValues, setCollegeValuesHint,
     setCollegeValuesQuery, setTargetSchoolInput, targetSchoolInput, targetSchools, verifyCollegeFit,
   } = useCollegeFit({
     data, locale, user,
@@ -221,13 +259,26 @@ export default function App() {
     renameThreadTitle, renamingThreadId, searchThreads, setRenamingThreadId, setThreadSearchQ, setThreadSearchResults,
     threadList, threadSearchQ, threadSearchResults,
   } = useChatThreads({
-    authedFetch, setMessages, setSyncNote, setSyncStatus,
+    authedFetch, locale, setMessages, setSyncNote, setSyncStatus,
   });
 
 
   lookupCollegeRef.current = lookupCollege;
 
 
+
+  // A consent the server requires that the heal may not grant (one the app
+  // does not know): the student is asked for it in the consent panel
+  // (components/ConsentNeeded.jsx) instead of the type being filtered away
+  // behind "Import failed (HTTP 403)" (debt-11). Returns whether it asked.
+  const [consentRequest, setConsentRequest] = useState(null);
+  const askForUnknownConsents = useCallback((r, body) => {
+    if (r.status !== 403 || body?.code !== "consent_required") return false;
+    const types = unknownConsentTypes(body.missing ?? body.missingConsents);
+    if (!types.length) return false;
+    setConsentRequest({ types });
+    return true;
+  }, []);
 
   // ─── Transcript → profile, from the chat ───
   // Parse the attached transcript's text with the same deterministic route
@@ -241,23 +292,27 @@ export default function App() {
     });
     let r = await post();
     let body = await r.json().catch(() => ({}));
-    if (r.status === 403 && body.code === "consent_required") {
-      const missing = (Array.isArray(body.missing) ? body.missing : []).filter((type) => ONBOARDING_CONSENT_TYPES.includes(type));
-      await grantOnboardingConsents(missing.length ? missing : undefined);
+    // An account from an older signup build may lack a consent row; the heal
+    // grants only what was never recorded, never one the student withdrew,
+    // and the import is retried only when something was granted.
+    if (r.status === 403 && body.code === "consent_required" && (await healMissingConsents()).length) {
       r = await post();
       body = await r.json().catch(() => ({}));
     }
+    if (askForUnknownConsents(r, body)) throw new Error(tt(locale, "consent.needed"));
     if (!r.ok) throw new Error(body.error || `Import failed (HTTP ${r.status})`);
     return body;
-  }, [authedFetch, grantOnboardingConsents]);
+  }, [authedFetch, askForUnknownConsents, locale]);
+  // The card tells rows already on the profile apart from rows the course
+  // limit left out; one "skipped" count used to blame duplicates for both.
   const importParsedTranscript = useCallback((parsed) => {
-    let outcome = { added: 0, skipped: 0, unplaced: 0 };
+    let outcome = { added: 0, skipped: 0, duplicates: 0, overCap: 0, unplaced: 0 };
     setData(prev => {
       const profile = { ...(prev.profile || {}) };
       const merged = mergeImportedCourses(profile.courses || [], parsed?.courses || {}, { fallbackYear: currentYearKey(user?.grade) });
-      outcome = { added: merged.added, skipped: merged.skipped, unplaced: merged.unplaced };
+      outcome = { added: merged.added, skipped: merged.skipped, duplicates: merged.duplicates, overCap: merged.overCap, unplaced: merged.unplaced };
       profile.courses = merged.courses;
-      if (parsed?.gpa != null && !profile.gpa) { profile.gpa = { unweighted: parsed.gpa }; profile.gpaStatus = undefined; }
+      if (parsed?.gpa != null && !hasGpa(profile.gpa)) { profile.gpa = { unweighted: parsed.gpa }; profile.gpaStatus = undefined; }
       return { ...prev, profile };
     });
     return outcome;
@@ -294,9 +349,12 @@ export default function App() {
   // prestige card and evidence list fetch again.
   const [evidenceVersion, setEvidenceVersion] = useState(0);
   // Switch locale + persist + reload-not-needed (components subscribe).
+  // saveLocale is detectLocale's twin: it writes through safe-storage and
+  // stores only a locale the app has, so the value read back next load is
+  // one detectLocale accepts.
   const setLocale = useCallback((next) => {
     setLocaleState(next);
-    try { localStorage.setItem("cc_locale", next); } catch { /* ignore */ }
+    saveLocale(next);
   }, []);
   useEffect(() => {
     document.documentElement.lang = locale === "ko" ? "ko" : "en";
@@ -346,8 +404,8 @@ export default function App() {
     }, ...args), [data]);
 
   const reconcileWithBackendProfile = useCallback((...args) => reconcileWithBackendProfileImpl({
-      authedFetch, data, setData,
-    }, ...args), [data, authedFetch]);
+      authedFetch, data, getSyncBase, setData, setProfileReady, setSyncBase, setSyncNote, setSyncStatus,
+    }, ...args), [data, authedFetch, getSyncBase, setSyncBase]);
 
   const openProfileEditor = useCallback(async (step=0) => {
     // Pull the canonical backend profile first so the editor shows the
@@ -364,9 +422,24 @@ export default function App() {
     }, ...args), [hydrateSurveyFromCurrentData]);
 
 
-  const createDeadlinesForSchool = useCallback((...args) => createDeadlinesForSchoolImpl({
-      authedFetch,
-    }, ...args), [authedFetch]);
+  // A passing note at the top of the chat, in the student's language: what
+  // the deadline creator added and skipped (a round whose date has passed, a
+  // row already on the list), or that a permission was given. Without the
+  // note and the refresh, adding a school created its reminders out of
+  // sight, and the tracker showed none of them until it was reopened.
+  const [infoNote, setInfoNote] = useState("");
+  useEffect(() => {
+    if (!infoNote) return undefined;
+    const timer = setTimeout(() => setInfoNote(""), 12000);
+    return () => clearTimeout(timer);
+  }, [infoNote]);
+  const createDeadlinesForSchool = useCallback(async (...args) => {
+    const result = await createDeadlinesForSchoolImpl({
+      authedFetch, locale, notify: setInfoNote,
+    }, ...args);
+    if (result?.created) refreshDeadlines();
+    return result;
+  }, [authedFetch, locale, refreshDeadlines]);
   createDeadlinesRef.current = createDeadlinesForSchool;
 
   // Mutate the local profile; the auto-save effect syncs it to the backend
@@ -388,6 +461,20 @@ export default function App() {
     abortRef.current?.abort();
   }, []);
 
+  // ─── END OF SESSION ───
+  // The one way out for logging out, the inactivity expiry and deleting the
+  // account. session/end-session.js revokes the server session with the
+  // token in hand (the expiry used to leave it valid for days), ends silent
+  // re-auth and aborts the chat request and every authedFetch still out;
+  // then the parent remounts this tree, which empties every field above.
+  const sessionEndingRef = useRef(false);
+  const endSession = useCallback(async (reason) => {
+    if (sessionEndingRef.current) return;
+    sessionEndingRef.current = true;
+    await closeStudentSession({ controllers: [abortRef.current, sessionAbortRef.current] });
+    onSessionEnd?.(reason);
+  }, [onSessionEnd]);
+
   useEffect(()=>{chatEnd.current?.scrollIntoView({behavior:"smooth"});},[messages]);
 
   const {
@@ -401,9 +488,11 @@ export default function App() {
     EXPIRY_NOTICE,
   } = useSessionLifecycle({
     authedFetch, data, passphrase, reconcileWithBackendProfile, refreshCollegeFit, refreshThreadList,
-    screen, setCalendarCtx, setData, setExpiryWarning, setLError, setMessages,
-    setOfflineMode, setPassphrase, setReauthStatus, setScreen, setSyncNote, setSyncStatus,
-    setUser, targetSchools, user,
+    screen, setCalendarCtx, setData, setExpiryWarning,
+    setOfflineMode, setReauthStatus, setScreen, setSyncNote, setSyncStatus,
+    targetSchools, user,
+    endSession, initialScreen: endedBy === "deleted" ? S.CREATE : S.LOGIN, profileReady, setSyncBase, syncBase, syncInFlightRef,
+    recreateDeadlines: createDeadlinesForSchool, locale, setSetAsideRows,
   });
 
   const {
@@ -416,17 +505,29 @@ export default function App() {
     setLPass, setMessages, setOfflineMode, setPassphrase, setScreen, setStudentRecoveryBusy,
     setStudentRecoveryCode, setStudentRecoveryInput, setStudentRecoveryMessage, setStudentRecoveryOpen, setStudentRecoveryPassword, setSurveyStep,
     setUser, studentRecoveryInput, studentRecoveryPassword, user,
+    endSession, setProfileReady, setShowLoginPass, setSyncBase, setSyncNote, setSyncStatus,
+    locale,
   });
 
-  const handleSurveyComplete = useCallback((...args) => handleSurveyCompleteImpl({
+  // Not memoized: the survey's Continue/Finish handler calls it from the
+  // render it was made in, so it reads that render's fields, every one of
+  // them. Its hand-kept dependency list once left out sClassRank, and a
+  // class rank edited on its own was saved as the old rank, which the
+  // fidelity check then held the counselor to.
+  const handleSurveyComplete = (...args) => handleSurveyCompleteImpl({
       authedFetch, messages, sAPScores, sClassRank, sCourses, sECs,
       sGoals, sGpaUw, sGpaW, sMajorInterest, sNoGpaYet, sNoTestsYet,
       sTests, setData, setMessages, setScreen, setSurveyError, user,
-    }, ...args), [sGpaUw, sGpaW, sNoGpaYet, sCourses, sAPScores, sTests, sNoTestsYet, sECs, sGoals, sMajorInterest, user, messages, authedFetch]);
+      getSyncBase, setSyncBase, syncInFlightRef,
+      locale, setSetAsideRows,
+      // A device that has not joined the server's profile reads it before
+      // the survey is saved, and refills the form when it finds one.
+      profileReady, setProfileReady, hydrateSurveyFromCurrentData, setSurveyStep,
+    }, ...args);
 
   const send = useCallback((...args) => sendImpl({
       abortRef, activeThreadId, authedFetch, calendarCtx, chatFiles, chatTextareaRef,
-      conveneStrategyCouncil, councilDecisionType, councilTurnSequenceRef, data, formatUserFacingError, input,
+      conveneStrategyCouncil, councilDecisionType, councilTurnSequenceRef, data, input,
       inputRef, loading, locale, messages, newThread, pendingFile,
       persistTurn, refreshBudget, refreshThreadList, setAgentStatus, setChatFiles, setChatFilesExpanded,
       setCouncilDecisionType, setData, setInput, setLoading, setMessages, setPendingFile,
@@ -435,6 +536,22 @@ export default function App() {
 
   const profile = data.profile || {};
   const activities = data.activities || [];
+
+  // The consent panel opens over the survey or the chat, the two screens
+  // that call a route which can ask for one. It overlays the screen rather
+  // than replacing it, so the screen's inactivity sign-out keeps running.
+  const consentPanel = consentRequest ? (
+    <ConsentNeeded
+      types={consentRequest.types}
+      locale={locale}
+      onClose={() => setConsentRequest(null)}
+      onGranted={() => {
+        setConsentRequest(null);
+        if (screen === S.SURVEY) { setSurveyError(""); setSImportNote(tt(locale, "consent.granted")); }
+        else setInfoNote(tt(locale, "consent.granted"));
+      }}
+    />
+  ) : null;
 
   // ═══════════════════════════════════════════════════════════
   // LOADING SCREEN
@@ -480,7 +597,7 @@ export default function App() {
     const AP_COURSES = apExamsWithScores();
     const RIGOR = { regular:"Standard",elective:"Elective (graduation requirement)",honors:"Honors (+0.5w)",ap:"AP (+1.0w, College-level)",ib:"IB (+1.0w)",dual_enrollment:"Dual Enrollment (+1.0w)" };
     const YEARS = SURVEY_YEARS;
-    const ylbl = y => y.charAt(0).toUpperCase()+y.slice(1);
+    const ylbl = y => y === UNPLACED_YEAR ? "Year not stated" : y.charAt(0).toUpperCase()+y.slice(1);
     const scoreHint = {sat:"400-1600",act:"1-36",psat:"320-1520",toefl:"0-120",ielts:"0-9.0",sat_subject:"200-800",duolingo:"10-160",clep:"20-80"};
     const testLimit = TEST_SCORE_LIMITS[sTestInput.test];
     const COURSE_GRADES = GRADE_SCALE.map(e => e.grade);
@@ -506,11 +623,24 @@ export default function App() {
     const prv = () => { setSurveyError(""); if (surveyStep>0) setSurveyStep(surveyStep-1); };
 
     const MAX_ITEMS = 50; // prevent storage abuse
+    // Courses share the import's limit and row identity (year, name, term,
+    // profile/transcript-utils.js): a semester-graded course is two rows,
+    // so the 50 cap cut a four-year transcript short, and a full list or a
+    // repeated row used to do nothing at all when Add was pressed.
     const addCourse = () => {
       if (!sCourseInput.name.trim() || sCourseInput.name.length > 100) return;
-      if (Object.values(sCourses).flat().length >= MAX_ITEMS) return;
+      if (Object.values(sCourses).flat().length >= MAX_PROFILE_COURSES) {
+        setSurveyError(`Your course list holds ${MAX_PROFILE_COURSES} rows, the most it can. Remove one to add another.`);
+        return;
+      }
+      const key = courseKey(sCourseYear, sCourseInput);
+      if ((sCourses[sCourseYear] || []).some((c) => courseKey(sCourseYear, c) === key)) {
+        const term = { fall: "fall", spring: "spring" }[sCourseInput.semester] || "full-year";
+        setSurveyError(`${sCourseInput.name.trim()} (${term}) is already on the ${ylbl(sCourseYear)} tab. Double-click its chip to change it.`);
+        return;
+      }
       setSurveyError("");
-      setSCourses(p=>({...p,[sCourseYear]:[...p[sCourseYear],{...sCourseInput,name:sCourseInput.name.trim().slice(0,100)}]}));
+      setSCourses(p=>({...p,[sCourseYear]:[...(p[sCourseYear] || []),{...sCourseInput,name:sCourseInput.name.trim().slice(0,100)}]}));
       setSCourseInput({name:"",type:sCourseInput.type,grade:"A",semester:sCourseInput.semester||"full_year"});
     };
     // Import a transcript file (PDF / image / DOCX): the backend extracts text
@@ -537,42 +667,32 @@ export default function App() {
         let r = await postImport();
         let body = await r.json().catch(() => ({}));
         // Accounts from older signup builds are missing the cross-border
-        // consent row the backend requires before AI parsing. Re-grant the
-        // onboarding consents the student accepted at signup, then retry once.
-        if (r.status === 403 && body.code === "consent_required") {
-          const missing = (Array.isArray(body.missing) ? body.missing : [])
-            .filter((type) => ONBOARDING_CONSENT_TYPES.includes(type));
-          await grantOnboardingConsents(missing.length ? missing : undefined);
+        // consent row the backend requires before AI parsing. Heal the
+        // onboarding consents that were never recorded (never one the
+        // student withdrew), then retry once if anything was granted.
+        if (r.status === 403 && body.code === "consent_required" && (await healMissingConsents()).length) {
           r = await postImport();
           body = await r.json().catch(() => ({}));
         }
+        if (askForUnknownConsents(r, body)) { setSurveyError(tt(locale, "consent.needed")); return; }
         if (!r.ok) { setSurveyError(body.error || `Import failed (HTTP ${r.status})`); return; }
 
-        // Merge outside the state updater (StrictMode double-invokes updaters).
-        const merged = { ...sCourses };
-        const existing = new Set(SURVEY_YEARS.flatMap(y => (merged[y] || []).map(c => y + ":" + c.name.toLowerCase())));
-        let total = Object.values(merged).flat().length;
-        let added = 0, skipped = 0;
-        for (const [year, list] of Object.entries(body.courses || {})) {
-          const targetYear = SURVEY_YEARS.includes(year) ? year : sCourseYear;
-          for (const c of (Array.isArray(list) ? list : [])) {
-            const name = String(c?.name || "").trim().slice(0, 100);
-            const key = targetYear + ":" + name.toLowerCase();
-            if (!name || existing.has(key) || total >= MAX_ITEMS) { skipped += 1; continue; }
-            existing.add(key);
-            merged[targetYear] = [...(merged[targetYear] || []), {
-              name,
-              type: c.type || "regular",
-              grade: c.grade || "IP",
-              semester: c.semester || "full_year",
-            }];
-            total += 1; added += 1;
-          }
-        }
-        setSCourses(merged);
-        if (body.gpa != null && !sGpaUw) setSGpaUw(String(body.gpa));
+        // Merged into the list as it stands when the read returns. The form
+        // stays open while the file is read, and the merge used to start from
+        // the list as it was when the file was picked: a course the student
+        // added, changed or removed meanwhile was put back the old way, and a
+        // GPA typed meanwhile gave way to the transcript's. The merge is pure,
+        // so StrictMode calling the updater twice is harmless; the note is
+        // counted against the list last rendered. Keyed on year and name
+        // alone, the spring row of every semester-graded course was dropped
+        // as a "duplicate" of the fall row, grade and all; the shared merge
+        // keys on the term too and says which rows the limit left out.
+        const importOptions = { years: SURVEY_YEARS, fallbackYear: sCourseYear };
+        const { note } = mergeSurveyImport(sCoursesRef.current, body.courses, importOptions);
+        setSCourses(prev => mergeSurveyImport(prev, body.courses, importOptions).merged);
+        if (body.gpa != null) setSGpaUw(prev => prev || String(body.gpa));
 
-        const notes = [`Imported ${added} course${added === 1 ? "" : "s"}${skipped ? ` (${skipped} skipped — duplicates or over the ${MAX_ITEMS}-course cap)` : ""}.`];
+        const notes = [note];
         if (body.gpa != null) notes.push(`Transcript GPA: ${body.gpa}.`);
         if (Array.isArray(body.warnings) && body.warnings.length) notes.push(body.warnings.join(" "));
         notes.push("Double-click any course chip to fix its name, rigor, or grade before continuing.");
@@ -650,7 +770,10 @@ export default function App() {
       AP_COURSES, COURSE_GRADES, EXPIRY_NOTICE, RIGOR, STEPS, YEARS, addAP, addCourse, addEC, addTest, chip, dismissedNotice, expiryWarning, formatApLabel, importTranscript, isFreshman, locale, nxt, pill, prv, sAPInput, sAPScores, sClassRank, sCourseInput, sCourseYear, sCourses, sECInput, sECs, sGoals, sGpaUw, sGpaW, sImportBusy, sImportNote, sMajorInterest, sNoGpaYet, sNoTestsYet, sTestCategory, sTestInput, sTests, scoreHint, setDismissedNotice, setSAPInput, setSAPScores, setSClassRank, setSCourseInput, setSCourseYear, setSCourses, setSECInput, setSECs, setSGoals, setSGpaUw, setSGpaW, setSNoGpaYet, setSNoTestsYet, setSTestCategory, setSTestInput, setSTests, setStudentRecoveryCode, setSurveyError, setSurveyStep, setsMajorInterest, sl, st, stepRequired, studentRecoveryCode, surveyError, surveyStep, tab, testLimit, total, user, ylbl,
     };
     return (
-      <SurveyScreen {...surveyProps} />
+      <>
+        <SurveyScreen {...surveyProps} />
+        {consentPanel}
+      </>
     );
   }
 
@@ -672,7 +795,7 @@ export default function App() {
   // ═══════════════════════════════════════════════════════════
   // Everything the sidebar reads from this component (see Sidebar.jsx).
   const sidebarProps = {
-    activeThreadId, activities, addTargetSchool, beginEdit, budgetStatus, collegePositioning, collegePositioningLoading, collegeValues, collegeValuesHint, collegeValuesLoading, collegeValuesQuery, collegeVerification, collegeVerifying, commitProfile, data, deleteThread, draftA, draftB, editECFromProfile, editingField, evidenceVersion, expandedEC, handleDeleteAccount, handleLogout, locale, lookupCollege, newThread, openProfileEditor, openThread, profile, removeTargetSchool, renameThreadTitle, renamingThreadId, searchThreads, setActivePanel, setCollegeValues, setCollegeValuesHint, setCollegeValuesQuery, setData, setDraftA, setDraftB, setEditingField, setEvidenceVersion, setExpandedEC, setLocale, setRenamingThreadId, setShowAllCourses, setShowAllECs, setTargetSchoolInput, setThreadSearchQ, setThreadSearchResults, showAllCourses, showAllECs, setSidebarOpen, sidebarOpen, targetSchoolInput, targetSchools, threadList, threadSearchQ, threadSearchResults, user, verifyCollegeFit,
+    activeThreadId, activities, addTargetSchool, beginEdit, budgetStatus, collegePositioning, collegePositioningLoading, collegeValues, collegeValuesHint, collegeValuesLoading, collegeValuesQuery, collegeVerification, collegeVerifying, commitProfile, data, deleteThread, draftA, draftB, editECFromProfile, editingField, evidenceVersion, expandedEC, handleDeleteAccount, handleLogout, locale, lookupCollege, newThread, openProfileEditor, openThread, profile, removeTargetSchool, renameThreadTitle, renamingThreadId, rereadCollegeValues, searchThreads, setActivePanel, setAsideRows, setCollegeValues, setCollegeValuesHint, setCollegeValuesQuery, setData, setDraftA, setDraftB, setEditingField, setEvidenceVersion, setExpandedEC, setLocale, setRenamingThreadId, setShowAllCourses, setShowAllECs, setTargetSchoolInput, setThreadSearchQ, setThreadSearchResults, showAllCourses, showAllECs, setSidebarOpen, sidebarOpen, targetSchoolInput, targetSchools, threadList, threadSearchQ, threadSearchResults, user, verifyCollegeFit,
   };
   // Everything ChatScreen reads from this component (see ChatScreen.jsx).
   const chatProps = {
@@ -690,7 +813,7 @@ export default function App() {
           : reauthStatus === "failed" ? "Session expired — sign out and sign in again."
           : offlineMode ? "Offline — your data is safe on this device. Counseling features resume when you reconnect."
           : syncWarning ? (syncNote || "Last change didn't sync — will retry.")
-          : null;
+          : infoNote || null;
         if (!notice || notice === dismissedNotice) return null;
         return (
         <div role="status" aria-live="polite" style={{
@@ -754,6 +877,7 @@ export default function App() {
           </div>
         </div>
       )}
+      {consentPanel}
 
       <style>{GLOBAL_CSS}</style>
     </div>

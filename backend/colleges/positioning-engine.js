@@ -1,7 +1,9 @@
-import { clamp01, matchMajorBucket } from "../activities/ec-vectorizer.js";
+import { clamp01, matchMajorBucketStrict } from "../activities/vector-utils.js";
 import { normalizeClassRank, sectionEntries } from "../academics/test-catalog.js";
+import { chooseTestSitting } from "../academics/test-sittings.js";
 import { readCourseRigor } from "../academics/course-rigor.js";
 import { apExamKey, apNameWords } from "../academics/ap-exams.js";
+import { cycleAge } from "../cds/cds-cycle.js";
 
 export const C7_RATING_VALUES = Object.freeze({
   very_important: 1,
@@ -77,6 +79,12 @@ const MAJOR_KEYWORDS = Object.freeze({
   education: ["education", "teaching", "psychology", "child development"],
   public_health: ["public health", "biology", "statistics", "chemistry"],
   environmental_science: ["environmental", "biology", "chemistry", "geography"],
+  // The buckets added with the strict matcher (2026-11-03); these majors
+  // used to be read as computer science.
+  nursing: ["biology", "chemistry", "anatomy", "physiology", "health", "psychology"],
+  pre_law: ["government", "history", "debate", "english", "writing", "law"],
+  communications: ["english", "writing", "journalism", "speech", "media", "communication"],
+  sociology: ["sociology", "psychology", "statistics", "history", "government"],
 });
 
 function round1(x) {
@@ -175,9 +183,20 @@ function gradeToPoints(raw) {
   return null;
 }
 
+// The intended major's bucket, or null when the student has none or names
+// a field no rule knows. Null is read as neutral everywhere below (no
+// major-specific demand, preparation weight, or red flags): the old default
+// read every such student as a computer-science applicant (fit-1).
 function getMajorKeywords(major) {
-  const bucket = matchMajorBucket(major || "");
-  return { bucket, keywords: MAJOR_KEYWORDS[bucket] || [] };
+  const bucket = matchMajorBucketStrict(major || "");
+  return { bucket, keywords: bucket ? (MAJOR_KEYWORDS[bucket] || []) : [] };
+}
+
+// A keyword names a course when it starts a word of the course name:
+// "math" still counts "Mathematics", but "cs" no longer counts "Physics",
+// "Economics" and "Politics" as computer-science coursework.
+function wordStartPattern(keyword) {
+  return new RegExp(`(?<![a-z0-9])${String(keyword).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "i");
 }
 
 // { readingWriting: 720, math: 780 } from a stored test entry, or null.
@@ -227,8 +246,19 @@ export function buildStudentModel(snapshot, strengthRows = [], narrative = null,
 
   const gpa = Number(snapshot?.gpa?.unweighted ?? snapshot?.gpa_unweighted ?? snapshot?.gpaUnweighted ?? 0) || null;
   const weightedGpa = Number(snapshot?.gpa?.weighted ?? snapshot?.gpa_weighted ?? snapshot?.gpaWeighted ?? 0) || null;
-  const satEntry = testScores.find((t) => String(t?.test || "").toLowerCase() === "sat") || null;
-  const actEntry = testScores.find((t) => String(t?.test || "").toLowerCase() === "act") || null;
+  // What the GPA can be compared as. The profile records no GPA scale, and
+  // the unweighted box accepts up to 5.0 because schools report on 4.0, 4.3
+  // and 5.0 scales: a 4.52 typed there used to be read as a 4.0-scale GPA
+  // above every school's average. Above 4.0 the scale is unknown and the
+  // read does not place it on the 4.0 scale; a weighted GPA alone is
+  // compared at most at 4.0 (compareGpaToSchool).
+  const gpaBasis = gpa != null
+    ? (gpa > 4 ? "scale_unknown" : "unweighted")
+    : (weightedGpa != null ? "weighted_only" : "none");
+  // The highest sitting of each test, its sections with it: the first entry
+  // was the oldest, so a retake that raised the score was never read (fit-2).
+  const satEntry = chooseTestSitting(testScores, "sat", { mode: "best" });
+  const actEntry = chooseTestSitting(testScores, "act", { mode: "best" });
   const sat = Number(satEntry?.totalScore) || null;
   const act = Number(actEntry?.totalScore) || null;
   // Section scores (SAT Reading & Writing and Math; ACT English, Math,
@@ -244,9 +274,10 @@ export function buildStudentModel(snapshot, strengthRows = [], narrative = null,
   const apScores = Array.isArray(snapshot?.apScores) ? snapshot.apScores : safeJson(snapshot?.ap_scores_json, []);
   const apExams = summarizeApExams(apScores, keywords);
 
+  const coursePatterns = keywords.map(wordStartPattern);
   const relevantCourses = courses.filter((course) => {
     const name = normalizeCourseName(course);
-    return keywords.some((kw) => name.includes(kw));
+    return coursePatterns.some((re) => re.test(name));
   });
   // Course rigor: every college-level course by its type or its name, plus
   // the AP exams no listed course names, each AP weighted by its exam
@@ -284,6 +315,7 @@ export function buildStudentModel(snapshot, strengthRows = [], narrative = null,
   return {
     gpa,
     weightedGpa,
+    gpaBasis,
     sat,
     act,
     satSections,
@@ -477,11 +509,22 @@ export function statedTestPolicy(snapshot, { now = Date.now() } = {}) {
 
 export function compareTestsToSchool(student, college, cdsResult) {
   const parsed = cdsResult?.parsed || {};
-  const policy = parsed.testPolicy || "test_considered_or_required";
-  const optional = policy === "test_optional_or_deemphasized";
   // What the school's own pages say this cycle, when the caller read it
   // (statedTestPolicy); `policy` is then its bucket.
   const stated = parsed.testPolicyStated || null;
+  // A policy nobody read is "unknown", not "required". The read used to
+  // default to required whenever no policy was held (every baseline-only
+  // and Scorecard-only school, and the Common Data Sets whose C8A the parser
+  // did not read, UCLA's among them), so a student with no score was scored
+  // 18 instead of 42 and told tests were required at test-blind schools.
+  const bucket = testPolicyBucket(parsed.testPolicy);
+  const policy = bucket || "unknown";
+  const optional = bucket === "test_optional_or_deemphasized";
+  // Test-blind (and test-free) schools do not read a score at all, so one
+  // on file carries no weight: it used to count as at a test-optional
+  // school. The raw value is the school's own when it was stated.
+  const rawPolicy = stated ? stated.value : (parsed.testPolicyValue ?? parsed.testPolicy);
+  const blind = optional && /blind|free/i.test(String(rawPolicy || ""));
   const satBand = bandOf(college?.sat25 ?? college?.sat_25 ?? parsed.satComposite?.low, college?.sat75 ?? college?.sat_75 ?? parsed.satComposite?.high);
   const actBand = bandOf(college?.act25 ?? college?.act_25 ?? parsed.actComposite?.low, college?.act75 ?? college?.act_75 ?? parsed.actComposite?.high);
   const candidates = [];
@@ -505,13 +548,17 @@ export function compareTestsToSchool(student, college, cdsResult) {
     ? [...candidates].sort((a, b) => (b.score0to100 - a.score0to100) || ((a.convertedFrom ? 1 : 0) - (b.convertedFrom ? 1 : 0)))[0]
     : null;
   // No scores on file is a genuine unknown, not a positive: modest even at
-  // a test-optional school (42), low where tests are required (18). A
-  // score the student would withhold at a test-optional school (below the
-  // 25th percentile) counts no worse than no score.
-  const baseline = optional ? 42 : 18;
+  // a test-optional school (42), low where tests are required (18), and
+  // the optional 42 where the policy itself is unknown, since missing
+  // evidence is neutral. A score the student would withhold at a
+  // test-optional school (below the 25th percentile) counts no worse than
+  // no score; at a test-blind school a score is not considered.
+  const baseline = optional || !bucket ? 42 : 18;
   let advice = "none";
   let score = baseline;
-  if (best) {
+  if (best && blind) {
+    advice = "not_considered";
+  } else if (best) {
     if (!optional) advice = "submit";
     else if (best.position === "below") advice = "withhold";
     else if (best.score0to100 < 72) advice = "borderline";
@@ -523,6 +570,7 @@ export function compareTestsToSchool(student, college, cdsResult) {
     : null;
   return {
     policy,
+    blind,
     stated: stated ? { value: stated.value, through: stated.through ?? null, checkedAt: stated.checkedAt ?? null, sourceUrl: stated.sourceUrl ?? null } : null,
     advice,
     score: round1(score),
@@ -565,12 +613,25 @@ export function compareGpaToSchool(student, college, cdsResult, { fallbackAverag
   const average = numberOrNull(college?.avgGpaAdmitted ?? college?.avg_gpa_admitted ?? parsed.gpaAverage);
   const band = bandOf(parsed.gpaBand?.low, parsed.gpaBand?.high);
   const rows = Array.isArray(parsed.gpaDistribution) && parsed.gpaDistribution.length ? parsed.gpaDistribution : null;
-  const gpa = student.gpa;
+  const rawGpa = student.gpa;
+  // An unweighted GPA above 4.0 is on a scale the profile does not record
+  // (4.3, 5.0, or a weighted figure typed in the unweighted box). It is not
+  // placed on the 4.0 scale, where a 4.52 read "above" every average; it
+  // is compared only with a weighted average, and otherwise read as at the
+  // average (the neutral point) with a note asking for the scale.
+  const scaleUnknown = rawGpa != null && rawGpa > 4;
+  const gpa = scaleUnknown ? null : rawGpa;
+  // A weighted GPA with no unweighted one is compared on the 4.0 scale at
+  // most at 4.0: it used to be dropped, scoring the same 30 as no GPA at
+  // all, while the priorities matrix counted it as evidence (fit-4).
+  const weightedOnly = rawGpa == null && student.weightedGpa != null;
   // An average above 4.0 is a weighted one (Harvard reports 4.21): it is
   // compared with the student's weighted GPA, or capped at 4.0 when the
   // student has none, never with the unweighted GPA it would dwarf.
   const weightedScale = average != null && average > 4;
-  const gpaForAverage = weightedScale ? (student.weightedGpa ?? gpa) : gpa;
+  const gpaForAverage = weightedScale
+    ? (student.weightedGpa ?? rawGpa)
+    : (gpa ?? (weightedOnly ? Math.min(student.weightedGpa, 4) : null));
   // The share of an enrolled class at or below the student's GPA, taking
   // the class as spread 0.25 around its average, on the same 20–92 scale
   // the distribution read uses: at the average 56, 0.2 above 77, 0.2 below
@@ -578,8 +639,10 @@ export function compareGpaToSchool(student, college, cdsResult, { fallbackAverag
   // against a 3.85 scored 31 and a thin record read "High reach" at a
   // 50%-admit school. No-GPA default 30. With no average on file the
   // caller's fallback (from the admit rate) stands in, else 3.75.
-  const target = weightedScale && student.weightedGpa == null ? 4 : (average ?? fallbackAverage ?? 3.75);
-  const formulaScore = gpaForAverage != null ? 20 + 72 * normalCdf((gpaForAverage - target) / 0.25) : 30;
+  const target = weightedScale && student.weightedGpa == null && !scaleUnknown ? 4 : (average ?? fallbackAverage ?? 3.75);
+  const formulaScore = gpaForAverage != null
+    ? 20 + 72 * normalCdf((gpaForAverage - target) / 0.25)
+    : (scaleUnknown ? 56 : 30);
   let placement = null;
   let distributionScore = null;
   if (gpa != null && rows) {
@@ -598,17 +661,23 @@ export function compareGpaToSchool(student, college, cdsResult, { fallbackAverag
   const bandScore = gpa != null && band ? positionScore(gpa, band, 60) : null;
   let score;
   let basis;
-  if (gpa == null) { score = formulaScore; basis = "none"; }
+  if (scaleUnknown) { score = formulaScore; basis = "scale_unknown"; }
+  else if (weightedOnly) { score = formulaScore; basis = "weighted_only"; }
+  else if (gpa == null) { score = formulaScore; basis = "none"; }
   else if (average != null && distributionScore != null) { score = formulaScore * 0.6 + distributionScore * 0.4; basis = "average+distribution"; }
   else if (average != null) { score = formulaScore; basis = "average"; }
   else if (distributionScore != null) { score = bandScore != null ? distributionScore * 0.5 + bandScore * 0.5 : distributionScore; basis = "distribution"; }
   else if (bandScore != null) { score = bandScore; basis = "band"; }
   else { score = formulaScore; basis = "default"; }
-  const position = gpa == null
-    ? "unknown"
-    : (band ? positionLabel(gpa, band) : (average != null && gpaForAverage != null ? (gpaForAverage >= target + 0.05 ? "above" : gpaForAverage >= target - 0.1 ? "within" : "below") : "unknown"));
+  const againstTarget = () => (gpaForAverage >= target + 0.05 ? "above" : gpaForAverage >= target - 0.1 ? "within" : "below");
+  let position;
+  if (scaleUnknown) position = weightedScale && gpaForAverage != null ? againstTarget() : "unknown";
+  else if (weightedOnly) position = (average != null || weightedScale) && gpaForAverage != null ? againstTarget() : "unknown";
+  else if (gpa == null) position = "unknown";
+  else position = band ? positionLabel(gpa, band) : (average != null && gpaForAverage != null ? againstTarget() : "unknown");
   return {
-    gpa,
+    gpa: rawGpa,
+    weightedGpa: student.weightedGpa ?? null,
     average,
     averageScale: average == null ? null : (weightedScale ? "weighted" : "unweighted"),
     comparedGpa: gpaForAverage,
@@ -616,6 +685,9 @@ export function compareGpaToSchool(student, college, cdsResult, { fallbackAverag
     position,
     placement,
     basis,
+    // The card asks for the scale when an unweighted GPA above 4.0 was
+    // read; nothing else is noted.
+    note: scaleUnknown ? "gpa_scale_unknown" : null,
     score: round1(clamp01(score / 100) * 100),
   };
 }
@@ -705,13 +777,17 @@ export function scoreAcademicReadiness(student, college, cdsResult) {
   // The course list's weight follows how complete it looks (courseEvidence):
   // rigor read from one entered course is hardly evidence of a light load.
   const courseEvidence = student.courseEvidence ?? 1;
+  // With no intended major there is no major to be prepared for: the
+  // component drops out, as AP exams and class rank do when absent.
+  const hasMajor = Boolean(student.majorBucket);
   const featureWeights = {
     gpa: 0.27 + 0.08 * c7Value(c7, ["academicGpa", "academic_gpa", "gpa"], 0.7),
     rigor: (0.2 + 0.08 * c7Value(c7, ["rigor"], 0.7)) * courseEvidence,
-    majorPrep: 0.18 * (0.5 + 0.5 * courseEvidence),
+    majorPrep: hasMajor ? 0.18 * (0.5 + 0.5 * courseEvidence) : 0,
     // A score the student would withhold at a test-optional school is
-    // never read, so the other evidence carries its weight.
-    test: tests.advice === "withhold" ? 0 : 0.14 + 0.08 * c7Value(c7, ["standardizedTests", "standardized_tests", "test_scores"], 0.35),
+    // never read, and a test-blind school reads none, so the other
+    // evidence carries its weight.
+    test: tests.advice === "withhold" || tests.blind ? 0 : 0.14 + 0.08 * c7Value(c7, ["standardizedTests", "standardized_tests", "test_scores"], 0.35),
     // AP exam results count once the student has any; before the first
     // exam the component is absent rather than a penalty. The same for
     // academic awards and class rank since 2026-09-22: no award used to
@@ -729,7 +805,9 @@ export function scoreAcademicReadiness(student, college, cdsResult) {
 
   const gpaScore = gpaRead.score;
   const rigorScore = rigorRead.score;
-  const majorPrepScore = clamp01(((student.relevantCourses.length / 5) * 0.55) + (((student.majorRelevantGpa ?? student.gpa ?? 3.2) / 4) * 0.45)) * 100;
+  // A GPA whose scale is unknown (above 4.0) is not read as a 4.0-scale one here either.
+  const fourScaleGpa = student.gpa != null && student.gpa <= 4 ? student.gpa : null;
+  const majorPrepScore = clamp01(((student.relevantCourses.length / 5) * 0.55) + (((student.majorRelevantGpa ?? fourScaleGpa ?? 3.2) / 4) * 0.45)) * 100;
   const testScore = tests.score;
   const apExamScore = apRead.score ?? 0;
   const awardsScore = Math.min(100, student.academicAwardsCount * 18 + 40);
@@ -770,10 +848,14 @@ export function scoreAcademicReadiness(student, college, cdsResult) {
 }
 
 export function scoreMajorCompetitiveness(student, collegeContext, options = {}) {
-  const bucket = student.majorBucket;
-  const baseDemand = MAJOR_DEMAND_BASE[bucket] ?? 0.6;
-  const ipedsGrowth = options.ipedsGrowthByBucket?.[bucket] ?? IPEDS_CIP_GROWTH_PROXY[bucket] ?? null;
+  // No intended major reads the neutral pool: average demand, no IPEDS
+  // growth signal, middling saturation. It used to be the computer-science
+  // pool, the most crowded one.
+  const bucket = student.majorBucket || null;
+  const baseDemand = (bucket && MAJOR_DEMAND_BASE[bucket]) ?? 0.6;
+  const ipedsGrowth = bucket ? (options.ipedsGrowthByBucket?.[bucket] ?? IPEDS_CIP_GROWTH_PROXY[bucket] ?? null) : null;
   const schoolSpecificSaturation = (() => {
+    if (!bucket) return 0.5;
     const majors = (collegeContext.topMajors || []).map((m) => String(m).toLowerCase());
     if (majors.length === 0) return 0.5;
     return majors.some((m) => m.includes(bucket.replace(/_/g, " "))) ? 0.7 : 0.45;
@@ -857,7 +939,10 @@ export function scoreNarrativeFit(student) {
   // Neutral where there is nothing to read: no narrative, no strength rows.
   const coherence = round1(student.narrativeCoherence ?? 50);
   const alignment = student.strengthRows.length ? student.ecMajorAlignment : 50;
-  const specificity = round1((alignment * 0.55) + (clamp01((student.relevantCourses.length || 0) / 5) * 45));
+  // Major coursework is half-credited (neutral) when there is no major to
+  // have coursework for.
+  const courseShare = student.majorBucket ? clamp01((student.relevantCourses.length || 0) / 5) : 0.5;
+  const specificity = round1((alignment * 0.55) + (courseShare * 45));
   const authenticity = round1(Math.min(100, 40 + student.strengthRows.length * 8));
   const score = round1((coherence * 0.5) + (specificity * 0.35) + (authenticity * 0.15));
   return { score, coherence, specificity, authenticity };
@@ -898,14 +983,22 @@ export function scoreInstitutionalSelectivityAdjustment(collegeContext) {
   return { adjustment, selectivityIndex: round2(selectivityIndex) };
 }
 
-export function scoreEvidenceConfidence({ cdsResult, collegeContext, majorPolicy, ipedsGrowthAvailable }) {
+// How current a record is, by how many cycles it trails the newest one most
+// schools have published (cds-cycle.js): the newest 0.9, one behind 0.85,
+// older or undated 0.68. The rule used to be fixed years (2025 on read 0.9),
+// so a 2025-26 document would have read as current forever and, before
+// that, a 2025-26 document scored as stale as a 2019 one.
+export function recencyScore(cycleLabel, now = new Date()) {
+  const age = cycleAge(cycleLabel, now);
+  if (age == null) return 0.68;
+  return age === 0 ? 0.9 : age === 1 ? 0.85 : 0.68;
+}
+
+export function scoreEvidenceConfidence({ cdsResult, collegeContext, majorPolicy, ipedsGrowthAvailable, studentEvidencePenalty = 0, now = new Date() }) {
   const sourceQuality = cdsResult?.sourceUrl ? 0.78 : 0.5;
   const directness = cdsResult?.fetchStatus === "ok" ? 0.82 : cdsResult?.fetchStatus === "listed_without_direct_link" ? 0.35 : 0.2;
-  // The cycle the record reports ("2025-26", "2024", "2023-24"): the
-  // current cycle reads freshest; the rule used to know only "2024", so a
-  // 2025-26 document scored as stale as a 2019 one.
-  const cycleYear = Number(String(cdsResult?.repositoryMatch?.latestAvailableYear || "").slice(0, 4)) || 0;
-  const recency = cycleYear >= 2025 ? 0.9 : cycleYear === 2024 ? 0.85 : 0.68;
+  // The cycle the record reports ("2025-26", "2024", "2023-24").
+  const recency = recencyScore(cdsResult?.repositoryMatch?.latestAvailableYear, now);
   const consistency = collegeContext?.avgGpaAdmitted || collegeContext?.sat25 ? 0.76 : 0.5;
   const missingDataPenalty = [
     cdsResult?.parsed?.c7 ? 0 : 0.08,
@@ -924,7 +1017,9 @@ export function scoreEvidenceConfidence({ cdsResult, collegeContext, majorPolicy
   const isConsistent = cdsResult?.validated === false && cdsResult?.verification === "consistent";
   const isUnvalidated = cdsResult?.validated === false && !isConsistent;
   const unvalidatedPenalty = isUnvalidated ? 0.12 : isConsistent ? 0.05 : 0;
-  const raw = sourceQuality * 0.28 + recency * 0.18 + directness * 0.22 + consistency * 0.2 - missingDataPenalty - marketingLanguagePenalty - unvalidatedPenalty;
+  // The student's side can lower it too: a GPA on an unknown scale is read
+  // as at the average, a guess the bands should show.
+  const raw = sourceQuality * 0.28 + recency * 0.18 + directness * 0.22 + consistency * 0.2 - missingDataPenalty - marketingLanguagePenalty - unvalidatedPenalty - (Number(studentEvidencePenalty) || 0);
   let normalized = clamp01(raw);
   if (isUnvalidated) normalized = Math.min(normalized, 0.74); // never "High" while unverified
   if (isConsistent) normalized = Math.min(normalized, 0.77);
@@ -938,15 +1033,21 @@ export function scoreEvidenceConfidence({ cdsResult, collegeContext, majorPolicy
 
 const QUANTITATIVE_BUCKETS = new Set(["computer_science", "data_science", "computational_biology", "biomedical_engineering", "engineering", "mathematics", "physics", "chemistry", "economics"]);
 
-export function buildRedFlags(student, collegeContext, majorCompetitiveness, narrativeFit, reads = null) {
-  const flags = [];
+// Each flag carries a stable code and its numbers beside the English
+// sentence the chat quotes, so the card can say it in the student's
+// language (a Korean-mode card printed every flag in English, fit-10).
+export function buildRedFlagEntries(student, collegeContext, majorCompetitiveness, narrativeFit, reads = null) {
+  const entries = [];
+  const flags = { push: (text, code, params = null) => entries.push(params ? { code, params, text } : { code, text }) };
   // A math section under the school's 25th percentile is the number a
   // quantitative department reads first, whatever the total says.
+  // A test-blind school reads no score, so no section of one is a flag there.
   const best = reads?.tests?.best;
-  if (best && QUANTITATIVE_BUCKETS.has(student.majorBucket)) {
+  if (best && !reads?.tests?.blind && QUANTITATIVE_BUCKETS.has(student.majorBucket)) {
     const mathSection = (best.sections || []).find((s) => s.key === "math");
     if (mathSection?.position === "below") {
-      flags.push(`${best.test.toUpperCase()} Math (${mathSection.value}) sits below this school's 25th percentile (${mathSection.band.low}), which a quantitative major will notice.`);
+      flags.push(`${best.test.toUpperCase()} Math (${mathSection.value}) sits below this school's 25th percentile (${mathSection.band.low}), which a quantitative major will notice.`,
+        "math_below_band", { test: best.test.toUpperCase(), value: mathSection.value, low: mathSection.band.low });
     }
   }
   // A school whose own admissions pages require scores this cycle, with no
@@ -956,40 +1057,48 @@ export function buildRedFlags(student, collegeContext, majorCompetitiveness, nar
   if (stated && !best) {
     const checked = String(stated.checkedAt || "").slice(0, 10);
     if (stated.value === "test_required") {
-      flags.push(`This school's admissions site (checked ${checked}) says SAT or ACT scores are required this cycle, and no score is on file.`);
+      flags.push(`This school's admissions site (checked ${checked}) says SAT or ACT scores are required this cycle, and no score is on file.`, "stated_test_required", { checked });
     } else if (stated.value === "test_flexible" && !(student.apExams?.count > 0)) {
-      flags.push(`This school's admissions site (checked ${checked}) requires test scores this cycle (SAT, ACT, or AP or IB results under its test-flexible policy), and none is on file.`);
+      flags.push(`This school's admissions site (checked ${checked}) requires test scores this cycle (SAT, ACT, or AP or IB results under its test-flexible policy), and none is on file.`, "stated_test_flexible", { checked });
     }
   }
   if (reads?.apExams?.relevant?.length && reads.apExams.relevantAverage != null && reads.apExams.relevantAverage < 3) {
-    flags.push("AP exam scores in the intended field average below 3.");
+    flags.push("AP exam scores in the intended field average below 3.", "ap_field_below_3");
   }
   // The coursework flags wait for a course list that looks like a
   // transcript (four courses or more); one course entered says nothing
   // about what the student took.
   const transcriptOnFile = student.courses.length >= 4;
   if (transcriptOnFile && student.relevantCourses.length <= 1 && ["computer_science", "engineering", "computational_biology", "data_science", "business"].includes(student.majorBucket)) {
-    flags.push("Weak major-relevant coursework for an ambitious intended major.");
+    flags.push("Weak major-relevant coursework for an ambitious intended major.", "weak_major_coursework");
   }
   if (student.activities.length >= 8 && student.strengthRows.length > 0 && (avg(student.strengthRows.map((row) => Number(row.dedication || 0))) || 0) < 0.35) {
-    flags.push("Many shallow extracurriculars without enough sustained depth.");
+    flags.push("Many shallow extracurriculars without enough sustained depth.", "shallow_activities");
   }
   // A narrative that reads weakly is a flag; a narrative not written yet is
   // not (the advice elsewhere asks for one).
   const hasNarrative = student.narrativeCoherence != null;
   if (hasNarrative && (student.majorInterest || "").match(/\b(ai|medicine|business)\b/i) && narrativeFit.specificity < 45) {
-    flags.push("Narrative risks sounding generic for a crowded major lane.");
+    flags.push("Narrative risks sounding generic for a crowded major lane.", "generic_narrative");
   }
   if (hasNarrative && narrativeFit.coherence < 45) {
-    flags.push("Narrative coherence is weak and may read as a list rather than a story.");
+    flags.push("Narrative coherence is weak and may read as a list rather than a story.", "weak_narrative_coherence");
   }
-  if (transcriptOnFile && majorCompetitiveness.capacityRiskFlag !== "normal" && student.relevantCourses.length <= 2) {
-    flags.push("Applying to a capped or capacity-constrained major without enough preparation.");
+  // Preparation for a capped major needs a major: with none, the
+  // neutral pool can still read "moderate", and the flag used to fire for
+  // every student who had not chosen one (fit-1).
+  if (transcriptOnFile && student.majorBucket && majorCompetitiveness.capacityRiskFlag !== "normal" && student.relevantCourses.length <= 2) {
+    flags.push("Applying to a capped or capacity-constrained major without enough preparation.", "capped_major_unprepared");
   }
   if ((collegeContext.acceptanceRate ?? 100) < 15 && student.gpa != null && (collegeContext.avgGpaAdmitted ?? 3.9) - student.gpa > 0.2) {
-    flags.push("Transcript looks light relative to this university's admitted academic range.");
+    flags.push("Transcript looks light relative to this university's admitted academic range.", "light_transcript");
   }
-  return flags;
+  return entries;
+}
+
+// The English sentences alone, as the chat and older callers read them.
+export function buildRedFlags(student, collegeContext, majorCompetitiveness, narrativeFit, reads = null) {
+  return buildRedFlagEntries(student, collegeContext, majorCompetitiveness, narrativeFit, reads).map((entry) => entry.text);
 }
 
 // The label is an admission likelihood, not the composite. The school's
@@ -1000,7 +1109,9 @@ export function buildRedFlags(student, collegeContext, majorCompetitiveness, nar
 // So a 75%-admit school reads "Highly competitive" for a student in its
 // range and "Competitive" or "Reach" for a thin record, a 4%-admit school
 // reads "High reach" for almost everyone and "Reach" for the strongest,
-// and an unknown admit rate is taken as 50%, never as the most selective.
+// and an unknown admit rate is taken as 50%, never as the most selective,
+// and the read says so (admitRate.assumedForLikelihood). A record with no
+// GPA and no SAT/ACT at all gets no label (INSUFFICIENT_STUDENT_DATA).
 // Until 2026-09-22 the composite alone was labelled, with cutoffs of
 // 85/70/52 (raised from 82/67/48 when the labels read too optimistically
 // at selective schools), and the admit rate could only lower it, so no
@@ -1069,14 +1180,66 @@ export function admitRatePools(record) {
 
 // Bumped whenever the read changes, so cached College Fit results (kept
 // seven days, keyed by student and snapshot) are recomputed: "positioning_v2"
-// is the selectivity-aware lift and the regular-pool base rate (2026-10-09).
-export const POSITIONING_MODEL_VERSION = "positioning_v2";
+// is the selectivity-aware lift and the regular-pool base rate (2026-10-09);
+// "positioning_v3" (2026-11-03) withholds the label from a record with no
+// GPA and no SAT/ACT, reads no major as no major rather than computer
+// science, takes the best SAT/ACT sitting, compares a weighted-only GPA and
+// leaves an above-4.0 one unplaced, reads an unread test policy as unknown
+// and a test-blind one as reading no score, and ages evidence by the clock.
+// The same version carries the stable codes the card translates (labelKey,
+// summaryKey, strategyKey, mainRedFlagCodes, evidenceConfidenceKey,
+// dataNoteKeys): v3 had not shipped when they were added, so every cached
+// payload in production predates both and is recomputed once.
+export const POSITIONING_MODEL_VERSION = "positioning_v3";
 
 export function classifyPositioningLabel(likelihoodScore) {
   if (likelihoodScore >= 70) return "Highly competitive";
   if (likelihoodScore >= 40) return "Competitive";
   if (likelihoodScore >= 15) return "Reach";
   return "High reach";
+}
+
+// A stable key beside each label for the card's translations; the label
+// itself stays the English text the chat quotes.
+const LABEL_KEYS = Object.freeze({
+  "Highly competitive": "highly_competitive",
+  Competitive: "competitive",
+  Reach: "reach",
+  "High reach": "high_reach",
+});
+export function positioningLabelKey(label) {
+  return LABEL_KEYS[label] || null;
+}
+
+// The read withheld from a record that holds no academic evidence: no GPA
+// of either kind and no SAT or ACT. A grade-9 student with nothing entered
+// used to read "Reach" at a 70%-admit school and "High reach" where nothing
+// was known, with "academically stretched" beside it, and the chat was told
+// to use that exact label. The component reads stay for the comparison
+// block; there is no likelihood and no label (fit-4).
+export const INSUFFICIENT_STUDENT_DATA = Object.freeze({
+  labelKey: "insufficient_student_data",
+  label: "Not enough data yet",
+});
+
+export function studentDataNeeded(student) {
+  const needed = [];
+  if (student?.gpa == null && student?.weightedGpa == null) needed.push("gpa");
+  if (!student?.sat && !student?.act) needed.push("sat_or_act");
+  return needed;
+}
+
+export function hasEnoughStudentData(student) {
+  return studentDataNeeded(student).length < 2;
+}
+
+// The strategy's stable key beside its English sentence (recommendStrategy),
+// for the card's translations.
+export function recommendStrategyKey(positioningLabel, redFlags, majorCompetitiveness) {
+  if (positioningLabel === "Highly competitive") return "highly_competitive";
+  if (positioningLabel === "Competitive") return majorCompetitiveness.capacityRiskFlag !== "normal" ? "competitive_capped" : "competitive";
+  if (positioningLabel === "Reach") return redFlags.length > 0 ? "reach_gaps" : "reach_aspirational";
+  return "high_reach";
 }
 
 export function recommendStrategy(positioningLabel, redFlags, majorCompetitiveness) {
@@ -1101,6 +1264,8 @@ export function buildProfileComparison(reads) {
   return {
     tests: {
       policy: tests?.policy ?? null,
+      // Test-blind or test-free: a score on file is not considered.
+      blind: Boolean(tests?.blind),
       // The school's own statement of it this cycle, when the policy scout
       // has read one; otherwise the policy is the Common Data Set's.
       stated: tests?.stated ?? null,
@@ -1112,7 +1277,7 @@ export function buildProfileComparison(reads) {
       submitting: tests?.submitting ?? null,
       score: tests?.score ?? null,
     },
-    gpa: gpa ? { gpa: gpa.gpa, average: gpa.average, averageScale: gpa.averageScale, comparedGpa: gpa.comparedGpa, band: gpa.band, position: gpa.position, placement: gpa.placement, basis: gpa.basis, score: gpa.score } : null,
+    gpa: gpa ? { gpa: gpa.gpa, weightedGpa: gpa.weightedGpa ?? null, average: gpa.average, averageScale: gpa.averageScale, comparedGpa: gpa.comparedGpa, band: gpa.band, position: gpa.position, placement: gpa.placement, basis: gpa.basis, note: gpa.note ?? null, score: gpa.score } : null,
     classRank: classRank ? { topPercent: classRank.topPercent, bucket: classRank.bucket, school: classRank.school, shareAbove: classRank.shareAbove, basis: classRank.basis, score: classRank.score } : null,
     apExams: apExams ? { count: apExams.count, average: apExams.average, strong: apExams.strong, weak: apExams.weak, relevant: apExams.relevant, relevantAverage: apExams.relevantAverage, score: apExams.score } : null,
     // The course load behind the rigor component: how many APs were taken
@@ -1131,7 +1296,8 @@ export function buildPositioningForTarget(student, collegeContext, cdsResult, op
   const narrative = scoreNarrativeFit(student);
   const differentiation = scoreDifferentiationStrength(student);
   const strategicFocus = scoreStrategicFocusBonus(options.strategicSignals || [], options.majorPolicy || null);
-  const redFlags = buildRedFlags(student, collegeContext, majorComp, narrative, academic.reads);
+  const redFlagEntries = buildRedFlagEntries(student, collegeContext, majorComp, narrative, academic.reads);
+  const redFlags = redFlagEntries.map((entry) => entry.text);
 
   // ── Displayed competitiveness blends intended-major crowding with the
   // school's ACTUAL institutional selectivity (admit rate). Previously the
@@ -1175,15 +1341,31 @@ export function buildPositioningForTarget(student, collegeContext, cdsResult, op
     basis: admitRateBasis,
     overall: overallRate != null && overallRate > 0 ? round4(overallRate) : (pools?.overall ?? null),
     earlyDecision: pools?.earlyDecision ?? null,
+    // An unknown rate is not hidden: the likelihood starts from 50% and
+    // says so here, while `used` stays null.
+    ...(admitRate == null ? { assumedForLikelihood: 0.5 } : {}),
   };
-  const boundedFinal = round1(admissionLikelihood({ readiness, admitRate }) * 100);
+  const enoughStudentData = hasEnoughStudentData(student);
+  const boundedFinal = enoughStudentData ? round1(admissionLikelihood({ readiness, admitRate }) * 100) : null;
+  const gpaScaleUnknown = academic.reads?.gpa?.basis === "scale_unknown";
   const confidence = scoreEvidenceConfidence({
     cdsResult,
     collegeContext,
     majorPolicy: options.majorPolicy || null,
     ipedsGrowthAvailable: majorComp.ipedsGrowthProxy != null,
+    studentEvidencePenalty: gpaScaleUnknown ? 0.06 : 0,
+    now: options.now || new Date(),
   });
-  const label = classifyPositioningLabel(boundedFinal);
+  const label = enoughStudentData ? classifyPositioningLabel(boundedFinal) : INSUFFICIENT_STUDENT_DATA.label;
+  const labelKey = enoughStudentData ? positioningLabelKey(label) : INSUFFICIENT_STUDENT_DATA.labelKey;
+  // What the student could add, and what the read could not place; the
+  // card and the chat say these in their own words.
+  const dataNotes = [];
+  const dataNoteKeys = [];
+  if (!enoughStudentData) { dataNotes.push("Add a GPA (unweighted or weighted) or an SAT or ACT score to see a likelihood for this school."); dataNoteKeys.push("add_gpa_or_test"); }
+  if (gpaScaleUnknown) { dataNotes.push("Your unweighted GPA is above 4.0, so its scale is not known and it was read as at this school's average. Enter your GPA on a 4.0 scale as the unweighted GPA, and a weighted GPA in the weighted box."); dataNoteKeys.push("gpa_scale_unknown"); }
+  if (admitRate == null) { dataNotes.push("No admit rate is on file for this school; the likelihood assumes 50% until one is."); dataNoteKeys.push("admit_rate_assumed"); }
+  const summaryKey = !enoughStudentData ? "not_enough_data" : academic.score >= 80 ? "in_range" : academic.score >= 65 ? "plausible" : "stretched";
 
   // Honest uncertainty bands for the displayed dimensions, widened in
   // inverse proportion to evidence confidence. The confidence dimension
@@ -1198,7 +1380,14 @@ export function buildPositioningForTarget(student, collegeContext, cdsResult, op
     schoolName: collegeContext.name || cdsResult?.schoolName || "Unknown school",
     intendedMajor: student.majorInterest || options.major || null,
     overallPositioningLabel: label,
+    labelKey,
+    // Null when the record holds too little to place (labelKey
+    // "insufficient_student_data"): no likelihood is invented for it.
     finalPositioningScore: boundedFinal,
+    studentDataNeeded: enoughStudentData ? [] : studentDataNeeded(student),
+    dataNotes,
+    // The same notes as stable keys, for the card's translations.
+    dataNoteKeys,
     // The composite the likelihood was shifted by, and the base rate it
     // started from (null when the admit rate is unknown: 50% was assumed),
     // with what that rate is: the pool outside Early Decision when the CDS
@@ -1209,7 +1398,13 @@ export function buildPositioningForTarget(student, collegeContext, cdsResult, op
     admitRate: admitRateSummary,
     admissibility: {
       academicReadinessScore: academic.score,
-      summary: academic.score >= 80 ? "academically in-range" : academic.score >= 65 ? "academically plausible but not comfortable" : "academically stretched",
+      summary: {
+        not_enough_data: "not enough academic data yet",
+        in_range: "academically in-range",
+        plausible: "academically plausible but not comfortable",
+        stretched: "academically stretched",
+      }[summaryKey],
+      summaryKey,
     },
     competitiveness: {
       // Blended: intended-major crowding + the school's real admit-rate
@@ -1231,13 +1426,21 @@ export function buildPositioningForTarget(student, collegeContext, cdsResult, op
     },
     confidence: {
       evidenceConfidence: confidence.label,
+      // "high" | "medium" | "low" | "very_low", for the card's translations.
+      evidenceConfidenceKey: String(confidence.label).toLowerCase().replace(/\s+/g, "_"),
       evidenceConfidenceScore: confidence.score,
       evidenceValidated: confidence.validated,
     },
     scoreRanges,
     capacityRiskFlag: majorComp.capacityRiskFlag,
     mainRedFlags: redFlags,
-    recommendedPositioningStrategy: recommendStrategy(label, redFlags, majorComp),
+    // The same flags as { code, params } for the card's translations; the
+    // English sentences above stay what the chat quotes.
+    mainRedFlagCodes: redFlagEntries.map(({ code, params }) => (params ? { code, params } : { code })),
+    recommendedPositioningStrategy: enoughStudentData
+      ? recommendStrategy(label, redFlags, majorComp)
+      : "Add a GPA or an SAT/ACT score first; with neither on file there is nothing yet to place against this school's admitted class.",
+    strategyKey: enoughStudentData ? recommendStrategyKey(label, redFlags, majorComp) : "add_academics",
     // How this student's own record compares with the enrolled class the
     // Common Data Set describes: the facts the readiness blend used.
     profileComparison: { ...buildProfileComparison(academic.reads), admitRate: admitRateSummary },

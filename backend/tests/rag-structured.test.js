@@ -45,9 +45,13 @@ test("getDirectStructuredStudentData reads GPA/test scores directly from DB tabl
     "test",
   );
 
-  stmts.insertCapability.run("cap_1", "student_1", "gpa_uw", 3.92, 96, 93);
-  stmts.insertCapability.run("cap_2", "student_1", "sat_total", 1540, 99, 98);
-  stmts.insertCapability.run("cap_3", "student_1", "act_total", 34, 98, null);
+  // Capability rows carry the snapshot they were computed from; the latest
+  // metrics are the latest snapshot's rows.
+  stmts.insertCapability.run("cap_1", "student_1", "gpa_uw", 3.92, 96, 93, "snap_1");
+  stmts.insertCapability.run("cap_2", "student_1", "sat_total", 1540, 99, 98, "snap_1");
+  stmts.insertCapability.run("cap_3", "student_1", "act_total", 34, 98, null, "snap_1");
+  // A row from an older snapshot is history, not a latest metric.
+  stmts.insertCapability.run("cap_0", "student_1", "ap_rigor_index", 0.4, null, null, "snap_0");
 
   const data = getDirectStructuredStudentData(stmts, "student_1");
   assert.equal(data.retrieval, "direct_db");
@@ -73,4 +77,25 @@ test("getDirectStructuredStudentData reads GPA/test scores directly from DB tabl
   assert.equal(data.metrics.gpa_uw.percentileNational, 96);
   assert.equal(data.metrics.sat_total.value, 1540);
   assert.equal(data.metrics.act_total.percentileNational, 98);
+  assert.equal(data.metrics.ap_rigor_index, undefined);
 });
+
+// Every reader takes the best sitting, as College Fit does; the first entry
+// was the oldest, so a retaker read as her first score.
+test("the structured read takes the best SAT and ACT sitting, not the first", () => {
+  const stmts = freshStmts();
+  stmts.insertSnapshot.run(
+    "snap_r", "student_r", "sync", 3.7, null, "[]", "[]",
+    JSON.stringify([
+      { test: "sat", totalScore: 1250, date: "2025-10" },
+      { test: "act", totalScore: 26 },
+      { test: "sat", totalScore: 1480, date: "2026-03" },
+      { test: "act", totalScore: 31 },
+    ]),
+    "[]", "Biology", "[]", "test",
+  );
+  const data = getDirectStructuredStudentData(stmts, "student_r");
+  assert.equal(data.profile.satTotal, 1480);
+  assert.equal(data.profile.actComposite, 31);
+});
+

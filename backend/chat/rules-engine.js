@@ -6,16 +6,78 @@
 // ═══════════════════════════════════════════════════════════════════════
 
 import crypto from "node:crypto";
+import { calendarDateOf, daysUntilDue } from "../shared/calendar-date.js";
 
-export const FAFSA_RULESET = Object.freeze({
-  id: "federal_student_aid_eligibility",
-  academicYear: "2026-2027",
-  effectiveAt: "2026-07-01T00:00:00.000Z",
-  expiresAt: "2027-06-30T23:59:59.999Z",
-  sourceUrl: "https://fsapartners.ed.gov/knowledge-center/fsa-handbook/2026-2027/vol1/ch1-school-determined-requirements",
-  sourceTitle: "2026-2027 Federal Student Aid Handbook, Volume 1, Chapter 1",
-  sourceDomain: "fsapartners.ed.gov",
-});
+// The federal eligibility rules, one entry per award year, each reviewed
+// against that year's FSA Handbook before it is added. There used to be a
+// single hard-coded 2026-27 record: on 2027-07-01 every rule would have
+// dropped out of the verified lane with no warning, and nothing said that
+// this cycle's seniors file the 2027-28 form (time-4, debt-4). Add the next
+// year only from its published handbook (2027-28 Volume 1 was not out on
+// 2026-11-03); until then fafsaRulesetStatus warns the counselor from 60
+// days before the newest entry expires, and once none covers the date the
+// chat sends FAFSA eligibility questions to the model as labeled general
+// guidance with the StudentAid.gov pointer.
+export const FAFSA_RULESETS = Object.freeze([
+  Object.freeze({
+    id: "fafsa_eligibility_2026_2027",
+    academicYear: "2026-2027",
+    effectiveAt: "2026-07-01T00:00:00.000Z",
+    expiresAt: "2027-06-30T23:59:59.999Z",
+    sourceUrl: "https://fsapartners.ed.gov/knowledge-center/fsa-handbook/2026-2027/vol1/ch1-school-determined-requirements",
+    sourceTitle: "2026-2027 Federal Student Aid Handbook, Volume 1, Chapter 1",
+    sourceDomain: "fsapartners.ed.gov",
+  }),
+]);
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+export const FAFSA_RULESET_WARNING_DAYS = 60;
+
+// The FAFSA for an award year opens on October 1 before it begins (the
+// 2027-28 form on 2026-10-01), and a senior files the form for the year
+// they enroll, so a ruleset is usable from its form's opening day.
+function formOpensAt(ruleset) {
+  const effective = new Date(ruleset.effectiveAt);
+  return ruleset.formOpensAt ? Date.parse(ruleset.formOpensAt) : Date.UTC(effective.getUTCFullYear() - 1, 9, 1);
+}
+
+// The award year of the newest FAFSA form open on `now`.
+function newestOpenAwardYear(now) {
+  const start = now.getUTCMonth() >= 9 ? now.getUTCFullYear() + 1 : now.getUTCFullYear();
+  return `${start}-${start + 1}`;
+}
+
+// Prefers the award year whose FAFSA opened most recently, otherwise the
+// one in effect; null when no reviewed ruleset covers `now`.
+export function selectFafsaRuleset(now = new Date(), rulesets = FAFSA_RULESETS) {
+  const t = now.getTime();
+  return [...rulesets]
+    .filter((r) => formOpensAt(r) <= t && t <= Date.parse(r.expiresAt))
+    .sort((a, b) => Date.parse(b.effectiveAt) - Date.parse(a.effectiveAt))[0] || null;
+}
+
+// For the admin status payload and the boot log line: each ruleset with the
+// days left before it expires (negative once it has), and a warning from
+// FAFSA_RULESET_WARNING_DAYS before the newest one lapses or once none
+// covers the date.
+export function fafsaRulesetStatus(now = new Date(), rulesets = FAFSA_RULESETS) {
+  const t = now.getTime();
+  const rows = rulesets.map((r) => ({
+    id: r.id,
+    academicYear: r.academicYear,
+    expiresAt: r.expiresAt,
+    daysLeft: Math.ceil((Date.parse(r.expiresAt) - t) / DAY_MS),
+  }));
+  const current = selectFafsaRuleset(now, rulesets);
+  const newest = rows.reduce((best, row) => (!best || Date.parse(row.expiresAt) > Date.parse(best.expiresAt) ? row : best), null);
+  let warning = null;
+  if (!current) {
+    warning = `No FAFSA eligibility ruleset covers ${now.toISOString().slice(0, 10)}: FAFSA eligibility questions get labeled general guidance until the ${newestOpenAwardYear(now)} FSA Handbook rules are reviewed and added to FAFSA_RULESETS in backend/chat/rules-engine.js.`;
+  } else if (newest && newest.daysLeft <= FAFSA_RULESET_WARNING_DAYS) {
+    warning = `The ${newest.academicYear} FAFSA eligibility ruleset expires in ${newest.daysLeft} day(s) (${newest.expiresAt.slice(0, 10)}); review the next award year's FSA Handbook and add it to FAFSA_RULESETS in backend/chat/rules-engine.js.`;
+  }
+  return { rulesets: rows, current: current?.id || null, warning };
+}
 
 // ═══════════════════════════════════════════════════════════
 // FAFSA ELIGIBILITY PRE-CHECK
@@ -76,9 +138,24 @@ const FAFSA_ELIGIBILITY_RULES = [
   },
 ];
 
-export function runFAFSAEligibilityCheck(studentData = {}) {
+export function runFAFSAEligibilityCheck(studentData = {}, { now = new Date(), rulesets = FAFSA_RULESETS } = {}) {
+  const ruleset = selectFafsaRuleset(now, rulesets);
+  if (!ruleset) {
+    // The route reads this message as "not answerable here" and sends the
+    // question to the model under the regulated advisory prefix.
+    return {
+      available: false,
+      eligible: null,
+      results: [],
+      message: "No deterministic rule is available for this FAFSA question: no reviewed FAFSA eligibility ruleset covers this date.",
+      advisory: "Check the current requirements at https://studentaid.gov/apply-for-aid/fafsa/eligibility.",
+      source: "https://studentaid.gov/apply-for-aid/fafsa/eligibility",
+      removedRequirements: [],
+    };
+  }
+  const supplied = studentData && typeof studentData === "object" ? studentData : {};
   const results = FAFSA_ELIGIBILITY_RULES.map((rule) => {
-    const fieldValue = studentData[rule.id];
+    const fieldValue = supplied[rule.id];
     let status = "unknown"; // unknown, pass, fail, not_applicable
 
     if (!rule.required) {
@@ -97,11 +174,11 @@ export function runFAFSAEligibilityCheck(studentData = {}) {
       status,
       source: rule.source,
       note: rule.note || null,
-      academicYear: FAFSA_RULESET.academicYear,
-      effectiveAt: FAFSA_RULESET.effectiveAt,
-      expiresAt: FAFSA_RULESET.expiresAt,
-      sourceTitle: FAFSA_RULESET.sourceTitle,
-      sourceDomain: FAFSA_RULESET.sourceDomain,
+      academicYear: ruleset.academicYear,
+      effectiveAt: ruleset.effectiveAt,
+      expiresAt: ruleset.expiresAt,
+      sourceTitle: ruleset.sourceTitle,
+      sourceDomain: ruleset.sourceDomain,
     };
   });
 
@@ -111,26 +188,42 @@ export function runFAFSAEligibilityCheck(studentData = {}) {
 
   const anyFailed = results.some((r) => r.status === "fail" && r.required);
   const unknownCount = results.filter((r) => r.status === "unknown" && r.required).length;
+  const requiredCount = results.filter((r) => r.required).length;
 
+  // The chat supplies no answers, so a checklist question used to get
+  // "6 eligibility item(s) have not been confirmed yet" and nothing else.
+  // With nothing supplied the summary introduces the requirements instead,
+  // and names the handbook they come from: from October seniors file the
+  // next award year's form, whose handbook may not be out yet.
+  const openYear = newestOpenAwardYear(now);
+  const handbook = `the ${ruleset.academicYear} Federal Student Aid Handbook`;
+  const yearNote = openYear !== ruleset.academicYear
+    ? ` The ${openYear} FAFSA (the form seniors file this cycle) follows the ${openYear} handbook, which is not reflected here yet; the basic requirements rarely change, but confirm them on StudentAid.gov.`
+    : "";
   return {
+    available: true,
     eligible: anyFailed ? false : unknownCount === 0 ? true : null,
-    summary: anyFailed
+    summary: (anyFailed
       ? "Based on the information provided, you may not meet one or more FAFSA eligibility requirements. Please review the items below and consult StudentAid.gov for official guidance."
-      : unknownCount > 0
-        ? `${unknownCount} eligibility item(s) have not been confirmed yet. Complete all items for a full eligibility assessment.`
-        : "Based on the information provided, you appear to meet the basic FAFSA eligibility requirements. This is an informal assessment only — submit your FAFSA at StudentAid.gov for an official determination.",
+      : unknownCount === requiredCount
+        ? `These are the basic requirements for federal student aid in ${handbook}. Check each one against your own situation; StudentAid.gov explains the special cases, such as noncitizen status or a parent without a Social Security number.`
+        : unknownCount > 0
+          ? `${unknownCount} eligibility item(s) have not been confirmed yet. Complete all items for a full eligibility assessment.`
+          : "Based on the information provided, you appear to meet the basic FAFSA eligibility requirements. This is an informal assessment only — submit your FAFSA at StudentAid.gov for an official determination.") + yearNote,
+    // The same note on its own, for the model's copy of the rules.
+    filingYearNote: yearNote.trim() || null,
     results,
     advisory: "This is NOT an official eligibility determination. Only the U.S. Department of Education can make official FAFSA eligibility decisions. Submit your FAFSA at https://studentaid.gov.",
-    academicYear: FAFSA_RULESET.academicYear,
-    effectiveAt: FAFSA_RULESET.effectiveAt,
-    expiresAt: FAFSA_RULESET.expiresAt,
-    source: FAFSA_RULESET.sourceUrl,
-    sourceTitle: FAFSA_RULESET.sourceTitle,
+    academicYear: ruleset.academicYear,
+    effectiveAt: ruleset.effectiveAt,
+    expiresAt: ruleset.expiresAt,
+    source: ruleset.sourceUrl,
+    sourceTitle: ruleset.sourceTitle,
     removedRequirements: [
       {
         id: "selective_service",
         note: "Selective Service registration is not a Title IV federal student aid eligibility requirement.",
-        source: FAFSA_RULESET.sourceUrl,
+        source: ruleset.sourceUrl,
       },
     ],
   };
@@ -140,19 +233,43 @@ export function runFAFSAEligibilityCheck(studentData = {}) {
 // DEADLINE CALCULATIONS
 // ═══════════════════════════════════════════════════════════
 
-export function calculateDeadlineStatus(deadlineDate, applicationType = "regular_decision") {
+// A deadline as the tracker stores it: a calendar date (YYYY-MM-DD) when
+// the value names a day, an ISO instant only when it carries a time of day.
+// "November 1, 2026" names a day, though Date reads it at local midnight.
+function deadlineValue(input) {
+  if (input instanceof Date) return Number.isFinite(input.getTime()) ? input.toISOString() : null;
+  const text = String(input ?? "").trim();
+  if (!text) return null;
+  const date = calendarDateOf(text);
+  if (date) return date;
+  const ms = Date.parse(text);
+  if (!Number.isFinite(ms)) return null;
+  if (!/\d:\d/.test(text)) {
+    const d = new Date(ms);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+  return new Date(ms).toISOString();
+}
+
+// Days are counted as the deadline tracker counts them (daysUntilDue in
+// shared/calendar-date.js): a date-only deadline is 0 days away on its date
+// and negative only once that date has ended Anywhere on Earth, or on the
+// student's own date when `today` names it. Math.ceil of milliseconds from
+// UTC midnight told the chat a deadline had passed from 00:00 UTC the day
+// after it (still the due date in New York) while the tracker said "due
+// today".
+export function calculateDeadlineStatus(deadlineDate, applicationType = "regular_decision", { now = new Date(), today = null } = {}) {
   if (!deadlineDate) {
     return { status: "unknown", daysRemaining: null, message: "No deadline date available." };
   }
 
-  const now = new Date();
-  const deadline = new Date(deadlineDate);
-  if (isNaN(deadline.getTime())) {
+  const value = deadlineValue(deadlineDate);
+  if (!value) {
     return { status: "invalid", daysRemaining: null, message: "Invalid deadline date format." };
   }
 
-  const msRemaining = deadline.getTime() - now.getTime();
-  const daysRemaining = Math.ceil(msRemaining / (1000 * 60 * 60 * 24));
+  const nowMs = now instanceof Date ? now.getTime() : Number(now);
+  const daysRemaining = daysUntilDue(value, { nowMs, today });
 
   let status, urgency;
   if (daysRemaining < 0) {
@@ -176,12 +293,14 @@ export function calculateDeadlineStatus(deadlineDate, applicationType = "regular
     status,
     urgency,
     daysRemaining,
-    deadlineDate: deadline.toISOString().slice(0, 10),
+    deadlineDate: calendarDateOf(value) || value.slice(0, 10),
     applicationType,
     message:
       status === "passed"
         ? `This deadline has passed (${Math.abs(daysRemaining)} day(s) ago).`
-        : `${daysRemaining} day(s) remaining until the ${applicationType.replace(/_/g, " ")} deadline.`,
+        : daysRemaining === 0
+          ? `The ${applicationType.replace(/_/g, " ")} deadline is today.`
+          : `${daysRemaining} day(s) remaining until the ${applicationType.replace(/_/g, " ")} deadline.`,
   };
 }
 
@@ -400,7 +519,51 @@ export function evaluateComplianceGate(topicType, evidenceObjects = [], options 
 // CRISIS RESPONSE (deterministic — no model call)
 // ═══════════════════════════════════════════════════════════
 
+// The resource lists, the reply copy and the topic footer are identical in
+// frontend/src/chat/crisis-lexicon.js, which renders the same reply when the
+// client's own lexicon fires first; backend/tests/crisis-lexicon-parity.test.js
+// compares them. Korea consolidated 1393 and its other counseling lines into
+// 109 in January 2024, so 1393 and 1577-0199 are gone. The Korean list
+// comes first in Korean, then the US lines, because a Korean-speaking
+// student may be in either country.
+const US_CRISIS_RESOURCES = Object.freeze([
+  Object.freeze({ name: "Emergency services", contact: "911", description: "If you are in immediate danger", type: "emergency" }),
+  Object.freeze({ name: "988 Suicide & Crisis Lifeline", contact: "988", description: "Call or text, 24/7", type: "crisis" }),
+  Object.freeze({ name: "Crisis Text Line", contact: "Text HOME to 741741", description: "Free, 24/7", type: "crisis" }),
+  Object.freeze({ name: "Childhelp National Child Abuse Hotline", contact: "1-800-422-4453", description: "24/7", type: "abuse" }),
+]);
+const KO_CRISIS_RESOURCES = Object.freeze([
+  Object.freeze({ name: "자살예방상담전화", contact: "109", description: "24시간 상담", type: "crisis" }),
+  Object.freeze({ name: "청소년상담전화", contact: "1388", description: "24시간 청소년 상담", type: "youth" }),
+  Object.freeze({ name: "응급 신고", contact: "119", description: "지금 위험하거나 다쳤을 때", type: "emergency" }),
+  Object.freeze({ name: "경찰", contact: "112", description: "폭력이나 위협이 있을 때", type: "emergency" }),
+  Object.freeze({ name: "Emergency services (미국)", contact: "911", description: "미국에서 즉시 위험할 때", type: "emergency" }),
+  Object.freeze({ name: "988 Suicide & Crisis Lifeline (미국)", contact: "988", description: "전화 또는 문자, 24시간", type: "crisis" }),
+  Object.freeze({ name: "Crisis Text Line (미국)", contact: "Text HOME to 741741", description: "무료 문자 상담, 24시간", type: "crisis" }),
+  Object.freeze({ name: "Childhelp 아동학대 핫라인 (미국)", contact: "1-800-422-4453", description: "24시간", type: "abuse" }),
+]);
+
+const CRISIS_COPY = Object.freeze({
+  "en-US": Object.freeze({
+    message: "It sounds like you may be going through something really hard. You don't have to handle it alone, and people who can help are available right now.",
+    adult: "Please also reach out to a trusted adult: a parent, school counselor, teacher, or coach. Asking for help is a sign of strength.",
+    disclaimer: "I'm an AI assistant and can't provide crisis counseling. Please contact one of these trained services.",
+    resources: US_CRISIS_RESOURCES,
+  }),
+  ko: Object.freeze({
+    message: "지금 많이 힘든 시간을 보내고 있는 것 같아요. 혼자 감당하지 않아도 돼요. 지금 바로 도움을 받을 수 있는 곳이 있어요.",
+    adult: "부모님, 학교 상담 선생님, 선생님이나 코치처럼 믿을 수 있는 어른에게도 꼭 이야기해 주세요. 도움을 청하는 것은 용기 있는 일이에요.",
+    disclaimer: "저는 AI 도우미라서 위기 상담을 제공할 수 없어요. 위의 전문 기관에 연락해 주세요.",
+    resources: KO_CRISIS_RESOURCES,
+  }),
+});
+
+function crisisCopy(locale) {
+  return locale === "ko" ? CRISIS_COPY.ko : CRISIS_COPY["en-US"];
+}
+
 export function buildCrisisResponse(locale = "en-US") {
+  const copy = crisisCopy(locale);
   return {
     topicType: "crisis",
     modelUsed: "none",
@@ -408,23 +571,71 @@ export function buildCrisisResponse(locale = "en-US") {
     model_inferences: [],
     coaching_suggestions: [],
     crisis_response: {
-      message: locale === "ko"
-        ? "도움이 필요하신 것 같습니다. 아래 자원을 이용해 주세요."
-        : "It sounds like you may be going through a difficult time. Please reach out to one of these resources:",
-      resources: [
-        { name: "Emergency Services", contact: "911", description: "For immediate danger", type: "emergency" },
-        { name: "Suicide & Crisis Lifeline", contact: "988", description: "24/7 mental health support", type: "crisis" },
-        { name: "Crisis Text Line", contact: "Text HOME to 741741", description: "Free 24/7 crisis texting", type: "crisis" },
-        ...(locale === "ko" ? [
-          { name: "한국 자살예방상담전화", contact: "1393", description: "24시간 상담", type: "crisis" },
-          { name: "정신건강위기상담전화", contact: "1577-0199", description: "정신건강 위기 상담", type: "crisis" },
-        ] : []),
-      ],
-      disclaimer: "I'm an AI assistant and cannot provide crisis counseling. Please contact a trained professional.",
+      message: copy.message,
+      resources: copy.resources.map((resource) => ({ ...resource })),
+      disclaimer: copy.disclaimer,
     },
     ai_disclosure: {
       session_disclosure: "This is a deterministic safety response, not an AI-generated message.",
       model_disclosure: "No AI model was used for this response.",
     },
   };
+}
+
+function crisisResourceLine(resource) {
+  const details = [resource.contact, resource.description].map((v) => String(v || "").trim()).filter(Boolean).join(" — ");
+  return `- **${String(resource.name || "").trim()}:** ${details}`;
+}
+
+// The crisis reply with every resource written into the text itself.
+export function renderCrisisText(locale = "en-US") {
+  const copy = crisisCopy(locale);
+  return [
+    copy.message,
+    copy.resources.map(crisisResourceLine).join("\n"),
+    copy.adult,
+    `_${copy.disclaimer}_`,
+  ].join("\n\n");
+}
+
+// The one deterministic crisis reply /api/chat and /api/council/convene
+// send. The chat route used to send the hotlines only in `actions`, as
+// {name, contact} objects, with no topic_type: the client's formatter showed
+// actions only on regulated turns (and would have printed "[object Object]"),
+// so a student the server caught saw "Please reach out to one of these
+// resources:" and nothing after it, and the turn ran on through the
+// specialists and the supervisor as an ordinary answer. The answer text now
+// carries the full list, and crisisSafe plus topic_type "crisis" let every
+// client path recognize the reply before it parses or merges anything.
+export function buildCrisisChatReply(locale = "en-US") {
+  const loc = locale === "ko" ? "ko" : "en-US";
+  const built = buildCrisisResponse(loc);
+  const text = renderCrisisText(loc);
+  return {
+    answer: text,
+    topic_type: "crisis",
+    crisisSafe: true,
+    locale: loc,
+    claims: [],
+    limitations: [built.crisis_response.disclaimer],
+    actions: built.crisis_response.resources,
+    usage: { input_tokens: 0, output_tokens: 0, estimated_cost_usd: 0 },
+    content: [{ type: "text", text }],
+    ai_disclosure: built.ai_disclosure,
+    _meta: { deterministic: true, topicType: "CRISIS", modelTier: "NONE" },
+  };
+}
+
+// Appended to an answer whose question names suicide, self-harm or overdose
+// as a topic ("our suicide prevention club needs a fundraiser idea"). The
+// question is answered, and the safety net is never silently dropped. The
+// wording stays clear of the crisis lexicon, because the client sends drafts
+// that carry it back through /api/chat.
+const CRISIS_TOPIC_FOOTERS = Object.freeze({
+  "en-US": "\n\n_If this topic is close to home for you, support is available any time: call or text 988, or text HOME to 741741. If you are in immediate danger, call 911._",
+  ko: "\n\n_이 주제가 개인적으로 와닿는다면 언제든 도움을 받을 수 있어요: 109(24시간 상담)나 청소년상담전화 1388에 연락하고, 위급하면 119나 112에 전화하세요. 미국에 있다면 988에 전화나 문자를 하거나 741741로 HOME을 보내세요._",
+});
+
+export function crisisResourceFooter(locale = "en-US") {
+  return locale === "ko" ? CRISIS_TOPIC_FOOTERS.ko : CRISIS_TOPIC_FOOTERS["en-US"];
 }

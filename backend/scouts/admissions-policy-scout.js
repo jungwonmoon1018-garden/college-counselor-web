@@ -21,9 +21,10 @@
 
 import crypto from "node:crypto";
 import { assertSafeFetchTarget } from "../security/safe-fetch.js";
-import { expandCollegeAlias, slugifyCollege, currentAdmissionsCycle } from "../colleges/college-research.js";
+import { expandCollegeAlias, slugifyCollege } from "../colleges/college-research.js";
+import { cycleOfDate, planningCycle } from "../shared/admissions-cycle.js";
 import { insertFact } from "./fact-store.js";
-import { scoutRunDue } from "./scout-cadence.js";
+import { failedStreak, scoutRunDue } from "./scout-cadence.js";
 import { policyFields, extractPolicyFromPages, diffPolicies, SCOUT_VERSION, PLAN_LABELS, TEST_POLICY_LABELS } from "./policy-scout-extract.js";
 import { hostOf, makeFetcher, resolveSchoolSite, gatherPolicyPages } from "./policy-scout-fetch.js";
 export { SCOUT_USER_AGENT, parseRobots, robotsAllows, makeFetcher, resolveSchoolSite, schoolRootHost, schoolDomainToken, rankedPolicyLinks } from "./policy-scout-fetch.js";
@@ -137,10 +138,14 @@ function cycleExpiry(cycle) {
 export function writePolicyFacts(factStmts, { slug, schoolName, unitId, policy, checkedAt }) {
   if (!factStmts) return 0;
   let written = 0;
-  const cycle = policy.cycle || currentAdmissionsCycle();
+  const cycle = policy.cycle || planningCycle();
   for (const [key, field] of Object.entries(policyFields(policy))) {
     const domain = hostOf(field.sourceUrl);
     if (!domain) continue;
+    // A deadline belongs to the cycle its date falls in: from Feb 1 a
+    // reading holds the closing cycle's open February 15 beside next fall's
+    // dates, and that fact expires with its own cycle.
+    const factCycle = (field.type === "date" && cycleOfDate(field.value)) || cycle;
     try {
       insertFact(factStmts, {
         topic_type: "school_policies",
@@ -157,8 +162,8 @@ export function writePolicyFacts(factStmts, { slug, schoolName, unitId, policy, 
         verified_at: checkedAt,
         verified_by: "admissions-policy-scout (official site)",
         effective_at: checkedAt,
-        expires_at: cycleExpiry(cycle),
-        academic_year: cycle,
+        expires_at: cycleExpiry(factCycle),
+        academic_year: factCycle,
         provenance_type: "official_site_scout",
         seed_version: "policy_scout_v1",
         confidence: "verified",
@@ -263,11 +268,15 @@ const HOMEPAGE_TRUST_MS = 45 * 24 * 60 * 60 * 1000;
 export const SWEEP_RULES_VERSION = 2;
 
 // Whether an automatic sweep is due: a cadence after the last one, at once
-// after a scout version or sweep rules change, or when forced.
+// after a scout version or sweep rules change, once the planning cycle has
+// moved on (Feb 1: every snapshot then belongs to the closed cycle and is no
+// longer current), or when forced. A run recorded before runs carried their
+// cycle does not count as another cycle's.
 export function policyScoutDue(lastRun, { cadenceMs, now = Date.now(), force = null } = {}) {
   const reason = force
     || (lastRun && lastRun.scoutVersion !== SCOUT_VERSION ? "scout_version_changed" : null)
-    || (lastRun && lastRun.sweepRules !== SWEEP_RULES_VERSION ? "sweep_rules_changed" : null);
+    || (lastRun && lastRun.sweepRules !== SWEEP_RULES_VERSION ? "sweep_rules_changed" : null)
+    || (lastRun?.cycle && lastRun.cycle !== planningCycle(new Date(now)) ? "planning_cycle_changed" : null);
   return scoutRunDue({ lastRun, cadenceMs, now, force: reason });
 }
 
@@ -299,7 +308,7 @@ export async function runPolicyScout(targets, {
       row = (target.unitId ? stmts.getSnapshotByUnitId.get(String(target.unitId)) : null) || stmts.getSnapshot.get(slugifyCollege(target.name)) || null;
     } catch { row = null; }
     const policy = row ? safeJson(row.policy_json) : null;
-    const current = Boolean(row) && policy?.scoutVersion === SCOUT_VERSION;
+    const current = Boolean(row) && snapshotIsCurrent({ policy }, now());
     const rank = !row ? 0 : current ? 2 : 1;
     const checkedAtMs = Date.parse(row?.checked_at || "");
     const ageMs = Number.isFinite(checkedAtMs) ? nowMs - checkedAtMs : Infinity;
@@ -332,7 +341,8 @@ export async function runPolicyScout(targets, {
   const startedAt = now().toISOString();
   // The version is recorded up front so an in-progress run reports the
   // scout that is actually running, not the previous run's.
-  stmts.insertRun.run(runId, startedAt, trigger, list.length, JSON.stringify({ scoutVersion: SCOUT_VERSION, sweepRules: SWEEP_RULES_VERSION, inProgress: true }));
+  const cycle = planningCycle(now());
+  stmts.insertRun.run(runId, startedAt, trigger, list.length, JSON.stringify({ scoutVersion: SCOUT_VERSION, sweepRules: SWEEP_RULES_VERSION, cycle, inProgress: true }));
   const fetcher = makeFetcher({ fetchImpl, assertTarget, sleep });
   const results = [];
   let cursor = 0;
@@ -351,9 +361,15 @@ export async function runPolicyScout(targets, {
   const checked = results.filter((r) => r.status === "ok").length;
   const failed = results.filter((r) => r.status === "failed").length;
   const changes = results.reduce((sum, r) => sum + (r.changes?.length || 0), 0);
+  // A sweep that had schools to read and read none of them — outbound
+  // fetches failing right after a deploy, a DNS outage — did no work. It
+  // is kept in the log but marked failed, so the cadence retries it within
+  // the hour (scout-cadence.js) instead of a fortnight later. A sweep with
+  // nothing to read (every school read in the last day) is complete.
+  const outcome = list.length > 0 && checked === 0 ? "failed" : "completed";
   const summary = {
-    runId, trigger, startedAt, finishedAt: now().toISOString(), scoutVersion: SCOUT_VERSION, sweepRules: SWEEP_RULES_VERSION,
-    total: list.length, checked, failed, skipped: results.length - checked - failed, recentlyRead, changes,
+    runId, trigger, startedAt, finishedAt: now().toISOString(), scoutVersion: SCOUT_VERSION, sweepRules: SWEEP_RULES_VERSION, cycle,
+    outcome, total: list.length, checked, failed, skipped: results.length - checked - failed, recentlyRead, changes,
     changed: results.filter((r) => r.changes?.length).map((r) => ({ school: r.school, changes: r.changes })),
     failures: results.filter((r) => r.status !== "ok").map((r) => ({ school: r.school, reason: r.reason })).slice(0, 40),
   };
@@ -395,13 +411,17 @@ export function readPolicySnapshot(stmts, { unitId = null, name = null } = {}) {
   };
 }
 
-// A snapshot read by the scout version now running. One from an older
-// version (or from before versions were recorded) still answers, but the
-// school's pages are read again on demand the next time it is asked about:
-// Johns Hopkins kept a version-3 reading with no ED II date for a day
-// after the table fix shipped because the sweep never reached it.
-export function snapshotIsCurrent(snapshot) {
-  return snapshot?.policy?.scoutVersion === SCOUT_VERSION;
+// A snapshot read by the scout version now running, for the cycle students
+// are planning for. One from an older version (or from before versions were
+// recorded) still answers, but the school's pages are read again on demand
+// the next time it is asked about: Johns Hopkins kept a version-3 reading
+// with no ED II date for a day after the table fix shipped because the
+// sweep never reached it. A reading of another cycle is re-read the same
+// way: on Feb 1 the planning cycle moves on, and last fall's "Early
+// Decision: November 1" kept answering as the current deadline.
+export function snapshotIsCurrent(snapshot, now = new Date()) {
+  return snapshot?.policy?.scoutVersion === SCOUT_VERSION
+    && snapshot.policy.cycle === planningCycle(now);
 }
 
 // The calendar context and the deterministic deadline answer read the
@@ -412,7 +432,7 @@ export function snapshotAsDeadlineRecord(snapshot) {
   const record = {
     displayName: snapshot.school,
     slug: snapshot.slug,
-    cycle: snapshot.policy?.cycle || currentAdmissionsCycle(),
+    cycle: snapshot.policy?.cycle || planningCycle(),
     deadlines: {
       ea: pick("early_action", "restrictive_early_action"),
       ed: pick("early_decision"),
@@ -445,8 +465,29 @@ export function snapshotAsDeadlineRecord(snapshot) {
     const gapDays = (Date.parse(record.deadlines.edII) - Date.parse(record.deadlines.ed)) / 86_400_000;
     if (!Number.isFinite(gapDays) || gapDays < 30) record.deadlines.edII = null;
   }
-  return Object.values(record.deadlines).some(Boolean) ? record : null;
+  const dated = Object.entries(record.deadlines).filter(([, date]) => date);
+  if (!dated.length) return null;
+  // Each date names its own cycle. From Feb 1 a reading is for next fall but
+  // keeps the closing cycle's dates that are still ahead (a February 15
+  // Regular Decision), so the record says which cycle those are: as its
+  // cycle when every date is of one, otherwise beside each date that is not
+  // of the record's. The deadline answer prints the label with the date,
+  // and the client dates a reminder by the date's own cycle.
+  const cycles = new Set(dated.map(([, date]) => cycleOfDate(date)).filter(Boolean));
+  if (cycles.size === 1) record.cycle = [...cycles][0];
+  for (const [slot, date] of dated) {
+    const own = cycleOfDate(date);
+    if (own && own !== record.cycle) record.labels[slot] = `${record.labels[slot] || SLOT_LABELS[slot]} (${own} cycle)`;
+  }
+  return record;
 }
+
+const SLOT_LABELS = {
+  ea: PLAN_LABELS.early_action,
+  ed: PLAN_LABELS.early_decision,
+  edII: PLAN_LABELS.early_decision_2,
+  rd: PLAN_LABELS.regular_decision,
+};
 
 export function formatPolicyLine(snapshot) {
   if (!snapshot?.policy) return null;
@@ -455,7 +496,10 @@ export function formatPolicyLine(snapshot) {
   if (tp?.value) parts.push(`test policy — ${TEST_POLICY_LABELS[tp.value] || tp.value}${tp.through ? ` (through ${tp.through})` : ""}`);
   for (const plan of Object.keys(PLAN_LABELS)) {
     const entry = snapshot.policy.deadlines?.[plan];
-    if (entry?.date) parts.push(`${PLAN_LABELS[plan]} deadline ${entry.date}`);
+    if (!entry?.date) continue;
+    // A closing-cycle date kept after Feb 1 says whose it is.
+    const own = cycleOfDate(entry.date);
+    parts.push(`${PLAN_LABELS[plan]} deadline ${entry.date}${own && snapshot.policy.cycle && own !== snapshot.policy.cycle ? ` (${own} cycle)` : ""}`);
   }
   const fee = snapshot.policy.applicationFee;
   if (fee && Number.isFinite(fee.amount)) parts.push(`application fee ${fee.amount === 0 ? "none" : `${fee.amount} USD`}`);
@@ -494,9 +538,18 @@ export function lastRunSummary(stmts) {
 // The newest run that counts toward the automatic cadence: a boot or
 // scheduled sweep. A counselor's manual spot-check of a few schools must not
 // push the next full sweep out by another cadence.
+// A failed sweep carries how many automatic sweeps in a row have failed,
+// which sets how long the cadence waits before the next retry.
 export function lastAutomaticRun(stmts) {
-  const row = stmts.listRuns.all(25).find((r) => r.trigger !== "manual");
-  return row ? summarizeRun(row) : null;
+  const runs = stmts.listRuns.all(25).filter((r) => r.trigger !== "manual").map(summarizeRun);
+  if (!runs.length) return null;
+  return { ...runs[0], failedStreak: failedStreak(runs.map((r) => r.outcome)) };
+}
+
+function runOutcome(row, summary) {
+  if (summary?.abandoned === true) return "abandoned";
+  if (!row.finished_at) return "in_progress";
+  return summary?.outcome === "failed" ? "failed" : "completed";
 }
 
 function summarizeRun(row) {
@@ -506,8 +559,10 @@ function summarizeRun(row) {
     startedAt: row.started_at,
     finishedAt: row.finished_at,
     trigger: row.trigger,
+    outcome: runOutcome(row, summary),
     scoutVersion: summary?.scoutVersion ?? 1,
     sweepRules: Number(summary?.sweepRules) || 1,
+    cycle: typeof summary?.cycle === "string" ? summary.cycle : null,
     abandoned: summary?.abandoned === true,
     schoolsTotal: row.schools_total,
     recentlyRead: Number(summary?.recentlyRead) || 0,

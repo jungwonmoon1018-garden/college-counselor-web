@@ -1,19 +1,10 @@
 import crypto from "node:crypto";
 import { extractImage, extractPDF, extractPdfOCR, extractText, isSupportedMime, validateFileContent } from "../shared/file-extractors.js";
 import { assertSafeFetchTarget, safeFetch } from "../security/safe-fetch.js";
+import { cycleStartYear, findCycleLabel } from "./cds-cycle.js";
 
 export const CDS_REPOSITORY_URL = "https://www.collegetransitions.com/dataverse/common-data-set-repository/";
 export const CDS_REPOSITORY_HOST = "www.collegetransitions.com";
-export const CDS_YEAR_LABELS = Object.freeze([
-  "2024-25",
-  "2023-24",
-  "2022-23",
-  "2021-22",
-  "2020-21",
-  "2019-20",
-  "2018-19",
-  "2017-18",
-]);
 
 export function normalizeSchoolName(name) {
   return String(name || "")
@@ -53,38 +44,70 @@ function absolutizeUrl(rawHref, baseUrl = CDS_REPOSITORY_URL) {
   }
 }
 
-export function parseCdsRepositoryIndex(html) {
+// The repository's table: one row per school, one column per CDS cycle.
+// Each column is labelled from the table's own header row ("Institution |
+// 2025-26 | 2024-25 | ..."), not by position. The parser used to skip the
+// header and assign the i-th cell the i-th entry of a year list written into
+// the code, newest "2024-25", so the day the repository put a 2025-26 column
+// in front every document would have been filed one cycle older: a 2025-26
+// document stored and cited as "Common Data Set 2024-25", and a school's
+// cached 2024-25 file served for its new link (time-7, debt-6). A table
+// with no year header labels nothing (its schools fall back to the
+// operator's registered links) and says so in the log; a header cell that
+// is not a cycle ("Notes") labels no column. Years come out newest first,
+// whatever order the columns are in, because the link picker and the
+// "latest available" read take the first.
+export function parseCdsRepositoryIndex(html, { warn = (message) => console.warn(message) } = {}) {
   const src = String(html || "");
   const entries = [];
   const rowRegex = /<tr\b[\s\S]*?<\/tr>/gi;
   const cellRegex = /<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi;
   const anchorRegex = /<a\b[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+  let unlabeledRows = 0;
 
-  for (const rowMatch of src.matchAll(rowRegex)) {
-    const rowHtml = rowMatch[0];
-    const cells = [...rowHtml.matchAll(cellRegex)].map((m) => m[1]);
-    if (cells.length < 2) continue;
-    const schoolName = stripHtml(cells[0]);
-    if (!schoolName || /institution/i.test(schoolName)) continue;
+  // Each table carries its own header; rows outside any table are read the
+  // same way, with no header until one appears.
+  for (const tableHtml of src.split(/<table\b/i)) {
+    let columns = null;
+    for (const rowMatch of tableHtml.matchAll(rowRegex)) {
+      const rowHtml = rowMatch[0];
+      const cells = [...rowHtml.matchAll(cellRegex)].map((m) => m[1]);
+      if (cells.length < 2) continue;
+      const schoolName = stripHtml(cells[0]);
+      const labels = cells.map((cell, i) => (i === 0 ? null : findCycleLabel(stripHtml(cell))));
+      const hasLinks = /<a\b/i.test(rowHtml);
+      if (/institution/i.test(schoolName) || (!hasLinks && labels.some(Boolean))) {
+        columns = labels;
+        continue;
+      }
+      if (!schoolName) continue;
 
-    const years = [];
-    for (let i = 1; i < Math.min(cells.length, CDS_YEAR_LABELS.length + 1); i += 1) {
-      const cellHtml = cells[i];
-      const label = CDS_YEAR_LABELS[i - 1];
-      const links = [...cellHtml.matchAll(anchorRegex)].map((m) => ({
-        label: stripHtml(m[2]) || "CDS",
-        url: absolutizeUrl(decodeEntities(m[1])),
-      })).filter((link) => link.url);
-      const available = /\bCDS\b/i.test(stripHtml(cellHtml)) || links.length > 0;
-      years.push({ year: label, available, links });
+      const years = [];
+      if (columns) {
+        for (let i = 1; i < cells.length; i += 1) {
+          const label = columns[i];
+          if (!label) continue;
+          const cellHtml = cells[i];
+          const links = [...cellHtml.matchAll(anchorRegex)].map((m) => ({
+            label: stripHtml(m[2]) || "CDS",
+            url: absolutizeUrl(decodeEntities(m[1])),
+          })).filter((link) => link.url);
+          const available = /\bCDS\b/i.test(stripHtml(cellHtml)) || links.length > 0;
+          years.push({ year: label, available, links });
+        }
+        years.sort((a, b) => cycleStartYear(b.year) - cycleStartYear(a.year));
+      } else {
+        unlabeledRows += 1;
+      }
+      entries.push({
+        schoolName,
+        normalizedSchoolName: normalizeSchoolName(schoolName),
+        years,
+      });
     }
-    entries.push({
-      schoolName,
-      normalizedSchoolName: normalizeSchoolName(schoolName),
-      years,
-    });
   }
 
+  if (unlabeledRows) warn(`[cds-index] no year header above ${unlabeledRows} row(s); their links are not labelled by cycle and only operator-registered links apply`);
   return entries;
 }
 
@@ -594,7 +617,14 @@ export function parseCdsText(rawText) {
   const tableC7 = extractC7TableRowsFromText(rawText);
   const c7 = { ...regexC7, ...tableC7.c7 };
 
-  const hasTestOptional = /test[\s-]?optional|sat\/act optional|standardized test scores.+not considered/i.test(lower);
+  // The flattened text cannot tell which C8A column is marked: every CDS
+  // prints all five headers, "Required" among them. So the text reads a
+  // policy only from a phrase that says optional, or from C7 rating test
+  // scores "not considered"; otherwise it is unknown (null). It used to read
+  // every other document as required, and its "test scores … not
+  // considered" pattern matched the C7 table's own column header.
+  const testsNotConsidered = c7.standardizedTests === 0;
+  const hasTestOptional = testsNotConsidered || /test[\s-]?optional|sat\/act optional/i.test(lower);
 
   return {
     admitRatePercent: extractPercent("overall admission rate", text) || extractPercent("admission rate", text),
@@ -607,7 +637,7 @@ export function parseCdsText(rawText) {
     },
     classRankTop10Percent: extractPercent("percent who had high school class rank in top tenth", text),
     classRankTop25Percent: extractPercent("top quarter", text),
-    testPolicy: hasTestOptional ? "test_optional_or_deemphasized" : "test_considered_or_required",
+    testPolicy: hasTestOptional ? "test_optional_or_deemphasized" : null,
     c7,
     c7TableRows: tableC7.rows,
     c7ExtractionWarnings: tableC7.warnings,
@@ -661,12 +691,17 @@ export async function readBodyCapped(res, maxBytes = MAX_CDS_DOWNLOAD_BYTES) {
 // other outbound fetch, each redirect hop checked (safeFetch), and the body
 // is read under the download cap. Until 2026-09-22 this was a plain fetch
 // that followed redirects.
+// A College Fit request waits on this read, so it is bounded: a slow host
+// used to hold the request open with no limit.
+const CDS_DOCUMENT_TIMEOUT_MS = 30_000;
+
 async function fetchText(url, { fetchImpl, assertTarget }, extractionOptions = {}) {
   const resp = await safeFetch(url, {
     headers: {
       "user-agent": "college-counselor-backend/1.0 CDS fetcher",
       "accept": "text/html,application/pdf,image/png,image/jpeg,image/webp,application/xhtml+xml;q=0.9,*/*;q=0.8",
     },
+    signal: AbortSignal.timeout(CDS_DOCUMENT_TIMEOUT_MS),
   }, { fetchImpl, assertTarget });
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   const contentType = String(resp.headers.get("content-type") || "").toLowerCase();
@@ -701,18 +736,83 @@ async function fetchText(url, { fetchImpl, assertTarget }, extractionOptions = {
   };
 }
 
-export async function fetchRepositoryIndex({ fetchImpl = fetch } = {}) {
-  const resp = await fetchImpl(CDS_REPOSITORY_URL, {
-    headers: {
+// The repository index is a constant URL (no SSRF guard needed) on a host
+// that has blocked a server user agent before, so a refusal is retried once
+// with browser headers, the retry the ingest pipeline already made. Each
+// attempt is bounded: College Fit waits on this read.
+export const CDS_INDEX_TIMEOUT_MS = 8_000;
+const INDEX_BROWSER_HEADERS = {
+  "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+  "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "accept-language": "en-US,en;q=0.9",
+};
+
+export async function fetchRepositoryIndex({ fetchImpl = fetch, timeoutMs = CDS_INDEX_TIMEOUT_MS } = {}) {
+  const attempt = async (headers) => {
+    const resp = await fetchImpl(CDS_REPOSITORY_URL, { headers, redirect: "follow", signal: AbortSignal.timeout(timeoutMs) });
+    if (!resp.ok) throw new Error(`CDS repository fetch failed: HTTP ${resp.status}`);
+    return await resp.text();
+  };
+  try {
+    return await attempt({
       "user-agent": "college-counselor-backend/1.0 CDS index fetcher",
       "accept": "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
-    },
-    redirect: "follow",
-  });
-  if (!resp.ok) throw new Error(`CDS repository fetch failed: HTTP ${resp.status}`);
-  return await resp.text();
+    });
+  } catch {
+    return await attempt(INDEX_BROWSER_HEADERS);
+  }
 }
 
+// The index as College Fit reads it: held in memory for a day once read,
+// and a failure remembered for two minutes so a host that is down costs
+// one timeout, not one per request. Returns { html } or { error }; it never
+// throws. Only the default fetch is memoized, so an injected fetchImpl (a
+// test) always reads afresh.
+const INDEX_MEMO_TTL_MS = 24 * 60 * 60 * 1000;
+// CDS_INDEX_FAILURE_MEMO_MS overrides the failure window (a route test sets
+// 0 to watch the index recover within one server's life).
+const INDEX_FAILURE_MEMO_MS = Number.isFinite(Number(process.env.CDS_INDEX_FAILURE_MEMO_MS)) && process.env.CDS_INDEX_FAILURE_MEMO_MS !== ""
+  ? Number(process.env.CDS_INDEX_FAILURE_MEMO_MS)
+  : 2 * 60 * 1000;
+let indexMemo = null;
+
+export function resetRepositoryIndexMemo() { indexMemo = null; }
+
+export async function loadRepositoryIndexHtml({ fetchImpl = fetch, now = Date.now() } = {}) {
+  const memoize = fetchImpl === globalThis.fetch;
+  if (memoize && indexMemo) {
+    if (indexMemo.html != null && now - indexMemo.at < INDEX_MEMO_TTL_MS) return { html: indexMemo.html };
+    if (indexMemo.error && now - indexMemo.at < INDEX_FAILURE_MEMO_MS) return { error: indexMemo.error };
+  }
+  try {
+    const html = await fetchRepositoryIndex({ fetchImpl });
+    if (memoize) indexMemo = { html, at: now };
+    return { html };
+  } catch (err) {
+    const error = String(err?.message || err || "index fetch failed").slice(0, 160);
+    console.warn(`[cds-index] repository index unavailable: ${error}`);
+    if (memoize) indexMemo = { error, at: now };
+    return { error };
+  }
+}
+
+// A failure worth retrying soon (the host timed out, refused for load, or
+// the network dropped), as against a link that is dead or blocked for good
+// (404, or the 403 Cloudflare gives a Node fetch of some documents). A read
+// built on one is not cached (server/positioning.js).
+function isTransientFetchError(message) {
+  return /HTTP (?:5\d\d|429)|timeout|timed out|aborted|fetch failed|network|ECONN|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|socket/i.test(String(message || ""));
+}
+
+// Per target: the repository entry, its newest document read and parsed.
+// The live repository is optional. When its index cannot be read, every
+// target comes back as "index_unavailable" instead of the whole call
+// throwing: College Fit used to answer 500 for every uncached school on
+// such a day, though the store held the data for most of them (fit-3). A
+// target the store already holds (`hasStoredRecord`) is matched in the
+// index but its document is not downloaded and parsed again: the stored
+// record is what the read uses. Rows built on a transient failure carry
+// `transientFailure: true` so the caller does not cache them.
 export async function resolveAndParseCdsTargets(targets, {
   fetchImpl = fetch,
   assertTarget = assertSafeFetchTarget,
@@ -720,22 +820,42 @@ export async function resolveAndParseCdsTargets(targets, {
   ocrPdfExtractor = null,
   pdfTextExtractor = extractPDF,
   imageOcrOptions = {},
+  hasStoredRecord = null,
 } = {}) {
-  const html = repositoryHtml ?? await fetchRepositoryIndex({ fetchImpl });
-  const entries = parseCdsRepositoryIndex(html);
+  const index = repositoryHtml != null ? { html: repositoryHtml } : await loadRepositoryIndexHtml({ fetchImpl });
+  const entries = index.html != null ? parseCdsRepositoryIndex(index.html) : null;
   const results = [];
 
   for (const target of targets || []) {
     const schoolName = target.schoolName || target.name || target.label || "";
+    const base = {
+      unitId: target.unitId || null,
+      schoolName,
+      source: "College Transitions CDS repository",
+      sourceUrl: null,
+      sourceContentType: null,
+      sourceExtraction: null,
+      parsed: null,
+    };
+    if (!entries) {
+      results.push({ ...base, repositoryMatch: null, fetchStatus: "index_unavailable", indexError: index.error || null, transientFailure: true });
+      continue;
+    }
     const entry = findBestRepositoryEntry(entries, schoolName);
     const preferred = selectPreferredCdsLink(entry);
     let parsed = null;
     let fetchStatus = "not_fetched";
+    let transientFailure = false;
     let sourceUrl = preferred?.url || null;
     let sourceContentType = null;
     let sourceExtraction = null;
 
-    if (preferred?.url) {
+    let stored = false;
+    try { stored = Boolean(hasStoredRecord?.(target)); } catch { stored = false; }
+
+    if (stored) {
+      fetchStatus = "stored_record";
+    } else if (preferred?.url) {
       try {
         const doc = await fetchText(preferred.url, { fetchImpl, assertTarget }, { ocrPdfExtractor, pdfTextExtractor, imageOcrOptions });
         parsed = parseCdsText(doc.text);
@@ -744,6 +864,7 @@ export async function resolveAndParseCdsTargets(targets, {
         fetchStatus = "ok";
       } catch (err) {
         fetchStatus = `error:${err.message}`;
+        transientFailure = isTransientFetchError(err?.message);
       }
     } else if (preferred?.year) {
       fetchStatus = "listed_without_direct_link";
@@ -752,17 +873,16 @@ export async function resolveAndParseCdsTargets(targets, {
     }
 
     results.push({
-      unitId: target.unitId || null,
-      schoolName,
+      ...base,
       repositoryMatch: entry ? {
         schoolName: entry.schoolName,
         latestAvailableYear: entry.years.find((year) => year.available)?.year || null,
       } : null,
-      source: "College Transitions CDS repository",
       sourceUrl,
       sourceContentType,
       sourceExtraction,
       fetchStatus,
+      ...(transientFailure ? { transientFailure } : {}),
       parsed,
     });
   }

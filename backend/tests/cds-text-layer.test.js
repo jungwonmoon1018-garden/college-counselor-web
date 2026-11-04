@@ -37,12 +37,13 @@ test("the parser version moved past 6 for the OCR fallback, so stored rows are r
   assert.ok(CDS_PARSER_VERSION >= 7, `version ${CDS_PARSER_VERSION}`);
 });
 
-// OCR misses rows. A test policy it did not read stays unknown instead of
-// the "test_required" default a text layer keeps: Bradley is test-optional,
-// and its first OCR record said scores were required.
-test("a test policy that was not read is unknown for an OCR record, the old default for a text layer", async () => {
+// OCR misses rows. A test policy it did not read stays unknown: Bradley is
+// test-optional, and its first OCR record said scores were required. Since
+// parser version 8 a text layer gets the same rule, because the old
+// "test_required" default read UCLA (test-blind) as requiring scores.
+test("a test policy that was not read is unknown, for an OCR record and a text layer alike", async () => {
   const { extractTestPolicyPositional } = await import("../cds/cds-pdf-parser.js");
   assert.equal(extractTestPolicyPositional([]), null, "not found is not a policy");
   const parser = fs.readFileSync(path.join(BACKEND, "cds", "cds-pdf-parser.js"), "utf8");
-  assert.ok(parser.includes('positional.testPolicy = extractTestPolicyPositional(items) ?? (items._source === "tesseract" ? null : "test_required");'));
+  assert.ok(parser.includes("positional.testPolicy = extractTestPolicyPositional(items) ?? null;"));
 });

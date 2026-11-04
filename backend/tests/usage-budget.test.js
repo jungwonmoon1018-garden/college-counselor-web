@@ -149,3 +149,115 @@ describe("usage reservations", () => {
     db.close();
   });
 });
+
+// A reservation cut off by a restart stayed 'reserved' and counted at its
+// full estimate until the month ended. The boot sweep releases everything
+// from before the process started; the hourly one only rows older than any
+// live call can hold.
+describe("stale reservations", () => {
+  const reserve = (db, requestId, now = new Date()) => reserveBudget(db, {
+    studentId: "student",
+    grade: 11,
+    requestId,
+    model: "priced/model",
+    maxInputTokens: 100_000,
+    maxOutputTokens: 4_096,
+    pricingLookup: pricing,
+    now,
+  });
+
+  it("the boot sweep releases a reservation the last process left open", async () => {
+    const { releaseStaleReservations } = await import("../security/usage-budget.js");
+    const db = ledger();
+    reserve(db, "cut-off-by-deploy");
+    assert.ok(getBudgetStatus(db, { studentId: "student", grade: 11 }).committedUsd > 0);
+    const swept = releaseStaleReservations(db, { createdBefore: new Date(Date.now() + 1) });
+    assert.equal(swept.released, 1);
+    assert.equal(getBudgetStatus(db, { studentId: "student", grade: 11 }).committedUsd, 0);
+    assert.equal(db.prepare("SELECT status FROM usage_budget_reservations").get().status, "released");
+    db.close();
+  });
+
+  it("the periodic sweep keeps a young reservation and never touches a reconciled one", async () => {
+    const { releaseStaleReservations } = await import("../security/usage-budget.js");
+    const { staleReservationAgeMs } = await import("../scouts/batch-jobs.js");
+    const db = ledger();
+    const ageMs = staleReservationAgeMs({});
+    assert.ok(ageMs >= 30 * 60 * 1000);
+    assert.equal(staleReservationAgeMs({ LLM_CALL_TIMEOUT_MS: "600000" }), 3_600_000);
+    const old = new Date(Date.now() - ageMs - 60_000);
+    reserve(db, "orphaned", old);
+    const done = reserve(db, "finished", old);
+    reconcileBudget(db, { reservationId: done.reservationId, inputTokens: 10, outputTokens: 10 });
+    reserve(db, "in-flight");
+    const swept = releaseStaleReservations(db, { createdBefore: new Date(Date.now() - ageMs) });
+    assert.equal(swept.released, 1);
+    const statuses = Object.fromEntries(db.prepare("SELECT request_id, status FROM usage_budget_reservations").all().map((r) => [r.request_id, r.status]));
+    assert.deepEqual(statuses, { orphaned: "released", finished: "reconciled", "in-flight": "reserved" });
+    db.close();
+  });
+});
+
+describe("the monthly cap follows the grade read from the class", () => {
+  it("a junior registered in October 2026 has the senior cap from Aug 1 2027", async () => {
+    const { initAuthStore } = await import("../security/security-auth.js");
+    const { monthlyCapForGrade } = await import("../security/usage-budget.js");
+    const db = new Database(":memory:");
+    const auth = initAuthStore(db, { sessionTtlMs: 60_000 });
+    initUsageBudget(db);
+    auth.createStudentCredential("s1", "email-hash", "correct horse battery staple", { grade: 11 });
+    db.prepare("UPDATE student_credentials SET class_of = 2028 WHERE student_id = 's1'").run();
+    assert.equal(monthlyCapForGrade(auth.getStudentGrade("s1", new Date("2027-07-15T00:00:00Z"))), 10);
+    const senior = auth.getStudentGrade("s1", new Date("2027-09-01T00:00:00Z"));
+    assert.equal(senior, 12);
+    assert.equal(getBudgetStatus(db, { studentId: "s1", grade: senior }).capUsd, 15);
+    db.close();
+  });
+});
+
+describe("refusals the client can word", () => {
+  // A failed call's id resent after a re-authentication used to come back
+  // as a budget refusal with no code, and the student was told their
+  // monthly budget was used up.
+  it("a released request_id is refused with request_id_released, never as a budget denial", () => {
+    const db = ledger();
+    const input = {
+      studentId: "student",
+      grade: 10,
+      requestId: "failed-call",
+      model: "priced/model",
+      maxInputTokens: 1000,
+      maxOutputTokens: 1000,
+      pricingLookup: pricing,
+    };
+    const first = reserveBudget(db, input);
+    releaseBudget(db, { reservationId: first.reservationId });
+    const again = reserveBudget(db, input);
+    assert.equal(again.allowed, false);
+    assert.equal(again.code, "request_id_released");
+    db.close();
+  });
+
+  it("the cap refusal says why and when the month resets, computed from the clock it was given", async () => {
+    const { budgetPeriodResetsAt } = await import("../security/usage-budget.js");
+    const db = ledger();
+    const now = new Date(2026, 9, 30, 15, 0);
+    const refused = reserveBudget(db, {
+      studentId: "student",
+      grade: 11,
+      requestId: "too-big",
+      model: "priced/model",
+      maxInputTokens: 11_000_000,
+      maxOutputTokens: 1,
+      pricingLookup: pricing,
+      now,
+    });
+    assert.equal(refused.allowed, false);
+    assert.equal(refused.code, "monthly_cap_exceeded");
+    assert.ok(refused.reason);
+    assert.equal(refused.resetsAt, new Date(2026, 10, 1).toISOString());
+    assert.equal(refused.resetsAt, budgetPeriodResetsAt(now));
+    assert.equal(getBudgetStatus(db, { studentId: "student", grade: 11, now }).resetsAt, refused.resetsAt);
+    db.close();
+  });
+});

@@ -82,7 +82,10 @@ export async function searchScorecard(apiKey, filters = {}) {
 
   try {
     const url = `${SCORECARD_BASE}/schools?${params}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    // A caller's signal (a chat turn whose student left) stops the request
+    // itself, not only the wait for it; the 10 s ceiling still applies.
+    const signal = filters.signal ? AbortSignal.any([filters.signal, AbortSignal.timeout(10000)]) : AbortSignal.timeout(10000);
+    const res = await fetch(url, { signal });
     if (!res.ok) throw new Error(`Scorecard API ${res.status}: ${res.statusText}`);
     const json = await res.json();
 
@@ -100,15 +103,26 @@ export async function searchScorecard(apiKey, filters = {}) {
   }
 }
 
-export async function getCollegeById(apiKey, unitId) {
-  if (!apiKey) return null;
+// One school by IPEDS unit id, with the failure kept apart from "not
+// found": { result } or { result: null, error }. College Fit does not cache
+// a read built while the Scorecard was failing (a timeout or a 429 used to
+// look like a school with no data, and that read was kept seven days).
+export async function getCollegeByIdResult(apiKey, unitId) {
+  if (!apiKey) return { result: null, error: "SCORECARD_API_KEY not configured" };
   try {
     const params = new URLSearchParams({ api_key: apiKey, id: unitId, fields: ALL_FIELDS });
     const res = await fetch(`${SCORECARD_BASE}/schools?${params}`, { signal: AbortSignal.timeout(10000) });
-    if (!res.ok) return null;
+    if (!res.ok) return { result: null, error: `Scorecard API ${res.status}` };
     const json = await res.json();
-    return json.results?.[0] ? normalizeResult(json.results[0]) : null;
-  } catch { return null; }
+    return { result: json.results?.[0] ? normalizeResult(json.results[0]) : null };
+  } catch (err) {
+    return { result: null, error: String(err?.message || "Scorecard request failed") };
+  }
+}
+
+export async function getCollegeById(apiKey, unitId) {
+  if (!apiKey) return null;
+  return (await getCollegeByIdResult(apiKey, unitId)).result;
 }
 
 // ─── Compare N colleges head-to-head (Tier 4: College Comparison Matrix) ───

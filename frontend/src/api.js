@@ -15,7 +15,11 @@
 // global, the helpers are stateless.
 // ═══════════════════════════════════════════════════════════════════════
 
-const HANGUL_RE = /^ko/i;
+import { detectLocale, saveLocale } from "./i18n.js";
+import { _tryReAuth } from "./chat/chat-client.js";
+import { isSessionExpiry } from "./chat/chat-errors.js";
+import { localDateString } from "./profile/dates.js";
+
 // Client-side cap on any API call (see ccFetch). Model-backed tools pass a
 // longer `timeoutMs` explicitly.
 const DEFAULT_TIMEOUT_MS = 45_000;
@@ -32,19 +36,16 @@ export function getSessionToken() {
   return (typeof window !== "undefined" && window.__CC_SESSION_TOKEN__) || "";
 }
 
+// The locale every request carries. i18n.detectLocale is the one reader:
+// this file kept its own copy that read localStorage unguarded (so every
+// call threw when a browser blocked site data) and passed any stored text
+// through to the server.
 export function getLocale() {
-  if (typeof window === "undefined") return "en-US";
-  const stored = window.localStorage?.getItem?.("cc_locale");
-  if (stored) return stored;
-  const nav = (window.navigator?.language || "").toLowerCase();
-  if (HANGUL_RE.test(nav)) return "ko";
-  return "en-US";
+  return detectLocale();
 }
 
 export function setLocale(locale) {
-  if (typeof window !== "undefined") {
-    window.localStorage?.setItem?.("cc_locale", locale);
-  }
+  saveLocale(locale);
 }
 
 // ─── Error shape so callers can branch on missing-narrative ──────────────
@@ -60,6 +61,7 @@ export class NoNarrativeError extends Error {
 // Always adds locale + bearer auth + JSON content-type. Throws on !ok with
 // the parsed body attached so the caller can read friendlyMessage.
 async function ccFetch(path, opts = {}) {
+  const originalOpts = opts;
   const locale = getLocale();
   const token = getSessionToken();
   // Callers pass root-absolute "/api/..." paths. The browser resolves a
@@ -109,12 +111,25 @@ async function ccFetch(path, opts = {}) {
   try { json = text ? JSON.parse(text) : null; }
   catch { json = { raw: text }; }
   if (!resp.ok) {
+    // A session that ended elsewhere (log out of all devices, a passphrase
+    // reset, the seven-day expiry) is healed once the way the chat heals it,
+    // with the credentials the unlocked app holds in memory. The tool cards
+    // used to fail from then on while the chat kept working. After a logout
+    // _tryReAuth has no credentials (endSessionReauth), so a logged-out page
+    // never signs itself back in; the error then says the session ended.
+    // Only a session failure is healed: a 401 with another code (a refused
+    // provider key from an older server) would spend a hidden sign-in.
+    const sessionFailure = isSessionExpiry(resp.status, json || {});
+    if (sessionFailure && !opts._reauthAttempted) {
+      if (await _tryReAuth()) return ccFetch(path, { ...originalOpts, _reauthAttempted: true });
+    }
     if (resp.status === 409 && (json?.error === "no_active_narrative" || /narrative/i.test(json?.error || ""))) {
       throw new NoNarrativeError(json?.friendlyMessage || json?.message);
     }
     const err = new Error(json?.message || json?.error || `HTTP ${resp.status}`);
     err.status = resp.status;
     err.body = json;
+    if (sessionFailure) err.sessionEnded = true;
     throw err;
   }
   return json;
@@ -177,6 +192,11 @@ export const ec = {
   async evidence(ecName) {
     return ccFetch(`/api/ec/strength/${encodeURIComponent(ecName)}`, { method: "GET" });
   },
+  // Remove one evidence file the student attached or uploaded. The server
+  // re-scores the activity without it.
+  async removeAttachment(id) {
+    return ccFetch(`/api/ec/attachments/${encodeURIComponent(id)}`, { method: "DELETE" });
+  },
   // Read every file attached in past chat turns into the activity it names.
   async readChatUploads() {
     return ccFetch("/api/ec/evidence/from-chat", { method: "POST", body: {}, timeoutMs: 120_000 });
@@ -231,8 +251,13 @@ export const courses = {
 
 // ─── Deadlines (F7) ──────────────────────────────────────────────────────
 export const deadlines = {
-  async list() {
-    return ccFetch("/api/students/deadlines", { method: "GET" });
+  // The server counts days left, overdue rows and the chip's summary from
+  // `today`, which it accepts only when that date is today somewhere on
+  // Earth. Without it the server counts from Anywhere-on-Earth today, which
+  // is a day behind a student in Seoul for most of the day, so a deadline
+  // read a day further off than it is and the chip missed one due today.
+  async list({ now = new Date() } = {}) {
+    return ccFetch(`/api/students/deadlines?today=${encodeURIComponent(localDateString(now))}`, { method: "GET" });
   },
   async create(d) {
     return ccFetch("/api/students/deadlines", {
@@ -240,8 +265,10 @@ export const deadlines = {
       body: d,
     });
   },
-  async patch(id, body) {
-    return ccFetch(`/api/students/deadlines/${encodeURIComponent(id)}`, {
+  // The row that comes back is counted on the same calendar, and a snooze
+  // with no end date is dated from it.
+  async patch(id, body, { now = new Date() } = {}) {
+    return ccFetch(`/api/students/deadlines/${encodeURIComponent(id)}?today=${encodeURIComponent(localDateString(now))}`, {
       method: "PATCH",
       body,
     });

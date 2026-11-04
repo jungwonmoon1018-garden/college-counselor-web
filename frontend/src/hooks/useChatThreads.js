@@ -7,7 +7,7 @@ import { openThread as openThreadImpl, persistTurn as persistTurnImpl } from "..
 
 export function useChatThreads(ctx) {
   const {
-    authedFetch, setMessages, setSyncNote, setSyncStatus,
+    authedFetch, locale = "en-US", setMessages, setSyncNote, setSyncStatus,
   } = ctx;
   // ─── Chat thread history ───
   // threadList = sidebar entries (id, title, updated_at, message_count).
@@ -36,25 +36,42 @@ export function useChatThreads(ctx) {
 
   // Create a new thread server-side and switch to it. Clears current
   // in-memory messages so the new thread starts blank.
+  //
+  // A failed create (a 429 from the per-IP limiter, an outage) used to return
+  // null in silence: the turn then ran with no thread, persistTurn did
+  // nothing, and the conversation was missing after a reload with no sign
+  // anything had gone wrong. It now raises the same sync warning a failed
+  // save does.
   const newThread = useCallback(async (initialTitle, preserveMessages = false) => {
+    const warn = () => {
+      setSyncStatus?.("failed");
+      setSyncNote?.(locale === "ko"
+        ? "새 대화를 저장할 수 없었어요. 이 대화는 새로고침하면 사라질 수 있어요."
+        : "This conversation couldn't be saved to your chat history — it may be missing after a reload.");
+      return null;
+    };
     try {
       const r = await authedFetch("/api/students/threads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: initialTitle }),
       });
-      if (!r.ok) return null;
+      if (!r.ok) return warn();
       const data = await r.json();
+      if (!data?.id) return warn();
       setActiveThreadId(data.id);
       if (!preserveMessages) setMessages([]);
       refreshThreadList();
       return data.id;
-    } catch { return null; }
-  }, [authedFetch, refreshThreadList]);
+    } catch (err) {
+      console.warn("[CHAT] newThread failed:", err?.message);
+      return warn();
+    }
+  }, [authedFetch, refreshThreadList, locale]);
 
   const openThread = useCallback((...args) => openThreadImpl({
-      authedFetch, refreshThreadList, setActiveThreadId, setMessages,
-    }, ...args), [authedFetch, refreshThreadList]);
+      authedFetch, locale, refreshThreadList, setActiveThreadId, setMessages,
+    }, ...args), [authedFetch, refreshThreadList, locale]);
 
   const persistTurn = useCallback((...args) => persistTurnImpl({
       authedFetch, refreshThreadList, setSyncNote, setSyncStatus, setThreadList,

@@ -1,14 +1,47 @@
 // auth-handlers.js — sign-in (vault decrypt, server session, consent heal,
 // profile reconcile), account creation and student recovery. App() keeps each hook and its dependency array and calls these with the
 // render's bindings as `ctx`. Moved out of App.jsx on 2026-09-20.
-import { storageKeyFor, storageApi, decrypt, readVaultIdentity, readVaultData, encrypt, buildVaultBlob } from "../session/vault-storage.js";
+import { storageKeyFor, storageApi, decrypt, readVaultIdentity, readVaultData, readVaultSync, encrypt, buildVaultBlob } from "../session/vault-storage.js";
 import { establishServerSession, healMissingConsents, fetchServerIdentity, grantOnboardingConsents } from "../session/server-session.js";
+import { closeStudentSession } from "../session/end-session.js";
+import { baseFromData, describeProfileConflict, readServerProfile, reconcileProfile } from "../profile/profile-reconcile.js";
+import { detectLocale } from "../i18n.js";
 import { S } from "../app-shared.js";
+
+// What a student reads when sign-in could not read her saved profile, even
+// on the second try. She stays on the sign-in screen: the empty survey she
+// used to be sent to told a returning student she was new, and she retyped
+// her record into it.
+export const PROFILE_LOAD_FAILED = Object.freeze({
+  "en-US": "Couldn't load your saved profile. Try signing in again.",
+  ko: "저장된 프로필을 불러오지 못했습니다. 다시 로그인해 주세요.",
+});
+
+// A failed read is tried once more after a pause long enough for a cold
+// start or a burst limit to clear.
+const PROFILE_RETRY_DELAY_MS = 500;
+
+// The server's profile for sign-in, or null when the read failed twice (a
+// non-ok answer, a network error, a body that is not JSON). An answer with
+// no profile in it is a read, not a failure: it is how a student with
+// nothing saved yet looks.
+async function readProfileForLogin(base, token) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    if (attempt) await new Promise((resolve) => setTimeout(resolve, PROFILE_RETRY_DELAY_MS));
+    try {
+      const pr = await fetch(`${base}/students/profile`, { headers: { Authorization: `Bearer ${token}` } });
+      if (pr.ok) return readServerProfile(await pr.json());
+      console.warn(`[login-recover] profile read answered ${pr.status}`);
+    } catch (err) { console.warn("[login-recover] failed:", err?.message); }
+  }
+  return null;
+}
 
 export async function handleLogin(ctx) {
   const {
     lEmail, lPass, loginAttempts, setData, setLError, setLoginAttempts,
     setMessages, setOfflineMode, setPassphrase, setScreen, setSurveyStep, setUser,
+    setLPass, setShowLoginPass, setSyncBase, setProfileReady, setSyncNote, setSyncStatus,
   } = ctx;
   setLError("");
   const email = lEmail.toLowerCase().trim();
@@ -38,6 +71,7 @@ export async function handleLogin(ctx) {
   const storageKey = await storageKeyFor(email);
   let identity = null;
   let vaultData = null;
+  let vaultBase = null;
   let vaultMissing = false;
   try {
     const saved = await storageApi.get(storageKey);
@@ -52,7 +86,13 @@ export async function handleLogin(ctx) {
       }
       identity = readVaultIdentity(d);
       // A verifier-only vault has no student data to restore yet.
-      if (!d._verifier) { vaultData = readVaultData(d); setData(vaultData); }
+      if (!d._verifier) {
+        vaultData = readVaultData(d);
+        // A vault from before sync bases is read as unedited: all it knows
+        // of the server is its own contents.
+        vaultBase = readVaultSync(d) || baseFromData(vaultData);
+        setData(vaultData);
+      }
     }
   } catch (err) {
     console.warn("Login decryption error:", err?.message);
@@ -91,7 +131,8 @@ export async function handleLogin(ctx) {
   // which recorded only two of the three required rows — the missing
   // cross_border_transfer consent 403'd every AI feature (chat, auto-naming,
   // transcript parsing). The signup UI has always required accepting the AI
-  // and data-processing terms to create the account.
+  // and data-processing terms to create the account. A consent the student
+  // withdrew is not healed (server-session.js).
   if (sess.ok) await healMissingConsents();
 
   // A vault written by a passphrase reset carries no identity. Rebuild it
@@ -108,55 +149,59 @@ export async function handleLogin(ctx) {
     return;
   }
 
-  const u = { name: identity.name, email, grade: identity.grade };
-  setUser(u);
-  setPassphrase(lPass);
-
-  // ─── Backend profile recovery ───
-  // The backend DB is the durable source of truth for grades/GPA/ECs.
-  // If the local vault is empty/sparse (vault reset, new browser, or a
-  // backend-restart hiccup) BUT the backend has a populated profile,
-  // adopt it now — so the student sees their real transcript instead
-  // of an empty survey, and isn't forced to re-do onboarding.
-  let backendHasProfile = false;
+  // ─── Read the server's profile before the student enters ───
   // Same convention as api.js: __CC_PROXY_URL__ is the chat endpoint, and
   // the same-origin default keeps this working on the deployed website.
   // (`proxyUrl` was previously read here without ever being declared — the
   // second dangling reference that crashed every returning login.)
+  // A failed read used to count as "the server has no profile", so a device
+  // with no finished survey of its own sent a returning student to an empty
+  // survey as if she were new. The read is tried twice; when both fail and
+  // the survey is where she would land, she stays signed out on this screen
+  // with the reason, the session just opened is closed, and nothing is
+  // saved. A device that finished the survey opens the chat on its own copy
+  // as before: the auto-save waits for the join, which the chat retries.
+  const surveyCompleted = Boolean(vaultData?.surveyCompleted);
   const proxyUrl = window.__CC_PROXY_URL__ || "/api/chat";
-  if (window.__CC_SESSION_TOKEN__ && proxyUrl) {
+  const readsProfile = Boolean(sess.ok && window.__CC_SESSION_TOKEN__ && proxyUrl);
+  const server = readsProfile ? await readProfileForLogin(proxyUrl.replace(/\/chat\/?$/,""), window.__CC_SESSION_TOKEN__) : null;
+  if (readsProfile && !server && !surveyCompleted) {
+    await closeStudentSession();
+    const locale = ctx.locale || detectLocale();
+    setLError(PROFILE_LOAD_FAILED[locale] || PROFILE_LOAD_FAILED["en-US"]);
+    return;
+  }
+
+  const u = { name: identity.name, email, grade: identity.grade };
+  setUser(u);
+  setPassphrase(lPass);
+  // The passphrase is held once, for re-auth and the vault; the login field
+  // does not keep a second copy for the rest of the session.
+  setLPass?.("");
+  setShowLoginPass?.(false);
+
+  // ─── Join the vault with the server's profile ───
+  // The backend DB is the durable source of truth for grades/GPA/ECs, and
+  // this runs before the chat opens, so the auto-save never sends anything
+  // this device has not first compared with it. A field the device edited
+  // since its sync base stays; every other field takes the server's value
+  // (profile/profile-reconcile.js). The old merge kept whatever the vault
+  // held whenever it was non-empty, so a day-old device put its old SAT and
+  // deleted activities back over a newer record.
+  let backendHasProfile = false;
+  setSyncBase?.(vaultBase);
+  if (server) {
     try {
-      const base = proxyUrl.replace(/\/chat\/?$/,"");
-      const pr = await fetch(`${base}/students/profile`, { headers: { Authorization: `Bearer ${window.__CC_SESSION_TOKEN__}` } });
-      if (pr.ok) {
-        const pb = await pr.json();
-        const beCourses = pb.profile?.courses || [];
-        const beEcs = pb.profile?.activities || [];
-        if (beCourses.length > 0 || beEcs.length > 0) {
-          backendHasProfile = true;
-          setData(prev => {
-            const base2 = prev || {};
-            const localCourses = base2.profile?.courses || [];
-            const localEcs = base2.activities || [];
-            return {
-              ...base2,
-              profile: {
-                ...(base2.profile || {}),
-                gpa: base2.profile?.gpa?.unweighted != null ? base2.profile.gpa : (pb.profile?.gpa || base2.profile?.gpa),
-                classRank: base2.profile?.classRank || pb.profile?.classRank || null,
-                courses: beCourses.length > localCourses.length ? beCourses : localCourses,
-                apScores: (base2.profile?.apScores?.length ? base2.profile.apScores : pb.profile?.apScores) || [],
-                testScores: (base2.profile?.testScores?.length ? base2.profile.testScores : pb.profile?.testScores) || [],
-                majorInterest: base2.profile?.majorInterest || pb.profile?.majorInterest || "",
-              },
-              activities: beEcs.length > localEcs.length ? beEcs : localEcs,
-              goals: (base2.goals?.length ? base2.goals : pb.profile?.goals) || [],
-              majorInterest: base2.majorInterest || pb.profile?.majorInterest || "",
-            };
-          });
-          console.info(`[login-recover] Adopted backend profile: ${beCourses.length} courses, ${beEcs.length} ECs.`);
-        }
+      const result = reconcileProfile({ local: vaultData, server, base: vaultBase });
+      if (result.changed || !vaultData) setData(result.data);
+      setSyncBase?.(result.base);
+      setProfileReady?.(true);
+      if (result.conflicts.length && setSyncNote) {
+        setSyncNote(describeProfileConflict(result));
+        setSyncStatus?.("partial");
       }
+      backendHasProfile = server.exists && ((server.view.courses || []).length > 0 || (server.view.activities || []).length > 0);
+      if (result.adopted.length) console.info(`[login-recover] Took the server's ${result.adopted.join(", ")}.`);
     } catch (err) { console.warn("[login-recover] failed:", err?.message); }
   }
 
@@ -170,7 +215,6 @@ export async function handleLogin(ctx) {
   // server session was established, so the screen never advanced past LOGIN
   // and the deployed site appeared to lock users out after their first
   // visit. Route on `sess.offline` and the decrypted vault data instead.
-  const surveyCompleted = Boolean(vaultData?.surveyCompleted);
   if (sess.offline) {
     if (surveyCompleted) {
       setMessages([{ role:"assistant", content:`Hey ${identity.name}! You're offline right now — your data is here and safe. Chat resumes once your connection's back.` }]);
@@ -202,6 +246,7 @@ export async function handleCreate(ctx) {
     cAgeAttest, cConsentAI, cConsentData, cEmail, cFirst, cGrade,
     cLast, cName, cPass, cPass2, setCError, setLEmail,
     setPassphrase, setScreen, setStudentRecoveryCode, setSurveyStep, setUser,
+    setSyncBase, setProfileReady,
   } = ctx;
   setCError("");
   if (!cFirst.trim()) { setCError("First name is required"); return; }
@@ -253,6 +298,9 @@ export async function handleCreate(ctx) {
   setUser(u);
   setPassphrase(cPass);
   setStudentRecoveryCode(sess.recoveryCode || "");
+  // A new account's server holds no profile: the survey's save is the first.
+  setSyncBase?.({ serverRevision: null, snapshot: null });
+  setProfileReady?.(true);
 
   // Grant onboarding consents now that we hold a verified server session.
   // All three are required by the backend for any AI operation — granting

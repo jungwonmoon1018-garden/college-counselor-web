@@ -9,6 +9,17 @@ import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import Database from "better-sqlite3";
 import { SCOUT_VERSION } from "../scouts/admissions-policy-scout.js";
+import { selectFafsaRuleset } from "../chat/rules-engine.js";
+import { addCalendarDays, anywhereOnEarthToday } from "../shared/calendar-date.js";
+import { applicationCycleStartYear, cycleDate, planningCycle, planningCycleStartYear, shiftDateToCycle } from "../shared/admissions-cycle.js";
+import { classOfForGrade } from "../shared/school-year.js";
+
+// A seeded scout snapshot is current only for the planning cycle (it moves
+// on Feb 1), so seeds and expectations take the cycle and its dates from the
+// shared module: a hard-coded "2026-27" would have gone stale on 2027-02-01.
+const CYCLE = planningCycle();
+const CYCLE_EA = cycleDate(planningCycleStartYear(), 11, 1);
+const escapeRe = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, "..");
@@ -102,7 +113,9 @@ async function createDeadline(token, title, collegeIds = null) {
     token,
     body: {
       title,
-      dueAt: "2027-12-01T12:00:00.000Z",
+      // A year out, so the row is never overdue (and, Jan-Jul, culled from
+      // the list) whatever day the suite runs; a fixed 2027-12-01 would have.
+      dueAt: addCalendarDays(anywhereOnEarthToday(), 365),
       category: "admissions",
       collegeIds,
     },
@@ -216,9 +229,9 @@ test("deadline cascade is tenant-scoped and matches literal school names and com
   const firstToken = await registerStudent("deadlines-first");
   const secondToken = await registerStudent("deadlines-second");
 
-  await createDeadline(firstToken, "A_%B ??Regular Decision");
-  await createDeadline(firstToken, "AxxB ??Keep this unrelated deadline");
-  await createDeadline(secondToken, "A_%B ??Other student's deadline");
+  await createDeadline(firstToken, "A_%B — Regular Decision");
+  await createDeadline(firstToken, "AxxB — Keep this unrelated deadline");
+  await createDeadline(secondToken, "A_%B — Other student's deadline");
 
   const noAuth = await request("DELETE", "/api/students/deadlines/by-school", {
     body: { schoolName: "A_%B" },
@@ -231,8 +244,8 @@ test("deadline cascade is tenant-scoped and matches literal school names and com
   });
   assert.equal(literalDelete.status, 200, JSON.stringify(literalDelete.data));
   assert.equal(literalDelete.data.deleted, 1);
-  assert.deepEqual(await listDeadlineTitles(firstToken), ["AxxB ??Keep this unrelated deadline"]);
-  assert.deepEqual(await listDeadlineTitles(secondToken), ["A_%B ??Other student's deadline"]);
+  assert.deepEqual(await listDeadlineTitles(firstToken), ["AxxB — Keep this unrelated deadline"]);
+  assert.deepEqual(await listDeadlineTitles(secondToken), ["A_%B — Other student's deadline"]);
 
   await createDeadline(firstToken, "Exact unit ID", ["166683"]);
   await createDeadline(firstToken, "Containing-but-different unit ID", ["91666839"]);
@@ -264,7 +277,9 @@ test("deadline cascade is tenant-scoped and matches literal school names and com
 // edit now hold the same rules.
 test("deadline names are capped and dates must fall between 2000 and six years out, on create, bulk and edit", async () => {
   const token = await registerStudent("deadline-limits");
-  const valid = "2027-01-05T12:00:00.000Z";
+  // Sixty days out: the bulk route skips a date already past, so a fixed
+  // date here would have started failing the day after it.
+  const valid = `${addCalendarDays(anywhereOnEarthToday(), 60)}T12:00:00.000Z`;
   const sevenYearsOut = new Date(Date.now() + 7 * 365.25 * 86_400_000).toISOString();
 
   const tooLong = await request("POST", "/api/students/deadlines", { token, body: { title: "x".repeat(201), dueAt: valid } });
@@ -302,11 +317,136 @@ test("deadline names are capped and dates must fall between 2000 and six years o
   assert.equal(longEdit.data.friendlyMessage, "Keep the deadline's name to 200 characters or fewer.");
   const farEdit = await request("PATCH", `/api/students/deadlines/${id}`, { token, body: { dueAt: sevenYearsOut } });
   assert.equal(farEdit.status, 400, JSON.stringify(farEdit.data));
-  const edit = await request("PATCH", `/api/students/deadlines/${id}`, { token, body: { category: "made-up", notes: "Portal checked", dueAt: "2027-01-02T12:00:00.000Z" } });
+  const edit = await request("PATCH", `/api/students/deadlines/${id}`, { token, body: { category: "Essay", notes: "Portal checked", dueAt: "2027-01-02T12:00:00.000Z" } });
   assert.equal(edit.status, 200, JSON.stringify(edit.data));
-  assert.equal(edit.data.deadline.category, "admissions");
+  // A typed category is kept as typed; it used to be dropped without a word.
+  assert.equal(edit.data.deadline.category, "Essay");
   assert.equal(edit.data.deadline.notes, "Portal checked");
   assert.equal(edit.data.deadline.dueAt, "2027-01-02T12:00:00.000Z");
+});
+
+// A typed date is a calendar date. The tracker sent UTC midnight and the
+// server counted Math.round of milliseconds, so a Jan 1 row read overdue
+// (and before Aug 1 vanished) from 12:00 UTC on Jan 1; and the chat-top chip
+// read a `summary` the GET never sent, so it never rendered. Dates here are
+// computed from Anywhere-on-Earth today, never hard-coded.
+test("deadlines are calendar dates and the list carries the summary the chip reads", async () => {
+  const token = await registerStudent("deadline-dates");
+  const today = anywhereOnEarthToday();
+  const soon = addCalendarDays(today, 3);
+  const later = addCalendarDays(today, 20);
+  const past = addCalendarDays(today, -10);
+
+  const typed = await request("POST", "/api/students/deadlines", { token, body: { title: "Early Action", dueAt: soon, category: "Essay" } });
+  assert.equal(typed.status, 201, JSON.stringify(typed.data));
+  assert.equal(typed.data.deadline.dueAt, soon, "stored and returned as the date typed");
+  assert.equal(typed.data.deadline.dueDate, soon);
+  assert.equal(typed.data.deadline.daysUntil, 3);
+  assert.equal(typed.data.deadline.category, "Essay", "a typed category is kept");
+  // An older client's UTC-midnight instant is read back as its date.
+  const legacy = await request("POST", "/api/students/deadlines", { token, body: { title: "Scholarship", dueAt: `${later}T00:00:00.000Z`, category: "financial_aid" } });
+  assert.equal(legacy.status, 201, JSON.stringify(legacy.data));
+  assert.equal(legacy.data.deadline.dueAt, later);
+  const missed = await request("POST", "/api/students/deadlines", { token, body: { title: "Missed form", dueAt: past } });
+  assert.equal(missed.status, 201, JSON.stringify(missed.data));
+  assert.equal(missed.data.deadline.category, "personal");
+  const dueToday = await request("POST", "/api/students/deadlines", { token, body: { title: "Due today", dueAt: today } });
+  assert.equal(dueToday.status, 201, JSON.stringify(dueToday.data));
+  assert.equal(dueToday.data.deadline.daysUntil, 0, "due today is not overdue");
+
+  const list = await request("GET", "/api/students/deadlines", { token });
+  assert.equal(list.status, 200, JSON.stringify(list.data));
+  const summary = list.data.summary;
+  assert.ok(summary, JSON.stringify(list.data));
+  // Before Aug 1 the missed row is culled (counted in overdueCulled); from
+  // Aug 1 it is shown and counted overdue. Either way it is counted once.
+  const culled = list.data.overdueCulled > 0;
+  assert.equal(summary.overdue + list.data.overdueCulled, 1);
+  assert.equal(summary.overdue, list.data.overdueCount);
+  assert.equal(summary.dueIn7, 2, "today's row and the one three days out");
+  assert.equal(summary.dueIn30, 3);
+  assert.equal(summary.upcoming, 3);
+  assert.equal(summary.friendlyMessage, list.data.friendlyMessage);
+  assert.equal(summary.today, today);
+  const titles = list.data.deadlines.map((d) => d.title);
+  assert.ok(titles.includes("Due today"), "a row due today is never culled");
+  assert.equal(titles.includes("Missed form"), !culled);
+
+  // The response keeps the shape the tracker's test reads from the fixture.
+  const fixture = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "deadlines-list-response.json"), "utf8"));
+  assert.deepEqual(Object.keys(list.data).sort(), Object.keys(fixture).sort());
+  assert.deepEqual(Object.keys(summary).sort(), Object.keys(fixture.summary).sort());
+  assert.deepEqual(Object.keys(list.data.deadlines[0]).sort(), Object.keys(fixture.deadlines[0]).sort());
+
+  // A client that names its own local date counts from it, when that date
+  // is today somewhere on Earth; a wrong clock falls back to AoE.
+  const ahead = addCalendarDays(today, 1);
+  const local = await request("GET", `/api/students/deadlines?today=${ahead}`, { token });
+  assert.equal(local.status, 200, JSON.stringify(local.data));
+  assert.equal(local.data.summary.today, ahead);
+  assert.equal(local.data.deadlines.find((d) => d.title === "Early Action").daysUntil, 2);
+  const wrongClock = await request("GET", `/api/students/deadlines?today=${addCalendarDays(today, 9)}`, { token });
+  assert.equal(wrongClock.data.summary.today, anywhereOnEarthToday());
+
+  // Bulk items keep their calendar date too.
+  const bulk = await request("POST", "/api/students/deadlines/bulk", { token, body: { items: [{ title: "Bulk date", dueAt: later }] } });
+  assert.equal(bulk.status, 201, JSON.stringify(bulk.data));
+  assert.equal(bulk.data.created[0].dueAt, later);
+  const moved = await request("PATCH", `/api/students/deadlines/${typed.data.deadline.id}`, { token, body: { dueAt: later } });
+  assert.equal(moved.status, 200, JSON.stringify(moved.data));
+  assert.equal(moved.data.deadline.dueAt, later);
+});
+
+// Reminders for a target school are made for the student's own cycle. The
+// bulk route de-duplicated on the title alone (titles carry no year), so last
+// cycle's "— Regular Decision" blocked this cycle's for good, and it stored
+// an Early reminder already past on the day the school was added.
+test("bulk deadlines skip past items, de-duplicate per cycle, and say why each was skipped", async () => {
+  const token = await registerStudent("deadline-bulk-cycle");
+  const today = anywhereOnEarthToday();
+  const thisRd = addCalendarDays(today, 40);
+  // The same month and day a year on, never thisRd + 365 days: across a
+  // leap day that lands on Jul 31, still this cycle, and on 2027-06-22
+  // (thisRd 2027-08-01) the server rightly called both items duplicates.
+  const year = Number(thisRd.slice(0, 4));
+  const nextRd = shiftDateToCycle(thisRd, year, year + 1);
+  const first = await request("POST", "/api/students/deadlines/bulk", {
+    token,
+    body: { items: [
+      { title: "Example University — Early (EA/ED)", dueAt: addCalendarDays(today, -2) },
+      { title: "Example University — Regular Decision", dueAt: thisRd },
+    ] },
+  });
+  assert.equal(first.status, 201, JSON.stringify(first.data));
+  assert.equal(first.data.createdCount, 1);
+  assert.deepEqual(first.data.skippedItems, [{ title: "Example University — Early (EA/ED)", reason: "past" }]);
+  assert.equal(first.data.skipped, 1);
+
+  const again = await request("POST", "/api/students/deadlines/bulk", {
+    token,
+    body: { items: [
+      { title: "Example University — Regular Decision", dueAt: thisRd },
+      { title: "example university — regular decision", dueAt: nextRd },
+    ] },
+  });
+  assert.equal(again.status, 201, JSON.stringify(again.data));
+  assert.deepEqual(again.data.skippedItems.map((s) => s.reason), ["duplicate"]);
+  assert.equal(again.data.created.length, 1, "the same round in the next cycle is a new reminder");
+  assert.equal(again.data.created[0].dueAt, nextRd);
+});
+
+test("the calendar context names the cycle the student applies in", async () => {
+  const token = await registerStudent("calendar-own-cycle"); // registers as grade 11
+  const now = new Date();
+  const cal = await request("POST", "/api/calendar/context", { token, body: { targetSchools: [], research: false } });
+  assert.equal(cal.status, 200, JSON.stringify(cal.data));
+  const start = applicationCycleStartYear(classOfForGrade(11, now), now);
+  assert.equal(cal.data.studentCycle.startYear, start);
+  assert.equal(cal.data.studentCycle.entryYear, start + 1);
+  assert.equal(cal.data.studentCycle.projected, start > planningCycleStartYear(now));
+  assert.equal(cal.data.studentCycle.typicalISO.regularDecision, `${start + 1}-01-01`);
+  // The calendar the model reads still outlines the planning cycle.
+  assert.equal(cal.data.calendar.cycleStartYear, planningCycleStartYear(now));
 });
 
 test("consent status reports missing onboarding rows and clears once granted", async () => {
@@ -385,7 +525,7 @@ test("chat route serves a coaching turn with a request_id and rejects one withou
 
   const messages = [{ role: "user", content: "What extracurriculars should I add for a computer science major?" }];
 
-  // The frontend must send a request_id with every paid model call ??the
+  // The frontend must send a request_id with every paid model call — the
   // budget ledger reserves under it. A turn without one is rejected, which
   // (before the frontend fix) surfaced as a generic error on every
   // model-backed chat turn, most visibly file-attachment turns.
@@ -423,15 +563,20 @@ test("chat does not serve the FAFSA checklist for non-aid eligibility questions"
   assert.equal(admissions.data._meta.deterministic, false);
 
   // Genuine federal-aid eligibility checks still get the deterministic
-  // rules-engine answer without a model call.
+  // rules-engine answer without a model call while a reviewed ruleset
+  // covers the date; after it lapses the question reaches the model as
+  // labeled general guidance. The turn carries a request_id because that
+  // path is a paid call: without one it answered 400 from 2027-07-01 and
+  // held CI, and every deploy, red.
   const federal = await request("POST", "/api/chat", {
     token,
     body: {
       messages: [{ role: "user", content: "Am I eligible for FAFSA federal student aid?" }],
+      request_id: "eligibility-chat-2",
     },
   });
   assert.equal(federal.status, 200, JSON.stringify(federal.data));
-  assert.equal(federal.data._meta.deterministic, true);
+  assert.equal(federal.data._meta.deterministic, Boolean(selectFafsaRuleset(new Date())));
 });
 
 test("chat injects the student profile and theme guard into model calls", async () => {
@@ -671,7 +816,7 @@ test("College Fit starts a regular-round read from the admit rate outside Early 
     body: { targets: [{ schoolName: "Columbia University" }], major: "Computer Science", searchCds: false },
   });
   assert.equal(fit.status, 200, `${JSON.stringify(fit.data)}\n${serverOutput}`);
-  assert.equal(fit.data.modelVersion, "positioning_v2");
+  assert.equal(fit.data.modelVersion, "positioning_v3");
   const read = fit.data.targets[0];
   assert.equal(read.admitRateBasis, "outside_early_decision", JSON.stringify(read.admitRate));
   assert.ok(Math.abs(read.admitRateUsed - 0.0282) < 0.0005, `used ${read.admitRateUsed}`);
@@ -705,7 +850,7 @@ test("College Fit reads the test policy the school states this cycle and flags a
     db.prepare(`INSERT OR REPLACE INTO admissions_policy_snapshots (slug, school_name, unit_id, homepage, checked_at, changed_at, content_hash, pages_json, policy_json, check_count)
       VALUES (?, ?, NULL, ?, ?, NULL, ?, ?, ?, 1)`).run(
       "dartmouth-college", "Dartmouth College", "https://www.dartmouth.edu/", checkedAt, "test-hash", "[]",
-      JSON.stringify({ cycle: "2026-27", scoutVersion: SCOUT_VERSION, testPolicy: { value: "test_required", through: null, evidence: "Dartmouth requires the SAT or ACT of first-year applicants.", sourceUrl: "https://admissions.dartmouth.edu/apply/testing" }, applicationFee: null, deadlines: {} }),
+      JSON.stringify({ cycle: CYCLE, scoutVersion: SCOUT_VERSION, testPolicy: { value: "test_required", through: null, evidence: "Dartmouth requires the SAT or ACT of first-year applicants.", sourceUrl: "https://admissions.dartmouth.edu/apply/testing" }, applicationFee: null, deadlines: {} }),
     );
   } finally {
     db.close();
@@ -981,12 +1126,18 @@ test("subscores, AP scores and class rank reach the profile, the College Fit rea
   assert.equal(pc.tests.used.test, "sat", JSON.stringify(pc.tests));
   assert.equal(pc.tests.used.position, "within", JSON.stringify({ tests: pc.tests, provenance: target.dataProvenance, ranges: target.featureBreakdown.satGpaEnrolledRange }));
   assert.equal(pc.tests.sections.length, 2);
-  assert.equal(pc.tests.advice, "submit");
+  // Stanford's stored 2025-26 set said "test_required" only as the parser's
+  // old default for a policy it never read; its own C9 shares (55.6% SAT,
+  // 20.9% ACT) describe a test-optional class, so with no official-site
+  // snapshot held the read is test-optional and a 1520 at its 25th
+  // percentile is borderline (2026-11-03).
+  assert.equal(pc.tests.policy, "test_optional_or_deemphasized", JSON.stringify(pc.tests));
+  assert.equal(pc.tests.advice, "borderline");
   assert.equal(pc.classRank.bucket, "top10");
   assert.equal(pc.classRank.school.topTenthPct, STANFORD_CDS.extras.classRank.topTenthPct);
   assert.equal(pc.gpa.placement.band, "3.75–3.99");
   assert.equal(pc.apExams.count, 2);
-  assert.equal(target.featureBreakdown.testSubmissionAdvice, "submit");
+  assert.equal(target.featureBreakdown.testSubmissionAdvice, "borderline");
 
   // The counselor sees the same record and the same sections of the CDS,
   // and a faithful subscore statement draws no correction.
@@ -1126,7 +1277,7 @@ test("a dates answer says when the plan the student asked for is not on the page
     db.prepare(`INSERT OR REPLACE INTO admissions_policy_snapshots (slug, school_name, unit_id, homepage, checked_at, changed_at, content_hash, pages_json, policy_json, check_count)
       VALUES (?, ?, NULL, ?, ?, NULL, ?, ?, ?, 1)`).run(
       "worcester-polytechnic-institute", "Worcester Polytechnic Institute", "https://www.wpi.edu/", "2026-09-05T00:00:00.000Z", "test-hash", "[]",
-      JSON.stringify({ cycle: "2026-27", scoutVersion: SCOUT_VERSION, testPolicy: null, applicationFee: null, deadlines: { early_action: { date: "2026-11-01", sourceUrl: "https://www.wpi.edu/admissions/undergraduate/apply", evidence: "Early Action: November 1" } } }),
+      JSON.stringify({ cycle: CYCLE, scoutVersion: SCOUT_VERSION, testPolicy: null, applicationFee: null, deadlines: { early_action: { date: CYCLE_EA, sourceUrl: "https://www.wpi.edu/admissions/undergraduate/apply", evidence: "Early Action: November 1" } } }),
     );
   } finally {
     db.close();
@@ -1138,7 +1289,7 @@ test("a dates answer says when the plan the student asked for is not on the page
   });
   assert.equal(turn.status, 200, JSON.stringify(turn.data));
   assert.equal(turn.data._meta?.deterministic, true, JSON.stringify(turn.data._meta));
-  assert.match(turn.data.answer, /Worcester Polytechnic Institute \(2026-27 cycle\): Early Action: 2026-11-01/);
+  assert.match(turn.data.answer, new RegExp(escapeRe(`Worcester Polytechnic Institute (${CYCLE} cycle): Early Action: ${CYCLE_EA}`)));
   assert.match(turn.data.answer, /do not state a Regular Decision deadline for Worcester Polytechnic Institute \(some schools admit on a rolling basis after Early Action\)/);
   // A strategy question about the same school goes to the model, dates in context.
   const strategy = await request("POST", "/api/chat", {
@@ -1149,7 +1300,7 @@ test("a dates answer says when the plan the student asked for is not on the page
   assert.notEqual(strategy.data._meta?.deterministic, true);
   assert.match(strategy.data.answer, /non-binding/);
   const calls = loggedModelCalls();
-  assert.match(JSON.stringify(calls[calls.length - 1].messages), /Early Action deadline 2026-11-01/);
+  assert.match(JSON.stringify(calls[calls.length - 1].messages), new RegExp(`Early Action deadline ${CYCLE_EA}`));
 });
 
 test("a snapshot from an older scout version is read again on demand, and still answers when the read fails", async () => {
@@ -1162,7 +1313,7 @@ test("a snapshot from an older scout version is read again on demand, and still 
     db.prepare(`INSERT OR REPLACE INTO admissions_policy_snapshots (slug, school_name, unit_id, homepage, checked_at, changed_at, content_hash, pages_json, policy_json, check_count)
       VALUES (?, ?, NULL, ?, ?, NULL, ?, ?, ?, 1)`).run(
       "worcester-polytechnic-institute", "Worcester Polytechnic Institute", "https://www.wpi.edu/", "2026-09-05T00:00:00.000Z", "test-hash", "[]",
-      JSON.stringify({ cycle: "2026-27", testPolicy: null, applicationFee: null, deadlines: { early_action: { date: "2026-11-01", sourceUrl: "https://www.wpi.edu/admissions/undergraduate/apply", evidence: "Early Action: November 1" } } }),
+      JSON.stringify({ cycle: CYCLE, testPolicy: null, applicationFee: null, deadlines: { early_action: { date: CYCLE_EA, sourceUrl: "https://www.wpi.edu/admissions/undergraduate/apply", evidence: "Early Action: November 1" } } }),
     );
   } finally {
     db.close();
@@ -1177,12 +1328,12 @@ test("a snapshot from an older scout version is read again on demand, and still 
   // The pages were read again (the harness throws for every host, so the
   // read fails) and the older reading answered in the meantime.
   assert.ok(["failed", "skipped", "error", "timeout"].includes(turn.data._meta?.onDemandRead), JSON.stringify(turn.data._meta));
-  assert.match(turn.data.answer, /Worcester Polytechnic Institute \(2026-27 cycle\): Early Action: 2026-11-01/);
+  assert.match(turn.data.answer, new RegExp(escapeRe(`Worcester Polytechnic Institute (${CYCLE} cycle): Early Action: ${CYCLE_EA}`)));
   // The calendar context does the same and keeps the older dates.
   const cal = await request("POST", "/api/calendar/context", { token, body: { targetSchools: ["Worcester Polytechnic Institute"], research: false } });
   assert.equal(cal.status, 200, JSON.stringify(cal.data));
   const entry = cal.data.schools.find((s) => /Worcester/.test(s.school));
-  assert.equal(entry?.deadlines?.ea, "2026-11-01", JSON.stringify(cal.data.schools));
+  assert.equal(entry?.deadlines?.ea, CYCLE_EA, JSON.stringify(cal.data.schools));
 });
 
 test("persisted turns build the thread graph and a later question recalls them as THREAD MEMORY", async () => {

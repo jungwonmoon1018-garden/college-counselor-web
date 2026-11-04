@@ -11,6 +11,7 @@ import {
   selectModelTier,
   canHandleDeterministically,
   routeRequest,
+  isCrisisTopicMention,
   TOPIC_TYPES,
   MODEL_TIERS,
 } from "../chat/policy-router.js";
@@ -41,6 +42,116 @@ describe("classifyTopic", () => {
   it("classifies crisis language as CRISIS", () => {
     const result = classifyTopic("I want to end my life");
     assert.equal(result.topicType, TOPIC_TYPES.CRISIS);
+  });
+
+  // iOS and macOS type ’ by default; every pattern spelled the apostrophe in
+  // ASCII, so these were ordinary coaching turns.
+  it("classifies crisis statements typed with a typographic apostrophe as CRISIS", () => {
+    for (const text of ["I’m not safe at home", "I don’t want to live anymore", "I’m being abused by my stepdad", "I’m scared to go home"]) {
+      assert.equal(classifyTopic(text).topicType, TOPIC_TYPES.CRISIS, text);
+    }
+    assert.notEqual(classifyTopic("I’m hopeless at chemistry").topicType, TOPIC_TYPES.CRISIS);
+  });
+
+  // Over-firing idioms, loosened on both lexicons with the first-person
+  // statement next to each one still pinned as a crisis.
+  it("answers idioms that look like danger, and keeps the first-person statements beside them", () => {
+    const pairs = [
+      ["I'm in danger of failing AP Chem, what should I do?", "I'm in danger at home"],
+      ["I am in danger of losing my scholarship if my GPA drops", "I'm in danger of being hurt"],
+      ["I cut myself off from social media to focus on SAT prep", "I cut myself last night"],
+      ["I need to cut myself some slack this semester", "I'm cutting myself again"],
+      ["I hurt myself playing soccer and missed junior season", "I want to hurt myself"],
+      ["I hurt myself at practice", "I keep hurting myself"],
+      // The sports carve-out used to hide intent stated later in the sentence.
+      ["I hurt myself at practice", "I hurt myself at practice on purpose"],
+      ["I hurt myself during the season so I couldn't play junior year", "I hurt myself during the game yesterday because I wanted to feel something"],
+      ["They threatened me with detention for being late", "he threatened me with a knife"],
+      ["My teacher threatened me with a zero", "he threatened to kill me"],
+      ["It's an emergency, my Common App won't submit and the deadline is tonight!", "This is an emergency, I need help right now"],
+    ];
+    for (const [idiom, statement] of pairs) {
+      assert.notEqual(classifyTopic(idiom).topicType, TOPIC_TYPES.CRISIS, idiom);
+      assert.equal(classifyTopic(statement).topicType, TOPIC_TYPES.CRISIS, statement);
+    }
+  });
+
+  it("answers suicide named as a topic, and keeps a third party's attempt and first-person statements as crisis", () => {
+    for (const text of ["I started a suicide prevention club at school", "My research project is on suicide rates among teens", "We run a self-harm awareness week", "I volunteer with an overdose prevention program"]) {
+      assert.notEqual(classifyTopic(text).topicType, TOPIC_TYPES.CRISIS, text);
+      assert.equal(isCrisisTopicMention(text), true, text);
+    }
+    for (const text of ["My essay is about my brother's suicide attempt", "I'm suicidal", "I'm thinking about suicide", "I overdosed"]) {
+      assert.equal(classifyTopic(text).topicType, TOPIC_TYPES.CRISIS, text);
+      assert.equal(isCrisisTopicMention(text), false, text);
+    }
+    assert.equal(isCrisisTopicMention("Which APs should I take?"), false);
+  });
+
+  // Hotline and lifeline are topic nouns, which made a request for the number
+  // a topic mention that waited on consent, the budget and a model call.
+  it("treats a request for a crisis line as CRISIS, and the line named as an activity as a topic", () => {
+    for (const text of ["I need the suicide hotline number", "what's the suicide hotline? I need it now", "can you give me the suicide lifeline number", "How do I call the suicide hotline?", "give me the crisis hotline", "what's the suicide hotline's number?", "I need a suicide hotline volunteer to talk to", "자살 상담전화 번호 알려주세요"]) {
+      assert.equal(classifyTopic(text).topicType, TOPIC_TYPES.CRISIS, text);
+    }
+    for (const text of ["I trained as a volunteer for the 988 Suicide & Crisis Lifeline", "I answered calls at a suicide hotline for two summers", "자살예방상담전화에서 1년 동안 봉사했어요"]) {
+      assert.notEqual(classifyTopic(text).topicType, TOPIC_TYPES.CRISIS, text);
+      assert.equal(isCrisisTopicMention(text), true, text);
+    }
+  });
+
+  // The request patterns stopped at the line's name and a bare "<line>
+  // number" fired anywhere, so a role at the line or its number on a poster
+  // got the crisis reply. The next pass required a frame for the number and
+  // let a volunteer, a possessive or a place after the name end a request,
+  // so "whats the suicide hotline number" and "I need a crisis hotline
+  // volunteer please" lost it, and "Is there a suicide hotline at my school
+  // I could volunteer for?" gained it. A sentence that asks is now a request
+  // unless an activity construction about the line is in the same sentence.
+  it("answers a crisis line named as an activity, and keeps every request beside it", () => {
+    const pairs = [
+      ["How do I get a suicide hotline volunteer position?", "How do I get the suicide hotline?"],
+      ["what's the suicide hotline volunteer age requirement", "what's the suicide hotline number"],
+      ["What is the suicide hotline's role in my essay about my volunteer work?", "What is the suicide hotline's phone number?"],
+      ["I want the suicide hotline number on every locker at school", "I want the suicide hotline number in my phone"],
+      ["Our club printed the suicide hotline number on posters around school", "suicide hotline number please"],
+      ["We added the crisis hotline number to every locker", "the crisis hotline number"],
+      ["Is there a suicide hotline at my school I could volunteer for?", "is there a suicide hotline I can call?"],
+      ["Is there a suicide hotline near me that takes teen volunteers?", "anyone have the suicide hotline number"],
+      ["I'm looking for a crisis hotline to volunteer at this summer", "whats the suicide hotline number."],
+      ["Do you know a suicide hotline that accepts high school volunteers?", "u got the suicide hotline number"],
+      ["Is there a crisis text line I can volunteer with?", "I need a suicide hotline volunteer I can talk to"],
+      ["Can you find a suicide hotline nonprofit I could intern at?", "I need you to find the suicide hotline"],
+      ["What are suicide hotline volunteers trained to do?", "I need a crisis hotline volunteer, please"],
+      ["Do you know the suicide hotline’s history?", "I need the suicide hotline's help"],
+      ["We printed the crisis text line number on stickers for every bathroom stall", "I need to call the suicide hotline in the bathroom stall"],
+      ["자살예방상담전화 번호를 사물함마다 붙였어요", "자살예방상담전화 번호가 뭐예요?"],
+      ["학생증에 자살예방상담전화 번호를 넣었어요", "자살 상담전화 번호 넣었는데 연결이 안 돼요"],
+    ];
+    for (const [activity, request] of pairs) {
+      assert.notEqual(classifyTopic(activity).topicType, TOPIC_TYPES.CRISIS, activity);
+      assert.equal(isCrisisTopicMention(activity), true, activity);
+      assert.equal(classifyTopic(request).topicType, TOPIC_TYPES.CRISIS, request);
+    }
+    // A crisis line with no suicide in it still carries the footer, and the
+    // word crisis on its own carries nothing.
+    assert.equal(isCrisisTopicMention("Where can I find a crisis hotline internship?"), true);
+    assert.equal(isCrisisTopicMention("my identity crisis essay"), false);
+  });
+
+  it("classifies Korean first-person statements as CRISIS and Korean hyperbole as coaching", () => {
+    for (const text of ["살고 싶지 않아요", "아빠가 저를 때려요", "엄마한테 맞고 있어요", "손목을 그었어요", "더 이상 살 이유가 없어요"]) {
+      assert.equal(classifyTopic(text).topicType, TOPIC_TYPES.CRISIS, text);
+    }
+    for (const text of ["화학 때문에 죽겠어요", "죽을 것 같이 바빠요", "자살 예방 동아리를 만들었어요"]) {
+      assert.notEqual(classifyTopic(text).topicType, TOPIC_TYPES.CRISIS, text);
+    }
+  });
+
+  it("classifies ideation the client always caught as CRISIS", () => {
+    for (const text of ["everyone would be better off without me", "nobody would miss me", "I hate my life"]) {
+      assert.equal(classifyTopic(text).topicType, TOPIC_TYPES.CRISIS, text);
+    }
   });
 
   it("defaults unmatched questions to COACHING (general)", () => {
@@ -168,6 +279,34 @@ describe("canHandleDeterministically", () => {
   it("returns false for essay coaching", () => {
     assert.equal(canHandleDeterministically(TOPIC_TYPES.COACHING, "essay"), false);
   });
+
+  // gate-9: the checklist cannot answer a student's own situation. "Am I
+  // eligible for FAFSA as a permanent resident?" got "6 eligibility item(s)
+  // have not been confirmed yet" and nothing about permanent residents.
+  it("answers only a plain eligibility-checklist question from the rules engine", () => {
+    for (const question of [
+      "Am I eligible for FAFSA?",
+      "Am I eligible for FAFSA federal student aid?",
+      "Am I eligible for federal financial aid through the FAFSA?",
+      "What are the FAFSA eligibility requirements?",
+      "Do I qualify for a Pell Grant?",
+    ]) {
+      const { topicType, subIntent } = classifyTopic(question);
+      assert.equal(canHandleDeterministically(topicType, subIntent, question), true, question);
+    }
+    for (const question of [
+      "Am I eligible for FAFSA as a permanent resident?",
+      "Do I qualify for federal aid if my parents are undocumented?",
+      "Am I eligible for a Pell Grant with DACA status?",
+      "Why am I not eligible for federal student aid?",
+      "Can I qualify for FAFSA since my parents are divorced?",
+      "How does the FAFSA work?",
+    ]) {
+      const { topicType, subIntent } = classifyTopic(question);
+      assert.equal(topicType, TOPIC_TYPES.REGULATED, question);
+      assert.equal(canHandleDeterministically(topicType, subIntent, question), false, question);
+    }
+  });
 });
 
 describe("routeRequest", () => {
@@ -266,6 +405,89 @@ describe("routeRequest", () => {
       assert.equal(isLookupQuestion(q, "deadlines"), false, q);
     }
     assert.equal(isLookupQuestion("When is MIT's deadline?", "financial_amounts"), false);
+  });
+
+  // gate-11: activity and course wording that happens to contain a topic
+  // word ("afford", "pay attention", "$500", "regulations", "student
+  // privacy", "deadlines for school projects") got the regulated advisory
+  // prefix and a financial-aid-office footer on an EC answer.
+  it("keeps ordinary EC and academic wording out of the regulated and high-stakes gates", () => {
+    for (const question of [
+      "I can't afford to waste time on a fifth AP",
+      "How much should I pay attention to rankings",
+      "I earned $500 from my tutoring business",
+      "I interned on EPA regulations at a law firm",
+      "In Model UN I chaired a committee on compliance with climate treaties",
+      "AP Gov has a unit on regulations, is it a good class?",
+      "My app project is about student privacy online",
+      "How do I manage deadlines for school projects and robotics?",
+      "I want to write about my rolling admissions experience at the summer program",
+      "I won a $500 scholarship from Rotary, should I put it in the activities list?",
+    ]) {
+      const { topicType } = classifyTopic(question);
+      assert.notEqual(topicType, TOPIC_TYPES.REGULATED, question);
+      assert.notEqual(topicType, TOPIC_TYPES.HIGH_STAKES, question);
+    }
+  });
+
+  it("still gates the money, law, privacy and deadline questions beside that wording", () => {
+    const cases = [
+      ["Can my family afford Northwestern?", "financial_amounts"],
+      ["How much will I have to pay at USC?", "financial_amounts"],
+      ["Is $80,000 a year too much for tuition?", "financial_amounts"],
+      ["Is NYU affordable for a middle-income family?", "financial_amounts"],
+      ["Is my school in compliance with Title IX?", "legal_compliance"],
+      ["My school keeps violating its own regulations on grade appeals", "legal_compliance"],
+      ["What are my student privacy rights?", "ferpa"],
+      ["When is the Common App deadline for Michigan?", "deadlines"],
+      ["What are the college application deadlines this month?", "deadlines"],
+      ["Does Penn State have rolling admissions?", "deadlines"],
+    ];
+    for (const [question, subIntent] of cases) {
+      assert.equal(classifyTopic(question).subIntent, subIntent, question);
+    }
+  });
+
+  // gate-12: every topic pattern was English, so a Korean deadline, statistics,
+  // cost or aid question was ordinary coaching: no advisory prefix, no
+  // on-demand read of the school's pages, no no-source reply.
+  it("sends Korean deadline, statistics, cost and aid questions through the same gates", () => {
+    const cases = [
+      ["스탠퍼드 조기 지원 마감일이 언제예요?", TOPIC_TYPES.HIGH_STAKES, "deadlines", true],
+      ["코넬 얼리 디시전 마감 언제야?", TOPIC_TYPES.HIGH_STAKES, "deadlines", true],
+      ["MIT 원서 접수는 언제까지예요?", TOPIC_TYPES.HIGH_STAKES, "deadlines", true],
+      ["MIT 합격률이 몇 퍼센트예요?", TOPIC_TYPES.HIGH_STAKES, "official_stats", true],
+      ["UCLA 평균 SAT 점수가 몇 점이에요?", TOPIC_TYPES.HIGH_STAKES, "official_stats", true],
+      ["하버드 등록금이 얼마예요?", TOPIC_TYPES.HIGH_STAKES, "financial_amounts", false],
+      ["재정 지원 신청은 어떻게 해요?", TOPIC_TYPES.HIGH_STAKES, "financial_amounts", false],
+      ["국제학생도 니드 블라인드인가요?", TOPIC_TYPES.REGULATED, "financial_aid_policy", false],
+      ["영주권자도 연방 재정 지원을 받을 수 있나요?", TOPIC_TYPES.REGULATED, "fafsa", false],
+    ];
+    for (const [question, topicType, subIntent, lookup] of cases) {
+      const result = classifyTopic(question);
+      assert.equal(result.topicType, topicType, question);
+      assert.equal(result.subIntent, subIntent, question);
+      assert.equal(isLookupQuestion(question, result.subIntent), lookup, question);
+    }
+  });
+
+  it("keeps Korean strategy questions and ordinary Korean counseling words out of the lookup gate", () => {
+    // Guidance, not a lookup: answered with what is held, never refused.
+    assert.equal(isLookupQuestion("얼리 디시전 지원해야 할까요?", "deadlines"), false);
+    assert.equal(isLookupQuestion("합격률이 중요한가요?", "official_stats"), false);
+    assert.equal(isLookupQuestion("마감 전에 에세이를 어떻게 준비할까요?", "deadlines"), false);
+    for (const question of [
+      "얼리 디시전 지원해야 할까요?",
+      "에세이 주제 추천해 주세요",
+      "숙제 마감일이 내일이라 너무 바빠요",
+      "동아리 프로젝트 마감이 언제인지 몰라요",
+      "AP 하나 더 듣는 기회비용이 클까요?",
+      "SAT 공부를 얼마나 해야 할까요?",
+    ]) {
+      const { topicType } = classifyTopic(question);
+      assert.notEqual(topicType, TOPIC_TYPES.HIGH_STAKES, question);
+      assert.notEqual(topicType, TOPIC_TYPES.REGULATED, question);
+    }
   });
 
   it("allows general cost/aid-amount questions as labeled guidance while deadlines stay gated", () => {

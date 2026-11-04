@@ -4,17 +4,23 @@
 // except through those callbacks.
 import { t as tt } from "../i18n.js";
 import { GRADE_SCALE } from "../app-shared.js";
-import { latestApScoreYear } from "../profile/ap-entry.js";
-import { TEST_ORDER, blankTestForm, formToEntry, formatSections, sectionDefs, testLabel, withSection } from "../profile/test-scores.js";
+import { apCoursesOffered, latestApScoreYear } from "../profile/ap-entry.js";
+import { TEST_ORDER, blankTestForm, entryLabel, formToEntry, formatSections, scaleChoices, scoreLimits, sectionDefs, testLabel, withScale, withSection } from "../profile/test-scores.js";
+import { countDistinctCourses } from "../profile/transcript-utils.js";
 import CloseButton from "../components/CloseButton.jsx";
 import { BG, FONT, GLOBAL_CSS, inputStyle, labelStyle } from "../app-shared.js";
+import { UNPLACED_YEAR } from "../handlers/survey-handlers.js";
+
+// A course saved without a grade says so; the editor used to show and save
+// it as an A.
+const NO_GRADE_LABEL = "No grade recorded";
 
 const gradeLabel = (g) => {
   const found = GRADE_SCALE.find(e => e.grade === g);
   if (found) return found.label;
   if (g === "IP") return "In Progress";
   if (g === "W")  return "Withdrawn";
-  return g || "—";
+  return g || NO_GRADE_LABEL;
 };
 
 // ═══════════════════════════════════════════════════════════
@@ -152,6 +158,13 @@ export default function SurveyScreen(props) {
     user,
     ylbl,
   } = props;
+  // The chosen scale's range (TOEFL's 1-6 band, PSAT 8/9) when the test has
+  // more than one; App's testLimit knows only each test's own scale.
+  const scoreLimit = scoreLimits(sTestInput?.test, sTestInput?.scale) || testLimit;
+  const testScales = scaleChoices(sTestInput?.test);
+  const testName = entryLabel({ test: sTestInput?.test, scale: sTestInput?.scale });
+  // The two semesters of a course are one course in the counts below.
+  const yearRows = Object.entries(sCourses || {}).flatMap(([year, list]) => (Array.isArray(list) ? list : []).map((c) => ({ ...c, year })));
   return (
     <main style={{minHeight:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",background:BG,fontFamily:FONT,padding:16}}>
       {/* Inactivity auto-lock warning — the survey is where a silent sign-out
@@ -217,7 +230,17 @@ export default function SurveyScreen(props) {
 
         {/* STEP 1: TRANSCRIPT per year */}
         {surveyStep===1 && (<div>
-          <div style={{display:"flex",gap:2,marginBottom:14,borderBottom:"1px solid rgba(255,255,255,0.05)"}}>{YEARS.map(y=>tab(sCourseYear===y,()=>setSCourseYear(y),ylbl(y),sCourses[y]?.length))}</div>
+          <div style={{display:"flex",gap:2,marginBottom:14,borderBottom:"1px solid rgba(255,255,255,0.05)"}}>
+            {YEARS.map(y=>tab(sCourseYear===y,()=>setSCourseYear(y),ylbl(y),sCourses[y]?.length))}
+            {/* Courses saved without a school year wait here instead of
+                being filed as freshman; the student places each one. */}
+            {(sCourses[UNPLACED_YEAR]?.length > 0 || sCourseYear === UNPLACED_YEAR) && tab(sCourseYear===UNPLACED_YEAR,()=>setSCourseYear(UNPLACED_YEAR),ylbl(UNPLACED_YEAR),sCourses[UNPLACED_YEAR]?.length || 0)}
+          </div>
+          {sCourses[UNPLACED_YEAR]?.length > 0 && (
+            <div role="note" style={{marginBottom:12,fontSize:11,color:"#fbd38d",lineHeight:1.5,padding:"8px 12px",borderRadius:8,background:"rgba(246,173,85,0.08)",border:"1px solid rgba(246,173,85,0.25)"}}>
+              {sCourses[UNPLACED_YEAR].length === 1 ? "1 course has" : `${sCourses[UNPLACED_YEAR].length} courses have`} no school year saved, so {sCourses[UNPLACED_YEAR].length === 1 ? "it is" : "they are"} kept under "Year not stated". To place one, open that tab, double-click the course, pick its year tab and press Add.
+            </div>
+          )}
           {/* Transcript file import — extracts + parses courses for review */}
           <div style={{marginBottom:12}}>
             <input type="file" id="transcriptImportInput" accept=".pdf,.png,.jpg,.jpeg,.webp,.docx" style={{display:"none"}}
@@ -239,7 +262,7 @@ export default function SurveyScreen(props) {
               setSCourseInput({
                 name: c.name || "",
                 type: c.type || "regular",
-                grade: c.grade || "A",
+                grade: c.grade || "",
                 semester: c.semester || "full_year",
               });
               setSCourses(p=>({...p,[sCourseYear]:p[sCourseYear].filter((_,j)=>j!==i)}));
@@ -266,13 +289,16 @@ export default function SurveyScreen(props) {
             <div style={{flex:1}}><select value={sCourseInput.type} onChange={e=>setSCourseInput(p=>({...p,type:e.target.value,name:(e.target.value==="ap" || p.type==="ap") ? "" : p.name}))} style={sl}><option value="regular">Regular</option><option value="elective">Elective</option><option value="honors">Honors</option><option value="ap">AP</option><option value="ib">IB</option><option value="dual_enrollment">Dual Enroll</option></select></div>
           </div>
           {sCourseInput.type && <div style={{fontSize:10,color:"#6a8ab5",marginBottom:8}}>{RIGOR[sCourseInput.type]}</div>}
-          {sCourseInput.type==="ap" && (<div style={{marginBottom:8}}><select value={sCourseInput.name} onChange={e=>setSCourseInput(p=>({...p,name:e.target.value}))} style={sl}><option value="">Select AP course (CollegeBoard)</option>{AP_COURSES.map(c=>(<option key={c} value={c}>{`AP ${c}`}</option>))}</select></div>)}
+          {/* Every course being taught this school year, the two first given in
+              May 2027 among them; only the exam-score picker below waits for
+              a course's first scores. */}
+          {sCourseInput.type==="ap" && (<div style={{marginBottom:8}}><select aria-label="AP course" value={sCourseInput.name} onChange={e=>setSCourseInput(p=>({...p,name:e.target.value}))} style={sl}><option value="">Select AP course (CollegeBoard)</option>{apCoursesOffered().map(c=>(<option key={c} value={c}>{`AP ${c}`}</option>))}</select></div>)}
           <div style={{display:"flex",gap:8}}>
-            <div style={{flex:1}}><select value={sCourseInput.grade} onChange={e=>setSCourseInput(p=>({...p,grade:e.target.value}))} style={sl}>{COURSE_GRADES.map(g=>(<option key={g} value={g}>{gradeLabel(g)}</option>))}<option value="IP">In Progress</option></select></div>
+            <div style={{flex:1}}><select aria-label="Course grade" value={sCourseInput.grade} onChange={e=>setSCourseInput(p=>({...p,grade:e.target.value}))} style={sl}>{COURSE_GRADES.map(g=>(<option key={g} value={g}>{gradeLabel(g)}</option>))}<option value="IP">In Progress</option><option value="">{NO_GRADE_LABEL}</option></select></div>
             <div style={{flex:1}}><select value={sCourseInput.semester||"full_year"} onChange={e=>setSCourseInput(p=>({...p,semester:e.target.value}))} style={sl}><option value="fall">Fall</option><option value="spring">Spring</option><option value="full_year">Full Year</option></select></div>
             <button onClick={addCourse} style={{padding:"0 20px",borderRadius:12,border:"none",background:sCourseInput.name.trim()?"linear-gradient(135deg,#378ADD,#667eea)":"rgba(255,255,255,0.03)",color:sCourseInput.name.trim()?"#fff":"#444",fontSize:14,fontWeight:600,cursor:sCourseInput.name.trim()?"pointer":"default"}}>Add</button>
           </div>
-          {Object.values(sCourses).flat().length>0 && (<div style={{marginTop:14,padding:10,borderRadius:8,background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.04)",fontSize:11,color:"#6a6a7a"}}>Total: {Object.values(sCourses).flat().length} courses {"\u00b7"} {Object.values(sCourses).flat().filter(c=>c.type==="ap").length} AP {"\u00b7"} {Object.values(sCourses).flat().filter(c=>c.type==="honors").length} Honors {"\u00b7"} {Object.values(sCourses).flat().filter(c=>c.type==="ib").length} IB</div>)}
+          {Object.values(sCourses).flat().length>0 && (<div style={{marginTop:14,padding:10,borderRadius:8,background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.04)",fontSize:11,color:"#6a6a7a"}}>Total: {countDistinctCourses(yearRows)} courses {"\u00b7"} {countDistinctCourses(yearRows.filter(c=>c.type==="ap"))} AP {"\u00b7"} {countDistinctCourses(yearRows.filter(c=>c.type==="honors"))} Honors {"\u00b7"} {countDistinctCourses(yearRows.filter(c=>c.type==="ib"))} IB</div>)}
         </div>)}
 
         {/* STEP 2: TESTS & AP EXAMS */}
@@ -284,28 +310,43 @@ export default function SurveyScreen(props) {
           </div>
 
           {sTestCategory!=="ap_exam" ? (<div>
-            {sTests.length>0 && <div style={{marginBottom:12,display:"flex",flexWrap:"wrap"}}>{sTests.map((t,i)=>{ const sections = formatSections(formToEntry(t), { short: true }); return pill(`${testLabel(t.test)}${t.subject?` (${t.subject})`:""}: ${t.totalScore}${sections?` (${sections})`:""}${t.date?` \u00b7 ${t.date}`:""}`,()=>setSTests(p=>p.filter((_,j)=>j!==i))); })}</div>}
+            {sTests.length>0 && <div style={{marginBottom:12,display:"flex",flexWrap:"wrap"}}>{sTests.map((t,i)=>{ const entry = formToEntry(t); const sections = formatSections(entry, { short: true }); return pill(`${entryLabel(entry)}${t.subject?` (${t.subject})`:""}: ${t.totalScore}${sections?` (${sections})`:""}${t.date?` \u00b7 ${t.date}`:""}`,()=>setSTests(p=>p.filter((_,j)=>j!==i))); })}</div>}
             <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
               {TEST_ORDER.map(([k,l])=>chip(sTestInput.test===k,()=>setSTestInput(p=>({...blankTestForm(k),subject:k==="sat_subject"?p.subject:""})),l))}
             </div>
             {sTestInput.test==="sat_subject" && <div style={{marginBottom:8}}><input value={sTestInput.subject||""} onChange={e=>setSTestInput(p=>({...p,subject:e.target.value}))} placeholder="Subject (e.g. Math Level 2)" style={inputStyle} /></div>}
-            {sectionDefs(sTestInput.test).length > 0 && (
+            {testScales.length > 0 && (
+              <div style={{marginBottom:8}}>
+                <select aria-label={`${testLabel(sTestInput.test)} score scale`} value={sTestInput.scale||""} onChange={e=>setSTestInput(p=>withScale(p, e.target.value))} style={sl}>
+                  {testScales.map(s => (<option key={s.value} value={s.value}>{s.label}</option>))}
+                </select>
+              </div>
+            )}
+            {sectionDefs(sTestInput.test, sTestInput.scale).length > 0 && (
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
                 {/* Section scores are optional; once every section that counts toward
                     the total is filled in, the total follows from them. */}
-                {sectionDefs(sTestInput.test).map(d => (
-                  <input key={d.key} aria-label={`${testLabel(sTestInput.test)} ${d.label}`} type="number" min={d.min} max={d.max} step={d.step} value={sTestInput.sections?.[d.key] ?? ""} onChange={e=>setSTestInput(p=>withSection(p, d.key, e.target.value))} placeholder={`${d.label} (${d.min}-${d.max})`} style={inputStyle} />
+                {sectionDefs(sTestInput.test, sTestInput.scale).map(d => (
+                  <input key={d.key} aria-label={`${testName} ${d.label}`} type="number" min={d.min} max={d.max} step={d.step} value={sTestInput.sections?.[d.key] ?? ""} onChange={e=>setSTestInput(p=>withSection(p, d.key, e.target.value))} placeholder={`${d.label} (${d.min}-${d.max})`} style={inputStyle} />
                 ))}
               </div>
             )}
             <div style={{display:"flex",gap:8}}>
-              <div style={{flex:1}}><input type="number" min={testLimit?.min} max={testLimit?.max} step={testLimit?.step ?? "any"} value={sTestInput.totalScore} onChange={e=>setSTestInput(p=>({...p,totalScore:e.target.value}))} placeholder={sTestInput.test==="sat"?"Total (400-1600)":(scoreHint[sTestInput.test]||"Score")} style={inputStyle} /></div>
+              <div style={{flex:1}}><input type="number" aria-label={`${testName} total`} min={scoreLimit?.min} max={scoreLimit?.max} step={scoreLimit?.step ?? "any"} value={sTestInput.totalScore} onChange={e=>setSTestInput(p=>({...p,totalScore:e.target.value}))} placeholder={scoreLimit?.label ? `Total (${scoreLimit.label})` : (scoreHint[sTestInput.test]||"Score")} style={inputStyle} /></div>
               <div style={{flex:1}}><input type="month" value={sTestInput.date||""} onChange={e=>setSTestInput(p=>({...p,date:e.target.value}))} style={inputStyle} /></div>
               <button onClick={addTest} style={{padding:"0 20px",borderRadius:12,border:"none",background:sTestInput.totalScore?"linear-gradient(135deg,#378ADD,#667eea)":"rgba(255,255,255,0.03)",color:sTestInput.totalScore?"#fff":"#444",fontSize:14,fontWeight:600,cursor:sTestInput.totalScore?"pointer":"default"}}>Add</button>
             </div>
-            <div style={{fontSize:10,color:"#555",marginTop:6}}>Valid range for {sTestInput.test.toUpperCase()}: {testLimit?.label || scoreHint[sTestInput.test] || "See official source"}.</div>
+            <div style={{fontSize:10,color:"#555",marginTop:6}}>Valid range for {testName}: {scoreLimit?.label || scoreHint[sTestInput.test] || "See official source"}.{sTestInput.test==="act" ? " Since 2025 the ACT composite is the average of English, Math and Reading; Science is optional and reported on its own." : ""}</div>
           </div>) : (<div>
-            {sAPScores.length>0 && <div style={{marginBottom:12,display:"flex",flexWrap:"wrap"}}>{sAPScores.map((a,i)=>pill(`${formatApLabel(a.subject)}: ${a.score} (${a.year})`,()=>setSAPScores(p=>p.filter((_,j)=>j!==i)),"rgba(246,173,85,0.12)"))}</div>}
+            {sAPScores.length>0 && <div style={{marginBottom:12,display:"flex",flexWrap:"wrap"}}>{sAPScores.map((a,i)=>pill(`${formatApLabel(a.subject)}: ${a.score} (${a.year || "year not stated"})`,()=>setSAPScores(p=>p.filter((_,j)=>j!==i)),"rgba(246,173,85,0.12)"))}</div>}
+            {/* An exam saved without a year stays without one (the editor
+                used to stamp it with this calendar year); the student is
+                told, and can re-add it with its year. */}
+            {sAPScores.some(a => !a.year) && (
+              <div role="note" style={{marginBottom:12,fontSize:11,color:"#fbd38d",lineHeight:1.5}}>
+                {sAPScores.filter(a => !a.year).map(a => formatApLabel(a.subject)).join(", ")} {sAPScores.filter(a => !a.year).length === 1 ? "has" : "have"} no exam year saved and will stay that way. To add the year, remove the exam and add it again with its year.
+              </div>
+            )}
             <div style={{display:"flex",gap:8,marginBottom:8}}>
               <div style={{flex:2}}><select value={sAPInput.subject} onChange={e=>setSAPInput(p=>({...p,subject:e.target.value}))} style={sl}><option value="">Select AP exam (CollegeBoard)</option>{AP_COURSES.map(c=>(<option key={c} value={c}>{`AP ${c}`}</option>))}</select></div>
               <div style={{flex:1}}><select value={sAPInput.score} onChange={e=>setSAPInput(p=>({...p,score:e.target.value}))} style={sl}>{["5","4","3","2","1"].map(s=>(<option key={s} value={s}>{s}</option>))}</select></div>
@@ -332,15 +373,18 @@ export default function SurveyScreen(props) {
                 // editing so it's obvious which item is being edited
                 // (we surface that via title until a save).
                 const editEC = () => {
+                  // Loaded as saved: a missing category or timing stays
+                  // missing, and the id goes along so re-adding keeps it.
                   setSECInput({
+                    ...(ec.id ? { id: ec.id } : {}),
                     name: ec.name || "",
-                    category: ec.category || "club",
+                    category: ec.category || "",
                     role: ec.role || "",
                     hoursPerWeek: ec.hoursPerWeek != null ? String(ec.hoursPerWeek) : "",
                     weeksPerYear: ec.weeksPerYear != null ? String(ec.weeksPerYear) : "",
                     description: ec.description || "",
                     grades: Array.isArray(ec.grades) ? [...ec.grades] : [],
-                    timing: ec.timing || "school_year",
+                    timing: ec.timing || "",
                   });
                   setSECs(p => p.filter((_, j) => j !== i));
                   // Scroll the editor into view so the student sees
@@ -391,7 +435,12 @@ export default function SurveyScreen(props) {
           )}
           <div style={{display:"flex",gap:8,marginBottom:8}}>
             <div style={{flex:2}}><input value={sECInput.name} onChange={e=>setSECInput(p=>({...p,name:e.target.value}))} placeholder="Activity name" style={inputStyle} /></div>
-            <div style={{flex:1}}><select value={sECInput.category} onChange={e=>setSECInput(p=>({...p,category:e.target.value}))} style={sl}>
+            <div style={{flex:1}}><select aria-label="Activity category" value={sECInput.category} onChange={e=>setSECInput(p=>({...p,category:e.target.value}))} style={sl}>
+              {/* A saved activity with no category shows as one, not as
+                  whichever category is listed first. A legacy value the
+                  list does not offer ("club") is shown under its new name. */}
+              {!sECInput.category && <option value="">Category not chosen</option>}
+              {sECInput.category && !EC_CATEGORY_LABEL[sECInput.category] && <option value={sECInput.category}>{ecCategoryLabel(sECInput.category)}</option>}
               {EC_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
             </select></div>
           </div>

@@ -21,6 +21,10 @@ import {
   compareApExams,
   compareCourseRigor,
   scoreEvidenceConfidence,
+  recencyScore,
+  buildRedFlagEntries,
+  recommendStrategy,
+  recommendStrategyKey,
   actToSat,
   satToAct,
 } from "../colleges/positioning-engine.js";
@@ -299,12 +303,14 @@ test("the course list's weight follows how complete it looks, and the coursework
   assert.ok(thinRead.finalPositioningScore >= 25);
 });
 
+// The average sits at 3.75 so "0.2 above" stays on the 4.0 scale: an
+// unweighted GPA above 4.0 is read as on an unknown scale since 2026-11-03.
 test("the GPA reads as the share of the enrolled class at or below it", () => {
-  const at = (gpa) => compareGpaToSchool(buildStudentModel({ gpa_unweighted: gpa, major_interest: "Biology" }, [], null), { avgGpaAdmitted: 3.85 }, { parsed: {} }).score;
-  assert.ok(Math.abs(at(3.85) - 56) < 1.5, `at the average ${at(3.85)}`);
-  assert.ok(Math.abs(at(4.05) - 77) < 2, `0.2 above ${at(4.05)}`);
-  assert.ok(Math.abs(at(3.65) - 35) < 2, `0.2 below ${at(3.65)}`);
-  assert.ok(at(3.5) > 20 && at(3.5) < 30, `0.35 below is low, not zero: ${at(3.5)}`);
+  const at = (gpa) => compareGpaToSchool(buildStudentModel({ gpa_unweighted: gpa, major_interest: "Biology" }, [], null), { avgGpaAdmitted: 3.75 }, { parsed: {} }).score;
+  assert.ok(Math.abs(at(3.75) - 56) < 1.5, `at the average ${at(3.75)}`);
+  assert.ok(Math.abs(at(3.95) - 77) < 2, `0.2 above ${at(3.95)}`);
+  assert.ok(Math.abs(at(3.55) - 35) < 2, `0.2 below ${at(3.55)}`);
+  assert.ok(at(3.4) > 20 && at(3.4) < 30, `0.35 below is low, not zero: ${at(3.4)}`);
 });
 
 test("unknown admit rate is NOT treated as maximally selective", () => {
@@ -763,14 +769,277 @@ test("course rigor counts AP exams and their scores, and AP courses by name, aga
 test("evidence confidence: a consistency-checked current-cycle record reads above an unverified parse and below High, and a 2025-26 record is not stale", () => {
   const base = { sourceUrl: "https://x", fetchStatus: "ok", repositoryMatch: { latestAvailableYear: "2025-26" }, parsed: { c7: { rigor: 1 }, admitRatePercent: 9 } };
   const ctx = { avgGpaAdmitted: 3.8, sat25: 1400, acceptanceRate: 0.09 };
-  const validated = scoreEvidenceConfidence({ cdsResult: { ...base, validated: true, verification: "validated" }, collegeContext: ctx, majorPolicy: {}, ipedsGrowthAvailable: true });
-  const consistent = scoreEvidenceConfidence({ cdsResult: { ...base, validated: false, verification: "consistent" }, collegeContext: ctx, majorPolicy: {}, ipedsGrowthAvailable: true });
-  const unverified = scoreEvidenceConfidence({ cdsResult: { ...base, validated: false, verification: "unverified" }, collegeContext: ctx, majorPolicy: {}, ipedsGrowthAvailable: true });
+  // Recency is read against the clock since 2026-11-03; the pins below are
+  // for the season they were written in.
+  const now = new Date("2026-11-03T12:00:00Z");
+  const validated = scoreEvidenceConfidence({ cdsResult: { ...base, validated: true, verification: "validated" }, collegeContext: ctx, majorPolicy: {}, ipedsGrowthAvailable: true, now });
+  const consistent = scoreEvidenceConfidence({ cdsResult: { ...base, validated: false, verification: "consistent" }, collegeContext: ctx, majorPolicy: {}, ipedsGrowthAvailable: true, now });
+  const unverified = scoreEvidenceConfidence({ cdsResult: { ...base, validated: false, verification: "unverified" }, collegeContext: ctx, majorPolicy: {}, ipedsGrowthAvailable: true, now });
   assert.ok(validated.normalized > consistent.normalized && consistent.normalized > unverified.normalized, JSON.stringify({ validated, consistent, unverified }));
   assert.notEqual(consistent.label, "High");
   assert.equal(consistent.verification, "consistent");
   assert.equal(consistent.validated, false);
   // Recency: a 2025-26 record scores above a 2023-24 one.
-  const older = scoreEvidenceConfidence({ cdsResult: { ...base, repositoryMatch: { latestAvailableYear: "2023-24" }, validated: true }, collegeContext: ctx, majorPolicy: {}, ipedsGrowthAvailable: true });
+  const older = scoreEvidenceConfidence({ cdsResult: { ...base, repositoryMatch: { latestAvailableYear: "2023-24" }, validated: true }, collegeContext: ctx, majorPolicy: {}, ipedsGrowthAvailable: true, now });
   assert.ok(validated.normalized > older.normalized, JSON.stringify({ validated, older }));
+});
+
+// ─── 2026-11-03: the audit's College Fit fixes ───────────────────────
+
+// An in-range record at a 62%-admit school, with a transcript on file.
+const IN_RANGE_COLLEGE = { name: "State U", acceptanceRate: 62, sat25: 1100, sat75: 1310, avgGpaAdmitted: 3.7, topMajors: [] };
+const IN_RANGE_CDS = { schoolName: "State U", fetchStatus: "ok", parsed: { c7: {}, admitRatePercent: 62 } };
+const EIGHT_COURSES = ["English 10", "World History", "Spanish II", "Biology", "Art", "Physical Education", "Algebra II", "Chemistry"]
+  .map((name) => ({ name, type: "regular", grade: "A", year: "10" }));
+const inRangeRecord = (major) => buildStudentModel({
+  gpa_unweighted: 3.7,
+  major_interest: major,
+  courses_json: JSON.stringify(EIGHT_COURSES),
+  test_scores_json: JSON.stringify([{ test: "sat", totalScore: 1250 }]),
+  activities_json: "[]",
+}, [], null);
+
+// Every student without a major, or with one typed in Korean or outside the
+// catalog, was read as a computer-science applicant: two coursework red
+// flags, and "Reach 30" at a school whose middle 50% held them (fit-1).
+test("a blank, undecided or Korean-typed major is not read as computer science", () => {
+  const MAJOR_FLAGS = /Weak major-relevant coursework|capacity-constrained major/;
+  // Psychology is a recognized major with no coursework keywords and no
+  // capacity signal: the unflagged neutral read the others should match.
+  const neutral = buildPositioningForTarget(inRangeRecord("Psychology"), IN_RANGE_COLLEGE, IN_RANGE_CDS, { major: "Psychology" });
+  assert.deepEqual(neutral.mainRedFlags, []);
+  const asComputerScience = buildPositioningForTarget(inRangeRecord("Computer Science"), IN_RANGE_COLLEGE, IN_RANGE_CDS, { major: "Computer Science" });
+  for (const major of [null, "", "Undecided", "Nursing", "간호학"]) {
+    const student = inRangeRecord(major);
+    assert.notEqual(student.majorBucket, "computer_science", `${JSON.stringify(major)} → ${student.majorBucket}`);
+    const read = buildPositioningForTarget(student, IN_RANGE_COLLEGE, IN_RANGE_CDS, { major });
+    assert.ok(!read.mainRedFlags.some((f) => MAJOR_FLAGS.test(f)), `${JSON.stringify(major)}: ${read.mainRedFlags.join(" | ")}`);
+    assert.equal(read.capacityRiskFlag, "normal", `${JSON.stringify(major)}: ${read.capacityRiskFlag}`);
+    assert.ok(read.finalPositioningScore >= neutral.finalPositioningScore - 0.5, `${JSON.stringify(major)}: ${read.overallPositioningLabel} @ ${read.finalPositioningScore} vs neutral ${neutral.finalPositioningScore}`);
+    assert.ok(read.finalPositioningScore > asComputerScience.finalPositioningScore, `${JSON.stringify(major)} reads better than the flagged CS read it used to be`);
+  }
+  // No major is the neutral pool: no major-preparation weight, no growth
+  // signal, average demand.
+  const none = inRangeRecord(null);
+  assert.equal(none.majorBucket, null);
+  assert.equal(scoreAcademicReadiness(none, IN_RANGE_COLLEGE, IN_RANGE_CDS).dynamicWeights.majorPrep, 0);
+  const pool = scoreMajorCompetitiveness(none, IN_RANGE_COLLEGE, { ipedsGrowthByBucket: { computer_science: 0.9 } });
+  assert.equal(pool.baseDemand, 0.6);
+  assert.equal(pool.ipedsGrowthProxy, null);
+  // A computer-science applicant with no CS coursework is still flagged.
+  const cs = buildPositioningForTarget(inRangeRecord("Computer Science"), IN_RANGE_COLLEGE, IN_RANGE_CDS, { major: "Computer Science" });
+  assert.ok(cs.mainRedFlags.some((f) => /Weak major-relevant coursework/.test(f)), cs.mainRedFlags.join(" | "));
+  // Korean names resolve to their buckets, 컴퓨터공학 to computer science.
+  assert.equal(inRangeRecord("컴퓨터공학").majorBucket, "computer_science");
+  assert.equal(inRangeRecord("소프트웨어").majorBucket, "computer_science");
+  assert.equal(inRangeRecord("경영학").majorBucket, "business");
+  // "cs" no longer makes Physics computer-science coursework.
+  const physics = buildStudentModel({ major_interest: "Computer Science", courses: [{ name: "AP Physics C", type: "ap", grade: "A" }, { name: "Economics", type: "regular", grade: "A" }, { name: "AP Computer Science A", type: "ap", grade: "A" }] }, [], null);
+  assert.deepEqual(physics.relevantCourses.map((c) => c.name), ["AP Computer Science A"]);
+  // "math" still counts Mathematics.
+  const math = buildStudentModel({ major_interest: "Mathematics", courses: [{ name: "Mathematics 3", type: "regular", grade: "A" }] }, [], null);
+  assert.equal(math.relevantCourses.length, 1);
+});
+
+// The first SAT on file was the oldest: a retake from 1250 to 1480 kept
+// reading 1250 "below the 25th percentile" (fit-2).
+test("the best SAT and ACT sitting is read, whatever order the sittings were entered in", () => {
+  const college = { name: "Selective", acceptanceRate: 30, sat25: 1380, sat75: 1520, act25: 31, act75: 34, avgGpaAdmitted: 3.85, topMajors: [] };
+  const cds = { schoolName: "Selective", fetchStatus: "ok", parsed: { c7: {}, admitRatePercent: 30, testPolicy: "test_considered_or_required" } };
+  const march = { test: "sat", totalScore: 1250, sections: { readingWriting: 620, math: 630 }, date: "2026-03" };
+  const october = { test: "sat", totalScore: 1480, sections: { readingWriting: 730, math: 750 }, date: "2026-10" };
+  const read = (testScores) => {
+    const student = buildStudentModel({ gpa_unweighted: 3.85, major_interest: "Biology", test_scores_json: JSON.stringify(testScores) }, [], null);
+    return { student, positioning: buildPositioningForTarget(student, college, cds, { major: "Biology" }) };
+  };
+  const alone = read([october]);
+  for (const order of [[march, october], [october, march]]) {
+    const { student, positioning } = read(order);
+    assert.equal(student.sat, 1480);
+    assert.deepEqual(student.satSections, { readingWriting: 730, math: 750 }, "sections come from the chosen sitting");
+    assert.equal(positioning.profileComparison.tests.used.score, 1480);
+    assert.equal(positioning.finalPositioningScore, alone.positioning.finalPositioningScore);
+  }
+  const act = buildStudentModel({ gpa_unweighted: 3.85, major_interest: "Biology", test_scores_json: JSON.stringify([{ test: "act", totalScore: 33, date: "2026-06" }, { test: "act", totalScore: 29, date: "2026-02" }]) }, [], null);
+  assert.equal(act.act, 33);
+});
+
+// A grade-9 student with nothing entered read "Reach" at a 70%-admit
+// school and "High reach" where nothing was known, and the chat repeated
+// it (fit-4). The owner's call: no GPA of either kind and no SAT/ACT gets
+// no label and no likelihood; the component reads stay.
+test("a record with no GPA and no SAT/ACT gets no label and no likelihood, and its reads stay", () => {
+  const empty = buildStudentModel({}, [], null);
+  const read = buildPositioningForTarget(empty, { name: "Open State", acceptanceRate: 70, topMajors: [] }, { schoolName: "Open State", fetchStatus: "ok", parsed: { c7: {} } }, {});
+  assert.equal(read.labelKey, "insufficient_student_data");
+  assert.equal(read.overallPositioningLabel, "Not enough data yet");
+  assert.equal(read.finalPositioningScore, null);
+  assert.deepEqual(read.studentDataNeeded, ["gpa", "sat_or_act"]);
+  assert.equal(typeof read.admissibility.academicReadinessScore, "number");
+  assert.ok(read.profileComparison.gpa, "the comparison block is kept");
+  assert.doesNotMatch(read.recommendedPositioningStrategy, /reach/i);
+  assert.doesNotMatch(read.admissibility.summary, /stretched/);
+  // Unknown school too: no label, not "High reach".
+  const nowhere = buildPositioningForTarget(empty, { name: "Nowhere", topMajors: [] }, { parsed: null }, {});
+  assert.equal(nowhere.labelKey, "insufficient_student_data");
+  // One kind of evidence is enough for a label.
+  const gpaOnly = buildPositioningForTarget(buildStudentModel({ gpa_unweighted: 3.6 }, [], null), { name: "Open State", acceptanceRate: 70, topMajors: [] }, { parsed: { c7: {} } }, {});
+  assert.ok(["Highly competitive", "Competitive", "Reach", "High reach"].includes(gpaOnly.overallPositioningLabel));
+  assert.equal(typeof gpaOnly.finalPositioningScore, "number");
+  assert.equal(gpaOnly.labelKey, { "Highly competitive": "highly_competitive", Competitive: "competitive", Reach: "reach", "High reach": "high_reach" }[gpaOnly.overallPositioningLabel]);
+  const scoreOnly = buildPositioningForTarget(buildStudentModel({ test_scores_json: JSON.stringify([{ test: "act", totalScore: 30 }]) }, [], null), { name: "Open State", acceptanceRate: 70, topMajors: [] }, { parsed: { c7: {} } }, {});
+  assert.notEqual(scoreOnly.labelKey, "insufficient_student_data");
+  // An unknown admit rate is said, not hidden: `used` stays null and the
+  // assumption is named.
+  assert.equal(nowhere.admitRate.used, null);
+  assert.equal(nowhere.admitRate.assumedForLikelihood, 0.5);
+  assert.ok(nowhere.dataNotes.some((n) => /No admit rate is on file/.test(n)));
+});
+
+// A weighted GPA alone was dropped (the same 30 as no GPA) while the
+// matrix counted it; an unweighted GPA above 4.0 was read as a 4.0-scale
+// one, above every average (fit-4, input-7).
+test("a weighted-only GPA is compared at most at 4.0, and an above-4.0 unweighted GPA is not placed on the 4.0 scale", () => {
+  const college = { name: "Open State", acceptanceRate: 70, avgGpaAdmitted: 3.6, topMajors: [] };
+  const weightedOnly = compareGpaToSchool(buildStudentModel({ gpa_weighted: 4.4 }, [], null), college, { parsed: {} });
+  assert.equal(weightedOnly.basis, "weighted_only");
+  assert.equal(weightedOnly.comparedGpa, 4);
+  assert.ok(weightedOnly.score > 30, `weighted-only ${weightedOnly.score}`);
+  assert.equal(weightedOnly.position, "above");
+  // Against a weighted average it is compared as itself.
+  const harvardLike = compareGpaToSchool(buildStudentModel({ gpa_weighted: 4.4 }, [], null), { avgGpaAdmitted: 4.21 }, { parsed: {} });
+  assert.equal(harvardLike.basis, "weighted_only");
+  assert.equal(harvardLike.comparedGpa, 4.4);
+
+  const cornell = { name: "Cornell-like", acceptanceRate: 8, avgGpaAdmitted: 3.9, topMajors: [] };
+  const typedWeighted = buildStudentModel({ gpa_unweighted: 4.52 }, [], null);
+  assert.equal(typedWeighted.gpaBasis, "scale_unknown");
+  const unknownScale = compareGpaToSchool(typedWeighted, cornell, { parsed: { gpaDistribution: [{ low: 4, high: 4, pct: 50 }, { low: 3.75, high: 3.99, pct: 40 }, { low: 3.5, high: 3.74, pct: 10 }] } });
+  assert.equal(unknownScale.basis, "scale_unknown");
+  assert.notEqual(unknownScale.position, "above");
+  assert.equal(unknownScale.score, 56, "read as at the average");
+  assert.equal(unknownScale.note, "gpa_scale_unknown");
+  assert.equal(unknownScale.placement, null, "not placed in the 4.0-scale distribution");
+  const cds = { schoolName: "Cornell-like", fetchStatus: "ok", sourceUrl: "https://x/cds.pdf", repositoryMatch: { latestAvailableYear: "2025-26" }, parsed: { c7: {}, admitRatePercent: 8 } };
+  const scaleRead = buildPositioningForTarget(typedWeighted, cornell, cds, {});
+  const plainRead = buildPositioningForTarget(buildStudentModel({ gpa_unweighted: 3.9 }, [], null), cornell, cds, {});
+  assert.ok(scaleRead.confidence.evidenceConfidenceScore < plainRead.confidence.evidenceConfidenceScore, "a GPA on an unknown scale lowers confidence");
+  assert.ok(scaleRead.dataNotes.some((n) => /scale is not known/.test(n)));
+  assert.equal(scaleRead.profileComparison.gpa.basis, "scale_unknown");
+});
+
+// A test policy nobody read used to be read as required (no score 18, and
+// "tests are required or considered here" at test-blind UCLA); a test-blind
+// school counted a submitted score like a test-optional one (fit-6).
+test("an unread test policy is unknown, and a test-blind school reads no score", () => {
+  const college = { name: "X", acceptanceRate: 40, sat25: 1300, sat75: 1450, avgGpaAdmitted: 3.8, topMajors: [] };
+  const noScore = buildStudentModel({ gpa_unweighted: 3.85 }, [], null);
+  const unknown = compareTestsToSchool(noScore, college, { parsed: {} });
+  assert.equal(unknown.policy, "unknown");
+  assert.equal(unknown.score, 42);
+  assert.equal(compareTestsToSchool(noScore, college, { parsed: { testPolicy: "test_considered_or_required" } }).score, 18, "a required policy that was read still scores 18");
+  const withScore = buildStudentModel({ gpa_unweighted: 3.85, test_scores_json: JSON.stringify([{ test: "sat", totalScore: 1500 }]) }, [], null);
+  assert.equal(compareTestsToSchool(withScore, college, { parsed: {} }).advice, "submit");
+
+  const blindCds = { parsed: { c7: {}, testPolicy: "test_optional_or_deemphasized", testPolicyValue: "test_blind" } };
+  const blind = compareTestsToSchool(withScore, college, blindCds);
+  assert.equal(blind.blind, true);
+  assert.equal(blind.advice, "not_considered");
+  assert.equal(scoreAcademicReadiness(withScore, college, blindCds).dynamicWeights.test, 0);
+  const optional = compareTestsToSchool(withScore, college, { parsed: { c7: {}, testPolicy: "test_optional_or_deemphasized", testPolicyValue: "test_optional" } });
+  assert.equal(optional.blind, false);
+  assert.equal(optional.advice, "submit");
+  // A school's own statement decides blindness when the scout read one.
+  const statedBlind = { parsed: { c7: {}, testPolicy: "test_optional_or_deemphasized", testPolicyValue: "test_optional", testPolicyStated: { value: "test_blind", bucket: "test_optional_or_deemphasized", checkedAt: "2026-10-01T00:00:00Z" } } };
+  assert.equal(compareTestsToSchool(withScore, college, statedBlind).blind, true);
+  const read = buildPositioningForTarget(noScore, college, { parsed: {} }, {});
+  assert.equal(read.profileComparison.tests.policy, "unknown");
+  assert.equal(read.profileComparison.tests.blind, false);
+});
+
+// Recency was a fixed year cutoff (2025 on read 0.9 forever); it is now
+// the record's age in cycles against the clock (fit-12, time-7).
+test("evidence recency ages with the clock, and today's numbers are unchanged", () => {
+  const today = new Date("2026-11-03T12:00:00Z");
+  assert.equal(recencyScore("2025-26", today), 0.9);
+  assert.equal(recencyScore("2024-25", today), 0.85);
+  assert.equal(recencyScore("2023-24", today), 0.68);
+  assert.equal(recencyScore(null, today), 0.68);
+  assert.equal(recencyScore("2025-26", new Date("2026-09-01T00:00:00Z")), 0.9);
+  assert.ok(recencyScore("2025-26", new Date("2029-09-01T00:00:00Z")) < 0.9);
+  const fall2028 = new Date("2028-11-01T00:00:00Z");
+  assert.ok(recencyScore("2025-26", fall2028) < recencyScore("2027-28", fall2028));
+  const cds = (year) => ({ sourceUrl: "https://x", fetchStatus: "ok", repositoryMatch: { latestAvailableYear: year }, parsed: { c7: { rigor: 1 }, admitRatePercent: 9 }, validated: true });
+  const ctx = { avgGpaAdmitted: 3.8, sat25: 1400, acceptanceRate: 9 };
+  const stale = scoreEvidenceConfidence({ cdsResult: cds("2025-26"), collegeContext: ctx, majorPolicy: {}, ipedsGrowthAvailable: true, now: fall2028 });
+  const fresh = scoreEvidenceConfidence({ cdsResult: cds("2027-28"), collegeContext: ctx, majorPolicy: {}, ipedsGrowthAvailable: true, now: fall2028 });
+  assert.ok(stale.normalized < fresh.normalized, JSON.stringify({ stale, fresh }));
+});
+
+// The card printed the label, summary, flags, strategy and confidence as
+// the engine's English text, so a Korean-mode student read the most
+// important line of the card in English (fit-10). Each now carries a stable
+// code the card translates; the English stays what the chat quotes.
+test("every read carries stable codes beside its English text", () => {
+  const LABEL_KEYS = { "Highly competitive": "highly_competitive", Competitive: "competitive", Reach: "reach", "High reach": "high_reach" };
+  const SUMMARY_KEYS = { "academically in-range": "in_range", "academically plausible but not comfortable": "plausible", "academically stretched": "stretched" };
+  for (const rate of [4, 30, 75]) {
+    const read = buildPositioningForTarget(studentWith(), { ...WIDE_COLLEGE, acceptanceRate: rate }, WIDE_CDS, { major: "Computer Science" });
+    assert.equal(read.labelKey, LABEL_KEYS[read.overallPositioningLabel]);
+    assert.equal(read.admissibility.summaryKey, SUMMARY_KEYS[read.admissibility.summary]);
+    assert.equal(read.confidence.evidenceConfidenceKey, read.confidence.evidenceConfidence.toLowerCase().replace(/\s+/g, "_"));
+    assert.ok(["high", "medium", "low", "very_low"].includes(read.confidence.evidenceConfidenceKey));
+    assert.equal(read.mainRedFlagCodes.length, read.mainRedFlags.length);
+    assert.ok(typeof read.strategyKey === "string" && read.strategyKey.length > 0);
+  }
+
+  const weakMath = buildPositioningForTarget(studentWith({ testScores: [{ test: "sat", totalScore: 1530, sections: { readingWriting: 800, math: 730 } }] }), WIDE_COLLEGE, WIDE_CDS, { major: "Computer Science" });
+  const mathIndex = weakMath.mainRedFlags.findIndex((f) => /SAT Math \(730\)/.test(f));
+  assert.ok(mathIndex >= 0);
+  assert.deepEqual(weakMath.mainRedFlagCodes[mathIndex], { code: "math_below_band", params: { test: "SAT", value: 730, low: 770 } });
+
+  const empty = buildPositioningForTarget(buildStudentModel({}, [], null), { name: "Nowhere", topMajors: [] }, { parsed: null }, {});
+  assert.equal(empty.admissibility.summaryKey, "not_enough_data");
+  assert.equal(empty.strategyKey, "add_academics");
+  assert.deepEqual(empty.dataNoteKeys, ["add_gpa_or_test", "admit_rate_assumed"]);
+  assert.equal(empty.dataNoteKeys.length, empty.dataNotes.length);
+});
+
+test("each red flag's code matches its sentence, and the strategy key matches the strategy", () => {
+  const CODE_TEXT = {
+    math_below_band: /Math \(\d+\) sits below/,
+    stated_test_required: /says SAT or ACT scores are required this cycle/,
+    stated_test_flexible: /test-flexible policy/,
+    ap_field_below_3: /AP exam scores in the intended field/,
+    weak_major_coursework: /Weak major-relevant coursework/,
+    shallow_activities: /Many shallow extracurriculars/,
+    generic_narrative: /sounding generic/,
+    weak_narrative_coherence: /Narrative coherence is weak/,
+    capped_major_unprepared: /capped or capacity-constrained major/,
+    light_transcript: /Transcript looks light/,
+  };
+  const student = studentWith({ gpa_unweighted: 3.2, testScores: [{ test: "sat", totalScore: 1530, sections: { readingWriting: 800, math: 730 } }] });
+  const entries = buildRedFlagEntries(student, { ...WIDE_COLLEGE, acceptanceRate: 4, avgGpaAdmitted: 3.94 }, { capacityRiskFlag: "normal" }, { specificity: 80, coherence: 80 }, {
+    tests: { best: { test: "sat", sections: [{ key: "math", value: 730, position: "below", band: { low: 770 } }] } },
+  });
+  assert.ok(entries.length >= 2, JSON.stringify(entries));
+  for (const entry of entries) {
+    assert.ok(CODE_TEXT[entry.code], `unknown code ${entry.code}`);
+    assert.match(entry.text, CODE_TEXT[entry.code]);
+  }
+  const SENTENCES = {
+    highly_competitive: /Lean into fit/,
+    competitive_capped: /major-aware/,
+    competitive: /school-specific fit/,
+    reach_gaps: /selective reach/,
+    reach_aspirational: /aspirational reach/,
+    high_reach: /high reach/,
+  };
+  for (const [label, flags, risk] of [
+    ["Highly competitive", [], "normal"], ["Competitive", [], "capped"], ["Competitive", [], "normal"],
+    ["Reach", ["x"], "normal"], ["Reach", [], "normal"], ["High reach", [], "normal"],
+  ]) {
+    const key = recommendStrategyKey(label, flags, { capacityRiskFlag: risk });
+    assert.match(recommendStrategy(label, flags, { capacityRiskFlag: risk }), SENTENCES[key]);
+  }
 });

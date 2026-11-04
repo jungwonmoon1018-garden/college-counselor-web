@@ -99,3 +99,90 @@ test("normalization and loopback checks reject ambiguous identities and remote h
   assert.equal(isLoopbackAddress("::ffff:127.0.0.1"), true);
   assert.equal(isLoopbackAddress("192.168.1.20"), false);
 });
+
+// ─── Grade from class (decision of 2026-11-03) ──────────────────────────
+// The grade used to be fixed at registration: a junior stayed a junior, on
+// the junior budget cap, through senior year. The account now stores its
+// class (graduation year) and reads the grade from the date, on an Aug 1
+// school-year boundary, held to 9-12.
+test("the grade advances on Aug 1 from the class stored at registration", async () => {
+  const { classOfForGrade, gradeForClassOf, schoolYearStart } = await import("../shared/school-year.js");
+  assert.equal(schoolYearStart(new Date("2027-07-31T23:59:00Z")), 2026);
+  assert.equal(schoolYearStart(new Date("2027-08-01T00:00:00Z")), 2027);
+  assert.equal(classOfForGrade(11, new Date("2026-10-01T00:00:00Z")), 2028);
+  assert.equal(gradeForClassOf(2028, new Date("2027-07-31T12:00:00Z")), 11);
+  assert.equal(gradeForClassOf(2028, new Date("2027-08-01T12:00:00Z")), 12);
+  assert.equal(gradeForClassOf(2028, new Date("2028-09-01T00:00:00Z")), 12, "a graduated account stays 12");
+  assert.equal(gradeForClassOf(2032, new Date("2026-10-01T00:00:00Z")), 9);
+  assert.equal(classOfForGrade(13), null);
+
+  const { db, auth } = store();
+  auth.createStudentCredential("s1", "email-hash", "correct horse battery staple", { grade: 11 });
+  const classOf = auth.getStudentClassOf("s1");
+  assert.equal(classOf, classOfForGrade(11, new Date()));
+  assert.equal(auth.getStudentGrade("s1"), 11);
+  const septemberNextYear = new Date(Date.UTC(schoolYearStart(new Date()) + 1, 8, 1));
+  assert.equal(auth.getStudentGrade("s1", septemberNextYear), 12);
+  assert.equal(auth.getStudentGrade("missing"), null);
+  assert.equal(auth.studentExists("s1"), true);
+  assert.equal(auth.studentExists("missing"), false);
+  // The sync's grade path writes the class along with the grade.
+  assert.equal(auth.setStudentGrade("s1", 12), true);
+  assert.equal(auth.getStudentClassOf("s1"), classOfForGrade(12, new Date()));
+  assert.equal(auth.setStudentGrade("s1", 13), false);
+  db.close();
+});
+
+test("an account from before class_of reads its class from its registration grade and date", () => {
+  const db = new Database(":memory:");
+  db.exec(`CREATE TABLE student_credentials (
+    student_id TEXT PRIMARY KEY,
+    email_hash TEXT UNIQUE NOT NULL,
+    password_salt TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
+    password_kdf TEXT NOT NULL DEFAULT 'scrypt-v2',
+    recovery_hash TEXT NOT NULL,
+    grade INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  )`);
+  const registered = Date.UTC(2026, 9, 1); // 2026-10-01, a junior
+  db.prepare(`INSERT INTO student_credentials (student_id, email_hash, password_salt, password_hash, recovery_hash, grade, created_at, updated_at)
+    VALUES ('legacy', 'legacy-email', 'salt', 'hash', 'recovery', 11, ?, ?)`).run(registered, registered);
+  const auth = initAuthStore(db, { sessionTtlMs: 60_000 });
+  assert.equal(db.prepare("SELECT class_of FROM student_credentials WHERE student_id = 'legacy'").get().class_of, 2028);
+  assert.equal(auth.getStudentGrade("legacy", new Date("2027-08-01T00:00:00Z")), 12);
+  assert.equal(auth.getStudentGrade("legacy", new Date("2027-05-01T00:00:00Z")), 11);
+  // Running the migration again changes nothing.
+  initAuthStore(db, { sessionTtlMs: 60_000 });
+  assert.equal(db.prepare("SELECT class_of FROM student_credentials WHERE student_id = 'legacy'").get().class_of, 2028);
+  db.close();
+});
+
+// ─── Session housekeeping (store-10) ────────────────────────────────────
+test("the cleanup the hourly session job runs removes expired student and admin sessions only", () => {
+  const db = new Database(":memory:");
+  const auth = initAuthStore(db, { sessionTtlMs: 60_000 });
+  auth.createStudentCredential("s1", "email-hash", "correct horse battery staple", { grade: 11 });
+  const live = auth.issueStudentSession("email-hash", "s1");
+  db.prepare("INSERT INTO session_tokens (token_hash, email_hash, student_id, expires_at, created_at) VALUES ('expired', 'email-hash', 's1', 1, 0)").run();
+  const admin = auth.bootstrapAdmin("administrator password 123");
+  db.prepare("INSERT INTO admin_sessions (token_hash, csrf_hash, expires_at, created_at) VALUES ('old-admin', 'x', 1, 0)").run();
+  auth.cleanup();
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM session_tokens WHERE token_hash = 'expired'").get().n, 0);
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM admin_sessions WHERE token_hash = 'old-admin'").get().n, 0);
+  assert.equal(auth.validateStudentSession(live).studentId, "s1");
+  assert.equal(auth.validateAdminSession(admin.token), true);
+  db.close();
+});
+
+test("the session schema and its sweep live in the auth store alone", async () => {
+  const { readServerSource } = await import("./helpers/server-source.mjs");
+  const fs = await import("node:fs");
+  const SERVER = readServerSource();
+  const AUTH = fs.readFileSync(new URL("../security/security-auth.js", import.meta.url), "utf8");
+  assert.doesNotMatch(SERVER, /CREATE TABLE IF NOT EXISTS session_tokens/);
+  assert.equal(AUTH.match(/CREATE TABLE IF NOT EXISTS session_tokens/g).length, 1);
+  assert.doesNotMatch(SERVER, /validateTokenLegacy|sessionTokens|sessionStmts/);
+  assert.match(SERVER, /registerJob\("session_cleanup", \(\) => authStore\.cleanup\(\)/);
+});

@@ -5,8 +5,9 @@
 // live getters.
 import { mountPillarRoutes } from "../routes/server-routes-pillars.js";
 import { requireSelf, requireStudentAuth } from "./auth.js";
-import { currentOperatorKeyConfig, reconcileStudentModelCall, releaseStudentModelCall } from "./model-calls.js";
+import { assertStudentAIConsent, currentOperatorKeyConfig, reconcileStudentModelCall, releaseStudentModelCall } from "./model-calls.js";
 import { OPENROUTER_TARGETS } from "../scouts/openrouter-model-refresh.js";
+import { effectiveMaxTokens } from "../llm-adapters/index.js";
 import { reserveBudget } from "../security/usage-budget.js";
 import { validateRequiredConsents } from "../security/consent.js";
 
@@ -35,6 +36,10 @@ export function mountPillars(deps) {
     ]);
 
     function beginCouncilBudget({ studentId, operationId }) {
+      // The council reserves its paid stages here rather than through
+      // buildStudentCallLLM, so it checks consent here too: no reservation,
+      // and no stage call, for a student without the AI consents.
+      assertStudentAIConsent(studentId);
       const grade = deps.authStore.getStudentGrade(studentId);
       const session = {
         studentId,
@@ -50,7 +55,11 @@ export function mountPillars(deps) {
             requestId: "council:" + studentId + ":" + operationId + ":" + stage.index,
             model,
             maxInputTokens: 8_000,
-            maxOutputTokens: 600,
+            // A seat asks for 600 output tokens, but the adapter floors a
+            // reasoning model at 8,192; the reservation covered 600, so the
+            // pre-call check let a Council through that the month could not
+            // hold. It now reserves what the adapter will really ask for.
+            maxOutputTokens: effectiveMaxTokens(model, 600),
           });
           if (!reservation.allowed || reservation.idempotent) {
             const error = new Error(reservation.idempotent

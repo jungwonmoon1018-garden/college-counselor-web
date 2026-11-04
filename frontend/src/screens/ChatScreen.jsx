@@ -87,6 +87,13 @@ export default function ChatScreen(props) {
         {messages.map((m,i)=>{
           // Inline tool cards (Edit story / Rank ECs / Spike Finder /
           // Course plan). Ephemeral, full-width, never sent to the model.
+          // A line about the thread itself (older messages not loaded), not
+          // a turn: never sent to the model, never saved.
+          if (m.role === "notice") {
+            return (
+              <div key={m.id||`notice-${i}`} role="note" style={{textAlign:"center",fontSize:12,color:"#6a6a7a",margin:"0 0 14px"}}>{m.content}</div>
+            );
+          }
           if (m.role === "tool") {
             const toolTitleKey = {
               narrative: "narrative.title",
@@ -187,9 +194,11 @@ export default function ChatScreen(props) {
             <div style={{padding:"12px 16px",borderRadius:"14px 14px 14px 4px",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.05)",fontSize:13,color:"#6a6a7a",display:"flex",alignItems:"center",gap:8}}>
               <span>{agentStatus.phase || "Thinking..."}</span>
               <span style={{display:"inline-flex",gap:3}}>{[0,1,2].map(j=>(<span key={j} style={{width:5,height:5,borderRadius:"50%",background:"#63b3ed",animation:`pulse2 1.2s ease-in-out ${j*0.2}s infinite`}} />))}</span>
-              {agentStatus.active !== "strategy_council" && (
-                <button onClick={cancelPendingRequest} style={{marginLeft:"auto",padding:"4px 12px",borderRadius:8,border:"1px solid rgba(245,101,101,0.3)",background:"transparent",color:"#f56565",fontSize:11,cursor:"pointer",transition:"all 0.15s"}}>Cancel</button>
-              )}
+              {/* Cancel shows for the Strategy Council too. It was hidden there,
+                  so a stalled Council run held the composer for minutes with
+                  no way out; the run is safe to abort (the route releases its
+                  unreconciled stages) and the question goes back in the box. */}
+              <button onClick={cancelPendingRequest} style={{marginLeft:"auto",padding:"4px 12px",borderRadius:8,border:"1px solid rgba(245,101,101,0.3)",background:"transparent",color:"#f56565",fontSize:11,cursor:"pointer",transition:"all 0.15s"}}>{locale === "ko" ? "취소" : "Cancel"}</button>
             </div>
           </div>
         )}

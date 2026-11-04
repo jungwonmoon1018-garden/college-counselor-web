@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import NarrativeEditor from "./NarrativeEditor.jsx";
+import { NARRATIVE_MAX_CHARS, NARRATIVE_MIN_CHARS, NARRATIVE_MIN_WORDS } from "../profile/narrative-limits.js";
 
 // The story editor's Delete sent DELETE /api/ec/narrative/<id>, a route the
 // server never had: the student saw "Not found" and the story stayed active,
@@ -46,5 +47,50 @@ describe("NarrativeEditor", () => {
   // Alone this takes well under a second; in the whole-suite run vitest
   // 4.1.11 queues each test's steps behind the other files' (see
   // AdminApp.test.jsx), and on 2026-10-09 it crossed the 5 s default.
+  }, 20_000);
+
+  // The server sends SQLite's "YYYY-MM-DD HH:MM:SS" in UTC. Read raw, Chrome
+  // took it for local time (a 14:00 KST save read 05:00) and Safari showed
+  // "Saved Invalid Date". The expected label is computed from the UTC instant,
+  // so this holds in any time zone.
+  it("shows the saved time as the viewer's local time", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url) => {
+      const path = String(url).split("?")[0];
+      const body = path === "/api/ec/narrative/active"
+        ? { id: "nar_1", narrative_text: STORY, created_at: "2026-11-03 05:00:00", source: "student" }
+        : { error: "Not found" };
+      return { ok: path === "/api/ec/narrative/active", status: path === "/api/ec/narrative/active" ? 200 : 404, headers: { get: () => "application/json" }, json: async () => body, text: async () => JSON.stringify(body) };
+    }));
+    render(<NarrativeEditor />);
+    expect(await screen.findByDisplayValue(STORY)).toBeInTheDocument();
+    const when = new Date("2026-11-03T05:00:00Z").toLocaleString("en-US");
+    expect(screen.getByText((text) => text.includes(when))).toBeInTheDocument();
+    expect(screen.queryByText(/Invalid Date/)).not.toBeInTheDocument();
+  }, 20_000);
+
+  // The editor kept its own 100 / 1500 / 20 that matched the server only by
+  // luck; it now reads profile/narrative-limits.js, which the backend's
+  // misc-client-parity test holds to the server, and checks in the server's
+  // order, so a long story of few words is called too long.
+  it("counts and checks against the limits the server holds a story to", async () => {
+    stubBackend([]);
+    render(<NarrativeEditor />);
+    const box = await screen.findByDisplayValue(STORY);
+    expect(NarrativeEditor.MIN_CHARS).toBe(NARRATIVE_MIN_CHARS);
+    expect(NarrativeEditor.MAX_CHARS).toBe(NARRATIVE_MAX_CHARS);
+    expect(NarrativeEditor.MIN_WORDS).toBe(NARRATIVE_MIN_WORDS);
+    expect(screen.getByText(`What do you care about, and how have you shown it? ${NARRATIVE_MIN_CHARS}–${NARRATIVE_MAX_CHARS} characters.`)).toBeInTheDocument();
+    const save = screen.getByRole("button", { name: "Save narrative" });
+    expect(save).not.toBeDisabled();
+
+    fireEvent.change(box, { target: { value: "x".repeat(NARRATIVE_MAX_CHARS + 1) } });
+    expect(screen.getByText(`${NARRATIVE_MAX_CHARS + 1}/${NARRATIVE_MAX_CHARS} — please tighten the story.`)).toBeInTheDocument();
+    expect(save).toBeDisabled();
+
+    // Long enough, one word short.
+    const word = "w".repeat(Math.ceil(NARRATIVE_MIN_CHARS / (NARRATIVE_MIN_WORDS - 1)) + 1);
+    fireEvent.change(box, { target: { value: Array(NARRATIVE_MIN_WORDS - 1).fill(word).join(" ") } });
+    expect(screen.getByText(new RegExp(`/${NARRATIVE_MIN_CHARS} characters minimum\\. ${NARRATIVE_MIN_WORDS - 1}/${NARRATIVE_MIN_WORDS} words minimum\\.`))).toBeInTheDocument();
+    expect(save).toBeDisabled();
   }, 20_000);
 });

@@ -210,15 +210,10 @@ export async function getRepositoryIndex({ force = false, fetchImpl = fetch } = 
   // Treating its return as entries was a latent bug that crashed every
   // happy-path ingest (enrichIndex/findBestRepositoryEntry call .map on a
   // string), which is why the admin ingest never populated cds_records.
-  let html;
-  try {
-    html = await fetchRepositoryIndex({ fetchImpl });
-  } catch (e) {
-    // Fall back to direct fetch with browser headers (Cloudflare-friendly).
-    const res = await fetchImpl("https://www.collegetransitions.com/dataverse/common-data-set-repository/", { headers: BROWSER_HEADERS });
-    if (!res.ok) throw new Error(`Index fetch failed: ${res.status}`);
-    html = await res.text();
-  }
+  // fetchRepositoryIndex retries with browser headers itself (Cloudflare
+  // has refused the server user agent), each attempt under a timeout, and
+  // throws when both fail.
+  const html = await fetchRepositoryIndex({ fetchImpl });
   try { fs.writeFileSync(indexHTMLPath, html); } catch { /* cache write is best-effort */ }
 
   // Decorate with a `links` map keyed by year label (back-compat with

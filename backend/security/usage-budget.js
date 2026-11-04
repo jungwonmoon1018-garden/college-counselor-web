@@ -27,6 +27,14 @@ export function calendarMonthKey(now = new Date()) {
   return year + "-" + month;
 }
 
+// When the period calendarMonthKey names for `now` ends: midnight starting
+// the next month, in the same process-local calendar. The 402 at the cap
+// carries it so the student is told when the budget comes back, instead of
+// retrying for the rest of the month.
+export function budgetPeriodResetsAt(now = new Date()) {
+  return new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString();
+}
+
 function modelIdForPricing(model) {
   return String(model || "").replace(/^openrouter:/, "");
 }
@@ -125,6 +133,7 @@ export function getBudgetStatus(db, { studentId, grade, now = new Date() } = {})
     capUsd: cap,
     committedUsd,
     remainingUsd: Math.max(0, Math.round((cap - committedUsd) * 1_000_000) / 1_000_000),
+    resetsAt: budgetPeriodResetsAt(now),
   };
 }
 
@@ -159,6 +168,11 @@ export function reserveBudget(db, {
       }
       return {
         allowed: existing.status !== "released",
+        // A released row is a failed call's id being sent again (the client
+        // resent the same body after re-authenticating). Without a code the
+        // caller read the refusal as a budget denial and told the student
+        // their monthly budget was used up.
+        ...(existing.status === "released" ? { code: "request_id_released" } : {}),
         idempotent: true,
         reservationId: existing.id,
         reservedUsd: Number(existing.reserved_usd),
@@ -173,11 +187,13 @@ export function reserveBudget(db, {
       return {
         allowed: false,
         code: "monthly_cap_exceeded",
+        reason: "This request does not fit the remaining monthly AI budget.",
         capUsd: cap,
         committedUsd: status.committedUsd,
         requestedUsd: estimate.estimatedCostUsd,
         remainingUsd: status.remainingUsd,
         period,
+        resetsAt: budgetPeriodResetsAt(now),
       };
     }
 
@@ -260,6 +276,25 @@ export function releaseBudget(db, { reservationId, now = new Date() } = {}) {
     "WHERE id = ? AND status = 'reserved'",
   ].join("\n")).run(now.toISOString(), reservationId);
   return { ok: result.changes === 1, reservationId };
+}
+
+// A reservation is released by the same process that made it, in the catch
+// around the model call. A call cut off by a restart (a deploy, a counselor
+// saving a secret, the launcher's memory cap) left its row 'reserved', and
+// getBudgetStatus charged it at the full estimate until the month ended:
+// money the student never spent. The boot sweep passes the process start
+// time, which is exact because no call outlives its process; the periodic
+// sweep passes a cutoff older than the longest operation can hold a
+// reservation (a council reserves its four stages up front and runs them
+// one after another).
+export function releaseStaleReservations(db, { createdBefore, now = new Date() } = {}) {
+  const cutoff = createdBefore instanceof Date ? createdBefore : new Date(createdBefore);
+  if (Number.isNaN(cutoff.getTime())) return { released: 0 };
+  const result = db.prepare([
+    "UPDATE usage_budget_reservations SET status = 'released', reconciled_at = ?",
+    "WHERE status = 'reserved' AND created_at < ?",
+  ].join("\n")).run(now.toISOString(), cutoff.toISOString());
+  return { released: result.changes };
 }
 
 // Compatibility helpers retained while server routes migrate to the ledger.

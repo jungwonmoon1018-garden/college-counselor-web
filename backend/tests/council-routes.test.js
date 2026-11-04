@@ -4,10 +4,11 @@ import express from "express";
 import Database from "better-sqlite3";
 import { mountPillarRoutes } from "../routes/server-routes-pillars.js";
 import { initCouncilTables } from "../council/audit-trail.js";
+import { convene } from "../council/index.js";
 
 const API_KEY = "sk-proj-abcdefghijklmnopqrstuvwxyz012345";
 
-async function startHarness(t) {
+async function startHarness(t, overrides = {}) {
   const db = new Database(":memory:");
   const app = express();
   app.use(express.json());
@@ -66,6 +67,7 @@ async function startHarness(t) {
         sequential: true,
       };
     },
+    ...overrides,
   });
 
   const server = await new Promise((resolve) => {
@@ -151,11 +153,31 @@ test("Council crisis handling bypasses malformed metadata, budget, and models", 
   assert.equal(response.body.crisisSafe, true);
   assert.equal(response.body._meta.deterministic, true);
   assert.equal(response.body._meta.modelTier, "NONE");
-  assert.ok(response.body.actions.some((item) => item.contact === "1393"));
+  assert.ok(response.body.actions.some((item) => item.contact === "109"));
   assert.equal(harness.calls.limiter, 1);
   assert.equal(harness.calls.begin.length, 0);
   assert.equal(harness.calls.convene.length, 0);
   assert.equal(harness.calls.release.length, 0);
+});
+
+// Crisis first: the 2,000-character check used to answer a long question
+// that carried a safety statement with COUNCIL_QUESTION_TOO_LONG and no
+// hotline. A long question without one is still refused.
+test("Council answers a crisis statement in an over-long question before the length check", async (t) => {
+  const harness = await startHarness(t);
+  const padding = "I keep second-guessing every school on my list. ".repeat(50);
+  for (const question of [`${padding}I want to kill myself.`, `I want to kill myself. ${padding}`]) {
+    assert.ok(question.length > 2000);
+    const response = await postCouncil(harness, explicitRequest({ question }));
+    assert.equal(response.status, 200, JSON.stringify(response.body));
+    assert.equal(response.body.crisisSafe, true);
+    assert.ok(response.body.answer.includes("988"));
+  }
+  const ordinary = await postCouncil(harness, explicitRequest({ question: padding }));
+  assert.equal(ordinary.status, 400);
+  assert.equal(ordinary.body.code, "COUNCIL_QUESTION_TOO_LONG");
+  assert.equal(harness.calls.begin.length, 0);
+  assert.equal(harness.calls.convene.length, 0);
 });
 
 test("Council screens provider input and every user-visible recommendation", async (t) => {
@@ -222,4 +244,88 @@ test("new Council audit tables do not require request IDs", () => {
   } finally {
     db.close();
   }
+});
+
+// A provider outage used to run every seat (each up to two tries of the
+// adapter's 105 s budget) and then answer 200 "could not produce a primary
+// recommendation from the available context" at Confidence 0% and 0 USD.
+// The Strategist's provider failure now stops the run with a coded error.
+test("a Council run whose provider fails answers a coded error, not a 0 USD no-recommendation", async (t) => {
+  for (const [upstreamStatus, upstreamCode, expectedStatus, expectedCode] of [
+    [401, "auth_rejected", 502, "provider_auth_failed"],
+    [504, "provider_timeout", 504, "provider_timeout"],
+  ]) {
+    const providerCalls = [];
+    const harness = await startHarness(t, {
+      conveneCouncil: (args) => convene({
+        ...args,
+        contextOverride: "Student context for the test.",
+        callModel: async (request) => {
+          providerCalls.push(request.model);
+          throw Object.assign(new Error("mock upstream " + upstreamStatus), { status: upstreamStatus, code: upstreamCode, provider: "openrouter" });
+        },
+      }),
+    });
+    const response = await postCouncil(harness, explicitRequest());
+    assert.equal(response.status, expectedStatus, JSON.stringify(response.body));
+    assert.equal(response.body.code, expectedCode);
+    assert.equal(response.body.councilCode, "COUNCIL_PROVIDER_UNAVAILABLE");
+    assert.equal(response.body.stage, "Strategist");
+    assert.notEqual(response.status, 401, "an upstream 401 is never our own");
+    assert.equal(providerCalls.length, 1, "no further seats or tries into the same outage");
+    assert.equal(harness.calls.release.length, 1, "the reserved stages are released");
+  }
+});
+
+test("a Strategist whose reply cannot be parsed still yields the moderator's answer, without blaming the context", async (t) => {
+  let calls = 0;
+  const harness = await startHarness(t, {
+    conveneCouncil: (args) => convene({
+      ...args,
+      contextOverride: "Student context for the test.",
+      callModel: async () => {
+        calls += 1;
+        return { content: [{ type: "text", text: "not json at all" }], usage: { input_tokens: 10, output_tokens: 5 } };
+      },
+    }),
+  });
+  const response = await postCouncil(harness, explicitRequest());
+  assert.equal(response.status, 200, JSON.stringify(response.body));
+  assert.equal(response.body.moderator_rule, "no_primary_recommendation");
+  assert.doesNotMatch(response.body.recommendation, /available context/);
+  // Every seat tried twice; each try's usage is reported, not dropped.
+  assert.equal(calls, 8);
+  const strategist = response.body.council_breakdown.find((seat) => seat.role === "Strategist");
+  assert.equal(strategist.abstained, true);
+});
+
+// The client's Cancel and its five-minute deadline abort the request; the
+// route ties its own signal to the response closing, so the run stops and
+// its reserved stages are released instead of four seats billing a review
+// nobody reads.
+test("a Council request the client abandons stops the run and releases the budget", async (t) => {
+  let seen = null;
+  const harness = await startHarness(t, {
+    conveneCouncil: (args) => new Promise((_, reject) => {
+      seen = args.signal;
+      args.signal.addEventListener("abort", () => {
+        reject(Object.assign(new Error("The client closed the Council request."), { code: "aborted", provider: "openrouter", status: 499 }));
+      }, { once: true });
+    }),
+  });
+  const client = new AbortController();
+  const pending = fetch(harness.url + "/api/council/convene", {
+    method: "POST",
+    headers: { authorization: "Bearer good", "content-type": "application/json" },
+    body: JSON.stringify(explicitRequest()),
+    signal: client.signal,
+  }).then(() => "answered", (error) => error?.name || "error");
+  for (let i = 0; i < 100 && !seen; i++) await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.ok(seen, "the run started with the route's signal");
+  assert.equal(seen.aborted, false);
+  client.abort();
+  assert.equal(await pending, "AbortError");
+  for (let i = 0; i < 100 && harness.calls.release.length === 0; i++) await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(seen.aborted, true, "the client's abort reached the run");
+  assert.equal(harness.calls.release.length, 1, "the reserved stages are released");
 });

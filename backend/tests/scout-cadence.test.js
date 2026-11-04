@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { scoutCadenceMs, scoutRunDue, cadenceDays, DEFAULT_SCOUT_CADENCE_DAYS, ABANDONED_RUN_MS } from "../scouts/scout-cadence.js";
+import { scoutCadenceMs, scoutRunDue, cadenceDays, DEFAULT_SCOUT_CADENCE_DAYS, ABANDONED_RUN_MS, RETRY_BASE_MS, retryBackoffMs, failedStreak } from "../scouts/scout-cadence.js";
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = Date.parse("2026-09-05T12:00:00.000Z");
@@ -53,4 +53,42 @@ test("an unfinished run blocks only until it is old enough to be abandoned", () 
   assert.deepEqual(scoutRunDue({ lastRun: cutShort, cadenceMs, now: NOW }), { due: true, reason: "previous_run_abandoned", nextRunAt: null, lastFinishedAt: null });
   // Garbage rows never wedge the scout.
   assert.equal(scoutRunDue({ lastRun: { startedAt: "garbage", finishedAt: null }, cadenceMs, now: NOW }).due, true);
+});
+
+// A sweep that read none of its schools, or a catalog check with no live
+// catalog, finished without doing its work. It used to count as a
+// completed run and pushed the next attempt a full cadence out.
+test("a failed run is retried after an hour, then with a doubling backoff capped at the cadence", () => {
+  const cadenceMs = 14 * DAY;
+  const finishedAt = new Date(NOW - 2 * 60 * 60 * 1000).toISOString();
+  const failed = { startedAt: new Date(NOW - 3 * 60 * 60 * 1000).toISOString(), finishedAt, outcome: "failed", failedStreak: 1, checked: 0, failed: 300 };
+  const due = scoutRunDue({ lastRun: failed, cadenceMs, now: NOW });
+  assert.deepEqual(due, { due: true, reason: "previous_run_failed", nextRunAt: new Date(Date.parse(finishedAt) + RETRY_BASE_MS).toISOString(), lastFinishedAt: finishedAt });
+  // Thirty minutes after the failure it waits; the retry time is reported.
+  const soon = scoutRunDue({ lastRun: { ...failed, finishedAt: new Date(NOW - 30 * 60 * 1000).toISOString() }, cadenceMs, now: NOW });
+  assert.equal(soon.due, false);
+  assert.equal(soon.reason, "retry_after_failure");
+  assert.equal(soon.nextRunAt, new Date(NOW + 30 * 60 * 1000).toISOString());
+  // The third failure in a row waits four hours, not one.
+  assert.equal(scoutRunDue({ lastRun: { ...failed, failedStreak: 3 }, cadenceMs, now: NOW }).due, false);
+  assert.equal(scoutRunDue({ lastRun: { ...failed, failedStreak: 3 }, cadenceMs, now: NOW + 2 * 60 * 60 * 1000 }).due, true);
+  // The other direction: a sweep that read 280 of 300 schools is complete
+  // and waits out the cadence.
+  const completed = { ...failed, outcome: "completed", checked: 280, failed: 20 };
+  assert.equal(scoutRunDue({ lastRun: completed, cadenceMs, now: NOW }).reason, "not_due");
+  // A row with no outcome (written before outcomes were recorded) reads as complete.
+  const legacy = { startedAt: failed.startedAt, finishedAt };
+  assert.equal(scoutRunDue({ lastRun: legacy, cadenceMs, now: NOW }).reason, "not_due");
+  // Forcing still wins.
+  assert.equal(scoutRunDue({ lastRun: { ...failed, finishedAt: new Date(NOW).toISOString() }, cadenceMs, now: NOW, force: "manual" }).reason, "manual");
+});
+
+test("the retry backoff doubles from an hour and never exceeds the cadence", () => {
+  assert.equal(retryBackoffMs(1, 14 * DAY), RETRY_BASE_MS);
+  assert.equal(retryBackoffMs(2, 14 * DAY), 2 * RETRY_BASE_MS);
+  assert.equal(retryBackoffMs(5, 14 * DAY), 16 * RETRY_BASE_MS);
+  assert.equal(retryBackoffMs(12, 14 * DAY), 14 * DAY);
+  assert.equal(retryBackoffMs(500, DAY), DAY);
+  assert.equal(retryBackoffMs(undefined, 14 * DAY), RETRY_BASE_MS);
+  assert.deepEqual([failedStreak(["failed", "failed", "completed", "failed"]), failedStreak(["completed", "failed"]), failedStreak([])], [2, 0, 0]);
 });

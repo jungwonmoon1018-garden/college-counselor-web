@@ -108,6 +108,13 @@ export function initFactStore(db) {
   db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_facts_semantic_unique ON canonical_facts(semantic_key)");
 }
 
+// Expiry is compared as time, through julianday(), never as text. The
+// writers store ISO strings ("2027-08-01T00:00:00.000Z") while SQLite's
+// datetime('now') reads "2027-08-01 15:00:00", and "T" sorts after " ", so
+// on its expiry date a fact still compared as current: the policy scout's
+// facts for a finished cycle were served as verified for a whole extra UTC
+// day and the hourly expiry job missed them until the next one. An expiry
+// julianday() cannot read is treated as passed, not as "never expires".
 export function prepareFactStatements(db) {
   return {
     insertFact: db.prepare([
@@ -144,24 +151,24 @@ export function prepareFactStatements(db) {
       "SELECT * FROM canonical_facts",
       "WHERE entity_type = ? AND entity_id = ?",
       " AND confidence IN ('verified', 'extracted')",
-      " AND (expires_at IS NULL OR expires_at > datetime('now'))",
+      " AND (expires_at IS NULL OR julianday(expires_at) > julianday('now'))",
       "ORDER BY CASE confidence WHEN 'verified' THEN 0 ELSE 1 END, fact_key ASC",
     ].join("\n")),
     getFactsByTopic: db.prepare([
       "SELECT * FROM canonical_facts",
       "WHERE topic_type = ? AND confidence IN ('verified', 'extracted')",
-      " AND (expires_at IS NULL OR expires_at > datetime('now'))",
+      " AND (expires_at IS NULL OR julianday(expires_at) > julianday('now'))",
       "ORDER BY CASE confidence WHEN 'verified' THEN 0 ELSE 1 END, entity_name ASC, fact_key ASC",
     ].join("\n")),
     getFactByKey: db.prepare([
       "SELECT * FROM canonical_facts",
       "WHERE entity_id = ? AND fact_key = ? AND confidence IN ('verified', 'extracted')",
-      " AND (expires_at IS NULL OR expires_at > datetime('now'))",
+      " AND (expires_at IS NULL OR julianday(expires_at) > julianday('now'))",
       "ORDER BY CASE confidence WHEN 'verified' THEN 0 ELSE 1 END, updated_at DESC LIMIT 1",
     ].join("\n")),
     getVerifiedFacts: db.prepare([
       "SELECT * FROM canonical_facts",
-      "WHERE confidence = 'verified' AND (expires_at IS NULL OR expires_at > datetime('now'))",
+      "WHERE confidence = 'verified' AND (expires_at IS NULL OR julianday(expires_at) > julianday('now'))",
       "ORDER BY topic_type, entity_name, fact_key",
     ].join("\n")),
     searchFacts: db.prepare([
@@ -169,7 +176,7 @@ export function prepareFactStatements(db) {
       "WHERE (lower(entity_name) LIKE ? ESCAPE '\\' OR lower(fact_key) LIKE ? ESCAPE '\\'",
       " OR lower(fact_value) LIKE ? ESCAPE '\\')",
       " AND confidence IN ('verified', 'extracted')",
-      " AND (expires_at IS NULL OR expires_at > datetime('now'))",
+      " AND (expires_at IS NULL OR julianday(expires_at) > julianday('now'))",
       "ORDER BY CASE confidence WHEN 'verified' THEN 0 ELSE 1 END, updated_at DESC",
       "LIMIT ?",
     ].join("\n")),
@@ -180,12 +187,12 @@ export function prepareFactStatements(db) {
     markStale: db.prepare("UPDATE canonical_facts SET confidence = 'stale', updated_at = datetime('now') WHERE id = ?"),
     markExpired: db.prepare([
       "UPDATE canonical_facts SET confidence = 'expired', updated_at = datetime('now')",
-      "WHERE expires_at IS NOT NULL AND expires_at <= datetime('now') AND confidence != 'expired'",
+      "WHERE expires_at IS NOT NULL AND COALESCE(julianday(expires_at) <= julianday('now'), 1) AND confidence != 'expired'",
     ].join("\n")),
     deleteFact: db.prepare("DELETE FROM canonical_facts WHERE id = ?"),
     getExpiringSoon: db.prepare([
       "SELECT * FROM canonical_facts WHERE expires_at IS NOT NULL",
-      " AND expires_at <= datetime('now', '+7 days')",
+      " AND julianday(expires_at) <= julianday('now', '+7 days')",
       " AND confidence IN ('verified', 'extracted') ORDER BY expires_at ASC",
     ].join("\n")),
     countByConfidence: db.prepare("SELECT confidence, COUNT(*) AS count FROM canonical_facts GROUP BY confidence"),

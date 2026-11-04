@@ -103,6 +103,14 @@ test("harvested files are stored sealed, linked to the matched activity, dedupli
   assert.deepEqual(again.skipped, [{ name: "usaco-gold.txt", reason: "already_stored" }]);
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM ec_attachments").get().n, 1);
 
+  // A file the student removed keeps its hash so a re-read cannot bring it
+  // back, and the re-read says it stayed removed instead of "already linked".
+  db.prepare("UPDATE ec_attachments SET extraction_status = 'removed' WHERE id = ?").run(row.id);
+  const afterRemoval = harvestEvidence(stmts.strength, sid, [files[0]], { activities: ACTIVITIES, messageText: "USACO again", seal: sealText });
+  assert.equal(afterRemoval.linked.length, 0);
+  assert.deepEqual(afterRemoval.skipped, [{ name: "usaco-gold.txt", reason: "removed" }]);
+  db.prepare("UPDATE ec_attachments SET extraction_status = 'ok' WHERE id = ?").run(row.id);
+
   // The strength read opens the sealed text: the level comes from the
   // certificate, and the rationale says the level was read from a document.
   const attachments = stmts.strength.getAttachmentsForEC.all(sid, "USACO");

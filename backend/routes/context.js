@@ -7,6 +7,7 @@ import { assembleRAGContext } from "../storage/rag-engine.js";
 import { STRENGTH_FACTORS, TIERS, toPublicShape as toStrengthPublicShape } from "../activities/ec-strength-vectorizer.js";
 import { FACTOR_FRIENDLY, PRESTIGE_SOURCE_FRIENDLY, TIER_FRIENDLY, enrichECVectorWithFriendly, renderFriendlyDirectionalityFactor, renderFriendlyDirectionalityLabel } from "../activities/friendly-labels.js";
 import { computeProfileFingerprint, getActiveNarrative } from "../activities/narrative-store.js";
+import { resolveCdsRecordForSchool } from "../cds/cds-store.js";
 
 export function registerContextRoutes(app, deps) {
   // GET /api/context/bundle — STUDENT CONTEXT BUNDLE
@@ -217,16 +218,18 @@ export function registerContextRoutes(app, deps) {
       // cds_records (others fall back to the existing collegeContext path).
       let cdsContext = null;
       try {
-        const goalNames = (rag?.goalSchoolNames || rag?.targetSchools || []).slice(0, 12);
+        // The student's saved targets, the list every other tool reads.
+        // assembleRAGContext has no goalSchoolNames or targetSchools, so
+        // this block was always empty; and an exact slug of each name
+        // missed the baseline's long names and every abbreviation.
+        const goalNames = (deps.resolveTargetSchools(studentId, null) || []).slice(0, 12);
         if (goalNames.length > 0) {
-          const { loadValidatedRecord, loadLatestValidation } = await import("../cds/cds-validator.js");
-          const slugify = (n) => String(n).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+          const { loadLatestValidation } = await import("../cds/cds-validator.js");
           const matches = [];
           for (const name of goalNames) {
-            const slug = slugify(name);
-            const rec = loadValidatedRecord(deps.ragStmts, slug);
+            const rec = resolveCdsRecordForSchool(deps.ragStmts, name);
             if (!rec) continue;
-            const v = loadLatestValidation(deps.ragStmts, slug);
+            const v = loadLatestValidation(deps.ragStmts, rec.slug);
             // c7Weighted: for each labeled rating, surface the numeric weight
             // (1.0 / 0.7 / 0.35 / 0.0) so the AI doesn't have to re-derive it.
             // Lets the skill produce sentences like "Stanford weights essays

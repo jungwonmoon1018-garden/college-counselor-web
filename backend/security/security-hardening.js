@@ -1,7 +1,64 @@
+import rateLimit from "express-rate-limit";
+
 export const AUTH_RATE_LIMIT = Object.freeze({
   windowMs: 15 * 60 * 1000,
   max: 10,
 });
+
+// /api/chat is limited per student, after sign-in, with a per-IP ceiling
+// ahead of sign-in as the abuse guard. It was 30 calls a minute per IP, and
+// one turn can make six calls (gatekeeper, upload screener, two specialists,
+// supervisor, validator), so five students on one school, hagwon or dorm
+// network used up the shared allowance between them and saw a generic
+// error. 60 a minute is ten full turns for one student; 300 a minute from
+// one address is far past a classroom and still stops a script.
+export const CHAT_RATE_LIMIT = Object.freeze({
+  windowMs: 60_000,
+  perStudent: 60,
+  perIp: 300,
+});
+
+// The 429 body every limiter here sends: a stable code the client words for
+// the student, and how long to wait. express-rate-limit sets the Retry-After
+// header itself before calling this (standard or legacy headers on).
+export function rateLimitedHandler(message = "Too many requests. Wait a moment and try again.") {
+  return (req, res, _next, options) => {
+    const header = Number(res.getHeader("Retry-After"));
+    const resetTime = req.rateLimit?.resetTime instanceof Date ? req.rateLimit.resetTime.getTime() : null;
+    const retryAfterSeconds = Number.isFinite(header) && header > 0
+      ? header
+      : Math.max(1, Math.ceil(((resetTime ?? Date.now() + (options?.windowMs || 60_000)) - Date.now()) / 1000));
+    if (!res.getHeader("Retry-After")) res.setHeader("Retry-After", String(retryAfterSeconds));
+    res.status(options?.statusCode || 429).json({ error: message, code: "rate_limited", retryAfterSeconds });
+  };
+}
+
+// The two chat limiters. `hashIP` keys the ceiling without keeping raw
+// addresses; `relax` is server.js's test-only multiplier. The per-student
+// limiter runs after requireStudentAuth and falls back to the address for a
+// request that somehow reached it unauthenticated.
+export function createChatRateLimiters({
+  hashIP = (ip) => String(ip || ""),
+  relax = (max) => max,
+  windowMs = CHAT_RATE_LIMIT.windowMs,
+  perStudent = CHAT_RATE_LIMIT.perStudent,
+  perIp = CHAT_RATE_LIMIT.perIp,
+} = {}) {
+  const common = { windowMs, standardHeaders: "draft-7", legacyHeaders: false };
+  const chatIpLimiter = rateLimit({
+    ...common,
+    limit: relax(perIp),
+    keyGenerator: (req) => "ip:" + hashIP(req.ip),
+    handler: rateLimitedHandler("Too many requests from this network. Wait a moment and try again."),
+  });
+  const chatStudentLimiter = rateLimit({
+    ...common,
+    limit: relax(perStudent),
+    keyGenerator: (req) => (req.studentId ? "student:" + req.studentId : "ip:" + hashIP(req.ip)),
+    handler: rateLimitedHandler("You're sending messages faster than the counselor can answer. Wait a moment and try again."),
+  });
+  return { chatIpLimiter, chatStudentLimiter };
+}
 
 export const ADMIN_AUTH_RATE_LIMIT = Object.freeze({
   windowMs: 15 * 60 * 1000,

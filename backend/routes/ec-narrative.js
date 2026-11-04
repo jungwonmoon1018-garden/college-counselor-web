@@ -3,6 +3,7 @@
 // routeDeps object of live getters.
 import { NARRATIVE_MAX_CHARS, NARRATIVE_MIN_CHARS, NarrativeValidationError, computeProfileFingerprint, getActiveNarrative, saveNarrative, softDeleteNarrative } from "../activities/narrative-store.js";
 import { resolveLocale, t } from "../shared/i18n.js";
+import { sqliteUtcToIso } from "../shared/calendar-date.js";
 import { matchMajorBucket as matchMajorBucketFn } from "../activities/ec-vectorizer.js";
 import { renderFriendlyFactor, renderFriendlyTier } from "../activities/friendly-labels.js";
 import { exemplarsPromptBlock, randomExemplarGroup } from "../activities/crimson-ec-exemplars.js";
@@ -68,7 +69,9 @@ export function registerEcNarrativeRoutes(app, deps) {
         source: active.source,
         profile_fingerprint: active.profileFingerprint,
         profileStale,
-        created_at: active.createdAt,
+        // ISO-8601 UTC: the raw SQLite time read as local time in Chrome
+        // and as Invalid Date in Safari.
+        created_at: sqliteUtcToIso(active.createdAt),
       });
     } catch (err) {
       console.error("[EC narrative active] get error:", err.message);

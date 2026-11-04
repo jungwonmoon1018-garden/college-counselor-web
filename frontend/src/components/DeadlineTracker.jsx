@@ -1,24 +1,34 @@
 import { useEffect, useState } from "react";
 import { deadlines as deadlinesApi } from "../api.js";
 import { t } from "../i18n.js";
+import { daysUntilDue, dueSortKey, formatDueDate } from "../profile/dates.js";
+import { DEADLINE_CATEGORIES, DEADLINE_EARLIEST_DATE, DEADLINE_TITLE_MAX, latestDeadlineDate } from "../profile/deadline-limits.js";
 
 // ═══════════════════════════════════════════════════════════════════════
 // DeadlineTracker — list/add/patch/delete student deadlines. summary lives
 // on the GET response (overdue/dueIn7/dueIn30/friendlyMessage). Render the
-// server's friendlyMessage verbatim.
+// server's friendlyMessage verbatim. The server only started sending
+// `summary` in 2026-11; before that the chat-top chip read a field that
+// never arrived and never once rendered.
+//
+// A due date is a calendar date (profile/dates.js): it is sent as the
+// YYYY-MM-DD the date input gives, shown as that date in every time zone
+// and counted in local calendar days, so "Overdue" appears only once the
+// student's own due date has ended.
 // ═══════════════════════════════════════════════════════════════════════
 
-const STATUS_NEXT = { open: "done", done: "open", snoozed: "open" };
+// A snoozed row's main button marks it done; "Reopen" wakes it. The main
+// button used to send snoozed -> open while reading "Mark done".
+const STATUS_NEXT = { open: "done", done: "open", snoozed: "done" };
 
-// The server holds a deadline's name to 200 characters and its date to
-// 2000-01-01 through six years out (routes/students.js); the inputs say so
-// up front, and a refusal's friendlyMessage still shows below the form.
-const TITLE_MAX = 200;
-const EARLIEST_DUE = "2000-01-01";
-function latestDue() {
-  const d = new Date();
-  d.setUTCFullYear(d.getUTCFullYear() + 6);
-  return d.toISOString().slice(0, 10);
+// The server's categories, offered as a choice: free text outside these
+// used to be replaced with "personal" without a word. Their labels live in
+// i18n.js with the tracker's other strings; a stored category the app has
+// no label for is shown as stored.
+function categoryLabel(locale, category) {
+  const key = `deadlines.category.${category}`;
+  const label = t(locale, key);
+  return label === key ? category : label;
 }
 
 export default function DeadlineTracker({ locale = "en-US", compact = false, refreshKey = 0 }) {
@@ -50,7 +60,9 @@ export default function DeadlineTracker({ locale = "en-US", compact = false, ref
     try {
       await deadlinesApi.create({
         title: draft.title.trim(),
-        dueAt: new Date(draft.dueAt).toISOString(),
+        // The date input's own YYYY-MM-DD: toISOString() made it UTC
+        // midnight, the previous evening anywhere in the Americas.
+        dueAt: draft.dueAt,
         category: draft.category || undefined,
         notes: draft.notes || undefined,
       });
@@ -103,22 +115,11 @@ export default function DeadlineTracker({ locale = "en-US", compact = false, ref
     );
   }
 
-  function dayDelta(dueAt) {
-    const ms = new Date(dueAt).getTime() - Date.now();
-    return Math.round(ms / (1000 * 60 * 60 * 24));
-  }
-
-  function formatDue(dueAt) {
-    const d = new Date(dueAt);
-    if (Number.isNaN(d.getTime())) return "";
-    return d.toLocaleDateString(locale, { year: "numeric", month: "short", day: "numeric" });
-  }
-
   // Surface the most urgent first: overdue/soonest at the top, completed last.
   const sorted = [...list].sort((a, b) => {
     const aDone = a.status === "done", bDone = b.status === "done";
     if (aDone !== bDone) return aDone ? 1 : -1;
-    return new Date(a.dueAt || a.due_at).getTime() - new Date(b.dueAt || b.due_at).getTime();
+    return dueSortKey(a.dueAt || a.due_at) - dueSortKey(b.dueAt || b.due_at);
   });
 
   return (
@@ -148,25 +149,29 @@ export default function DeadlineTracker({ locale = "en-US", compact = false, ref
             onChange={(e) => setDraft((p) => ({ ...p, title: e.target.value }))}
             placeholder={t(locale, "deadlines.title_field")}
             aria-label={t(locale, "deadlines.title_field")}
-            maxLength={TITLE_MAX}
+            maxLength={DEADLINE_TITLE_MAX}
             style={inp}
           />
           <input
             type="date"
-            min={EARLIEST_DUE}
-            max={latestDue()}
+            min={DEADLINE_EARLIEST_DATE}
+            max={latestDeadlineDate()}
             value={draft.dueAt}
             onChange={(e) => setDraft((p) => ({ ...p, dueAt: e.target.value }))}
             aria-label={t(locale, "deadlines.title")}
             style={inp}
           />
-          <input
+          <select
             value={draft.category}
             onChange={(e) => setDraft((p) => ({ ...p, category: e.target.value }))}
-            placeholder={t(locale, "deadlines.category_field")}
             aria-label={t(locale, "deadlines.category_field")}
             style={inp}
-          />
+          >
+            <option value="">{t(locale, "deadlines.category_field")}</option>
+            {DEADLINE_CATEGORIES.map((c) => (
+              <option key={c} value={c}>{categoryLabel(locale, c)}</option>
+            ))}
+          </select>
           <input
             value={draft.notes}
             onChange={(e) => setDraft((p) => ({ ...p, notes: e.target.value }))}
@@ -199,10 +204,11 @@ export default function DeadlineTracker({ locale = "en-US", compact = false, ref
         </div>
       )}
       {sorted.map((d) => {
-        const days = dayDelta(d.dueAt || d.due_at);
-        const overdue = days < 0;
+        const days = daysUntilDue(d.dueAt || d.due_at);
+        const overdue = days != null && days < 0;
         const isDone = d.status === "done";
-        const dueLabel = formatDue(d.dueAt || d.due_at);
+        const isSnoozed = d.status === "snoozed";
+        const dueLabel = formatDueDate(d.dueAt || d.due_at, locale);
         return (
           <div key={d.id} style={{
             padding: "12px 14px", borderRadius: 10,
@@ -227,7 +233,7 @@ export default function DeadlineTracker({ locale = "en-US", compact = false, ref
             {(dueLabel || d.category) && (
               <div style={{ fontSize: 11, color: "#8a8a9a", marginTop: 4, display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {dueLabel && <span>{dueLabel}</span>}
-                {d.category && <span style={{ opacity: 0.7 }}>· {d.category}</span>}
+                {d.category && <span style={{ opacity: 0.7 }}>· {categoryLabel(locale, d.category)}</span>}
               </div>
             )}
             {d.notes && (
@@ -237,9 +243,14 @@ export default function DeadlineTracker({ locale = "en-US", compact = false, ref
               <button onClick={() => patch(d.id, { status: STATUS_NEXT[d.status || "open"] })} style={btn}>
                 {isDone ? t(locale, "deadlines.reopen") : t(locale, "deadlines.mark_done")}
               </button>
-              {!isDone && (
+              {!isDone && !isSnoozed && (
                 <button onClick={() => patch(d.id, { status: "snoozed" })} style={btn}>
                   {t(locale, "deadlines.snooze")}
+                </button>
+              )}
+              {isSnoozed && (
+                <button onClick={() => patch(d.id, { status: "open" })} style={btn}>
+                  {t(locale, "deadlines.reopen")}
                 </button>
               )}
               <div style={{ flex: 1 }} />

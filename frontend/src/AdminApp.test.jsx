@@ -100,5 +100,115 @@ describe("AdminApp", () => {
       "/api/admin/models/candidates",
       expect.objectContaining({ method:"POST", body:JSON.stringify({ modelId:"google/gemini-3.8-flash", status:"dismissed" }) }),
     ));
+    // Every tier works and the last sweep read its schools: no banner.
+    expect(screen.queryByText(/Requests on a tier below are failing/)).toBeNull();
+    expect(screen.queryByText(/admissions-policy sweep/)).toBeNull();
+  }, 20_000);
+
+  // A tier whose model was dropped from the allowlist, or that OpenRouter no
+  // longer lists, failed every student's request with nothing on this page
+  // to say why; a sweep or a catalog check that read nothing looked like a
+  // normal run two weeks from its next attempt.
+  it("names each tier whose model cannot be called, and says when a failed check or sweep retries", async () => {
+    const ok = (body) => ({ ok:true, json:async()=>body });
+    fetch.mockImplementation(async (path) => {
+      if (path === "/api/admin/status") return ok({ bootstrapped:true, webDeployment:true });
+      if (path === "/api/admin/login") return ok({ authenticated:true, csrfToken:"web-csrf" });
+      if (path === "/api/admin/secrets/status") return ok({ webDeployment:true, installationReady:true, encryption:{configured:true}, openrouter:{configured:true}, scorecard:{configured:true} });
+      if (path === "/api/admin/models") return ok({
+        models:{ small:"google/gemma-4-26b-a4b-it", medium:"google/gemini-4-flash", large:"openai/gpt-5.6-luna" },
+        options:[{ id:"google/gemma-4-26b-a4b-it", label:"Google Gemma 4 26B A4B", available:true }],
+        candidates:[],
+        tierStatus:{
+          small:{ model:"google/gemma-4-26b-a4b-it", status:"ok" },
+          medium:{ model:"google/gemini-4-flash", status:"not_in_allowlist" },
+          large:{ model:"openai/gpt-5.6-luna", status:"not_in_catalog" },
+        },
+        catalogScout:{ enabled:true, cadenceDays:14, due:false, nextRunAt:"2026-11-03T11:05:00.000Z", lastRun:{ trigger:"boot", outcome:"failed", finishedAt:"2026-11-03T10:05:00.000Z", catalogCount:0, eligible:0, added:0 } },
+      });
+      if (path === "/api/admin/policy-scout/status") return ok({
+        running:false, cadenceDays:14, nextRunAt:"2026-11-03T11:05:00.000Z", nextRunReason:"retry_after_failure",
+        lastAutomaticSweep:{ trigger:"boot", outcome:"failed", finishedAt:"2026-11-03T10:05:00.000Z", schoolsTotal:300, schoolsChecked:0, schoolsFailed:300 },
+      });
+      return { ok:false, json:async()=>({ error:"unexpected request" }) };
+    });
+
+    const user = userEvent.setup();
+    render(<AdminApp />);
+    await screen.findByRole("heading", { name:"Administrator sign in" });
+    await user.type(screen.getByLabelText("Password"), "correct horse battery staple");
+    await user.click(screen.getByRole("button", { name:"Sign in" }));
+
+    const banner = await screen.findByRole("alert");
+    expect(banner).toHaveTextContent("Requests on a tier below are failing. Choose another model for that tier and save.");
+    expect(banner).toHaveTextContent("Mid tier: google/gemini-4-flash is no longer on the allowed model list, so every request on this tier is refused.");
+    expect(banner).toHaveTextContent("High tier: OpenRouter no longer lists openai/gpt-5.6-luna.");
+    expect(banner).not.toHaveTextContent("Low tier");
+    expect(await screen.findByText(/The last admissions-policy sweep \(.*\) read none of its 300 schools \(300 failed\)\. It retries on its own: /)).toBeVisible();
+    expect(screen.getByText(/The last check could not read OpenRouter's live catalog\. It retries on its own: /)).toBeVisible();
+    expect(screen.queryByText(/every 14 days/)).toBeNull();
+  }, 20_000);
+
+  // ui-11: a time sent as SQLite's "YYYY-MM-DD HH:MM:SS" is UTC. new Date()
+  // read it as local time in Chrome (05:00 UTC showed as 05:00 in Seoul) and
+  // as Invalid Date in Safari. The expected text is computed from the UTC
+  // instant, so this holds in any time zone.
+  it("shows a scout time sent without a zone as the UTC instant it is", async () => {
+    const ok = (body) => ({ ok:true, json:async()=>body });
+    fetch.mockImplementation(async (path) => {
+      if (path === "/api/admin/status") return ok({ bootstrapped:true, webDeployment:true });
+      if (path === "/api/admin/login") return ok({ authenticated:true, csrfToken:"web-csrf" });
+      if (path === "/api/admin/secrets/status") return ok({ webDeployment:true, installationReady:true, encryption:{configured:true}, openrouter:{configured:true}, scorecard:{configured:true} });
+      if (path === "/api/admin/models") return ok({
+        models:{ small:"google/gemma-4-26b-a4b-it", medium:"google/gemma-4-26b-a4b-it", large:"google/gemma-4-26b-a4b-it" },
+        options:[{ id:"google/gemma-4-26b-a4b-it", label:"Google Gemma 4 26B A4B", available:true }],
+        candidates:[],
+      });
+      if (path === "/api/admin/policy-scout/status") return ok({
+        running:false, cadenceDays:14, nextRunAt:"2026-11-03 11:05:00", nextRunReason:"retry_after_failure",
+        lastAutomaticSweep:{ trigger:"boot", outcome:"failed", finishedAt:"2026-11-03 05:00:00", schoolsTotal:300, schoolsChecked:0, schoolsFailed:300 },
+      });
+      return { ok:false, json:async()=>({ error:"unexpected request" }) };
+    });
+
+    const user = userEvent.setup();
+    render(<AdminApp />);
+    await screen.findByRole("heading", { name:"Administrator sign in" });
+    await user.type(screen.getByLabelText("Password"), "correct horse battery staple");
+    await user.click(screen.getByRole("button", { name:"Sign in" }));
+
+    const finished = new Date("2026-11-03T05:00:00Z").toLocaleString();
+    const next = new Date("2026-11-03T11:05:00Z").toLocaleString();
+    const line = await screen.findByText(/The last admissions-policy sweep \(/);
+    expect(line.textContent).toContain(`(${finished})`);
+    expect(line.textContent).toContain(next);
+    expect(line.textContent).not.toMatch(/Invalid Date/);
+  }, 20_000);
+
+  // A cold start's 502 on the status request used to read as "no
+  // administrator yet" and show the create-administrator form (ui-12).
+  it("a failed status request offers a retry, never the create-administrator form", async () => {
+    let statusCalls = 0;
+    fetch.mockImplementation(async (path) => {
+      if (path === "/api/admin/status") {
+        statusCalls += 1;
+        return statusCalls === 1
+          ? { ok:false, status:502, json:async()=>({ error:"Bad gateway" }) }
+          : { ok:true, json:async()=>({ bootstrapped:true, webDeployment:true }) };
+      }
+      return { ok:false, json:async()=>({ error:"unexpected request" }) };
+    });
+
+    const user = userEvent.setup();
+    render(<AdminApp />);
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("The administrator status could not be loaded");
+    expect(screen.queryByRole("heading", { name:"Create administrator account" })).toBeNull();
+    expect(screen.queryByLabelText("Confirm password")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name:"Try again" }));
+    expect(await screen.findByRole("heading", { name:"Administrator sign in" })).toBeVisible();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(statusCalls).toBe(2);
   }, 20_000);
 });

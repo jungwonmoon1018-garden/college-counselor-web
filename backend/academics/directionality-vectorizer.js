@@ -3,6 +3,7 @@
 // recompute. Moved out of ec-vectorizer.js on 2026-09-20, which re-exports
 // them so its importers are unchanged.
 import { courseLevel } from "./course-rigor.js";
+import { chooseTestSitting } from "./test-sittings.js";
 import { matchMajorBucket, normalizeText, clamp01, round2, safeArray } from "../activities/vector-utils.js";
 
 // Student directionality vectorization
@@ -13,7 +14,7 @@ import { matchMajorBucket, normalizeText, clamp01, round2, safeArray } from "../
 //   3. major_academic_fit: AP/GPA alignment with intended major
 //   4. rigor_and_challenge: AP load vs GPA ratio
 //   5. overall_academic_standing: composite readiness
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??
+// ═══════════════════════════════════════════════════════════════════════
 export function initDirectionalityTable(db) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS student_directionality (
@@ -77,6 +78,16 @@ export function prepareDirectionalityStatements(db) {
         overall_academic_standing = excluded.overall_academic_standing,
         directionality_label = excluded.directionality_label,
         gpa_percentile_t20 = excluded.gpa_percentile_t20,
+        -- The record's own figures are refreshed with the scores: a cleared
+        -- SAT 1600 used to stay here and in /api/context/bundle, because
+        -- only the derived factors were updated on conflict.
+        gpa_unweighted = excluded.gpa_unweighted,
+        ap_count = excluded.ap_count,
+        sat_total = excluded.sat_total,
+        sat_percentile_t20 = excluded.sat_percentile_t20,
+        act_total = excluded.act_total,
+        act_percentile_t20 = excluded.act_percentile_t20,
+        major_interest = excluded.major_interest,
         reasoning_json = excluded.reasoning_json,
         updated_at = datetime('now')
     `),
@@ -143,9 +154,9 @@ export function vectorizeDirectionality({
     ? academics.apCourses
     : (academics.courses || []).filter((c) => courseLevel(c) === "ap");
 
-  // ??? Factor 1: Academic Momentum (GPA trend + position) ???
+  // ─── Factor 1: Academic Momentum (GPA trend + position) ───
   // Momentum = GPA position + trend adjustment. Trend adjustment applies
-  // regardless of whether baseline tables are available ??a decline of
+  // regardless of whether baseline tables are available — a decline of
   // several tenths of a point is a real signal even in the absence of
   // percentile data.
   let momentum = 0.5; // neutral default
@@ -178,14 +189,16 @@ export function vectorizeDirectionality({
   factors.academic_momentum = round2(clamp01(momentum));
   reasoning.push(`Academic momentum: ${factors.academic_momentum} (GPA ${gpaUw.toFixed(2)}${priorSnapshot ? `, trend: ${trendDirection || 'unknown'}` : ''})`);
 
-  // ??? Factor 2: Test Score Strength (SAT/ACT vs T20) ???
+  // ─── Factor 2: Test Score Strength (SAT/ACT vs T20) ───
   let testStrength = 0.5; // neutral if no test yet
   let satPercentile = null;
   let actPercentile = null;
   let satScore = null;
   let actScore = null;
 
-  const satEntry = testScores.find(t => t.test === "sat");
+  // The best sitting, as College Fit reads it (academics/test-sittings.js);
+  // the first entry was the oldest score, so a retaker kept her first SAT.
+  const satEntry = chooseTestSitting(testScores, "sat", { mode: "best" });
   if (satEntry) {
     satScore = satEntry.totalScore;
     // Simple percentile: SAT ranges 400-1600; T20 is roughly 1450-1570
@@ -198,7 +211,7 @@ export function vectorizeDirectionality({
     testStrength = satPercentile;
   }
 
-  const actEntry = testScores.find(t => t.test === "act");
+  const actEntry = chooseTestSitting(testScores, "act", { mode: "best" });
   if (actEntry) {
     actScore = actEntry.totalScore;
     // ACT ranges 1-36; T20 is roughly 33-35
@@ -217,7 +230,7 @@ export function vectorizeDirectionality({
   metrics.actPercentileT20 = actPercentile;
   reasoning.push(`Test score strength: ${factors.test_score_strength}${satScore ? ` (SAT ${satScore})` : ''}${actScore ? ` (ACT ${actScore})` : ''}${!satScore && !actScore ? ' (no tests yet)' : ''}`);
 
-  // ??? Factor 3: Major-Academic Fit (AP/GPA alignment with major) ???
+  // ─── Factor 3: Major-Academic Fit (AP/GPA alignment with major) ───
   let majorFit = 0.5; // neutral default
   if (majorInterest) {
     const majorBucket = matchMajorBucket(majorInterest);
@@ -262,7 +275,7 @@ export function vectorizeDirectionality({
   metrics.majorInterest = majorInterest;
   reasoning.push(`Major-academic fit: ${factors.major_academic_fit}${majorInterest ? ` (${majorInterest})` : ''}`);
 
-  // ??? Factor 4: Rigor and Challenge (AP load vs GPA) ???
+  // ─── Factor 4: Rigor and Challenge (AP load vs GPA) ───
   let rigor = 0.2; // default for 0 APs
   const apCount = apCourses.length;
   if (apCount >= 6 && gpaUw >= 3.7) rigor = 1.0; // managing lots of rigor well
@@ -279,7 +292,7 @@ export function vectorizeDirectionality({
   metrics.apCount = apCount;
   reasoning.push(`Rigor & challenge: ${factors.rigor_and_challenge} (${apCount} APs, GPA ${gpaUw.toFixed(2)})`);
 
-  // ??? Factor 5: Overall Academic Standing (composite) ???
+  // ─── Factor 5: Overall Academic Standing (composite) ───
   // Weighted composite of GPA, AP count, and test score
   const gpaComponent = clamp01(gpaUw / 4.0); // 0-1 normalized GPA
   const apComponent = clamp01(apCount / 8); // 8 APs is typical for T20

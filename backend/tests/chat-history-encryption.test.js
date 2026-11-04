@@ -67,3 +67,77 @@ test("chat titles, messages, and attachment names are encrypted at rest", () => 
 test("chat encryption rejects malformed keys", () => {
   assert.throws(() => configureChatEncryption("not-a-key"), /32-byte hex/);
 });
+
+// ─── store-8: a long thread reopens at its newest messages ───────────────
+test("a thread past 500 messages reopens at its newest 500, oldest first, and says earlier ones are hidden", async () => {
+  configureChatEncryption("ab".repeat(32));
+  const { initRAGTables, prepareRAGStatements } = await import("../storage/rag-engine.js");
+  const db = new Database(":memory:");
+  initRAGTables(db);
+  const stmts = prepareRAGStatements(db);
+  const long = createThread(stmts, "student-1", "Main thread");
+  for (let i = 0; i < 520; i += 1) appendMessage(stmts, "student-1", long.id, i % 2 ? "assistant" : "user", `turn ${i}`);
+  const reopened = getThreadWithMessages(stmts, "student-1", long.id);
+  assert.equal(reopened.messages.length, 500);
+  assert.equal(reopened.messages[0].content, "turn 20");
+  assert.equal(reopened.messages.at(-1).content, "turn 519");
+  assert.ok(reopened.messages.every((m, i, all) => i === 0 || all[i - 1].id < m.id));
+  assert.equal(reopened.truncated, true);
+  assert.equal(reopened.olderCount, 20);
+
+  const short = createThread(stmts, "student-1", "Short");
+  for (let i = 0; i < 10; i += 1) appendMessage(stmts, "student-1", short.id, "user", `short ${i}`);
+  const small = getThreadWithMessages(stmts, "student-1", short.id);
+  assert.equal(small.messages.length, 10);
+  assert.equal(small.messages[0].content, "short 0");
+  assert.equal(small.truncated, false);
+  assert.equal(small.olderCount, 0);
+  db.close();
+});
+
+// ─── store-2: the export opens what is sealed ───────────────────────────
+test("collectStudentRows with openText returns every sealed column as plaintext; without it the rows stay sealed", async () => {
+  configureChatEncryption("ab".repeat(32));
+  const { initRAGTables, prepareRAGStatements } = await import("../storage/rag-engine.js");
+  const { ensureChatGraphTables, prepareChatGraphStatements, indexTurn } = await import("../chat/chat-graph.js");
+  const { harvestEvidence } = await import("../activities/ec-chat-evidence.js");
+  const { collectStudentRows } = await import("../server/student-data.js");
+  const { SEALED_COLUMNS, openText, sealText } = await import("../chat/chat-history.js");
+  const db = new Database(":memory:");
+  initRAGTables(db);
+  ensureChatGraphTables(db);
+  const stmts = prepareRAGStatements(db);
+  const graph = prepareChatGraphStatements(db);
+  const thread = createThread(stmts, "student-1", "New conversation");
+  appendMessage(stmts, "student-1", thread.id, "user", "Should I apply ED to Columbia or Cornell?", "award.txt", "[Attached files]\nFILE BODY\n[End]\nShould I apply ED to Columbia or Cornell?");
+  appendMessage(stmts, "student-1", thread.id, "assistant", "Early decision is binding, so apply ED only to the school you would attend if admitted. Compare the net price calculators for Columbia and Cornell before you commit.");
+  const userMessage = db.prepare("SELECT id FROM chat_messages WHERE role = 'user'").get();
+  indexTurn(graph, {
+    studentId: "student-1", threadId: thread.id, messageId: userMessage.id,
+    question: "Should I apply ED to Columbia or Cornell?",
+    answer: "Early decision is binding, so apply ED only to the school you would attend if admitted. Compare the net price calculators for Columbia and Cornell before you commit.",
+  });
+  harvestEvidence(stmts.strength, "student-1", [{ name: "robotics-award.txt", text: "Robotics Club regional award certificate for the student" }], {
+    activities: [{ name: "Robotics Club" }], messageText: "my Robotics Club award", seal: sealText, threadId: thread.id, messageId: userMessage.id,
+  });
+
+  const opened = collectStudentRows(db, "student-1", { open: openText });
+  const sealedRaw = collectStudentRows(db, "student-1");
+  const messages = db.prepare("SELECT * FROM chat_messages").all();
+  const walk = (value, out = []) => {
+    if (typeof value === "string") out.push(value);
+    else if (value && typeof value === "object") for (const v of Object.values(value)) walk(v, out);
+    return out;
+  };
+  assert.equal(walk(opened).some((s) => s.startsWith("enc:v1:")), false);
+  assert.equal(opened.chat_threads[0].title, "Should I apply ED to Columbia or Cornell?");
+  assert.match(opened.chat_graph_facts[0].question, /Columbia or Cornell/);
+  assert.match(opened.ec_attachments[0].extracted_text, /regional award/);
+  assert.match(sealedRaw.chat_threads[0].title, /^enc:v1:/);
+  assert.match(sealedRaw.chat_graph_facts[0].advice, /^enc:v1:/);
+  assert.match(messages[0].content, /^enc:v1:/);
+  for (const table of Object.keys(SEALED_COLUMNS)) {
+    assert.ok(db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(table), `${table} exists`);
+  }
+  db.close();
+});

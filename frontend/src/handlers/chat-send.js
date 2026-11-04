@@ -2,18 +2,20 @@
 // crisis lexicon, orchestrator, persistence), choosing files, opening a
 // thread and persisting a turn. App() keeps each hook and its dependency array and calls these with the
 // render's bindings as `ctx`. Moved out of App.jsx on 2026-09-20.
-import { rateLimiter } from "../chat/chat-client.js";
+import { rateLimiter, withCallTimeout } from "../chat/chat-client.js";
+import { clientTimeoutError, formatChatError, isAbortError } from "../chat/chat-errors.js";
 import { sanitizeFilename, MAX_CHAT_FILES, MAX_CHAT_TOTAL_BYTES, readChatFile } from "../chat/chat-files.js";
 import { buildCalendarPreamble, buildMemoryPreamble, orchestrate, rememberExchange } from "../chat/chat-orchestrator.js";
 import { looksLikeTranscript } from "../profile/transcript-utils.js";
 import { filedChatDocuments, mergeDocuments } from "../chat/chat-documents.js";
-import { reconcileCouncilFailureMessages } from "../profile/strategy-council.js";
+import { COUNCIL_CLIENT_TIMEOUT_MS, councilTimeoutMessage, reconcileCouncilFailureMessages } from "../profile/strategy-council.js";
+import { crisisResponseText, crisisTurnResult, isCrisisStatement, isCrisisTopicMention, withResourceFooter } from "../chat/crisis-lexicon.js";
 
 // ─── SEND MESSAGE ───
 export async function send(ctx) {
   const {
     abortRef, activeThreadId, authedFetch, calendarCtx, chatFiles, chatTextareaRef,
-    conveneStrategyCouncil, councilDecisionType, councilTurnSequenceRef, data, formatUserFacingError, input,
+    conveneStrategyCouncil, councilDecisionType, councilTurnSequenceRef, data, input,
     inputRef, loading, locale, messages, newThread, pendingFile,
     persistTurn, refreshBudget, refreshThreadList, setAgentStatus, setChatFiles, setChatFilesExpanded,
     setCouncilDecisionType, setData, setInput, setLoading, setMessages, setPendingFile,
@@ -21,7 +23,14 @@ export async function send(ctx) {
   } = ctx;
   if ((!input.trim() && !pendingFile && chatFiles.length === 0) || loading) return;
   const councilTypeForTurn = councilDecisionType;
-  if (councilTypeForTurn && (pendingFile || chatFiles.length > 0)) {
+  // Crisis first: a safety statement skips the Council's attachment and
+  // length rules and the burst guard below, which all used to return before
+  // the lexicon ran, so a long Council message or a fourth send in ten
+  // seconds that said "I want to kill myself" got a limit note and no
+  // hotline. It goes on to the Council crisis branch or orchestrate(), which
+  // answer it without a model call.
+  const crisisNow = isCrisisStatement(input);
+  if (!crisisNow && councilTypeForTurn && (pendingFile || chatFiles.length > 0)) {
     setMessages((prev) => [...prev, {
       role: "assistant",
       content: locale === "ko"
@@ -30,7 +39,7 @@ export async function send(ctx) {
     }]);
     return;
   }
-  if (councilTypeForTurn && input.trim().length > 2000) {
+  if (!crisisNow && councilTypeForTurn && input.trim().length > 2000) {
     setMessages((prev) => [...prev, {
       role: "assistant",
       content: locale === "ko"
@@ -42,14 +51,17 @@ export async function send(ctx) {
 
   // Burst guard only (3 requests / 10s). Catches stuck-button
   // double-fires; not a per-minute cost cap.
-  if (!rateLimiter.check()) {
+  if (!crisisNow && !rateLimiter.check()) {
     setMessages(prev => [...prev, { role:"assistant", content:"Three messages in 10 seconds — give it a beat. (This is just a burst guard against accidental double-clicks; there's no per-minute cap.)" }]);
     return;
   }
   if (councilTypeForTurn) setCouncilDecisionType(null);
-  const councilClientTurnId = councilTypeForTurn
+  // Every turn's bubble carries an id, so a failed turn can take its bubble
+  // back out (reconcileCouncilFailureMessages) when the question returns to
+  // the composer.
+  const clientTurnId = councilTypeForTurn
     ? `council-turn-${++councilTurnSequenceRef.current}`
-    : null;
+    : `chat-turn-${++councilTurnSequenceRef.current}`;
 
   // ─── Chat-file marshalling ───
   // Text files: serialize all of them into a fenced context block
@@ -60,6 +72,11 @@ export async function send(ctx) {
   const textChatFiles = chatFiles.filter(f => f.kind === "text");
   const binaryChatFiles = chatFiles.filter(f => f.kind === "binary");
   const baseMsg = input.trim();
+  // A question that names suicide, self-harm or overdose as a topic keeps the
+  // 988 / 741741 footer however the turn ends. orchestrate() puts it on an
+  // answer; a spent budget, a withdrawn consent, an outage, a redirect or a
+  // try-again upload used to show its note with no line at all.
+  const topicLines = isCrisisTopicMention(baseMsg);
   let filePreface = "";
   if (textChatFiles.length > 0) {
     const lines = [
@@ -92,6 +109,23 @@ export async function send(ctx) {
   const attachment = pendingFile || promotedBinary;
   const msg = (filePreface + baseMsg).trim() || (attachment ? `Please analyze this file: ${sanitizeFilename(attachment.name)}` : "");
   const requestData = data; // FIX P2: Do NOT mutate data with file metadata yet — wait for safety screening
+  // The composer is cleared while the turn runs and put back if it fails.
+  // It used to be cleared for good: after a timeout, a 429 or a used-up
+  // budget the student retyped the question and picked every file again,
+  // and only the Council path gave the text back. The snapshot is the
+  // values of this render, not React state read later. A Council question
+  // gets its Council mode back too: without it, "try again" sent the
+  // question through ordinary chat and spent the budget on a turn with no
+  // recommendation.
+  const draft = { input, pendingFile, chatFiles };
+  const restoreDraft = ({ files = true } = {}) => {
+    setInput(draft.input);
+    if (councilTypeForTurn) setCouncilDecisionType(councilTypeForTurn);
+    if (files) {
+      setPendingFile(draft.pendingFile);
+      setChatFiles(draft.chatFiles);
+    }
+  };
   setInput("");
   setPendingFile(null);
   setChatFiles([]);
@@ -115,7 +149,7 @@ export async function send(ctx) {
     attachment: allAttachmentsForBubble.length === 1
       ? allAttachmentsForBubble[0]
       : (allAttachmentsForBubble.length > 1 ? { name: `${allAttachmentsForBubble.length} files`, list: allAttachmentsForBubble.map(a => a.name) } : null),
-    ...(councilClientTurnId ? { clientTurnId: councilClientTurnId } : {}),
+    clientTurnId,
   }]);
   setLoading(true);
   abortRef.current = new AbortController();
@@ -158,13 +192,37 @@ export async function send(ctx) {
     const modelMsg = contextAppendix
       ? `${msg}\n\n[Context appendix — reference data for the assistant; not part of the student's question]\n${contextAppendix}\n[End context appendix]`
       : msg;
+    // A Council question runs the client lexicon first, as an ordinary chat
+    // turn does; the Council route's own check stays as the backstop. The
+    // UI locale goes to every /api/chat call of the turn, so the server's
+    // crisis reply, footnotes and refusals come back in the student's
+    // language (every call used to say en-US).
+    // The Council call gets its own deadline: four seats in series can hold
+    // a stalled provider for many minutes, and there was no timeout and no
+    // Cancel. The deadline aborts as a TimeoutError, never as the student's
+    // Cancel.
     const result = councilTypeForTurn
-      ? await conveneStrategyCouncil(baseMsg, councilTypeForTurn, abortRef.current.signal)
-      : await orchestrate(modelMsg, requestData, setData, setAgentStatus, abortRef.current.signal, attachment || null, messages);
+      ? (isCrisisStatement(baseMsg)
+        ? { ...crisisTurnResult(crisisResponseText(locale), locale), council: false }
+        : await conveneStrategyCouncil(baseMsg, councilTypeForTurn, withCallTimeout(abortRef.current.signal, COUNCIL_CLIENT_TIMEOUT_MS, () => clientTimeoutError("The Strategy Council took too long"))))
+      : await orchestrate(modelMsg, requestData, setData, setAgentStatus, abortRef.current.signal, attachment || null, messages, { locale });
+    // A file the screen could not reach a verdict on is a try-again: the
+    // turn is undone like a failed one and the files go back.
+    if (result?.uploadTransient) {
+      restoreDraft();
+      setMessages((prev) => reconcileCouncilFailureMessages(prev, clientTurnId, withResourceFooter(result.text, topicLines, locale)));
+      return;
+    }
     if (!threadIdForTurn && councilTypeForTurn) {
       threadIdForTurn = await newThread(undefined, true);
     }
-    setMessages(prev => [...prev, { role:"assistant", content:result.text }]);
+    // A blocked turn (a policy block, an essay or off-topic redirect, an
+    // unsafe file) shows its reply and puts the question back to be edited;
+    // a file refused as unsafe does not come back. A crisis reply never
+    // puts anything back.
+    if (result?.blocked && !result.crisisSafe) restoreDraft({ files: !result.uploadRejected });
+    const replyText = result?.crisisSafe ? result.text : withResourceFooter(result?.text, topicLines, locale);
+    setMessages(prev => [...prev, { role:"assistant", content:replyText }]);
     // An attached transcript can go straight into the profile — offer the
     // deterministic import so grades come from the document, not the model.
     if (!result.blocked && !result.uploadRejected) {
@@ -179,8 +237,8 @@ export async function send(ctx) {
     if (threadIdForTurn && !result.blocked && !result.uploadRejected) {
       await persistTurn(threadIdForTurn, "user", persistedContent, attachLabel, msg);
     }
-    if (threadIdForTurn && result?.text) {
-      await persistTurn(threadIdForTurn, "assistant", result.text);
+    if (threadIdForTurn && replyText) {
+      await persistTurn(threadIdForTurn, "assistant", replyText);
     }
     // ── Counselor memory capture ──
     // Cache the substantive part of this exchange in the encrypted vault,
@@ -232,23 +290,32 @@ export async function send(ctx) {
       if (filed.length) setData(prev => ({ ...prev, documents: mergeDocuments(prev.documents, filed) }));
     }
   } catch (err) {
-    // FIX P2: On cancel/error, no file metadata is saved
-    const text = err.name === "AbortError"
-      ? "Cancelled. You can send a new question whenever you're ready."
-      : err.blocked && err.message
+    // FIX P2: On cancel/error, no file metadata is saved.
+    // A failed or cancelled turn is undone, chat and Council alike: the
+    // question and its files go back into the composer, the bubble comes
+    // out, and the error shows as a transient note that is neither saved to
+    // the thread nor replayed to the model as history. The ordinary path used
+    // to save the error alone, so a reopened thread showed "Something went
+    // wrong" under no question and the next turn sent it to the model as its
+    // own earlier answer.
+    const ko = locale === "ko";
+    const note = isAbortError(err)
+      ? (ko ? "취소했어요. 질문은 입력창에 다시 넣어 두었어요." : "Cancelled. Your question is back in the message box.")
+      : err?.blocked && err.message
         ? err.message
-        : formatUserFacingError(err);
-    if (councilTypeForTurn) {
-      setInput(baseMsg);
-      setMessages((prev) => reconcileCouncilFailureMessages(prev, councilClientTurnId, text));
-    } else {
-      setMessages(prev => [...prev, { role:"assistant", content: text }]);
-      if (threadIdForTurn) await persistTurn(threadIdForTurn, "assistant", text);
-    }
+        : councilTypeForTurn && err?.code === "client_timeout"
+          ? councilTimeoutMessage(locale)
+          : councilTypeForTurn && err?.status && err.message
+            ? err.message // councilErrorMessage, already in the student's language
+            : formatChatError(err, locale);
+    const text = withResourceFooter(note, topicLines, locale);
+    restoreDraft();
+    setMessages((prev) => reconcileCouncilFailureMessages(prev, clientTurnId, text));
+  } finally {
+    setLoading(false);
+    setAgentStatus({ active:null, phase:"" });
+    setTimeout(() => (chatTextareaRef.current||inputRef.current)?.focus(), 100);
   }
-  setLoading(false);
-  setAgentStatus({ active:null, phase:"" });
-  setTimeout(() => (chatTextareaRef.current||inputRef.current)?.focus(), 100);
 }
 
 // ─── MULTI-FILE / FOLDER CHAT ATTACHMENTS ───
@@ -317,7 +384,7 @@ export async function handleChatFilesSelect(ctx, e) {
 // Switch to a thread — pulls its messages from the server.
 export async function openThread(ctx, threadId) {
   const {
-    authedFetch, refreshThreadList, setActiveThreadId, setMessages,
+    authedFetch, locale, refreshThreadList, setActiveThreadId, setMessages,
   } = ctx;
   if (!threadId) return;
   try {
@@ -325,14 +392,20 @@ export async function openThread(ctx, threadId) {
     if (!r.ok) return;
     const data = await r.json();
     setActiveThreadId(threadId);
-    setMessages((data.messages || []).map(m => ({
+    // A long thread comes back with only its newest messages (truncated,
+    // olderCount). Without a line saying so, the reopened history looked
+    // complete and began mid-conversation.
+    const notice = data.truncated
+      ? [{ role: "notice", transient: true, content: olderMessagesNotice(data.olderCount, locale) }]
+      : [];
+    setMessages([...notice, ...(data.messages || []).map(m => ({
       role: m.role,
       content: m.content,
       // Restore the model-facing copy (file-attachment context) so
       // follow-up turns in a reopened thread still see uploaded files.
       ...(m.model_content ? { modelContent: m.model_content } : {}),
       attachment: m.attachment_name ? { name: m.attachment_name } : null,
-    })));
+    }))]);
     // Lazy auto-name: conversations that predate the auto-naming feature
     // (or whose first naming attempt failed) still carry the placeholder
     // title or the raw first-line truncation. Rename them the first time
@@ -348,6 +421,17 @@ export async function openThread(ctx, threadId) {
         .catch(() => {});
     }
   } catch (err) { console.warn("[CHAT] openThread failed:", err?.message); }
+}
+
+export function olderMessagesNotice(olderCount, locale = "en-US") {
+  const n = Number(olderCount);
+  const counted = Number.isFinite(n) && n > 0;
+  if (locale === "ko") {
+    return counted ? `이전 메시지 ${n}개는 여기에 표시되지 않아요.` : "이전 메시지는 여기에 표시되지 않아요.";
+  }
+  return counted
+    ? `Earlier messages are not shown (${n} older message${n === 1 ? "" : "s"}).`
+    : "Earlier messages are not shown.";
 }
 
 // Append a turn to the active thread (no-op if no thread).

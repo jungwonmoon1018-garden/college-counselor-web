@@ -10,8 +10,11 @@ import {
   dynamicAllowedModelIds,
   setModelCandidateStatus,
   lastModelCatalogRun,
+  modelTierStatus,
+  tierStatusProblems,
   MODEL_SCOUT_VERSION,
 } from "../scouts/model-catalog-scout.js";
+import { scoutRunDue } from "../scouts/scout-cadence.js";
 import { registerDynamicOpenRouterModels, isAllowedOpenRouterModel, listKnownModels } from "../llm-adapters/index.js";
 
 const model = (id, { input = 0.2, output = 0.6, context = 128_000, free = false, modalities = { input: ["text"], output: ["text"] }, createdAt = "2026-08-01T00:00:00.000Z" } = {}) => ({
@@ -154,4 +157,110 @@ test("runs record the rule version; rows from before versioning read back as ver
   assert.equal(latest.scoutVersion, MODEL_SCOUT_VERSION);
   assert.equal(latest.pruned, 0);
   db.close();
+});
+
+// A model the counselor picked when it was new turned one year old while
+// OpenRouter still served it; the next run pruned its row, the allowlist
+// dropped it, and every call on that tier failed with model_not_allowed.
+test("a model a tier uses is never aged out or pruned while the live catalog lists it", () => {
+  const db = new Database(":memory:");
+  initModelCatalogScout(db);
+  const stmts = prepareModelCatalogStatements(db);
+  const picked = model("google/gemini-4-flash", { input: 0.3, output: 1.2, createdAt: "2026-11-10T00:00:00.000Z" });
+  const other = model("qwen/qwen4-flash", { input: 0.1, output: 0.3, createdAt: "2026-11-10T00:00:00.000Z" });
+  const catalog = { models: [picked, other], byId: new Map(), reachable: true };
+  runModelCatalogScout({ catalog, stmts, trigger: "boot", now: new Date("2026-11-20T00:00:00Z") });
+  assert.deepEqual(dynamicAllowedModelIds(stmts).sort(), ["google/gemini-4-flash", "qwen/qwen4-flash"]);
+
+  // A year and two weeks later both are past the age cap. The one a tier
+  // uses stays listed and allowed; the unused one is pruned as before.
+  const later = new Date("2027-11-24T00:00:00Z");
+  const run = runModelCatalogScout({ catalog, stmts, inUseIds: ["google/gemini-4-flash", "deepseek/deepseek-v4-flash-0731"], trigger: "scheduled", now: later });
+  assert.equal(run.pruned, 1);
+  assert.deepEqual(dynamicAllowedModelIds(stmts), ["google/gemini-4-flash"]);
+  assert.deepEqual(run.inUseKept, [{ id: "google/gemini-4-flash", reasons: ["older_than_a_year"] }]);
+  assert.equal(stmts.get.get("google/gemini-4-flash").last_seen, later.toISOString(), "the row is refreshed from the live catalog");
+  registerDynamicOpenRouterModels(dynamicAllowedModelIds(stmts));
+  assert.equal(isAllowedOpenRouterModel("google/gemini-4-flash"), true);
+  assert.equal(isAllowedOpenRouterModel("qwen/qwen4-flash"), false);
+  registerDynamicOpenRouterModels([]);
+
+  // Without inUseIds the age cap applies to it like any other row.
+  const dayAfter = new Date(later.getTime() + 24 * 60 * 60 * 1000);
+  const unused = runModelCatalogScout({ catalog, stmts, trigger: "scheduled", now: dayAfter });
+  assert.equal(unused.pruned, 1);
+  assert.deepEqual(dynamicAllowedModelIds(stmts), []);
+
+  // A pick the age cap already pruned comes back while a tier uses it.
+  const recovered = runModelCatalogScout({ catalog, stmts, inUseIds: ["google/gemini-4-flash"], trigger: "scheduled", now: dayAfter });
+  assert.deepEqual(recovered.added.map((a) => a.id), ["google/gemini-4-flash"]);
+  assert.deepEqual(dynamicAllowedModelIds(stmts), ["google/gemini-4-flash"]);
+  db.close();
+});
+
+test("a model a tier uses that OpenRouter stopped listing is kept and reported, not silently dropped", () => {
+  const db = new Database(":memory:");
+  initModelCatalogScout(db);
+  const stmts = prepareModelCatalogStatements(db);
+  const picked = model("google/gemini-4-flash", { input: 0.3, output: 1.2 });
+  const stays = model("qwen/qwen4-flash", { input: 0.1, output: 0.3 });
+  runModelCatalogScout({ catalog: { models: [picked, stays], byId: new Map(), reachable: true }, stmts, trigger: "boot", now: NOW });
+  const run = runModelCatalogScout({ catalog: { models: [stays], byId: new Map(), reachable: true }, stmts, inUseIds: ["google/gemini-4-flash"], trigger: "scheduled", now: new Date(NOW.getTime() + 14 * 24 * 60 * 60 * 1000) });
+  assert.equal(run.pruned, 0);
+  assert.deepEqual(run.inUseKept, [{ id: "google/gemini-4-flash", reasons: ["not_in_catalog"] }]);
+  assert.ok(dynamicAllowedModelIds(stmts).includes("google/gemini-4-flash"));
+  assert.deepEqual(lastModelCatalogRun(stmts).inUseKept, run.inUseKept);
+  // The same row unused is pruned.
+  const unused = runModelCatalogScout({ catalog: { models: [stays], byId: new Map(), reachable: true }, stmts, trigger: "scheduled", now: new Date(NOW.getTime() + 28 * 24 * 60 * 60 * 1000) });
+  assert.equal(unused.pruned, 1);
+  db.close();
+});
+
+test("a check with no live catalog is recorded as failed and retried within the hour, not a fortnight later", () => {
+  const db = new Database(":memory:");
+  initModelCatalogScout(db);
+  const stmts = prepareModelCatalogStatements(db);
+  const cadenceMs = 14 * 24 * 60 * 60 * 1000;
+  const good = runModelCatalogScout({ catalog: { models: [model("qwen/qwen4-flash")], byId: new Map(), reachable: true }, stmts, trigger: "boot", now: NOW });
+  assert.equal(good.outcome, "completed");
+  assert.equal(lastModelCatalogRun(stmts).outcome, "completed");
+
+  const empty = runModelCatalogScout({ catalog: { models: [], byId: new Map(), reachable: false }, stmts, trigger: "scheduled", now: new Date(NOW.getTime() + cadenceMs) });
+  assert.equal(empty.outcome, "failed");
+  const last = lastModelCatalogRun(stmts);
+  assert.equal(last.outcome, "failed");
+  assert.equal(last.failedStreak, 1);
+  const finished = Date.parse(last.finishedAt);
+  assert.equal(scoutRunDue({ lastRun: last, cadenceMs, now: finished + 30 * 60 * 1000 }).due, false);
+  assert.equal(scoutRunDue({ lastRun: last, cadenceMs, now: finished + 61 * 60 * 1000 }).reason, "previous_run_failed");
+
+  // A last-known catalog from the disk (OpenRouter unreachable) still feeds
+  // the picker but does not count as the check: the streak grows.
+  const cached = runModelCatalogScout({ catalog: { models: [model("qwen/qwen4-flash")], byId: new Map(), reachable: false }, stmts, trigger: "scheduled", now: new Date(NOW.getTime() + cadenceMs + 3600_000) });
+  assert.equal(cached.outcome, "failed");
+  assert.equal(lastModelCatalogRun(stmts).failedStreak, 2);
+  db.close();
+});
+
+test("each tier's status says why a call on it would be refused", () => {
+  const live = model("google/gemini-4-flash", { input: 0.3, output: 1.2 });
+  const catalog = { byId: new Map([[live.id, live], ["deepseek/deepseek-v4-flash-0731", model("deepseek/deepseek-v4-flash-0731")], ["openai/gpt-5.6-luna", model("openai/gpt-5.6-luna")]]) };
+  const allowed = new Set(["google/gemini-4-flash", "deepseek/deepseek-v4-flash-0731"]);
+  const priced = new Set(["google/gemini-4-flash"]);
+  const status = modelTierStatus({
+    targets: { small: "google/gemini-4-flash", medium: "deepseek/deepseek-v4-flash-0731", large: "openai/gpt-5.6-luna" },
+    catalog,
+    isAllowed: (id) => allowed.has(id),
+    pricingLookup: (id) => (priced.has(id) ? { input: 1, output: 1 } : null),
+  });
+  assert.deepEqual(status, {
+    small: { model: "google/gemini-4-flash", status: "ok" },
+    medium: { model: "deepseek/deepseek-v4-flash-0731", status: "no_price" },
+    large: { model: "openai/gpt-5.6-luna", status: "not_in_allowlist" },
+  });
+  const retired = modelTierStatus({ targets: { small: "google/gone-model", medium: "google/gemini-4-flash", large: "google/gemini-4-flash" }, catalog, isAllowed: () => true, pricingLookup: () => ({}) });
+  assert.equal(retired.small.status, "not_in_catalog");
+  assert.deepEqual(tierStatusProblems(retired), [{ tier: "small", model: "google/gone-model", status: "not_in_catalog" }]);
+  // Before the catalog has loaded nothing is "not in the catalog".
+  assert.equal(modelTierStatus({ targets: { small: "google/gone-model" }, catalog: { byId: new Map() }, isAllowed: () => true, pricingLookup: () => ({}) }).small.status, "ok");
 });

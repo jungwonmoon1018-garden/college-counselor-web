@@ -15,6 +15,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { matchMajorBucket, LEXICON } from "../activities/ec-vectorizer.js";
+import { matchMajorBucketStrict } from "../activities/vector-utils.js";
 import { readServerSource } from "./helpers/server-source.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -47,6 +48,48 @@ test("existing major buckets still route correctly (no regression)", () => {
   assert.equal(matchMajorBucket("biology"), "biology");
   assert.equal(matchMajorBucket("chemistry"), "chemistry");
   assert.equal(matchMajorBucket("mathematics"), "mathematics");
+});
+
+// College Fit reads the strict matcher: a blank, undecided or unknown major
+// is no bucket, where the default read every such student as a computer
+// science applicant (2026-11-03). The activity and narrative readers keep
+// the old default.
+test("the strict matcher returns no bucket for no major, and Korean and added majors resolve", () => {
+  for (const blank of [null, undefined, "", "   ", "Undecided", "not sure yet", "미정"]) {
+    assert.equal(matchMajorBucketStrict(blank), null, JSON.stringify(blank));
+  }
+  assert.equal(matchMajorBucket(""), "computer_science", "the legacy callers keep their default");
+  assert.equal(matchMajorBucket("Undecided"), "computer_science");
+  const expected = {
+    Nursing: "nursing",
+    "Pre-law": "pre_law",
+    Communications: "communications",
+    Sociology: "sociology",
+    컴퓨터공학: "computer_science",
+    소프트웨어: "computer_science",
+    경영학: "business",
+    경제학: "economics",
+    간호학: "nursing",
+    의예과: "biology",
+    약학: "biology",
+    기계공학: "engineering",
+    전자공학: "engineering",
+    수학: "mathematics",
+    물리학: "physics",
+    화학: "chemistry",
+    심리학: "psychology",
+    국제관계: "international_relations",
+    정치외교학: "international_relations",
+    법학: "pre_law",
+    사회학: "sociology",
+  };
+  for (const [major, bucket] of Object.entries(expected)) {
+    assert.equal(matchMajorBucketStrict(major), bucket, major);
+    assert.equal(matchMajorBucket(major), bucket, `${major} (legacy)`);
+  }
+  // "ir" is a word, not the end of "chair" or "their".
+  assert.equal(matchMajorBucketStrict("chair of the board"), null);
+  assert.equal(matchMajorBucketStrict("IR and economics"), "economics", "economics outranks IR by order, as before");
 });
 
 test("LEXICON.majorBuckets contains the new buckets", () => {

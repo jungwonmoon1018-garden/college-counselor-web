@@ -1,17 +1,21 @@
 import { useState, useEffect } from "react";
 import { narrative as narrativeApi } from "../api.js";
 import { t } from "../i18n.js";
+import { formatServerDateTime } from "../profile/dates.js";
+import { NARRATIVE_MAX_CHARS, NARRATIVE_MIN_CHARS, NARRATIVE_MIN_WORDS, narrativeTextProblem } from "../profile/narrative-limits.js";
 
 // ═══════════════════════════════════════════════════════════════════════
 // NarrativeEditor — write/edit the student's personal story (100–1500 chars,
 // 20+ words). The backend uses this as the baseline for EC fit + drift +
 // candidate ranking. Mirrors server-side validation client-side for instant
 // feedback, but trusts the server's 422 on save as the source of truth.
+// The limits and the check come from profile/narrative-limits.js, which the
+// backend's misc-client-parity test holds equal to the server's: the editor's
+// own literals agreed with the server only because nobody had changed one.
+// The counter's strings take the numbers from there too.
 // ═══════════════════════════════════════════════════════════════════════
 
-const MIN_CHARS = 100;
-const MAX_CHARS = 1500;
-const MIN_WORDS = 20;
+const LIMITS = Object.freeze({ minChars: NARRATIVE_MIN_CHARS, maxChars: NARRATIVE_MAX_CHARS, minWords: NARRATIVE_MIN_WORDS });
 
 export default function NarrativeEditor({ locale = "en-US", onSaved, targetSchools = [] }) {
   const [text, setText] = useState("");
@@ -44,9 +48,12 @@ export default function NarrativeEditor({ locale = "en-US", onSaved, targetSchoo
   const trimmed = text.trim();
   const charCount = trimmed.length;
   const wordCount = trimmed ? trimmed.split(/\s+/).filter(Boolean).length : 0;
-  const tooShort = charCount < MIN_CHARS || wordCount < MIN_WORDS;
-  const tooLong = charCount > MAX_CHARS;
-  const valid = !tooShort && !tooLong;
+  // The code the server's validateNarrativeText would refuse this with, in
+  // the order it checks: a long text of few words is too long, not short.
+  const problem = narrativeTextProblem(text);
+  const tooShort = problem === "too_short" || problem === "too_few_words";
+  const tooLong = problem === "too_long";
+  const valid = problem == null;
 
   async function save() {
     setBusy(true); setErr(""); setServerMsg("");
@@ -105,7 +112,7 @@ export default function NarrativeEditor({ locale = "en-US", onSaved, targetSchoo
             {t(locale, "narrative.title")}
           </div>
           <div style={{ fontSize: 12, color: "#8a8a9a" }}>
-            {t(locale, "narrative.subtitle")}
+            {t(locale, "narrative.subtitle", LIMITS)}
           </div>
         </div>
         <button
@@ -156,10 +163,10 @@ export default function NarrativeEditor({ locale = "en-US", onSaved, targetSchoo
       />
       <div style={{ fontSize: 12, color: labelColor }}>
         {tooShort
-          ? t(locale, "narrative.too_short", { chars: charCount, words: wordCount })
+          ? t(locale, "narrative.too_short", { ...LIMITS, chars: charCount, words: wordCount })
           : tooLong
-            ? t(locale, "narrative.too_long", { chars: charCount })
-            : `${charCount} / ${MAX_CHARS} • ${wordCount} ${locale === "ko" ? "단어" : "words"}`}
+            ? t(locale, "narrative.too_long", { ...LIMITS, chars: charCount })
+            : `${charCount} / ${NARRATIVE_MAX_CHARS} • ${wordCount} ${locale === "ko" ? "단어" : "words"}`}
       </div>
       {err && (
         <div style={{ fontSize: 13, color: "#f56565", padding: "10px 14px", borderRadius: 10, background: "rgba(245,101,101,0.08)" }}>
@@ -207,7 +214,10 @@ export default function NarrativeEditor({ locale = "en-US", onSaved, targetSchoo
         )}
         {savedAt && (
           <div style={{ alignSelf: "center", fontSize: 11, color: "#555", marginLeft: "auto" }}>
-            {t(locale, "narrative.saved_at", { when: new Date(savedAt).toLocaleString(locale === "ko" ? "ko-KR" : "en-US") })}
+            {/* The server's time is SQLite UTC with no zone: Chrome read it
+                as local time (05:00 for a 14:00 KST save) and Safari as
+                Invalid Date. formatServerDateTime reads it as UTC. */}
+            {t(locale, "narrative.saved_at", { when: formatServerDateTime(savedAt, String(locale).startsWith("ko") ? "ko-KR" : "en-US") })}
           </div>
         )}
       </div>
@@ -220,6 +230,6 @@ export default function NarrativeEditor({ locale = "en-US", onSaved, targetSchoo
   );
 }
 
-NarrativeEditor.MIN_CHARS = MIN_CHARS;
-NarrativeEditor.MAX_CHARS = MAX_CHARS;
-NarrativeEditor.MIN_WORDS = MIN_WORDS;
+NarrativeEditor.MIN_CHARS = NARRATIVE_MIN_CHARS;
+NarrativeEditor.MAX_CHARS = NARRATIVE_MAX_CHARS;
+NarrativeEditor.MIN_WORDS = NARRATIVE_MIN_WORDS;

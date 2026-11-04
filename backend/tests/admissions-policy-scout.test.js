@@ -29,6 +29,7 @@ import {
   SWEEP_CEILING,
   SWEEP_FRESH_MS,
   SWEEP_RULES_VERSION,
+  writePolicyFacts,
 } from "../scouts/admissions-policy-scout.js";
 
 const NOW = new Date("2026-09-03T12:00:00Z"); // cycle 2026-27 → entering fall 2027
@@ -117,6 +118,19 @@ const scoutOptions = (stores, fetchImpl) => ({
 });
 
 const TARGET = { name: "Example University", website: "https://exampleu.edu" };
+
+// A school's facts as the store serves them at `at`, the scout's own clock.
+// getFactsByEntity drops a fact once SQLite's julianday('now') passes its
+// expiry, and no injected clock moves SQLite's (tests/helpers/fixed-clock.mjs
+// moves JS only): the facts these tests file under the 2026-27 cycle expire
+// 2027-08-01, so on the wall clock the file would have failed from that day.
+// The read is the store's own statement with 'now' bound to `at`, so an
+// expired fact still drops out, at the clock the scout ran on.
+function factsAt(stores, entityId, at) {
+  const sql = stores.factStmts.getFactsByEntity.source;
+  assert.equal(sql.split("julianday('now')").length, 2, "getFactsByEntity reads the expiry against now once");
+  return stores.db.prepare(sql.replace("julianday('now')", "julianday(?)")).all("university", entityId, at.toISOString());
+}
 
 test("robots.txt groups and longest-match rules are honored", () => {
   const groups = parseRobots("User-agent: *\nDisallow: /private\nAllow: /private/open\n\nUser-agent: CollegeCounselorBot\nDisallow: /bot-only\n");
@@ -372,6 +386,38 @@ test("diffing ignores fields that merely dropped out of the fetched pages", () =
   ]);
 });
 
+// From Feb 1 a reading keeps the closing cycle's open dates (a February 15
+// Regular Decision) beside next fall's. The fact for such a date belongs to
+// its own cycle and expires with it, and a date that later rolls to the same
+// day of the next cycle once it has passed is not a policy change: the
+// students' change list would have called it one.
+test("a closing-cycle deadline is filed under its own cycle, and its roll to the next cycle is not a change", () => {
+  const feb3 = new Date("2027-02-03T12:00:00Z");
+  const stores = freshStores();
+  const pages = [{ url: "https://exampleu.edu/admission/first-year", text: "Early Action: November 1\nRegular Decision: February 15" }];
+  const policy = extractPolicyFromPages(pages, feb3);
+  assert.equal(policy.deadlines.regular_decision.date, "2027-02-15");
+  writePolicyFacts(stores.factStmts, { slug: "example-university", schoolName: "Example University", unitId: null, policy, checkedAt: feb3.toISOString() });
+  const byKey = Object.fromEntries(factsAt(stores, "example-university", feb3).map((f) => [f.fact_key, f]));
+  assert.equal(byKey.deadline_regular_decision.academic_year, "2026-27");
+  assert.equal(byKey.deadline_regular_decision.expires_at, "2027-08-01T00:00:00.000Z");
+  assert.equal(byKey.deadline_early_action.academic_year, "2027-28");
+  assert.equal(byKey.deadline_early_action.expires_at, "2028-08-01T00:00:00.000Z");
+  // Once the closing cycle has ended, its date is no longer served; next
+  // fall's still is.
+  const afterClose = Object.fromEntries(factsAt(stores, "example-university", new Date("2027-08-02T12:00:00Z")).map((f) => [f.fact_key, f]));
+  assert.equal(afterClose.deadline_regular_decision, undefined);
+  assert.equal(afterClose.deadline_early_action?.fact_value, byKey.deadline_early_action.fact_value);
+
+  const mar1 = extractPolicyFromPages(pages, new Date("2027-03-01T12:00:00Z"));
+  assert.equal(mar1.deadlines.regular_decision.date, "2028-02-15");
+  assert.deepEqual(diffPolicies(policy, mar1), [], "the same day a cycle on is not a new deadline");
+  const moved = extractPolicyFromPages([{ ...pages[0], text: "Early Action: November 1\nRegular Decision: February 1" }], new Date("2027-03-01T12:00:00Z"));
+  assert.deepEqual(diffPolicies(policy, moved).map((c) => [c.field, c.previousValue, c.newValue]), [
+    ["deadline_regular_decision", "2027-02-15", "2028-02-01"],
+  ]);
+});
+
 test("a scout run snapshots a school, writes verified facts, and logs changes on the next visit", async () => {
   const stores = freshStores();
   const v1 = makeSite();
@@ -389,7 +435,7 @@ test("a scout run snapshots a school, writes verified facts, and logs changes on
   assert.equal(new Set(pagesFetched).size, pagesFetched.length, "pages are de-duplicated by their final URL");
   assert.equal(pagesFetched.filter((u) => u.startsWith("https://admission.exampleu.edu")).length, 1);
 
-  const facts = stores.factStmts.getFactsByEntity.all("university", "example-university");
+  const facts = factsAt(stores, "example-university", NOW);
   const byKey = Object.fromEntries(facts.map((f) => [f.fact_key, f]));
   assert.equal(byKey.test_policy.fact_value, "test-optional (through 2027)");
   assert.equal(byKey.test_policy.source_domain, "exampleuadmissions.org");
@@ -425,7 +471,7 @@ test("a scout run snapshots a school, writes verified facts, and logs changes on
       ["Testing policy", "test-optional (through 2027)", "test scores required", "high"],
     ],
   );
-  const updated = stores.factStmts.getFactsByEntity.all("university", "example-university");
+  const updated = factsAt(stores, "example-university", later);
   assert.equal(updated.find((f) => f.fact_key === "test_policy").fact_value, "test scores required");
   assert.equal(updated.find((f) => f.fact_key === "deadline_early_decision").fact_value, "2026-11-15");
   assert.equal(readPolicySnapshot(stores.stmts, { name: "Example University" }).changedAt, later.toISOString());
@@ -460,9 +506,11 @@ test("a sweep reads schools without a snapshot first, then older-version ones, t
   put("example-university", "Example University", "2026-09-01T00:00:00.000Z", { cycle: "2026-27", scoutVersion: SCOUT_VERSION, deadlines: {} });
   put("old-college", "Old College", "2026-09-02T00:00:00.000Z", { cycle: "2026-27", scoutVersion: SCOUT_VERSION - 1, deadlines: {} });
   put("older-college", "Older College", "2026-08-20T00:00:00.000Z", { cycle: "2026-27", deadlines: {} }); // before versions were recorded
-  assert.equal(snapshotIsCurrent(readPolicySnapshot(stores.stmts, { name: "Example University" })), true);
-  assert.equal(snapshotIsCurrent(readPolicySnapshot(stores.stmts, { name: "Old College" })), false);
-  assert.equal(snapshotIsCurrent(readPolicySnapshot(stores.stmts, { name: "Older College" })), false);
+  // At the suite's fixed clock: a snapshot is current only for the planning
+  // cycle, so the real date would make this pin expire on Feb 1.
+  assert.equal(snapshotIsCurrent(readPolicySnapshot(stores.stmts, { name: "Example University" }), NOW), true);
+  assert.equal(snapshotIsCurrent(readPolicySnapshot(stores.stmts, { name: "Old College" }), NOW), false);
+  assert.equal(snapshotIsCurrent(readPolicySnapshot(stores.stmts, { name: "Older College" }), NOW), false);
 
   // Four targets, room for three: the fresh Example University is the one
   // left out, and the never-read school goes first.
@@ -537,6 +585,13 @@ test("a sweep records the sizing rules it ran under, and one under older rules m
   assert.equal(policyScoutDue(after, { cadenceMs, now: NOW.getTime() + cadenceMs + 1 }).reason, "cadence_elapsed");
   // A newer scout version, or a counselor's force, still wins.
   assert.equal(policyScoutDue({ ...after, scoutVersion: SCOUT_VERSION - 1 }, { cadenceMs, now: NOW.getTime() }).reason, "scout_version_changed");
+  // The run records the planning cycle it read for; once Feb 1 moves the
+  // planning cycle on, every snapshot is another cycle's and a sweep is due
+  // at once. A run from before runs carried a cycle does not count.
+  assert.equal(after.cycle, "2026-27");
+  assert.equal(policyScoutDue(after, { cadenceMs, now: Date.parse("2027-01-31T23:00:00Z") }).reason, "cadence_elapsed");
+  assert.equal(policyScoutDue({ ...after, finishedAt: "2027-01-31T20:00:00.000Z", lastFinishedAt: "2027-01-31T20:00:00.000Z" }, { cadenceMs, now: Date.parse("2027-02-01T01:00:00Z") }).reason, "planning_cycle_changed");
+  assert.equal(policyScoutDue({ ...after, cycle: null }, { cadenceMs, now: NOW.getTime() + 3600_000 }).due, false);
   assert.equal(policyScoutDue(after, { cadenceMs, now: NOW.getTime(), force: "manual" }).reason, "manual");
   // No sweep yet at all: due.
   assert.equal(policyScoutDue(null, { cadenceMs, now: NOW.getTime() }).reason, "never_ran");

@@ -2,6 +2,16 @@ import fs from "node:fs";
 
 const realFetch = globalThis.fetch;
 const callLogPath = process.env.TEST_OPENROUTER_CALL_LOG;
+// Optional switches a route test can flip while the server runs: a JSON
+// file at TEST_MOCK_SWITCHES, read on every request. { "cdsIndex": 403 }
+// answers the CDS repository index with that status ("throw" fails the
+// request outright); { "scorecard": "fail" } answers the College Scorecard
+// with a 500. Absent or unreadable, every host behaves as below.
+const switchesPath = process.env.TEST_MOCK_SWITCHES;
+function mockSwitches() {
+  if (!switchesPath) return {};
+  try { return JSON.parse(fs.readFileSync(switchesPath, "utf8")) || {}; } catch { return {}; }
+}
 // The catalog carries a creation date (a month ago) and text modalities so
 // the model-catalog scout can classify rows. Gemma 4 31B and the last four
 // ids are NOT in the packaged tier list: the scout discovers them (small,
@@ -43,10 +53,38 @@ globalThis.fetch = async (input, init = {}) => {
     // A test can script the reply by embedding base64 markers in its message:
     // MOCKREPLY:<base64>: is the first answer, MOCKRETRY:<base64>: the answer
     // to the chat route's fidelity-correction retry (identified by the
-    // correction text in the wire).
+    // correction text in the wire) and to its empty-reply retry (identified
+    // by "EMPTY REPLY RETRY" in the system prompt).
+    // Three more markers script failures: MOCKDELAY:<ms>: holds the reply
+    // that long and honours the caller's abort signal, MOCKSTATUS:<code>:
+    // answers with that HTTP status and an error body, and MOCKBODYERROR:
+    // answers 200 with an error body and no choices, as OpenRouter does when
+    // a provider fails mid-route.
     const wire = JSON.stringify(body.messages || []);
+    const delayMarker = wire.match(/MOCKDELAY:(\d{1,6}):/);
+    if (delayMarker) {
+      await new Promise((resolve, reject) => {
+        const onAbort = () => {
+          clearTimeout(timer);
+          reject(Object.assign(new Error("The operation was aborted."), { name: "AbortError" }));
+        };
+        const timer = setTimeout(() => {
+          init.signal?.removeEventListener?.("abort", onAbort);
+          resolve();
+        }, Number(delayMarker[1]));
+        if (init.signal?.aborted) onAbort();
+        else init.signal?.addEventListener?.("abort", onAbort, { once: true });
+      });
+    }
+    const statusMarker = wire.match(/MOCKSTATUS:(\d{3}):/);
+    if (statusMarker) {
+      return Response.json({ error: { message: `mock upstream ${statusMarker[1]}`, code: Number(statusMarker[1]) } }, { status: Number(statusMarker[1]) });
+    }
+    if (wire.includes("MOCKBODYERROR:")) {
+      return Response.json({ error: { message: "mock provider error in a 200 body", code: 502 } });
+    }
     const isTranscriptParse = wire.includes("Transcript text:");
-    const scripted = wire.includes("FIDELITY CORRECTION")
+    const scripted = wire.includes("FIDELITY CORRECTION") || wire.includes("EMPTY REPLY RETRY")
       ? (wire.match(/MOCKRETRY:([A-Za-z0-9+/=]+):/) || wire.match(/MOCKREPLY:([A-Za-z0-9+/=]+):/))
       : wire.match(/MOCKREPLY:([A-Za-z0-9+/=]+):/);
     const content = isTranscriptParse
@@ -77,6 +115,7 @@ globalThis.fetch = async (input, init = {}) => {
   // (the picker requires a genuine name match now), so the positioning
   // route's Scorecard fallback can be exercised without the network.
   if (String(url || "").startsWith("https://api.data.gov/ed/collegescorecard/")) {
+    if (mockSwitches().scorecard === "fail") return new Response("upstream error", { status: 500 });
     const requestedName = new URL(url).searchParams.get("school.name") || "Stony Brook University";
     return Response.json({
       metadata: { total: 1, page: 0 },
@@ -100,6 +139,9 @@ globalThis.fetch = async (input, init = {}) => {
   // The CDS repository index — return an empty page so live CDS resolution
   // finds nothing and the route exercises its fallbacks.
   if (String(url || "").includes("collegetransitions.com")) {
+    const indexSwitch = mockSwitches().cdsIndex;
+    if (indexSwitch === "throw") throw new Error("mock: CDS repository unreachable");
+    if (Number.isInteger(indexSwitch)) return new Response("blocked", { status: indexSwitch });
     return new Response("<html><body></body></html>", { headers: { "Content-Type": "text/html" } });
   }
 

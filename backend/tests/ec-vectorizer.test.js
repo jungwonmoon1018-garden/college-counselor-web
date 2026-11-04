@@ -1,5 +1,6 @@
-﻿// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// TESTS: EC Vectorizer
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??
+﻿// ═══════════════════════════════════════════════════════════
+// TESTS: EC Vectorizer
+// ═══════════════════════════════════════════════════════════
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -181,7 +182,7 @@ describe("scoreAcademicStrength", () => {
   });
 });
 
-describe("buildNextStepPlan ??well-being first", () => {
+describe("buildNextStepPlan — well-being first", () => {
   it("always starts with a well-being suggestion", () => {
     const plan = buildNextStepPlan({
       ecVectors: [{
@@ -370,7 +371,7 @@ describe("detectCompetitiveActivity", () => {
   });
 });
 
-describe("vectorizeEC ??competition integration", () => {
+describe("vectorizeEC — competition integration", () => {
   it("AIME qualifier scores high on talents_and_awards for Math major", () => {
     const { vector, reasoning } = vectorizeEC({
       name: "Math Competitions",
@@ -446,7 +447,7 @@ describe("vectorizeEC ??competition integration", () => {
       weeksPerYear: 30,
       yearsOfParticipation: 1,
     }, "Computer Science");
-    // Should be low across the board ??no competition boost
+    // Should be low across the board — no competition boost
     assert.ok(vector.talents_and_awards <= 0.25);
   });
 });

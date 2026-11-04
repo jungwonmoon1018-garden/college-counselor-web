@@ -6,10 +6,10 @@
 // these functions read there (MODEL_SCOUT_ENABLED, SCORECARD_API_KEY,
 // SCOUT_CADENCE_MS, db, factStmts, modelCatalogStmts, policyScoutStmts,
 // ragStmts).
-import { MODEL_SCOUT_VERSION, dynamicAllowedModelIds, lastModelCatalogRun, runModelCatalogScout } from "../scouts/model-catalog-scout.js";
-import { OPENROUTER_CATALOG, refreshOpenRouterCatalog } from "../scouts/openrouter-model-refresh.js";
+import { MODEL_SCOUT_VERSION, dynamicAllowedModelIds, lastModelCatalogRun, modelTierStatus, runModelCatalogScout, tierStatusProblems } from "../scouts/model-catalog-scout.js";
+import { OPENROUTER_CATALOG, OPENROUTER_TARGETS, getOpenRouterPricingUSDPerMTok, refreshOpenRouterCatalog } from "../scouts/openrouter-model-refresh.js";
 import { OPENROUTER_MODEL_OPTIONS } from "../llm-adapters/tier-defaults.js";
-import { registerDynamicOpenRouterModels as adapterRegisterDynamicModels } from "../llm-adapters/index.js";
+import { isAllowedOpenRouterModel, registerDynamicOpenRouterModels as adapterRegisterDynamicModels } from "../llm-adapters/index.js";
 import { scoutRunDue } from "../scouts/scout-cadence.js";
 import { baselineCollegeNames } from "./verified-data.js";
 import { safeParseJSON } from "./model-calls.js";
@@ -22,16 +22,51 @@ import { lastAutomaticRun, policyScoutDue, policyScoutRunLimits, runPolicyScout 
 let deps;
 export function bindSchedulers(serverDeps) { deps = serverDeps; }
 
+// The models the three tiers are set to keep their candidate rows while in
+// use (runModelCatalogScout), so a counselor's pick is never aged out of
+// the adapter allowlist while OpenRouter still serves it.
 export function runScheduledModelCatalogScout(trigger = "scheduled") {
   const summary = runModelCatalogScout({
     catalog: OPENROUTER_CATALOG,
     stmts: deps.modelCatalogStmts,
     knownIds: new Set(OPENROUTER_MODEL_OPTIONS.map((o) => o.id)),
+    inUseIds: Object.values(OPENROUTER_TARGETS),
     trigger,
   });
   adapterRegisterDynamicModels(dynamicAllowedModelIds(deps.modelCatalogStmts));
-  console.log(`[MODEL-SCOUT] ${trigger}: ${summary.catalogCount} in catalog, ${summary.eligible} eligible, ${summary.added.length} new${summary.added.length ? ` (${summary.added.map((a) => `${a.id}→${a.tier}`).join(", ")})` : ""}${summary.pruned ? `, ${summary.pruned} removed` : ""}`);
+  console.log(`[MODEL-SCOUT] ${trigger}: ${summary.catalogCount} in catalog, ${summary.eligible} eligible, ${summary.added.length} new${summary.added.length ? ` (${summary.added.map((a) => `${a.id}→${a.tier}`).join(", ")})` : ""}${summary.pruned ? `, ${summary.pruned} removed` : ""}${summary.outcome === "failed" ? " — no live catalog, so it is retried with a backoff" : ""}`);
+  for (const kept of summary.inUseKept) {
+    console.warn(`[MODEL-SCOUT] ${kept.id} is kept because a tier uses it (${kept.reasons.join(", ")}).`);
+  }
+  logModelTierProblems(trigger);
   return summary;
+}
+
+// Per tier: the configured model and whether a call on it can go through
+// (model-catalog-scout.js modelTierStatus). Read by the admin model page.
+export function currentModelTierStatus() {
+  return modelTierStatus({
+    targets: OPENROUTER_TARGETS,
+    catalog: OPENROUTER_CATALOG,
+    isAllowed: isAllowedOpenRouterModel,
+    pricingLookup: getOpenRouterPricingUSDPerMTok,
+  });
+}
+
+// One warning line per tier whose model cannot be called, at boot (after
+// the first catalog read) and after each scout run, so the log says why
+// a tier fails before a student finds out.
+const TIER_PROBLEM_WORDS = {
+  not_in_catalog: "no longer listed in OpenRouter's catalog",
+  not_in_allowlist: "not on the model allowlist",
+  no_price: "without a verified price",
+};
+export function logModelTierProblems(when = "boot") {
+  const problems = tierStatusProblems(currentModelTierStatus());
+  for (const problem of problems) {
+    console.warn(`[MODEL-TIERS] ${when}: the ${problem.tier} tier is set to ${problem.model || "(nothing)"}, which is ${TIER_PROBLEM_WORDS[problem.status] || problem.status} (${problem.status}); calls on that tier fail until the counselor chooses another model on the admin page.`);
+  }
+  return problems;
 }
 
 // A newer rule set (MODEL_SCOUT_VERSION) re-reads the catalog at once so
@@ -98,7 +133,7 @@ export async function runScheduledPolicyScout(trigger = "scheduled", { targets =
     trigger,
   }).finally(() => { policyScoutRunning = null; });
   const summary = await policyScoutRunning;
-  console.log(`[policy-scout] ${trigger}: ${summary.checked}/${summary.total} school(s) checked, ${summary.changes} change(s), ${summary.failed} failed${summary.recentlyRead ? `, ${summary.recentlyRead} read in the last day left alone` : ""}`);
+  console.log(`[policy-scout] ${trigger}: ${summary.checked}/${summary.total} school(s) checked, ${summary.changes} change(s), ${summary.failed} failed${summary.recentlyRead ? `, ${summary.recentlyRead} read in the last day left alone` : ""}${summary.outcome === "failed" ? " — read no school, so it is retried with a backoff" : ""}`);
   return { changed: summary.changes > 0, ...summary };
 }
 

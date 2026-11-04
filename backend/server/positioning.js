@@ -5,17 +5,19 @@
 // admissionsIntelStmts, cdsLiveAttemptAt, db, getScorecardQueryCache,
 // normalizeUnitId, policyScoutStmts, putScorecardQueryCache, ragStmts,
 // resolveBaselineCollegeRow).
-import { cdsRecordToPositioningResult, cdsVerification, isCdsRecordValidated, resolveStoredCdsRecord, schoolNamesCompatible, slugifySchoolName } from "../cds/cds-store.js";
+import { resolveStoredCdsRecord, schoolNamesCompatible, slugifySchoolName } from "../cds/cds-store.js";
 import { httpError, safeParseJSON } from "./model-calls.js";
 import { extractGoalUnitIds } from "../storage/rag-engine.js";
 import { computeCdsQueryCacheKey, extractTargetSchoolNames, resolveAndParseCdsTargets } from "../cds/cds-search.js";
+import { cycleStartYear } from "../cds/cds-cycle.js";
 import { getActiveNarrative } from "../activities/narrative-store.js";
-import { POSITIONING_MODEL_VERSION, admitRatePools, buildPositioningForTarget, buildStudentModel, statedTestPolicy } from "../colleges/positioning-engine.js";
-import { readPolicySnapshot } from "../scouts/admissions-policy-scout.js";
+import { POSITIONING_MODEL_VERSION, buildPositioningForTarget, buildStudentModel } from "../colleges/positioning-engine.js";
+import { SCOUT_VERSION } from "../scouts/admissions-policy-scout.js";
 import { resolveIpedsGrowthForMajor, resolveMajorPolicyForSchool, resolveStrategicFocusForSchool } from "../colleges/admissions-intelligence.js";
 import { expandCollegeAlias, pickScorecardHit } from "../colleges/college-research.js";
-import { getCollegeById, searchScorecard } from "../colleges/college-scorecard.js";
+import { getCollegeByIdResult, searchScorecard } from "../colleges/college-scorecard.js";
 import { rememberFitRead } from "./verified-data.js";
+import { buildCollegeContext, resolveFitRecord, withStatedPolicy } from "./fit-context.js";
 
 let deps;
 export function bindPositioning(serverDeps) { deps = serverDeps; }
@@ -90,6 +92,147 @@ export function currentCdsVersion() {
   }
 }
 
+// The same for the policy scout's readings: a new school read, or a policy
+// that changed, and the scout's own version. A corrected test policy used
+// to keep its wrong red flag (or its missing one) on a cached read for up
+// to a week (debt-5).
+export function currentPolicyVersion() {
+  try {
+    const r = deps.db.prepare("SELECT COUNT(*) AS n, MAX(changed_at) AS c FROM admissions_policy_snapshots").get();
+    return `${SCOUT_VERSION}:${r?.n || 0}:${r?.c || "0"}`;
+  } catch {
+    return `${SCOUT_VERSION}:0`;
+  }
+}
+
+// The student's side beyond the profile snapshot: the active narrative and
+// the EC strength rows, which change without a new snapshot (saving a
+// narrative creates none, and the prestige recompute rewrites the rows).
+function studentInputsVersion(narrative, strengthRows) {
+  const rows = Array.isArray(strengthRows) ? strengthRows : [];
+  const latest = rows.reduce((max, row) => {
+    const at = String(row?.updated_at || row?.computed_at || "");
+    return at > max ? at : max;
+  }, "");
+  return `${narrative?.id || "none"}:${narrative?.hash || ""}|${rows.length}:${latest}`;
+}
+
+// Every input the positioning payload reads, in one key: the target list
+// and requested major, the student and their profile snapshot, their
+// narrative and strength rows, the CDS store, the policy scout, and the
+// engine version. A source added to the read has to be added here, or a
+// change to it is served stale for the cache's seven days.
+export function positioningCacheKey({ cacheKey, cdsVersion, targets, major, studentId, snapshot, studentInputs, policyVersion }) {
+  return { cacheKey, cdsVersion, targets, major, studentId, snapshot, studentInputs, policy: policyVersion, model: POSITIONING_MODEL_VERSION };
+}
+
+// The College Scorecard fills what the stored data lacks, field by field:
+// the admit rate, the SAT band, the ACT band, each recorded in
+// `fieldSources`. The fallback used to run only when all three were
+// missing, so a Common Data Set with SAT bands and no C1 never got an admit
+// rate and the read started from an assumed 50% (Occidental; fit-5).
+// Returns whether the Scorecard failed, so the caller does not cache a read
+// built on that failure.
+async function fillFromScorecard(collegeContext) {
+  const missing = {
+    acceptance_rate: collegeContext.acceptanceRate == null,
+    sat_range: collegeContext.sat25 == null,
+    act_range: collegeContext.act25 == null,
+  };
+  if (!deps.SCORECARD_API_KEY || !Object.values(missing).some(Boolean)) return { attempted: false, failed: false };
+  const hadNothing = Object.values(missing).every(Boolean);
+  try {
+    let hit = null;
+    let error = null;
+    if (collegeContext.unitId) {
+      ({ result: hit, error = null } = await getCollegeByIdResult(deps.SCORECARD_API_KEY, collegeContext.unitId));
+    } else {
+      const scorecardName = expandCollegeAlias(collegeContext.name);
+      const search = await searchScorecard(deps.SCORECARD_API_KEY, { name: scorecardName, limit: 20 });
+      error = search?.error || null;
+      hit = pickScorecardHit(search?.results, scorecardName);
+    }
+    if (!hit) return { attempted: true, failed: Boolean(error) };
+    collegeContext.unitId = collegeContext.unitId || hit.unitId || null;
+    collegeContext.name = collegeContext.name || hit.name;
+    collegeContext.state = collegeContext.state || hit.state || null;
+    collegeContext.fieldSources = collegeContext.fieldSources || {};
+    if (missing.acceptance_rate && hit.acceptanceRate != null) {
+      collegeContext.acceptanceRate = hit.acceptanceRate;
+      collegeContext.fieldSources.acceptance_rate = "college_scorecard";
+    }
+    if (missing.sat_range && hit.sat25 != null) {
+      collegeContext.sat25 = hit.sat25;
+      collegeContext.sat75 = hit.sat75 ?? null;
+      collegeContext.fieldSources.sat_range = "college_scorecard";
+    }
+    if (missing.act_range && hit.act25 != null) {
+      collegeContext.act25 = hit.act25;
+      collegeContext.act75 = hit.act75 ?? null;
+      collegeContext.fieldSources.act_range = "college_scorecard";
+    }
+    // A school known only through the Scorecard reads as a Scorecard read.
+    if (hadNothing) collegeContext.source = "college_scorecard";
+    return { attempted: true, failed: false };
+  } catch (err) {
+    console.warn("[POSITIONING] Scorecard fallback failed:", err?.message);
+    return { attempted: true, failed: true };
+  }
+}
+
+// The intended major's policy, growth signal and strategic signals for one
+// school. With no recognized major there is nothing major-specific to look
+// up: the lookups used to resolve a blank major to computer science and
+// read its capped-major policy and growth (fit-1). School-wide strategic
+// signals (no subject) still apply.
+function majorSignalsFor(collegeContext, { requestedMajor, majorBucket, majorPolicies, ipedsGrowthByBucket }) {
+  if (!majorBucket) {
+    let strategicSignals = [];
+    try {
+      if (collegeContext.unitId) {
+        strategicSignals = deps.admissionsIntelStmts.getStrategicSignalsByUnitAndSubject.all(collegeContext.unitId, null, 5).map((row) => ({
+          signalType: row.signal_type,
+          signalTitle: row.signal_title,
+          signalSummary: row.signal_summary,
+          evidenceStrength: Number(row.evidence_strength || 0),
+          recencyScore: Number(row.recency_score || 0),
+          sourceUrl: row.source_url,
+          sourceTitle: row.source_title,
+          publishedAt: row.published_at,
+        }));
+      }
+    } catch { strategicSignals = []; }
+    return { major: requestedMajor, majorPolicy: null, ipedsGrowthByBucket: {}, strategicSignals };
+  }
+  const majorPolicy =
+    resolveMajorPolicyForSchool(deps.admissionsIntelStmts, {
+      unitId: collegeContext.unitId,
+      schoolName: collegeContext.name,
+      major: requestedMajor,
+    }) ||
+    majorPolicies?.[collegeContext.unitId] ||
+    majorPolicies?.[collegeContext.name] ||
+    null;
+  const ipedsGrowthSignal = resolveIpedsGrowthForMajor(deps.admissionsIntelStmts, {
+    unitId: collegeContext.unitId,
+    major: requestedMajor,
+  });
+  const strategicSignals = resolveStrategicFocusForSchool(deps.admissionsIntelStmts, {
+    unitId: collegeContext.unitId,
+    major: requestedMajor,
+    limit: 5,
+  });
+  return {
+    major: requestedMajor,
+    majorPolicy,
+    ipedsGrowthByBucket: {
+      ...(ipedsGrowthByBucket || {}),
+      [majorBucket]: ipedsGrowthSignal?.growthRate ?? ipedsGrowthByBucket?.[majorBucket] ?? null,
+    },
+    strategicSignals,
+  };
+}
+
 // The College Fit computation, shared by the targets route and the
 // double-check. Returns the response payload plus, unless served from the
 // positioning cache, the per-target inputs the scores were computed from.
@@ -114,33 +257,50 @@ export async function runPositioning({ studentId, body = {}, bypassCache = false
     // bumps cds_records.updated_at) invalidates stale cached fit results — the
     // reason a freshly-scraped CDS wasn't reaching the College Fit tab.
     const cdsVersion = currentCdsVersion();
+    const strengthRows = deps.ragStmts.strength.getByStudent.all(studentId);
+    const narrative = getActiveNarrative(deps.ragStmts.narrative, studentId);
+    // The read is this student's: keyed by student and by the snapshot
+    // it was computed from, so one student's fit (which now carries their
+    // own scores, rank and GPA against the school) is never served to
+    // another with the same targets, and a profile edit recomputes it.
+    // The model version is part of the key: a changed read is recomputed
+    // instead of served from a cache kept seven days.
+    const positioningKey = positioningCacheKey({
+      cacheKey, cdsVersion, targets: rawTargets, major: requestedMajor, studentId, snapshot: snap.id,
+      studentInputs: studentInputsVersion(narrative, strengthRows), policyVersion: currentPolicyVersion(),
+    });
     let cdsResults = null;
     if (!refreshCds) {
       const cachedCds = deps.getScorecardQueryCache("cds_targets", { cacheKey, cdsVersion, targets: rawTargets });
       cdsResults = cachedCds?.data?.results || null;
-      // The read is this student's: keyed by student and by the snapshot
-      // it was computed from, so one student's fit (which now carries their
-      // own scores, rank and GPA against the school) is never served to
-      // another with the same targets, and a profile edit recomputes it.
-      // The model version is part of the key: a changed read is recomputed
-      // instead of served from a cache kept seven days.
-      const cachedPositioning = bypassCache ? null : deps.getScorecardQueryCache("positioning_targets", { cacheKey, cdsVersion, targets: rawTargets, major: requestedMajor, studentId, snapshot: snap.id, model: POSITIONING_MODEL_VERSION });
+      const cachedPositioning = bypassCache ? null : deps.getScorecardQueryCache("positioning_targets", positioningKey);
       if (cachedPositioning?.data) {
         return { payload: cachedPositioning.data, cached: true, internals: null };
       }
     }
 
+    // Whether any source failed transiently while this read was built (the
+    // repository index, a document, the College Scorecard). Such a read is
+    // answered but not cached: a degraded read used to be kept seven days
+    // like a real one (fit-3, fit-9).
+    let degraded = false;
     if (!cdsResults) {
-      cdsResults = (await resolveAndParseCdsTargets(rawTargets));
-      deps.putScorecardQueryCache("cds_targets", { cacheKey, cdsVersion, targets: rawTargets }, {
-        targets: rawTargets,
-        results: cdsResults,
-        source: "College Transitions CDS repository",
+      cdsResults = await resolveAndParseCdsTargets(rawTargets, {
+        // A school the store already holds is not downloaded and parsed
+        // again on every cache miss; the stored record is what the read uses.
+        hasStoredRecord: (target) => Boolean(resolveFitRecord(deps, { requestedName: target?.schoolName || target?.name || null })),
       });
+      const transient = cdsResults.some((r) => r?.transientFailure);
+      if (transient) degraded = true;
+      else {
+        deps.putScorecardQueryCache("cds_targets", { cacheKey, cdsVersion, targets: rawTargets }, {
+          targets: rawTargets,
+          results: cdsResults,
+          source: "College Transitions CDS repository",
+        });
+      }
     }
 
-    const strengthRows = deps.ragStmts.strength.getByStudent.all(studentId);
-    const narrative = getActiveNarrative(deps.ragStmts.narrative, studentId);
     const studentModel = buildStudentModel({
       gpa_unweighted: snap.gpa_unweighted,
       gpa_weighted: snap.gpa_weighted,
@@ -161,11 +321,6 @@ export async function runPositioning({ studentId, body = {}, bypassCache = false
     // (lower confidence) so a mis-parse can't masquerade as ground truth.
     const searchCds = body?.searchCds !== false;
 
-    // Web fallback: when neither the store nor the live PDF pipeline yields a
-    // CDS, use the student's highest web-capable model to search + read the
-    // school's CDS. On by default; budget-gated, BYOK-required, capped per
-    // request, and cooldown-deduped so it can't run away on cost. Results are
-    // tagged unvalidated (web-read) with lower confidence.
     const internals = [];
     const scoredTargets = await Promise.all(cdsResults.map(async (cdsResult) => {
       const requested = rawTargets.find((target) =>
@@ -185,134 +340,32 @@ export async function runPositioning({ studentId, body = {}, bypassCache = false
       // data (and evidence confidence stops reading "Very Low") whenever we
       // have a CDS record for this school.
       const lookupName = cdsResult.schoolName || requested?.schoolName || collegeRow?.name;
-      // The name the student asked for is tried against the store first:
-      // the repository index resolved "Purdue University" to Purdue
-      // University Northwest on 2026-09-22 while the store held the main
-      // campus, and the index's name used to be the only one looked up.
-      let storedCds = (requested?.schoolName ? resolveStoredCdsRecord(deps.ragStmts, { schoolName: requested.schoolName }) : null)
-        || resolveStoredCdsRecord(deps.ragStmts, { schoolName: lookupName });
+      let storedCds = resolveFitRecord(deps, { requestedName: requested?.schoolName || null, lookupName });
       // Not in the store yet? Search this university's CDS live, parse, and
       // persist it — so searching a school in College Fit also pulls its CDS.
       if (!storedCds && searchCds) {
         storedCds = await searchAndPersistCdsRecord(lookupName);
       }
-      const cdsValidated = storedCds ? isCdsRecordValidated(deps.ragStmts, storedCds.slug) : false;
-      const cdsVerified = storedCds ? cdsVerification(deps.ragStmts, storedCds.slug) : "unverified";
-      const effectiveCds = storedCds
-        ? cdsRecordToPositioningResult(storedCds, { liveFallback: cdsResult, unitId: resolvedUnitId, validated: cdsVerified === "validated", verification: cdsVerified })
-        : cdsResult;
+      const { collegeContext, effectiveCds, cdsValidated } = buildCollegeContext(deps, { collegeRow, storedCds, cdsResult, unitId: resolvedUnitId });
+      if (!collegeContext.name) collegeContext.name = lookupName || null;
 
-      // Validated CDS admit rate takes precedence over the IPEDS baseline.
-      const cdsAdmitPercent = storedCds?.overallAdmitRate != null
-        ? Math.round(storedCds.overallAdmitRate * 1000) / 10
-        : null;
-      const baselineAdmitPercent = collegeRow?.acceptance_rate != null
-        ? Math.round(Number(collegeRow.acceptance_rate) * 1000) / 10
-        : null;
+      // ── College Scorecard fill ──────────────────────────────────────
+      // The CDS store covers a few hundred schools and, on a fresh
+      // deployment, baseline_colleges holds only the manually curated set,
+      // so a searched school can reach this point with no stats at all. The
+      // live Scorecard API (the Dept. of Education's IPEDS data) fills the
+      // admit rate and test ranges the stored data lacks.
+      const scorecardFill = await fillFromScorecard(collegeContext);
+      if (scorecardFill.failed) degraded = true;
 
-      // When we have a VALIDATED CDS record, its enrolled ranges are the
-      // freshest ground truth — prefer them over the static IPEDS baseline so
-      // the academic-readiness scoring reflects the newest CDS (the baseline
-      // row, used first before, made fit ignore a just-scraped CDS). Fall back
-      // to baseline only for fields the CDS lacks.
-      const cdsFirst = storedCds && cdsValidated;
-      const pick = (cdsVal, baseVal) => (cdsFirst ? (cdsVal ?? baseVal) : (baseVal ?? cdsVal));
-      const collegeContext = {
-        unitId: collegeRow?.unit_id || resolvedUnitId || null,
-        name: collegeRow?.name || storedCds?.school || cdsResult.schoolName,
-        state: collegeRow?.state || null,
-        sat25: pick(storedCds?.enrolledSAT?.p25, collegeRow?.sat_25) ?? null,
-        sat75: pick(storedCds?.enrolledSAT?.p75, collegeRow?.sat_75) ?? null,
-        act25: pick(storedCds?.enrolledACT?.p25, collegeRow?.act_25) ?? null,
-        act75: pick(storedCds?.enrolledACT?.p75, collegeRow?.act_75) ?? null,
-        acceptanceRate: cdsAdmitPercent ?? baselineAdmitPercent ?? effectiveCds?.parsed?.admitRatePercent ?? null,
-        // The admit rate outside Early Decision, from the CDS's own counts,
-        // as fractions (admitRatePools); the read starts from it.
-        admitRatePools: storedCds ? admitRatePools(storedCds) : null,
-        avgGpaAdmitted: pick(storedCds?.enrolledGPA?.avg, collegeRow?.avg_gpa_admitted) ?? effectiveCds?.parsed?.gpaAverage ?? null,
-        topMajors: safeParseJSON(collegeRow?.top_majors_json, []),
-        source: cdsFirst ? "cds_store" : (collegeRow?.source || (storedCds ? "cds_store" : "baseline_colleges")),
-      };
+      const { stated, cdsForRead } = withStatedPolicy(deps, collegeContext, effectiveCds);
 
-      // ── College Scorecard fallback ──────────────────────────────────
-      // The CDS store covers a few dozen schools and, on a fresh deployment,
-      // baseline_colleges holds only the manually curated set — so most
-      // searched schools reached this point with NO stats at all and the fit
-      // calibration had nothing to work with. The live Scorecard API (the
-      // Dept. of Education's IPEDS data) fills admit rate and test ranges for
-      // any US school, connecting the CDS pipeline to Scorecard data.
-      if (deps.SCORECARD_API_KEY &&
-          collegeContext.sat25 == null && collegeContext.act25 == null && collegeContext.acceptanceRate == null) {
-        try {
-          const scorecardName = expandCollegeAlias(collegeContext.name);
-          const scorecardHit = collegeContext.unitId
-            ? await getCollegeById(deps.SCORECARD_API_KEY, collegeContext.unitId)
-            : pickScorecardHit(
-              (await searchScorecard(deps.SCORECARD_API_KEY, { name: scorecardName, limit: 20 }))?.results,
-              scorecardName,
-            );
-          if (scorecardHit) {
-            collegeContext.unitId = collegeContext.unitId || scorecardHit.unitId || null;
-            collegeContext.name = collegeContext.name || scorecardHit.name;
-            collegeContext.state = collegeContext.state || scorecardHit.state || null;
-            collegeContext.sat25 = scorecardHit.sat25 ?? null;
-            collegeContext.sat75 = scorecardHit.sat75 ?? null;
-            collegeContext.act25 = scorecardHit.act25 ?? null;
-            collegeContext.act75 = scorecardHit.act75 ?? null;
-            collegeContext.acceptanceRate = scorecardHit.acceptanceRate ?? null;
-            collegeContext.source = "college_scorecard";
-          }
-        } catch (err) {
-          console.warn("[POSITIONING] Scorecard fallback failed:", err?.message);
-        }
-      }
-
-      // The test policy the school states this cycle on its own admissions
-      // pages, as the policy scout last read them, outranks the Common Data
-      // Set's, which describes a class that entered a year or two ago
-      // (statedTestPolicy). The read is a cheap table lookup; without one the
-      // CDS policy stands.
-      let stated = null;
-      try {
-        stated = statedTestPolicy(readPolicySnapshot(deps.policyScoutStmts, { unitId: collegeContext.unitId, name: collegeContext.name }));
-      } catch {
-        stated = null;
-      }
-      const cdsForRead = stated
-        ? {
-          ...(effectiveCds || {}),
-          parsed: { ...(effectiveCds?.parsed || {}), testPolicy: stated.bucket, testPolicyStated: stated },
-          testPolicySource: `official admissions site (policy scout, checked ${String(stated.checkedAt).slice(0, 10)})`,
-        }
-        : effectiveCds;
-
-      const majorPolicy =
-        resolveMajorPolicyForSchool(deps.admissionsIntelStmts, {
-          unitId: collegeContext.unitId,
-          schoolName: collegeContext.name,
-          major: requestedMajor,
-        }) ||
-        majorPolicies?.[collegeContext.unitId] ||
-        majorPolicies?.[collegeContext.name] ||
-        null;
-      const ipedsGrowthSignal = resolveIpedsGrowthForMajor(deps.admissionsIntelStmts, {
-        unitId: collegeContext.unitId,
-        major: requestedMajor,
+      const positioningOptions = majorSignalsFor(collegeContext, {
+        requestedMajor,
+        majorBucket: studentModel.majorBucket,
+        majorPolicies,
+        ipedsGrowthByBucket,
       });
-      const strategicSignals = resolveStrategicFocusForSchool(deps.admissionsIntelStmts, {
-        unitId: collegeContext.unitId,
-        major: requestedMajor,
-        limit: 5,
-      });
-      const positioningOptions = {
-        major: requestedMajor,
-        majorPolicy,
-        ipedsGrowthByBucket: {
-          ...(ipedsGrowthByBucket || {}),
-          [studentModel.majorBucket]: ipedsGrowthSignal?.growthRate ?? ipedsGrowthByBucket?.[studentModel.majorBucket] ?? null,
-        },
-        strategicSignals,
-      };
       const positioning = buildPositioningForTarget(studentModel, collegeContext, cdsForRead, positioningOptions);
       internals.push({
         schoolName: positioning.schoolName,
@@ -320,29 +373,45 @@ export async function runPositioning({ studentId, body = {}, bypassCache = false
         effectiveCds: cdsForRead,
         options: positioningOptions,
         website: collegeRow?.website || null,
-        cdsYear: storedCds?.year ?? null,
+        // The cycle the record describes, from its label ("2025-26"); the
+        // record's `year` is missing or off by one in a third of the store.
+        cdsYear: storedCds ? (cycleStartYear(storedCds.yearLabel) ?? storedCds.year ?? null) : null,
         cdsValidated,
       });
       // Surface where the numbers came from so the card can link to the CDS
-      // source and show the reporting year.
+      // source and show the reporting year. With no record, no baseline row
+      // and no Scorecard hit, nothing was held: "none". It used to fall
+      // through to "baseline_only", which the card and the chat printed as
+      // "IPEDS baseline", a source the read never had.
+      const heldNothing = !storedCds && !collegeRow && collegeContext.source !== "college_scorecard"
+        && collegeContext.acceptanceRate == null && collegeContext.sat25 == null && collegeContext.act25 == null;
       positioning.dataProvenance = {
         ...(effectiveCds?.provenance || {
           kind: storedCds
             ? "cds_store"
             : (cdsResult?.fetchStatus === "ok"
               ? "cds_live"
-              : (collegeContext.source === "college_scorecard" ? "college_scorecard" : "baseline_only")),
+              : (collegeContext.source === "college_scorecard" ? "college_scorecard" : (heldNothing ? "none" : "baseline_only"))),
           validated: Boolean(storedCds),
           sourceUrl: effectiveCds?.sourceUrl
             || (collegeContext.source === "college_scorecard" ? "https://collegescorecard.ed.gov/" : null),
         }),
+        // Where the admit rate and each band came from, the College
+        // Scorecard among them when it filled a gap.
+        fieldSources: { ...(collegeContext.fieldSources || {}) },
         // Which admit rate the read started from; the chat's fit line says so.
         admitRate: positioning.admitRate,
         // Where the test policy came from: the school's own pages this
-        // cycle, or the Common Data Set.
+        // cycle, or the Common Data Set, or nowhere ("unknown").
         testPolicy: stated
           ? { bucket: stated.bucket, value: stated.value, source: "official_site", checkedAt: stated.checkedAt, sourceUrl: stated.sourceUrl }
-          : { bucket: effectiveCds?.parsed?.testPolicy ?? null, source: effectiveCds?.parsed?.testPolicy ? "cds" : "default" },
+          : (effectiveCds?.parsed?.testPolicy
+            ? { bucket: effectiveCds.parsed.testPolicy, value: effectiveCds.parsed.testPolicyValue ?? null, source: "cds", basis: effectiveCds.parsed.testPolicyBasis ?? null }
+            : { bucket: null, source: "unknown" }),
+        // The read's own label key and what it lacks, so a stored read
+        // tells the chat when no label was given (rememberFitRead).
+        labelKey: positioning.labelKey,
+        ...(positioning.studentDataNeeded?.length ? { studentDataNeeded: positioning.studentDataNeeded } : {}),
       };
       return positioning;
     }));
@@ -358,9 +427,12 @@ export async function runPositioning({ studentId, body = {}, bypassCache = false
       },
       source: "College Transitions CDS repository + NCES/IPEDS baseline + unified EC strength",
       targets: scoredTargets,
+      // True when a source failed while this read was built; it is not
+      // cached, so the next request reads again.
+      degraded,
     };
 
-    deps.putScorecardQueryCache("positioning_targets", { cacheKey, cdsVersion, targets: rawTargets, major: requestedMajor, studentId, snapshot: snap.id, model: POSITIONING_MODEL_VERSION }, payload);
-    for (const target of scoredTargets) rememberFitRead(studentId, target);
+    if (!degraded) deps.putScorecardQueryCache("positioning_targets", positioningKey, payload);
+    for (const target of scoredTargets) rememberFitRead(studentId, target, { snapshotId: snap.id });
     return { payload, cached: false, internals };
 }

@@ -37,7 +37,10 @@ export function registerAgentsRoutes(app, deps) {
         let deterministicResult = null;
 
         if (cls.subIntent === "fafsa" || cls.subIntent === "eligibility") {
-          deterministicResult = runFAFSAEligibilityCheck(req.body.studentData || {});
+          // No reviewed ruleset covers today: fall through to orchestration
+          // rather than answer with an empty checklist.
+          const check = runFAFSAEligibilityCheck(req.body.studentData || {});
+          deterministicResult = check.available === false ? null : check;
         } else if (cls.subIntent === "deadlines") {
           deterministicResult = calculateDeadlineStatus(req.body.deadlineDate);
         } else if (cls.subIntent === "documents" || cls.subIntent === "document_completeness") {

@@ -150,11 +150,22 @@ export function preparePIIStatements(vault) {
     getActiveConsent: db.prepare(`
       SELECT * FROM consent_records
       WHERE student_id = ? AND consent_type = ? AND revoked_at IS NULL
-        AND (expires_at IS NULL OR expires_at > datetime('now'))
+        AND (expires_at IS NULL OR julianday(expires_at) > julianday('now'))
       ORDER BY granted_at DESC LIMIT 1
     `),
     revokeConsent: db.prepare(`
       UPDATE consent_records SET revoked_at = datetime('now'), revoked_by = ? WHERE id = ?
+    `),
+    // Withdrawal by type: every active row of that type for the student.
+    revokeConsentByType: db.prepare(`
+      UPDATE consent_records SET revoked_at = datetime('now'), revoked_by = ?
+      WHERE student_id = ? AND consent_type = ? AND revoked_at IS NULL
+    `),
+    // The newest record of a type, granted or revoked. A grant after a
+    // revocation is a new row, so the newest row says which came last.
+    getLatestConsentOfType: db.prepare(`
+      SELECT * FROM consent_records WHERE student_id = ? AND consent_type = ?
+      ORDER BY granted_at DESC, rowid DESC LIMIT 1
     `),
     getAllConsent: db.prepare(`
       SELECT * FROM consent_records WHERE student_id = ? ORDER BY created_at DESC

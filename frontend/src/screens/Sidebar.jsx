@@ -2,18 +2,36 @@
 // the helpers, styles and in-place editors only it uses. App passes the
 // state and callbacks it reads as one props object (sidebarProps in
 // App.jsx); nothing here writes App state except through those callbacks.
-import { TEST_ORDER, TEST_SCORE_LIMITS, blankTestForm, entryToForm, formToEntry, formatClassRank, formatSections, normalizeClassRank, sectionDefs, testLabel, validateTestEntry, withSection } from "../profile/test-scores.js";
+import { TEST_ORDER, blankTestForm, entryLabel, entryToForm, formToEntry, formatClassRank, formatSections, normalizeClassRank, scaleChoices, scoreLimits, sectionDefs, testLabel, validateTestEntry, withScale, withSection } from "../profile/test-scores.js";
 import { t as tt } from "../i18n.js";
 import { formatServerDate } from "../profile/dates.js";
-import { gpaNumber, validateGpa } from "../profile/gpa.js";
+import { formatGpa, gpaNumber, hasGpa, validateGpa } from "../profile/gpa.js";
 import { useState } from "react";
 import SidebarSection from "../components/SidebarSection.jsx";
 import CloseButton from "../components/CloseButton.jsx";
-import CalibratedFitCard from "../components/CalibratedFitCard.jsx";
+import CalibratedFitCard, { valuesErrorText } from "../components/CalibratedFitCard.jsx";
+import { MAX_TARGET_SCHOOLS, targetListHas } from "../profile/target-schools.js";
 import EcEvidence, { ChatEvidenceSync } from "../components/EcEvidence.jsx";
 import PrestigeCard from "../components/PrestigeCard.jsx";
 import { GRADE_SCALE } from "../app-shared.js";
 import { apExamsWithScores, latestApScoreYear, validateApEntry } from "../profile/ap-entry.js";
+import { setAsideMarkFor, setAsideMarkText } from "../profile/set-aside-rows.js";
+
+// Under a score the last save set aside: why, and the two ways out. The
+// save's note named the score, but every row looked alike, so a student with
+// two SAT sittings could not tell which one had not saved (input-12).
+function SetAsideNote({ mark, locale, onFix, onRemove }) {
+  const button = { fontSize:10,padding:"2px 8px",borderRadius:6,border:"1px solid rgba(245,101,101,0.3)",background:"transparent",color:"#fc8181",cursor:"pointer" };
+  return (
+    <div role="note" onDoubleClick={(e) => e.stopPropagation()} style={{ marginTop:6,fontSize:10,lineHeight:1.45,color:"#fc8181",display:"flex",flexDirection:"column",gap:4 }}>
+      <span>{setAsideMarkText(mark, locale)}</span>
+      <span style={{ display:"flex",gap:6 }}>
+        <button type="button" onClick={(e) => { e.stopPropagation(); onFix(); }} style={button}>{tt(locale, "profile.set_aside.fix")}</button>
+        <button type="button" onClick={(e) => { e.stopPropagation(); onRemove(); }} style={button}>{tt(locale, "profile.set_aside.remove")}</button>
+      </span>
+    </div>
+  );
+}
 
 // ═══════════════════════════════════════════════════════════
 // GPA CALCULATOR — unweighted (4.0 scale) + weighted (rigor bonus).
@@ -110,8 +128,11 @@ const EDITOR_ERROR = { fontSize:11, color:"#fc8181", marginBottom:6 };
 function TestScoreEditor({ initial, onSave, onCancel, onDelete }) {
   const [form, setForm] = useState(() => (initial ? entryToForm(initial) : blankTestForm("sat")));
   const [error, setError] = useState("");
-  const defs = sectionDefs(form.test);
-  const limit = TEST_SCORE_LIMITS[form.test];
+  // The chosen scale (TOEFL's 1-6 band, PSAT 8/9) sets the ranges.
+  const defs = sectionDefs(form.test, form.scale);
+  const limit = scoreLimits(form.test, form.scale);
+  const scales = scaleChoices(form.test);
+  const name = entryLabel(form);
   const save = () => {
     const entry = formToEntry(form);
     const check = validateTestEntry(entry);
@@ -124,16 +145,21 @@ function TestScoreEditor({ initial, onSave, onCancel, onDelete }) {
         <select aria-label="Test" value={form.test} onChange={(e) => { setError(""); setForm(blankTestForm(e.target.value)); }} style={{ ...EDITOR_SELECT, flex:1 }}>
           {TEST_ORDER.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
         </select>
-        <input aria-label={`${testLabel(form.test)} total`} type="number" min={limit?.min} max={limit?.max} step={limit?.step ?? "any"} value={form.totalScore}
+        <input aria-label={`${name} total`} type="number" min={limit?.min} max={limit?.max} step={limit?.step ?? "any"} value={form.totalScore}
           onChange={(e) => setForm((p) => ({ ...p, totalScore: e.target.value }))} placeholder={`Total (${limit?.label || ""})`} style={{ ...EDITOR_INPUT, flex:1 }} />
       </div>
+      {scales.length > 0 && (
+        <select aria-label={`${testLabel(form.test)} score scale`} value={form.scale || ""} onChange={(e) => { setError(""); setForm((p) => withScale(p, e.target.value)); }} style={{ ...EDITOR_SELECT, marginBottom:6 }}>
+          {scales.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+        </select>
+      )}
       {form.test === "sat_subject" && (
         <input aria-label="Subject" value={form.subject} onChange={(e) => setForm((p) => ({ ...p, subject: e.target.value }))} placeholder="Subject (e.g. Math Level 2)" style={{ ...EDITOR_INPUT, marginBottom:6 }} />
       )}
       {defs.length > 0 && (
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:6 }}>
           {defs.map((d) => (
-            <input key={d.key} aria-label={`${testLabel(form.test)} ${d.label}`} type="number" min={d.min} max={d.max} step={d.step} value={form.sections[d.key] ?? ""}
+            <input key={d.key} aria-label={`${name} ${d.label}`} type="number" min={d.min} max={d.max} step={d.step} value={form.sections[d.key] ?? ""}
               onChange={(e) => setForm((p) => withSection(p, d.key, e.target.value))} placeholder={`${d.label} (${d.min}-${d.max})`} style={EDITOR_INPUT} />
           ))}
         </div>
@@ -156,7 +182,9 @@ function ApScoreEditor({ initial, others = [], onSave, onCancel, onDelete }) {
   const [form, setForm] = useState({
     exam: initial?.exam || initial?.subject || initial?.name || "",
     score: String(initial?.score ?? 5),
-    year: String(initial?.year || latestApScoreYear()),
+    // A stored exam with no year opens with the year blank: the editor used
+    // to stamp it with this year, which the student never said.
+    year: initial ? (initial.year != null && initial.year !== "" ? String(initial.year) : "") : String(latestApScoreYear()),
   });
   const [error, setError] = useState("");
   const save = () => {
@@ -292,8 +320,10 @@ export default function Sidebar(props) {
     removeTargetSchool,
     renameThreadTitle,
     renamingThreadId,
+    rereadCollegeValues,
     searchThreads,
     setActivePanel,
+    setAsideRows,
     setCollegeValues,
     setCollegeValuesHint,
     setCollegeValuesQuery,
@@ -322,6 +352,20 @@ export default function Sidebar(props) {
     user,
     verifyCollegeFit,
   } = props;
+  // The College Fit card stands on either read. The values read needs AI
+  // consent, budget and a readable official site; the positioning read
+  // needs none of them, and the server keeps it for the chat. The card used
+  // to render only with values, so a 402 or a blocked site hid a computed
+  // read the chat then quoted (fit-7). The name follows the values when
+  // they answered, else the read, else what the student looked up.
+  const valuesOk = Boolean(collegeValues && !collegeValues.error);
+  const valuesError = collegeValues?.error ? collegeValues : null;
+  const showFitCard = valuesOk || Boolean(collegePositioning) || Boolean(valuesError && collegePositioningLoading);
+  const positioningName = collegePositioning?.schoolName && collegePositioning.schoolName !== "Unknown school" ? collegePositioning.schoolName : "";
+  const fitSchoolName = (valuesOk && collegeValues.displayName) || positioningName || collegeValuesQuery.trim();
+  const targetListFull = targetSchools.length >= MAX_TARGET_SCHOOLS;
+  // What the last re-read said, for the school it was run on.
+  const [rereadNote, setRereadNote] = useState(null);
   return (
     <>
     {sidebarOpen && <div className="cc-sidebar-backdrop" data-testid="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
@@ -430,7 +474,8 @@ export default function Sidebar(props) {
               // values stay visible and it looks like the new search
               // never fired. Cached result still re-appears instantly
               // on submit (server-side cache), so this isn't wasteful.
-              if (collegeValues) setCollegeValues(null);
+              // A card standing on the fit read alone clears the same way.
+              if (collegeValues || collegePositioning) setCollegeValues(null);
             }}
             onKeyDown={e => { if (e.key === "Enter" && collegeValuesQuery.trim()) lookupCollege(collegeValuesQuery.trim(), collegeValuesHint.trim() || undefined); }}
             style={{ flex:1,padding:"6px 9px",borderRadius:6,border:"1px solid rgba(255,255,255,0.06)",background:"rgba(255,255,255,0.02)",color:"#bbb",fontSize:11,outline:"none" }}
@@ -440,7 +485,7 @@ export default function Sidebar(props) {
             style={{ padding:"5px 10px",borderRadius:6,border:"1px solid rgba(104,211,145,0.25)",background:collegeValuesLoading?"rgba(255,255,255,0.04)":"rgba(104,211,145,0.10)",color:collegeValuesLoading?"#666":"#68d391",fontSize:11,fontWeight:600,cursor:(collegeValuesLoading||!collegeValuesQuery.trim())?"default":"pointer" }}>
             {collegeValuesLoading ? "…" : "Look up"}
           </button>
-          {(collegeValues || collegeValuesQuery) && !collegeValuesLoading && (
+          {(collegeValues || collegePositioning || collegeValuesQuery) && !collegeValuesLoading && (
             <button
               onClick={() => { setCollegeValues(null); setCollegeValuesQuery(""); }}
               title="Clear and start a new search"
@@ -463,50 +508,53 @@ export default function Sidebar(props) {
         <div style={{fontSize:9,color:"#555",marginTop:0,marginBottom:6,fontStyle:"italic"}}>
           For multi-campus systems, name the specific campus (e.g. "UC Berkeley", not "University of California").
         </div>
-        {/* Clear server-side cache button — useful when a previous
-            extraction was wrong (branch confusion) and the cache TTL
-            hasn't expired. Scoped to this account's entries only. */}
-        <button
-          onClick={async () => {
-            if (!confirm("Clear all cached college values for this account? Future lookups will re-extract from the web.")) return;
-            const token = window.__CC_SESSION_TOKEN__;
-            try {
-              const r = await fetch("/api/colleges/values", {
-                method: "DELETE",
-                headers: { Authorization: `Bearer ${token}` },
-              });
-              const body = await r.json().catch(() => ({}));
-              if (r.ok) {
-                setCollegeValues(null);
-                setCollegeValuesQuery("");
-                alert(`Cleared ${body.deleted ?? 0} cached college values. Next lookup will re-extract.`);
-              } else {
-                alert(`Clear failed: ${body.error || `HTTP ${r.status}`}`);
-              }
-            } catch (err) {
-              alert(`Clear failed: ${err?.message || "unknown"}`);
-            }
-          }}
-          style={{fontSize:9,color:"#6a8ab5",background:"transparent",border:"1px solid rgba(106,138,181,0.15)",borderRadius:5,padding:"3px 8px",cursor:"pointer",marginBottom:8}}
-        >
-          ↺ Clear cached college values
-        </button>
-        {collegeValues && !collegeValues.error && (
+        {/* Re-read the school on the card, past the saved read: for a read
+            that came out wrong (branch confusion) before its cache expired.
+            It replaced "Clear cached college values", which said it cleared
+            this account's entries and deleted every school's read for every
+            student, so the next students paid for fresh extractions out of
+            their own budgets (ui-8). The server keeps the old read unless
+            the new one succeeds. */}
+        {showFitCard && fitSchoolName && (
+          <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:8}}>
+            <button
+              onClick={async () => {
+                const school = fitSchoolName;
+                setRereadNote(null);
+                const result = await rereadCollegeValues?.();
+                // A newer lookup owns the card; its school is not the one re-read.
+                if (!result || result.superseded) return;
+                setRereadNote({ school, text: tt(locale, result.ok ? "fit.reread_done" : "fit.reread_failed"), ok: Boolean(result.ok) });
+              }}
+              disabled={collegeValuesLoading}
+              title={tt(locale, "fit.reread_title")}
+              style={{fontSize:9,color:collegeValuesLoading?"#555":"#6a8ab5",background:"transparent",border:"1px solid rgba(106,138,181,0.15)",borderRadius:5,padding:"3px 8px",cursor:collegeValuesLoading?"default":"pointer"}}
+            >
+              {tt(locale, "fit.reread")}
+            </button>
+            {rereadNote && rereadNote.school === fitSchoolName && (
+              <span role="status" style={{fontSize:9,color:rereadNote.ok?"#68d391":"#f6ad55"}}>{rereadNote.text}</span>
+            )}
+          </div>
+        )}
+        {showFitCard && (
           <CalibratedFitCard
             collegeValues={collegeValues}
             positioning={collegePositioning}
             loading={collegePositioningLoading}
             locale={locale}
-            isTarget={targetSchools.some(s => s.toLowerCase() === String(collegeValues.displayName||"").toLowerCase())}
-            onAddTarget={() => addTargetSchool(collegeValues.displayName)}
+            schoolName={fitSchoolName}
+            isTarget={targetListHas(targetSchools, fitSchoolName)}
+            targetListFull={targetListFull}
+            onAddTarget={fitSchoolName ? () => addTargetSchool(fitSchoolName) : undefined}
             verification={collegeVerification}
             verifying={collegeVerifying}
-            onVerify={() => verifyCollegeFit(collegeValues.displayName, Boolean(collegeVerification))}
+            onVerify={() => verifyCollegeFit(fitSchoolName, Boolean(collegeVerification))}
           />
         )}
-        {collegeValues?.error && (
-          <div style={{fontSize:10,color:"#fc8181",padding:"6px 8px",borderRadius:6,background:"rgba(245,101,101,0.05)",border:"1px solid rgba(245,101,101,0.15)",marginBottom:14}}>
-            {collegeValues.error}
+        {valuesError && !showFitCard && (
+          <div role="alert" style={{fontSize:10,color:"#fc8181",padding:"6px 8px",borderRadius:6,background:"rgba(245,101,101,0.05)",border:"1px solid rgba(245,101,101,0.15)",marginBottom:14}}>
+            {valuesErrorText(valuesError, locale)}
           </div>
         )}
 
@@ -536,11 +584,11 @@ export default function Sidebar(props) {
           <GpaEditor initial={profile.gpa || null}
             onSave={(gpa)=>commitProfile(p=>{ p.gpa = gpa; if (gpa) p.gpaStatus = undefined; })}
             onCancel={()=>setEditingField(null)} />
-        ) : profile.gpa ? (
+        ) : hasGpa(profile.gpa) ? (
           <div onDoubleClick={()=>beginEdit("gpa", profile.gpa.unweighted ?? "", profile.gpa.weighted ?? "")} title="Double-click to edit"
             style={{ background:"rgba(55,138,221,0.08)",borderRadius:10,padding:12,marginBottom:12,border:"1px solid rgba(55,138,221,0.15)",cursor:"pointer",userSelect:"none" }}>
             <div style={{ fontSize:11,color:"#6a8ab5" }}>GPA</div>
-            <div style={{ fontSize:22,fontWeight:700,color:"#63b3ed" }}>{profile.gpa.unweighted}{profile.gpa.weighted?` / ${profile.gpa.weighted}w`:""}</div>
+            <div style={{ fontSize:22,fontWeight:700,color:"#63b3ed" }}>{formatGpa(profile.gpa)}</div>
           </div>
         ) : <p onDoubleClick={()=>beginEdit("gpa","","")} title="Double-click to add" style={{ fontSize:12,color:"#444",margin:"0 0 12px",cursor:"pointer" }}>{profile.gpaStatus === "pending" ? "GPA not available yet." : "Tell the agent your GPA."}</p>}
 
@@ -589,19 +637,27 @@ export default function Sidebar(props) {
               onSave={(entry)=>commitProfile(p=>{ const ts=[...(p.testScores||[])]; ts[i]=entry; p.testScores=ts; })}
               onCancel={()=>setEditingField(null)}
               onDelete={()=>commitProfile(p=>{ p.testScores=(p.testScores||[]).filter((_,j)=>j!==i); })} />
-          ) : (
-            <div key={i} onDoubleClick={()=>beginEdit(`test:${i}`)} title="Double-click or use the pencil to edit"
-              style={{ background:"rgba(127,119,221,0.08)",borderRadius:10,padding:12,marginBottom:12,border:"1px solid rgba(127,119,221,0.15)",cursor:"pointer",userSelect:"none" }}>
+          ) : (() => {
+            const mark = setAsideMarkFor(setAsideRows, "testScores", t);
+            return (
+            <div key={i} data-testid={mark ? "set-aside-row" : undefined} onDoubleClick={()=>beginEdit(`test:${i}`)} title="Double-click or use the pencil to edit"
+              style={{ background:"rgba(127,119,221,0.08)",borderRadius:10,padding:12,marginBottom:12,border:`1px solid ${mark ? "rgba(245,101,101,0.45)" : "rgba(127,119,221,0.15)"}`,cursor:"pointer",userSelect:"none" }}>
               <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-                <div style={{ fontSize:11,color:"#9a94d4" }}>{testLabel(t.test)}{t.subject?` · ${t.subject}`:""}{t.date?` · ${t.date}`:""}</div>
-                <button type="button" aria-label={`Edit ${testLabel(t.test)} score`} onClick={()=>beginEdit(`test:${i}`)} style={{ background:"none",border:"none",color:"#9a94d4",cursor:"pointer",fontSize:12,padding:"0 2px" }}>✎</button>
+                <div style={{ fontSize:11,color:"#9a94d4" }}>{entryLabel(t)}{t.subject?` · ${t.subject}`:""}{t.date?` · ${t.date}`:""}</div>
+                <button type="button" aria-label={`Edit ${entryLabel(t)} score`} onClick={()=>beginEdit(`test:${i}`)} style={{ background:"none",border:"none",color:"#9a94d4",cursor:"pointer",fontSize:12,padding:"0 2px" }}>✎</button>
               </div>
               <div style={{ fontSize:22,fontWeight:700,color:"#afa9ec" }}>{t.totalScore}</div>
               {formatSections(t, { short: true }) && (
                 <div style={{ fontSize:11,color:"#9a94d4",marginTop:2 }}>{formatSections(t, { short: true })}</div>
               )}
+              {mark && (
+                <SetAsideNote mark={mark} locale={locale}
+                  onFix={()=>beginEdit(`test:${i}`)}
+                  onRemove={()=>commitProfile(p=>{ p.testScores=(p.testScores||[]).filter((_,j)=>j!==i); })} />
+              )}
             </div>
-          )
+            );
+          })()
         ))}
         {editingField === "test:new" ? (
           <TestScoreEditor initial={null}
@@ -652,16 +708,26 @@ export default function Sidebar(props) {
               onSave={(entry)=>commitProfile(p=>{ const a=[...(p.apScores||[])]; a[i]=entry; p.apScores=a; })}
               onCancel={()=>setEditingField(null)}
               onDelete={()=>commitProfile(p=>{ p.apScores=(p.apScores||[]).filter((_,j)=>j!==i); })} />
-          ) : (
-            <div key={i} onDoubleClick={()=>beginEdit(`ap:${i}`)} title="Double-click or use the pencil to edit"
-              style={{ fontSize:12,padding:"4px 0",borderBottom:"1px solid rgba(255,255,255,0.03)",display:"flex",justifyContent:"space-between",alignItems:"center",gap:6,cursor:"pointer",userSelect:"none" }}>
-              <span><span style={{color:"#f6ad55"}}>AP </span>{x.exam || x.subject || x.name}{x.year ? <span style={{color:"#666"}}> · {x.year}</span> : null}</span>
-              <span style={{display:"flex",alignItems:"center",gap:6}}>
-                <span style={{color:"#f6ad55",fontWeight:600}}>{x.score}</span>
-                <button type="button" aria-label={`Edit AP ${x.exam || x.subject || x.name} score`} onClick={()=>beginEdit(`ap:${i}`)} style={{ background:"none",border:"none",color:"#f6ad55",cursor:"pointer",fontSize:12,padding:"0 2px" }}>✎</button>
-              </span>
+          ) : (() => {
+            const mark = setAsideMarkFor(setAsideRows, "apScores", x);
+            return (
+            <div key={i} data-testid={mark ? "set-aside-row" : undefined} style={{ borderBottom:"1px solid rgba(255,255,255,0.03)" }}>
+              <div onDoubleClick={()=>beginEdit(`ap:${i}`)} title="Double-click or use the pencil to edit"
+                style={{ fontSize:12,padding:"4px 0",display:"flex",justifyContent:"space-between",alignItems:"center",gap:6,cursor:"pointer",userSelect:"none",...(mark ? { color:"#fc8181" } : {}) }}>
+                <span><span style={{color:"#f6ad55"}}>AP </span>{x.exam || x.subject || x.name}{x.year ? <span style={{color:"#666"}}> · {x.year}</span> : null}</span>
+                <span style={{display:"flex",alignItems:"center",gap:6}}>
+                  <span style={{color:"#f6ad55",fontWeight:600}}>{x.score}</span>
+                  <button type="button" aria-label={`Edit AP ${x.exam || x.subject || x.name} score`} onClick={()=>beginEdit(`ap:${i}`)} style={{ background:"none",border:"none",color:"#f6ad55",cursor:"pointer",fontSize:12,padding:"0 2px" }}>✎</button>
+                </span>
+              </div>
+              {mark && (
+                <SetAsideNote mark={mark} locale={locale}
+                  onFix={()=>beginEdit(`ap:${i}`)}
+                  onRemove={()=>commitProfile(p=>{ p.apScores=(p.apScores||[]).filter((_,j)=>j!==i); })} />
+              )}
             </div>
-          )
+            );
+          })()
         ))}
         {editingField === "ap:new" ? (
           <ApScoreEditor initial={null} others={profile.apScores||[]}
@@ -699,7 +765,7 @@ export default function Sidebar(props) {
             {expandedEC === i && (
               <div style={{ marginTop:8 }}>
                 <PrestigeCard key={evidenceVersion} ecName={a.name} locale={locale} />
-                <EcEvidence ecName={a.name} refreshKey={evidenceVersion} />
+                <EcEvidence ecName={a.name} refreshKey={evidenceVersion} locale={locale} />
               </div>
             )}
           </div>
@@ -766,8 +832,15 @@ export default function Sidebar(props) {
             aria-label="Add a target university"
             style={{ flex:1,padding:"6px 10px",borderRadius:8,border:"1px solid rgba(255,255,255,0.08)",background:"rgba(255,255,255,0.03)",color:"#e8e6e3",fontSize:12,outline:"none" }}
           />
-          <button onClick={()=>addTargetSchool(targetSchoolInput)} disabled={!targetSchoolInput.trim()} style={{ padding:"6px 12px",borderRadius:8,border:"1px solid rgba(167,139,250,0.25)",background:"rgba(167,139,250,0.08)",color:"#c4b5fd",fontSize:12,cursor:targetSchoolInput.trim()?"pointer":"default" }}>Add</button>
+          <button onClick={()=>addTargetSchool(targetSchoolInput)} disabled={!targetSchoolInput.trim() || targetListFull} title={targetListFull ? tt(locale, "targets.cap_reached", { max: MAX_TARGET_SCHOOLS }) : undefined} style={{ padding:"6px 12px",borderRadius:8,border:"1px solid rgba(167,139,250,0.25)",background:"rgba(167,139,250,0.08)",color:targetListFull?"#6a6a7a":"#c4b5fd",fontSize:12,cursor:(targetSchoolInput.trim() && !targetListFull)?"pointer":"default" }}>Add</button>
         </div>
+        {/* A full list takes no ninth school (profile/target-schools.js);
+            the reason sits where the student is typing. */}
+        {targetListFull && (
+          <div role="status" data-testid="target-cap-note" style={{ fontSize:10,color:"#fbd38d",marginTop:-8,marginBottom:14,lineHeight:1.5 }}>
+            {tt(locale, "targets.cap_reached", { max: MAX_TARGET_SCHOOLS })}
+          </div>
+        )}
 
         {/* ─── Round 1-5 tools (narrative, candidates, deadlines) ─── */}
         {/* Three buttons that pop a full panel into <activePanel/>. The     */}

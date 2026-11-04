@@ -1,40 +1,98 @@
 // routes/students.js — the /api/students routes, moved out of server.js on
 // 2026-09-16 so the server file holds setup and helpers only. `deps` is
 // the server's routeDeps object: live getters onto the module bindings
-// these handlers use (CHAT_EXTRACT_MAX_BYTES, SCORECARD_API_KEY, assembleProfileForGeneration, authLimiter, authStore, baselineCollegeNames, bearerToken, buildStudentCallLLM, chatGraphStmts, collectStudentRows, createSessionToken, db, deleteStudentRows, hashEmail, hashIP, maybeAutoRegenerateNarrative, piiStmts, piiVault, queueChatEvidence, ragStmts, removeStudentFiles, requireStudentAuth, safeJSON, shapeDeadline, shouldCullOverdue, stmts, studentLimiter, vectorStore).
+// these handlers use (CHAT_EXTRACT_MAX_BYTES, SCORECARD_API_KEY, assembleProfileForGeneration, authLimiter, authStore, baselineCollegeNames, bearerToken, buildStudentCallLLM, chatGraphStmts, collectStudentRows, createSessionToken, db, eraseStudent, hashEmail, hashIP, maybeAutoRegenerateNarrative, piiStmts, piiVault, queueChatEvidence, ragStmts, requireStudentAuth, safeJSON, shapeDeadline, shouldCullOverdue, stmts, studentLimiter, vectorStore).
 import { normalizeEmail } from "../security/security-auth.js";
 import { deleteAllStudentPII, hashEmail as hashPIIEmail, retrieveStudentPII, storeStudentPII } from "../storage/pii-vault.js";
 import crypto from "node:crypto";
 import { getOnboardingConsentRequirements, validateRequiredConsents } from "../security/consent.js";
 import { getBudgetStatus } from "../security/usage-budget.js";
-import { extractGoalUnitIds, fetchAndPersistCollegeHistory, getDirectStructuredStudentData, getStudentTrends, syncStudentData } from "../storage/rag-engine.js";
+import { extractGoalUnitIds, fetchAndPersistCollegeHistory, getDirectStructuredStudentData, getStudentTrends, profileRevision, syncStudentData } from "../storage/rag-engine.js";
 import * as chatHistory from "../chat/chat-history.js";
 import { redactProviderText, screenInput, screenOutput } from "../chat/content-moderation.js";
 import { isCrisisText } from "../chat/policy-router.js";
+import { renderCrisisText } from "../chat/rules-engine.js";
 import { parseAttachedFilesPreface } from "../activities/ec-chat-evidence.js";
 import * as chatGraph from "../chat/chat-graph.js";
 import { buildTranscriptParseMessages, parseTranscriptModelReply } from "../academics/transcript-import.js";
 import { normalizeSyncInput, previousFromSnapshot } from "../academics/profile-input.js";
 import { ExtractionError, SUPPORTED_MIME_TYPES, extractPdfOCR, extractText, isSupportedMime } from "../shared/file-extractors.js";
 import { resolveLocale, t } from "../shared/i18n.js";
+import { addCalendarDays, anywhereOnEarthToday, calendarDateOf, dueValueMs, normalizeDueValue, referenceToday } from "../shared/calendar-date.js";
+import { cycleOfDate } from "../shared/admissions-cycle.js";
+import { DEADLINE_CATEGORIES, DEADLINE_TITLE_MAX, deadlineDateOutside } from "../shared/deadline-rules.js";
+import { collectFitVerifyRows } from "../server/student-data.js";
 
 // A deadline's name and date are held to the same rules on create, bulk
-// create and edit. The name is what the list, the reminders and the chat
-// show, and had no cap; 200 characters is a long sentence. A date before
-// 2000 or more than six years out is a typing slip (a ninth grader's
-// furthest real deadline is about four years away): a year typed as 0202
-// or 20266 was stored as given and sorted to the ends of the list.
-const DEADLINE_TITLE_MAX = 200;
-const DEADLINE_CATEGORIES = ["personal", "admissions", "financial_aid", "test", "other"];
-const DEADLINE_EARLIEST_MS = Date.UTC(2000, 0, 1);
-const DEADLINE_YEARS_AHEAD = 6;
+// create and edit; the rules and their reasons live in
+// shared/deadline-rules.js, beside the copy the tracker's form carries.
+//
+// A category the student typed is kept as typed (trimmed, 40 characters):
+// anything outside the five known ones used to become "personal" without a
+// word, so "Essay" vanished on save.
+const DEADLINE_CATEGORY_MAX = 40;
 
-// The allowed window ({ from, to } as dates) when `ms` falls outside it.
-function deadlineDateOutside(ms, now = Date.now()) {
-  const latest = new Date(now);
-  latest.setUTCFullYear(latest.getUTCFullYear() + DEADLINE_YEARS_AHEAD);
-  if (ms >= DEADLINE_EARLIEST_MS && ms <= latest.getTime()) return null;
-  return { from: new Date(DEADLINE_EARLIEST_MS).toISOString().slice(0, 10), to: latest.toISOString().slice(0, 10) };
+function deadlineCategory(value, fallback) {
+  if (DEADLINE_CATEGORIES.includes(value)) return value;
+  const typed = typeof value === "string" ? value.trim().slice(0, DEADLINE_CATEGORY_MAX) : "";
+  return typed || fallback;
+}
+
+// A snoozed deadline sleeps until a calendar date (snooze_until) and from
+// that date reads as open again, in the counts and in the row the tracker
+// shows. "Snoozed" used to have no end: the row left the upcoming and
+// overdue counts for good (input-4). A row snoozed before the date existed
+// has nothing to wait for and reads as open; the button said "Snooze",
+// never "hide for good". `snoozeUntil` rides only on a sleeping row, so the
+// list keeps the shape its fixture pins.
+function shapeDeadlineRow(deps, row, nowMs, today) {
+  const shaped = deps.shapeDeadline(row, nowMs, today);
+  if (!shaped || row.status !== "snoozed") return shaped;
+  const until = calendarDateOf(row.snooze_until);
+  if (until && until > (today || anywhereOnEarthToday(nowMs))) return { ...shaped, snoozeUntil: until };
+  return { ...shaped, status: "open" };
+}
+
+// When a snooze names no date: a week, but never past the due date, so a
+// snoozed deadline is back on the day it is due; a row due today or already
+// past comes back tomorrow.
+const DEFAULT_SNOOZE_DAYS = 7;
+function defaultSnoozeUntil(row, today) {
+  const tomorrow = addCalendarDays(today, 1);
+  const week = addCalendarDays(today, DEFAULT_SNOOZE_DAYS);
+  const due = calendarDateOf(row?.due_at) || (Number.isFinite(Date.parse(row?.due_at)) ? new Date(row.due_at).toISOString().slice(0, 10) : null);
+  const until = due && due < week ? due : week;
+  return until < tomorrow ? tomorrow : until;
+}
+
+// The GPA and testing statuses are reported only from a row that stores
+// them: "" there is a save that made no such statement, sent as null, and
+// NULL is a row from before the columns, left out so the app's merge
+// (profile-reconcile.js readServerProfile) keeps the device's value rather
+// than reading the absence as a clear.
+function storedStatuses(snap) {
+  const out = {};
+  if (snap.gpa_status != null) out.gpaStatus = snap.gpa_status || null;
+  if (snap.testing_status != null) out.testingStatus = snap.testing_status || null;
+  return out;
+}
+
+// The stored profile as GET /api/students/profile returns it; a sync refused
+// for a stale base revision returns the same shape, so the client can merge
+// against what the server holds.
+function storedProfile(deps, snap) {
+  return {
+    gpa: { unweighted: snap.gpa_unweighted, weighted: snap.gpa_weighted },
+    ...storedStatuses(snap),
+    classRank: deps.safeJSON(snap.class_rank_json, null),
+    courses: deps.safeJSON(snap.courses_json, []),
+    apScores: deps.safeJSON(snap.ap_scores_json, []),
+    testScores: deps.safeJSON(snap.test_scores_json, []),
+    activities: deps.safeJSON(snap.activities_json, []),
+    majorInterest: snap.major_interest,
+    goals: deps.safeJSON(snap.goals_json, []),
+    lastUpdated: snap.created_at,
+  };
 }
 
 export function registerStudentsRoutes(app, deps) {
@@ -144,19 +202,42 @@ export function registerStudentsRoutes(app, deps) {
 
   app.post("/api/students/sync", deps.studentLimiter, deps.requireStudentAuth, (req, res) => {
     try {
+      const latest = deps.ragStmts.getLatestSnapshot.get(req.studentId);
+      const currentRevision = profileRevision(latest);
+      // A save made against an older copy of the profile is refused, and the
+      // stored profile comes back so the client can merge. Without this a
+      // stale device's vault overwrote a newer save from another device on
+      // login: the old SAT, the old GPA, deleted activities back. A body
+      // with no baseRevision (API clients, the in-product skill) is accepted
+      // as before. Nothing awaits between this read and the write below, so
+      // no other save can land in between.
+      const baseRevision = req.body?.baseRevision;
+      if (baseRevision != null && baseRevision !== "" && String(baseRevision) !== currentRevision) {
+        return res.status(409).json({
+          error: "Your profile was changed on another device since this copy was loaded.",
+          code: "profile_revision_conflict",
+          revision: currentRevision,
+          profile: latest ? storedProfile(deps, latest) : null,
+        });
+      }
       // Each field is checked before it is stored (academics/profile-input.js):
       // what cannot be stored is set aside and named in the response, and the
       // rest of the save lands. Only field names reach the log, never values.
-      const input = normalizeSyncInput(req.body || {}, previousFromSnapshot(deps.ragStmts.getLatestSnapshot.get(req.studentId)));
+      const input = normalizeSyncInput(req.body || {}, previousFromSnapshot(latest));
       const { profile, activities, goals, majorInterest, setAside } = input;
       const trigger = typeof req.body?.trigger === "string" && req.body.trigger ? req.body.trigger.slice(0, 40) : "user_update";
       if (setAside.length) console.warn(`[SYNC] set aside: ${setAside.map((s) => (s.count ? `${s.field} (${s.count})` : s.field)).join(", ")}`);
       if (profile?.grade != null) deps.authStore.setStudentGrade(req.studentId, profile.grade);
       const result = syncStudentData(deps.ragStmts, req.studentId, profile, activities, goals, majorInterest, trigger);
 
+      // The audit row names the kind of change and nothing else. It used to
+      // carry the change's title ("New activity: <name> (<role>)", "GPA
+      // recorded: 3.62") under a prefix of the email hash, which anyone with
+      // the email could recompute, and it outlived account deletion. The
+      // hint is the id prefix every other audit writer uses.
       for (const change of result.changes || []) {
         if (change.significant) {
-          deps.stmts.insertAudit.run(crypto.randomUUID(), new Date().toISOString(), `profile_${change.type}`, (req.studentEmailHash || "").slice(0, 12), change.title.slice(0, 200), deps.hashIP(req.ip));
+          deps.stmts.insertAudit.run(crypto.randomUUID(), new Date().toISOString(), `profile_${change.type}`, req.studentId.slice(0, 12), change.type, deps.hashIP(req.ip));
         }
       }
 
@@ -192,7 +273,7 @@ export function registerStudentsRoutes(app, deps) {
       const snap = deps.ragStmts.getLatestSnapshot.get(req.studentId);
       const capabilities = deps.ragStmts.getLatestCapabilities.all(req.studentId);
       const milestoneCount = deps.ragStmts.getMilestones.all(req.studentId, 100).length;
-      if (!snap) return res.json({ profile: null, metrics: [], milestoneCount: 0 });
+      if (!snap) return res.json({ profile: null, revision: null, metrics: [], milestoneCount: 0 });
       const structuredMetrics = getDirectStructuredStudentData(deps.ragStmts, req.studentId, {
         snapshot: snap,
         capabilities,
@@ -200,17 +281,9 @@ export function registerStudentsRoutes(app, deps) {
 
       res.json({
         retrieval: "direct_db",
-        profile: {
-          gpa: { unweighted: snap.gpa_unweighted, weighted: snap.gpa_weighted },
-          classRank: deps.safeJSON(snap.class_rank_json, null),
-          courses: deps.safeJSON(snap.courses_json, []),
-          apScores: deps.safeJSON(snap.ap_scores_json, []),
-          testScores: deps.safeJSON(snap.test_scores_json, []),
-          activities: deps.safeJSON(snap.activities_json, []),
-          majorInterest: snap.major_interest,
-          goals: deps.safeJSON(snap.goals_json, []),
-          lastUpdated: snap.created_at,
-        },
+        profile: storedProfile(deps, snap),
+        // Sent back as the sync's baseRevision (see POST /api/students/sync).
+        revision: profileRevision(snap),
         metrics: capabilities.map(c => ({ metric: c.metric, value: c.value, percentileNational: c.percentile_national, percentileCohort: c.percentile_cohort })),
         structuredMetrics,
         milestoneCount,
@@ -359,7 +432,13 @@ export function registerStudentsRoutes(app, deps) {
       // thread graph (entities + a short advice excerpt, no model call) so
       // later turns can recall it without replaying the transcript.
       let threadGraph = null;
-      if (role === "assistant") {
+      // A crisis turn persists only the deterministic reply, never the
+      // student's words, so the "prior" user turn is an unrelated earlier
+      // question; indexing would file the hotline text as its advice. The
+      // client's text is pinned byte-identical to renderCrisisText, and the
+      // raw copy is compared because the output screen may mask a number.
+      const isCrisisReply = ["en-US", "ko"].some((locale) => originalContent.trim() === renderCrisisText(locale).trim());
+      if (role === "assistant" && !isCrisisReply) {
         try {
           const prior = chatGraph.latestUserTurn(deps.chatGraphStmts, req.params.id);
           if (prior?.content) {
@@ -488,12 +567,11 @@ export function registerStudentsRoutes(app, deps) {
 
   app.delete("/api/students", deps.studentLimiter, deps.requireStudentAuth, async (req, res) => {
     try {
-      const sid = req.studentId;
-      deps.deleteStudentRows(deps.piiVault.db, sid);
-      deps.deleteStudentRows(deps.db, sid);
-      deps.vectorStore.db.prepare("DELETE FROM embeddings WHERE source_id = ? AND source_type LIKE 'student%'").run(sid);
-      deps.authStore.deleteStudentCredential(sid);
-      await deps.removeStudentFiles(sid);
+      // server/student-data.js eraseStudent: the credential and sessions go
+      // first, then every row in the three databases, the audit rows that
+      // could lead back to the student, and the files; a follow-up sweep
+      // catches a background write that lands after this.
+      await deps.eraseStudent({ studentId: req.studentId, emailHash: req.studentEmailHash });
       deps.stmts.insertAudit.run(crypto.randomUUID(), new Date().toISOString(), "student_data_deleted", "", "account_erasure_completed", deps.hashIP(req.ip));
       return res.json({ deleted: true });
     } catch (err) {
@@ -505,14 +583,23 @@ export function registerStudentsRoutes(app, deps) {
   app.get("/api/students/export", deps.studentLimiter, deps.requireStudentAuth, (req, res) => {
     try {
       const sid = req.studentId;
-      const operational = deps.collectStudentRows(deps.db, sid, { exclude: ["student_credentials", "session_tokens"] });
+      // Sealed columns (chat-history.js SEALED_COLUMNS) are opened: the export
+      // used to hand over every conversation, thread title and thread-memory
+      // fact as ciphertext only the server could read.
+      const operational = deps.collectStudentRows(deps.db, sid, { exclude: ["student_credentials", "session_tokens"], open: chatHistory.openText });
       if (deps.db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='chat_messages'").get()) {
         operational.chat_messages = deps.db.prepare(`SELECT m.* FROM chat_messages m
-          JOIN chat_threads t ON t.id = m.thread_id WHERE t.student_id = ? ORDER BY m.created_at`).all(sid);
+          JOIN chat_threads t ON t.id = m.thread_id WHERE t.student_id = ? ORDER BY m.created_at, m.id`).all(sid)
+          .map((row) => chatHistory.openSealedRow("chat_messages", row, chatHistory.openText));
       }
       if (deps.db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='evidence_items'").get()) {
         operational.evidence_items = deps.db.prepare("SELECT * FROM evidence_items WHERE entity_type = 'student' AND entity_id = ?").all(sid);
       }
+      // The College Fit double-check rows (the student's fit label and score
+      // per school and snapshot) sit in the shared research cache, keyed by
+      // "fitverify:<student id>:", with no student_id column; erasure deletes
+      // them, and the export left them out.
+      operational.college_research_cache = collectFitVerifyRows(deps.db, sid);
       const piiProfile = retrieveStudentPII(deps.piiStmts, deps.piiVault, sid);
       const consents = deps.piiVault.db.prepare("SELECT * FROM consent_records WHERE student_id = ? ORDER BY created_at").all(sid);
       const documents = deps.piiVault.db.prepare(`SELECT id, doc_type, doc_classification, content_hash,
@@ -728,21 +815,23 @@ export function registerStudentsRoutes(app, deps) {
       if (!dueAt || typeof dueAt !== "string") {
         return res.status(400).json({ error: "dueAt (ISO-8601) required" });
       }
-      const parsed = Date.parse(dueAt);
-      if (!Number.isFinite(parsed)) {
+      // A date is stored as the YYYY-MM-DD the student picked (see
+      // shared/calendar-date.js); only a real instant is stored as one.
+      const due = normalizeDueValue(dueAt);
+      if (!due) {
         return res.status(400).json({ error: "dueAt must be a parseable ISO-8601 date", friendlyMessage: t("deadlines.due_at_invalid", locale) });
       }
-      const outside = deadlineDateOutside(parsed);
+      const outside = deadlineDateOutside(dueValueMs(due));
       if (outside) {
         return res.status(400).json({ error: `dueAt must fall between ${outside.from} and ${outside.to}`, friendlyMessage: t("deadlines.due_at_range", locale, outside) });
       }
-      const cat = DEADLINE_CATEGORIES.includes(category) ? category : "personal";
+      const cat = deadlineCategory(category, "personal");
       const id = crypto.randomUUID();
       deps.ragStmts.deadlines.insert.run(
         id,
         req.studentId,
         title.trim(),
-        new Date(parsed).toISOString(),
+        due,
         cat,
         notes ? String(notes).slice(0, 2000) : null,
         Array.isArray(collegeIds) ? JSON.stringify(collegeIds.slice(0, 20).map(String)) : null,
@@ -759,36 +848,48 @@ export function registerStudentsRoutes(app, deps) {
   // POST /api/students/deadlines/bulk — create several deadlines in ONE request.
   // Used when a target school is added (Early/RD/financial-aid/commit at once)
   // so we don't fire 4+ separate POSTs and trip the rate limiter (HTTP 429).
-  // De-dupes against the student's existing deadline titles (case-insensitive).
+  //
+  // A row is a duplicate only of the same title in the same admissions cycle
+  // (the cycle its date falls in): titles carry no year, so title-only
+  // de-duplication let last cycle's "Harvard — Regular Decision" block this
+  // cycle's forever. An item already past everywhere (before today Anywhere
+  // on Earth) is not created: a school added on Nov 3 got an Early reminder
+  // due Nov 1, overdue on the day it was made. Each skipped item is listed
+  // with its reason, so the client can tell the student.
   app.post("/api/students/deadlines/bulk", deps.studentLimiter, deps.requireStudentAuth, (req, res) => {
     try {
       const items = Array.isArray(req.body?.items) ? req.body.items.slice(0, 20) : null;
       if (!items || items.length === 0) return res.status(400).json({ error: "items (non-empty array) required" });
       const existing = deps.ragStmts.deadlines.listByStudent.all(req.studentId) || [];
-      const existingTitles = new Set(existing.map((d) => String(d.title || "").trim().toLowerCase()));
+      const keyOf = (title, due) => `${String(title || "").trim().toLowerCase()}|${cycleOfDate(calendarDateOf(due) || String(due || "").slice(0, 10)) || ""}`;
+      const existingKeys = new Set(existing.map((d) => keyOf(d.title, d.due_at)));
+      const earliest = anywhereOnEarthToday();
       const created = [];
-      let skipped = 0;
+      const skippedItems = [];
       for (const it of items) {
         const title = String(it?.title || "").trim();
-        const due = Date.parse(it?.dueAt);
+        const due = normalizeDueValue(it?.dueAt);
+        const skip = (reason) => skippedItems.push({ title: title.slice(0, DEADLINE_TITLE_MAX), reason });
         // An item the single create would refuse is skipped and counted.
-        if (!title || title.length > DEADLINE_TITLE_MAX || !Number.isFinite(due) || deadlineDateOutside(due)) { skipped += 1; continue; }
-        if (existingTitles.has(title.toLowerCase())) { skipped += 1; continue; }
+        if (!title || title.length > DEADLINE_TITLE_MAX || !due || deadlineDateOutside(dueValueMs(due))) { skip("invalid"); continue; }
+        if ((calendarDateOf(due) || due.slice(0, 10)) < earliest) { skip("past"); continue; }
+        const key = keyOf(title, due);
+        if (existingKeys.has(key)) { skip("duplicate"); continue; }
         const cat = DEADLINE_CATEGORIES.includes(it?.category) ? it.category : "admissions";
         const id = crypto.randomUUID();
         deps.ragStmts.deadlines.insert.run(
-          id, req.studentId, title, new Date(due).toISOString(), cat,
+          id, req.studentId, title, due, cat,
           it?.notes ? String(it.notes).slice(0, 2000) : null,
           Array.isArray(it?.collegeIds)
             ? JSON.stringify(it.collegeIds.slice(0, 20).map(String))
             : null,
           "open",
         );
-        existingTitles.add(title.toLowerCase());
+        existingKeys.add(key);
         const row = deps.ragStmts.deadlines.getById.get(id, req.studentId);
         if (row) created.push(deps.shapeDeadline(row));
       }
-      res.status(201).json({ ok: true, created, createdCount: created.length, skipped });
+      res.status(201).json({ ok: true, created, createdCount: created.length, skipped: skippedItems.length, skippedItems });
     } catch (err) {
       console.error("[deadlines] bulk create error:", err.message);
       res.status(500).json({ error: "Bulk create failed" });
@@ -801,7 +902,12 @@ export function registerStudentsRoutes(app, deps) {
       const locale = resolveLocale(req);
       const rows = deps.ragStmts.deadlines.listByStudent.all(req.studentId) || [];
       const now = Date.now();
-      const shaped = rows.map((r) => deps.shapeDeadline(r, now));
+      // Days count from the student's own date when the client sends it
+      // (?today=YYYY-MM-DD, accepted only if it is today somewhere on
+      // Earth), else from Anywhere-on-Earth today, so a deadline is never
+      // called overdue while its date is still running for the student.
+      const today = referenceToday(req.query?.today, now);
+      const shaped = rows.map((r) => shapeDeadlineRow(deps, r, now, today));
       const upcoming = shaped.filter((d) => d.status === "open" && d.daysUntil >= 0);
       const overdue = shaped.filter((d) => d.status === "open" && d.daysUntil < 0);
       const done = shaped.filter((d) => d.status === "done");
@@ -831,6 +937,17 @@ export function registerStudentsRoutes(app, deps) {
           { count: upcoming.length, title: next?.title, days: next?.daysUntil },
         );
       }
+      // The tracker's chip at the top of the chat reads `summary`; the
+      // server never sent one (it read r.summary from the first commit), so
+      // the chip never rendered. The top-level counts stay for older clients.
+      const summary = {
+        overdue: overdueCount,
+        dueIn7: upcoming.filter((d) => d.daysUntil <= 7).length,
+        dueIn30: upcoming.filter((d) => d.daysUntil <= 30).length,
+        upcoming: upcoming.length,
+        friendlyMessage,
+        today,
+      };
       res.json({
         ok: true,
         count: visible.length,
@@ -838,6 +955,7 @@ export function registerStudentsRoutes(app, deps) {
         overdueCount,
         doneCount: done.length,
         deadlines: visible,
+        summary,
         locale,
         friendlyMessage,
         overdueCulled: cullOverdue ? overdue.length : 0,
@@ -854,8 +972,30 @@ export function registerStudentsRoutes(app, deps) {
       const { id } = req.params;
       const existing = deps.ragStmts.deadlines.getById.get(id, req.studentId);
       if (!existing) return res.status(404).json({ error: "deadline not found" });
-      const { title, dueAt, category, notes, collegeIds, status } = req.body || {};
+      const { title, dueAt, category, notes, collegeIds, snoozeUntil } = req.body || {};
       const locale = resolveLocale(req);
+      const now = Date.now();
+      const today = referenceToday(req.query?.today, now);
+      // A snooze names the calendar date the row comes back, held to the
+      // due date's window and never before today (Anywhere on Earth, so a
+      // student a day ahead is not refused). A date alone means a snooze;
+      // with any other status it is a contradiction.
+      let snoozeDate = null;
+      if (snoozeUntil != null && snoozeUntil !== "") {
+        if (req.body?.status != null && req.body.status !== "snoozed") {
+          return res.status(400).json({ error: "snoozeUntil goes with status snoozed", friendlyMessage: t("deadlines.status_invalid", locale) });
+        }
+        const earliest = anywhereOnEarthToday(now);
+        const date = typeof snoozeUntil === "string" ? calendarDateOf(snoozeUntil.trim()) : null;
+        const outside = date ? deadlineDateOutside(dueValueMs(date), now) : null;
+        if (!date || date < earliest || outside) {
+          // The window's far end, from the same rule the due date follows.
+          const range = { from: earliest, to: deadlineDateOutside(Infinity, now).to };
+          return res.status(400).json({ error: `snoozeUntil must be a date (YYYY-MM-DD) between ${range.from} and ${range.to}`, friendlyMessage: t("deadlines.due_at_range", locale, range) });
+        }
+        snoozeDate = date;
+      }
+      const status = req.body?.status || (snoozeDate ? "snoozed" : undefined);
       // Status-only convenience path.
       if (status && !title && !dueAt && !category && notes === undefined && !collegeIds) {
         if (!["open", "done", "snoozed"].includes(status)) {
@@ -871,10 +1011,11 @@ export function registerStudentsRoutes(app, deps) {
         if (typeof title === "string" && title.trim().length > DEADLINE_TITLE_MAX) {
           return res.status(400).json({ error: `title must be ${DEADLINE_TITLE_MAX} characters or fewer`, friendlyMessage: t("deadlines.title_too_long", locale, { max: DEADLINE_TITLE_MAX }) });
         }
-        if (dueAt && !Number.isFinite(Date.parse(dueAt))) {
+        const due = dueAt ? normalizeDueValue(dueAt) : null;
+        if (dueAt && !due) {
           return res.status(400).json({ error: "dueAt must be a parseable ISO-8601 date", friendlyMessage: t("deadlines.due_at_invalid", locale) });
         }
-        const outside = dueAt ? deadlineDateOutside(Date.parse(dueAt)) : null;
+        const outside = due ? deadlineDateOutside(dueValueMs(due)) : null;
         if (outside) {
           return res.status(400).json({ error: `dueAt must fall between ${outside.from} and ${outside.to}`, friendlyMessage: t("deadlines.due_at_range", locale, outside) });
         }
@@ -883,9 +1024,9 @@ export function registerStudentsRoutes(app, deps) {
         }
         deps.ragStmts.deadlines.updateFields.run(
           title ? title.trim() || null : null,
-          dueAt ? new Date(Date.parse(dueAt)).toISOString() : null,
-          // An unknown category leaves the stored one as it is.
-          DEADLINE_CATEGORIES.includes(category) ? category : null,
+          due,
+          // A blank category leaves the stored one; a typed one is kept.
+          deadlineCategory(category, null),
           notes !== undefined ? (notes ? String(notes).slice(0, 2000) : null) : null,
           Array.isArray(collegeIds) ? JSON.stringify(collegeIds.slice(0, 20).map(String)) : null,
           id,
@@ -893,8 +1034,15 @@ export function registerStudentsRoutes(app, deps) {
         );
         if (status) deps.ragStmts.deadlines.updateStatus.run(status, id, req.studentId);
       }
+      // A snooze always has an end; reopening or finishing clears it.
+      if (status === "snoozed") {
+        const current = deps.ragStmts.deadlines.getById.get(id, req.studentId);
+        deps.ragStmts.deadlines.setSnoozeUntil.run(snoozeDate || defaultSnoozeUntil(current, today), id, req.studentId);
+      } else if (status) {
+        deps.ragStmts.deadlines.setSnoozeUntil.run(null, id, req.studentId);
+      }
       const updated = deps.ragStmts.deadlines.getById.get(id, req.studentId);
-      res.json({ ok: true, deadline: deps.shapeDeadline(updated) });
+      res.json({ ok: true, deadline: shapeDeadlineRow(deps, updated, now, today) });
     } catch (err) {
       console.error("[deadlines] update error:", err.message);
       res.status(500).json({ error: "Update failed" });

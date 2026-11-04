@@ -100,6 +100,9 @@ test("auto-narrative reuses the shared draft generator + saves as source:auto", 
 test("server.js exposes GET /api/ec/narrative/active with source + profileStale", () => {
   assert.match(SERVER, /app\.get\("\/api\/ec\/narrative\/active",\s*studentLimiter,\s*requireStudentAuth/);
   assert.match(SERVER, /profileStale/);
+  // The save time goes out as ISO-8601 UTC: the raw SQLite "YYYY-MM-DD
+  // HH:MM:SS" read as local time in Chrome and Invalid Date in Safari.
+  assert.match(SERVER, /created_at: sqliteUtcToIso\(active\.createdAt\)/);
 });
 
 test("context bundle narrative block exposes source + profileStale", () => {

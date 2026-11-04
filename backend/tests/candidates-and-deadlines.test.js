@@ -87,6 +87,15 @@ test("deadlines status transitions are whitelisted (open|done|snoozed)", () => {
   assert.match(SERVER, /\["open", "done", "snoozed"\]/);
 });
 
+test("a snoozed deadline carries the date it wakes (input-4)", () => {
+  // The column, its guarded migration and the statement that sets it; the
+  // behavior is pinned in backendglue-deadline-snooze-routes.test.js.
+  assert.match(RAG, /ALTER TABLE student_deadlines ADD COLUMN snooze_until TEXT/);
+  assert.match(RAG, /UPDATE student_deadlines SET snooze_until = \?/);
+  assert.match(SERVER, /setSnoozeUntil\.run\(snoozeDate \|\| defaultSnoozeUntil\(/);
+  assert.match(SERVER, /shapeDeadlineRow\(deps, r, now, today\)/);
+});
+
 test("overdue deadlines are culled before Aug 1 and re-shown after (display-only)", () => {
   // Cutoff helper + August (0-indexed 7) boundary.
   assert.match(SERVER, /function shouldCullOverdue/);

@@ -46,7 +46,7 @@ export default function TranscriptImportCard({ file, onParse, onImport }) {
               <div style={{ fontSize: 10, color: "#6a6a7a", textTransform: "uppercase", letterSpacing: "0.05em" }}>{label(g.year)} · {g.courses.length}</div>
               {g.courses.map((c, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
-                  <span><span style={{ color: c.type === "ap" ? "#f6ad55" : "#666" }}>{c.type === "ap" && !/^ap\s+/i.test(c.name) ? "AP " : ""}</span>{c.name}</span>
+                  <span><span style={{ color: c.type === "ap" ? "#f6ad55" : "#666" }}>{c.type === "ap" && !/^ap\s+/i.test(c.name) ? "AP " : ""}</span>{c.name}{c.semester === "fall" || c.semester === "spring" ? <span style={{ color: "#6a6a7a" }}>{` (${c.semester})`}</span> : null}</span>
                   <span style={{ color: c.grade === "IP" ? "#8a8a9a" : "#63b3ed", fontWeight: 600 }}>{c.grade === "IP" ? "in progress" : c.grade}</span>
                 </div>
               ))}
@@ -64,7 +64,11 @@ export default function TranscriptImportCard({ file, onParse, onImport }) {
           {state.phase === "done" && state.result && (
             <div style={{ marginTop: 8, color: "#9ae6b4" }}>
               Added {state.result.added} course{state.result.added === 1 ? "" : "s"}
-              {state.result.skipped ? ` · ${state.result.skipped} already on your profile` : ""}
+              {/* Rows already on the profile and rows over the course limit
+                  are told apart; both used to read as "already on your
+                  profile". An older caller passes only `skipped`. */}
+              {(state.result.duplicates ?? state.result.skipped) ? ` · ${state.result.duplicates ?? state.result.skipped} already on your profile` : ""}
+              {state.result.overCap ? ` · ${state.result.overCap} left out (over the profile's course limit)` : ""}
               {state.result.unplaced ? ` · ${state.result.unplaced} left out (no school year stated — add them in Edit profile)` : ""}
               . Double-click any course in the sidebar to fix a grade.
             </div>

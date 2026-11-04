@@ -7,7 +7,9 @@ export function startListening(deps) {
   // ═══════════════════════════════════════════════════════════
   // START SERVER
   // ═══════════════════════════════════════════════════════════
-  deps.app.listen(deps.PORT, deps.HOST, () => {
+  // The handle goes back to server.js so shutdown can stop accepting and
+  // drain in-flight requests before it closes the databases.
+  return deps.app.listen(deps.PORT, deps.HOST, () => {
     console.log(`
 ╔════════════════════════════════════════════════════════════════╗
 ║  College Counselor Backend v2 (Rules-First Architecture)       ║

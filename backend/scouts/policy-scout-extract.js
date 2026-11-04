@@ -3,11 +3,17 @@
 // fields and the diff between two reads, with SCOUT_VERSION, the constant to
 // bump whenever these rules change. Moved out of admissions-policy-scout.js
 // on 2026-09-20, which re-exports what it exported.
-import { currentAdmissionsCycle } from "../colleges/college-research.js";
+import { planningCycle, planningCycleStartYear, resolveCycleDate as resolvePlanningCycleDate } from "../shared/admissions-cycle.js";
 
 // Bumped whenever discovery or extraction changes; a boot after a bump
-// re-scouts immediately instead of waiting for the next cadence.
-export const SCOUT_VERSION = 4;
+// re-scouts immediately instead of waiting for the next cadence. Version 5
+// (2026-11) reads every page for the planning cycle (shared/admissions-cycle.js):
+// a yearless date lands in the cycle students are planning for, not the
+// one that rolled over on Aug 1, and a snapshot of another cycle is no
+// longer current. Version 6 (2026-11) keeps a date of the closing cycle
+// until it has passed: from Feb 1 version 5 dropped a stated "February 15"
+// and moved a yearless one a year later.
+export const SCOUT_VERSION = 6;
 
 // ─── Pure extraction ───────────────────────────────────────────────────
 export const TEST_POLICY_LABELS = Object.freeze({
@@ -60,22 +66,16 @@ function splitSentences(text) {
   return String(text || "").split(/(?<=[.!?])\s+|\n+/).map((s) => s.trim()).filter(Boolean);
 }
 
-function pad(n) { return String(n).padStart(2, "0"); }
-
 // Turn a month/day (optionally with a year) into the ISO date for the
-// admissions cycle in progress: Aug–Dec dates belong to the cycle's first
-// calendar year, Jan–Jul to its second.
+// planning cycle: Aug–Dec dates belong to the cycle's first calendar year,
+// Jan–Jul to its second. A date of the closing cycle that has not passed
+// yet (a February 15 deadline read on Feb 3) keeps its own year; any other
+// date outside the planning cycle is dropped. It used to place dates in the
+// cycle that rolled over on Aug 1 and drop anything older than 150 days, so
+// from February a yearless "November 1" was last fall's and from April it
+// was nothing at all.
 export function resolveCycleDate(month, day, year, now = new Date()) {
-  if (!(month >= 1 && month <= 12) || !(day >= 1 && day <= 31)) return null;
-  const cycle = currentAdmissionsCycle(now);
-  const startYear = Number(cycle.slice(0, 4));
-  const resolvedYear = year || (month >= 8 ? startYear : startYear + 1);
-  const iso = `${resolvedYear}-${pad(month)}-${pad(day)}`;
-  const ts = Date.parse(iso + "T00:00:00Z");
-  if (!Number.isFinite(ts)) return null;
-  const min = now.getTime() - 150 * 24 * 60 * 60 * 1000;
-  const max = now.getTime() + 560 * 24 * 60 * 60 * 1000;
-  return ts >= min && ts <= max ? iso : null;
+  return resolvePlanningCycleDate(month, day, year, now);
 }
 
 function datesIn(text, now) {
@@ -102,8 +102,8 @@ function yearsMentioned(sentence) {
 }
 
 export function extractTestPolicy(pages, now = new Date()) {
-  const cycle = currentAdmissionsCycle(now);
-  const entryYear = Number(cycle.slice(0, 4)) + 1;
+  // The entry year of the cycle the reading is for (its snapshot's cycle).
+  const entryYear = planningCycleStartYear(now) + 1;
   let best = null;
   for (const page of pages) {
     for (const sentence of splitSentences(page.text)) {
@@ -431,7 +431,7 @@ export function extractApplicationFee(pages) {
 
 export function extractPolicyFromPages(pages, now = new Date()) {
   return {
-    cycle: currentAdmissionsCycle(now),
+    cycle: planningCycle(now),
     // The rules that produced this reading; a snapshot from an older scout
     // is re-read on demand (snapshotIsCurrent) and ahead of fresh ones in
     // the next sweep.
@@ -469,6 +469,12 @@ export function policyFields(policy) {
   return fields;
 }
 
+function sameDayNextCycle(a, b) {
+  const iso = /^(\d{4})(-\d{2}-\d{2})$/;
+  const [ma, mb] = [iso.exec(String(a ?? "")), iso.exec(String(b ?? ""))];
+  return Boolean(ma && mb) && ma[2] === mb[2] && Number(mb[1]) === Number(ma[1]) + 1;
+}
+
 export function diffPolicies(previous, next) {
   const before = policyFields(previous);
   const after = policyFields(next);
@@ -481,6 +487,10 @@ export function diffPolicies(previous, next) {
     // change — pages get restructured; only a stated → different stated
     // value counts.
     if (a != null && b == null) continue;
+    // Nor is a deadline read on the same day of the next cycle: a closing
+    // cycle's date is kept until it passes, and a yearless "February 15"
+    // read again in March is next year's February 15.
+    if (sameDayNextCycle(a, b)) continue;
     changes.push({
       field: key,
       previousValue: a,

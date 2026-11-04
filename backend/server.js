@@ -45,7 +45,8 @@ import {
   seedCompetitiveActivityEvidence,
 } from "./storage/evidence-graph.js";
 import { initPIIVault, preparePIIStatements } from "./storage/pii-vault.js";
-import { initUsageBudget } from "./security/usage-budget.js";
+import { initUsageBudget, releaseStaleReservations } from "./security/usage-budget.js";
+import * as rulesEngine from "./chat/rules-engine.js";
 import { OPENROUTER_TARGETS, OPENROUTER_CATALOG } from "./scouts/openrouter-model-refresh.js";
 import * as chatHistory from "./chat/chat-history.js";
 import { registerDynamicOpenRouterModels as adapterRegisterDynamicModels } from "./llm-adapters/index.js";
@@ -53,7 +54,8 @@ import { initDomainMonitor, prepareMonitorStatements } from "./colleges/domain-m
 import { initCollegeResearch } from "./colleges/college-research.js";
 import "./storage/retention.js";
 import { initVectorStore, prepareVectorStatements } from "./storage/vector-store.js";
-import { initRAGTables, seedBaselines, prepareRAGStatements } from "./storage/rag-engine.js";
+import { initRAGTables, seedBaselines, prepareRAGStatements, backfillLatestCapabilities } from "./storage/rag-engine.js";
+import { registerJob } from "./scouts/batch-jobs.js";
 import { seedAPConceptCatalog } from "./academics/ap-concept-vectorizer.js";
 import multer from "multer";
 // F6 uses the same major-bucket matcher as the EC vectorizer to score
@@ -66,8 +68,9 @@ import { ensureCdsStoreSeeded } from "./cds/cds-store.js";
 import { initAdmissionsIntelligenceTables, prepareAdmissionsIntelStatements, seedOfficialCipMappings } from "./colleges/admissions-intelligence.js";
 import "./colleges/admissions-intelligence-loader.js";
 import { loadOrchestrationCatalog } from "./chat/orchestration-engine.js";
+import { resolveFafsaGuidancePath } from "./chat/fafsa-guidance-path.js";
 import { initAuthStore } from "./security/security-auth.js";
-import { ADMIN_AUTH_RATE_LIMIT, AUTH_RATE_LIMIT, buildHealthResponse, resolveAllowedOrigins, securityResponseMiddleware } from "./security/security-hardening.js";
+import { ADMIN_AUTH_RATE_LIMIT, AUTH_RATE_LIMIT, buildHealthResponse, createChatRateLimiters, rateLimitedHandler, resolveAllowedOrigins, securityResponseMiddleware } from "./security/security-hardening.js";
 import { OPENROUTER_MODEL_OPTIONS } from "./llm-adapters/tier-defaults.js";
 import {
   initModelCatalogScout,
@@ -92,7 +95,6 @@ import { registerSimulationsRoutes } from "./routes/simulations.js";
 import { registerEcRoutes } from "./routes/ec.js";
 import { registerEcNarrativeRoutes } from "./routes/ec-narrative.js";
 import { registerEcStrengthRoutes } from "./routes/ec-strength.js";
-import { registerEcResearchRoutes } from "./routes/ec-research.js";
 import { registerFilesRoutes } from "./routes/files.js";
 import { registerNarrativeRoutes } from "./routes/narrative.js";
 import { registerDirectionalityRoutes } from "./routes/directionality.js";
@@ -137,7 +139,7 @@ import {
 import { bindVerifiedData, regulatedChatGate, scoutSchoolOnDemand, scorecardStatsOnDemand, assembleProfileForGeneration, fitMatrixOptions, baselineCollegeNames, buildVerifiedDataContext, hasVerifiedCollegeData, regulatedResultForChat, deadlinesFromResearchCache, rememberFitRead } from "./server/verified-data.js";
 import { bindNarrativeCalendar, generateNarrativeDraftText, maybeAutoRegenerateNarrative, resolveTargetSchools, getSchoolPriorities, schoolPrioritiesPromptBlock, buildAdmissionsCalendar } from "./server/narrative-calendar.js";
 import { bindChatAttachments, messageText, inlineAttachmentBlocks, queueChatEvidence, recomputeStrengthForStudent } from "./server/chat-attachments.js";
-import { bindStudentData, collectStudentRows, deleteStudentRows, removeStudentFiles } from "./server/student-data.js";
+import { bindStudentData, collectStudentRows, deleteStudentRows, ensureErasureTombstones, eraseStudent, removeStudentFiles, sweepErasedStudents } from "./server/student-data.js";
 import { bindPositioning, runPositioning } from "./server/positioning.js";
 import { bindEcRanking, llmRankCandidates, llmRankSpike, tagIdeaWithNarrative, profileSummaryForPrompt, shouldCullOverdue, shapeDeadline, prestigeExplanationFor, shapeLegacyECVectorFromStrengthRow } from "./server/ec-ranking.js";
 import { bindBaselineColleges, safeParse, normalizeScorecardSearchPayload, normalizeUnitId, resolveBaselineCollegeRow, normalizeComparePayload, getScorecardQueryCache, putScorecardQueryCache, buildBaselineCollegeSearchResponse, withScorecardMeta } from "./server/baseline-colleges.js";
@@ -194,7 +196,6 @@ const routeDeps = {
   get SIM_INTERNAL_TOKEN() { return SIM_INTERNAL_TOKEN; },
   get SIM_URL() { return SIM_URL; },
   get SPIKE_TIER_WEIGHT() { return SPIKE_TIER_WEIGHT; },
-  get TOKEN_TTL_MS() { return TOKEN_TTL_MS; },
   get WEB_CONFIG_KEY() { return WEB_CONFIG_KEY; },
   get WEB_CONFIG_UNREADABLE() { return WEB_CONFIG_UNREADABLE; },
   get WEB_DEPLOYMENT() { return WEB_DEPLOYMENT; },
@@ -204,6 +205,8 @@ const routeDeps = {
   get adminSessionResponse() { return adminSessionResponse; },
   get admissionsIntelStmts() { return admissionsIntelStmts; },
   get apiLimiter() { return apiLimiter; },
+  get chatIpLimiter() { return chatIpLimiter; },
+  get chatStudentLimiter() { return chatStudentLimiter; },
   get app() { return app; },
   get assembleProfileForGeneration() { return assembleProfileForGeneration; },
   get authLimiter() { return authLimiter; },
@@ -225,6 +228,7 @@ const routeDeps = {
   get deadlinesFromResearchCache() { return deadlinesFromResearchCache; },
   get deleteStudentRows() { return deleteStudentRows; },
   get ecUpload() { return ecUpload; },
+  get eraseStudent() { return eraseStudent; },
   get evidenceStmts() { return evidenceStmts; },
   get factStmts() { return factStmts; },
   get fitMatrixOptions() { return fitMatrixOptions; },
@@ -237,6 +241,7 @@ const routeDeps = {
   get hasVerifiedCollegeData() { return hasVerifiedCollegeData; },
   get hashEmail() { return hashEmail; },
   get hashIP() { return hashIP; },
+  get httpServer() { return httpServer; },
   get inlineAttachmentBlocks() { return inlineAttachmentBlocks; },
   get llmRankCandidates() { return llmRankCandidates; },
   get llmRankSpike() { return llmRankSpike; },
@@ -286,8 +291,6 @@ const routeDeps = {
   get scorecardLimiter() { return scorecardLimiter; },
   get scorecardStatsOnDemand() { return scorecardStatsOnDemand; },
   get scoutSchoolOnDemand() { return scoutSchoolOnDemand; },
-  get sessionStmts() { return sessionStmts; },
-  get sessionTokens() { return sessionTokens; },
   get shapeDeadline() { return shapeDeadline; },
   get shapeLegacyECVectorFromStrengthRow() { return shapeLegacyECVectorFromStrengthRow; },
   get shouldCullOverdue() { return shouldCullOverdue; },
@@ -354,7 +357,14 @@ const SCORECARD_API_KEY = /^REPLACE_WITH/i.test(process.env.SCORECARD_API_KEY ||
 // print the token) when something still needs configuring — a real
 // ENCRYPTION_KEY from the environment, or a live Scorecard key. This keeps a
 // fully-configured production boot quiet and the token out of its logs.
-const FAFSA_GUIDANCE_PATH = process.env.FAFSA_GUIDANCE_PATH || path.join(__dirname, "data", "fafsa", "2026-2027.txt");
+// The FAFSA guidance text follows the award year the rules engine selects
+// for today (chat/fafsa-guidance-path.js), so it moves with FAFSA_RULESETS
+// instead of staying on the 2026-27 file after that year ends.
+const FAFSA_GUIDANCE_PATH = resolveFafsaGuidancePath({
+  dir: path.join(__dirname, "data", "fafsa"),
+  now: new Date(),
+  override: process.env.FAFSA_GUIDANCE_PATH,
+});
 const ADMISSIONS_DEADLINES_PATH = process.env.ADMISSIONS_DEADLINES_PATH || path.join(__dirname, "data", "admissions-deadlines.json");
 const RETENTION_MODE = process.env.RETENTION_MODE || "consumer"; // "consumer" or "institutional"
 const SIM_URL = (process.env.SIM_URL || `http://127.0.0.1:${process.env.SIM_PORT || "3002"}`).replace(/\/$/, "");
@@ -422,6 +432,16 @@ console.log(`[BOOT] Environment: ${NODE_ENV}`);
 console.log(`[BOOT] Allowed origins: ${ALLOWED_ORIGINS.join(", ")}`);
 console.log(`[BOOT] Retention mode: ${RETENTION_MODE}`);
 console.log(`[BOOT] College Scorecard API: ${SCORECARD_API_KEY ? "CONFIGURED" : "NOT CONFIGURED (offline mode)"}`);
+// The FAFSA eligibility rules are tied to an award year's FSA Handbook and
+// stop applying when it expires; the deterministic answer then steps aside
+// for labeled general guidance. Said at every boot from 60 days ahead, so
+// the counselor hears it in the log before a student meets it.
+try {
+  const fafsa = typeof rulesEngine.fafsaRulesetStatus === "function" ? rulesEngine.fafsaRulesetStatus(new Date()) : null;
+  if (fafsa?.warning) console.warn(`[BOOT] FAFSA rules: ${fafsa.warning}`);
+} catch (err) {
+  console.warn("[BOOT] FAFSA ruleset status failed:", err.message);
+}
 // DATABASE INITIALIZATION — 3 physically separate databases
 // ═══════════════════════════════════════════════════════════
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "data");
@@ -434,6 +454,16 @@ db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
 const authStore = initAuthStore(db);
 initUsageBudget(db);
+// A new process has no model call in flight, so every reservation still
+// 'reserved' was cut off by the restart that started it (a deploy, a saved
+// secret, the memory cap) and is released. Those rows used to count at
+// their full estimate against the student's cap until the month ended.
+try {
+  const { released } = releaseStaleReservations(db, { createdBefore: new Date() });
+  if (released) console.log(`[BOOT] Released ${released} budget reservation(s) left by the previous process.`);
+} catch (err) {
+  console.warn("[BOOT] Reservation sweep failed:", err.message);
+}
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS audit_events (
@@ -463,6 +493,9 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_notif_status ON notification_queue(status);
 
 `);
+// Salted hashes of erased student ids (server/student-data.js eraseStudent),
+// read by the sweep that removes rows a late write put back.
+ensureErasureTombstones(db);
 
 // 2. PII Vault (separate encrypted DB)
 const piiVault = initPIIVault(DATA_DIR, ENCRYPTION_KEY, NODE_ENV);
@@ -505,6 +538,15 @@ seedBaselines(db, { GPA_BASELINES, SAT_BASELINES, ACT_BASELINES, EC_BENCHMARKS, 
 seedOfficialCipMappings(db);
 
 const ragStmts = prepareRAGStatements(db);
+// Percentile rows from before capability_timeline.snapshot_id are linked to
+// each student's latest snapshot once (idempotent: a student whose latest
+// snapshot already has rows is skipped).
+try {
+  const { students } = backfillLatestCapabilities(ragStmts);
+  if (students) console.log(`[RAG] Linked latest-snapshot metrics for ${students} student(s).`);
+} catch (err) {
+  console.warn("[RAG] Capability backfill failed:", err.message);
+}
 // Thread graph: entity-keyed memory of earlier counseling turns, built when
 // assistant turns are persisted and read by the chat route (chat-graph.js).
 chatGraph.ensureChatGraphTables(db);
@@ -593,49 +635,24 @@ const stmts = {
   cleanOldNotifications: db.prepare(`DELETE FROM notification_queue WHERE created_at < datetime('now', '-90 days')`),
 };
 
+// ═══════════════════════════════════════════════════════════
+// SESSION AND ERASURE HOUSEKEEPING
+// ═══════════════════════════════════════════════════════════
+// security/security-auth.js owns the session tables and their lifecycle.
+// Expired student sessions used to be swept only by a leftover block here
+// (an unused in-memory token Map, a second CREATE TABLE of session_tokens
+// that had to match the auth store's by hand, and a ten-minute timer), while
+// authStore.cleanup(), which also clears expired counselor sessions, had no
+// caller: deleting the "dead" block would have stopped the sweep. One
+// hourly job now calls the auth store. Registered before the server jobs
+// start, so it runs on the same schedule machinery.
+registerJob("session_cleanup", () => authStore.cleanup(), 60 * 60 * 1000, { runOnStartup: true });
+// Rows a late write put back for an erased account, daily, and once shortly
+// after boot (below startListening: the sweep reads EC_ATTACHMENTS_DIR,
+// which is declared further down than the jobs start).
+registerJob("erasure_sweep", () => sweepErasedStudents(), 24 * 60 * 60 * 1000, { runOnStartup: false });
+
 registerServerJobs(routeDeps);
-
-// ═══════════════════════════════════════════════════════════
-// SESSION MANAGEMENT
-// ═══════════════════════════════════════════════════════════
-// In-memory hot cache backed by a persistent SQLite table. Tokens
-// used to live ONLY in this Map, which meant every backend restart
-// (deploy, crash, `node --watch` reload) silently invalidated every
-// active session — the browser still held a token the server no
-// longer recognized, surfacing as "Invalid or expired session token"
-// on the next call. Persisting to SQLite makes sessions survive
-// restarts; the Map stays as a fast read path.
-const sessionTokens = new Map();
-const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days (was 1 hour)
-
-// Persistent store. Token is hashed before storage so a DB leak
-// doesn't hand out live bearer tokens.
-db.exec(`
-  CREATE TABLE IF NOT EXISTS session_tokens (
-    token_hash   TEXT PRIMARY KEY,
-    email_hash   TEXT NOT NULL,
-    student_id   TEXT NOT NULL,
-    expires_at   INTEGER NOT NULL,
-    created_at   INTEGER NOT NULL
-  );
-  CREATE INDEX IF NOT EXISTS idx_session_expires ON session_tokens(expires_at);
-`);
-const sessionStmts = {
-  insert: db.prepare(`INSERT OR REPLACE INTO session_tokens (token_hash, email_hash, student_id, expires_at, created_at) VALUES (?, ?, ?, ?, ?)`),
-  get:    db.prepare(`SELECT email_hash, student_id, expires_at FROM session_tokens WHERE token_hash = ?`),
-  touch:  db.prepare(`UPDATE session_tokens SET expires_at = ? WHERE token_hash = ?`),
-  del:    db.prepare(`DELETE FROM session_tokens WHERE token_hash = ?`),
-  cleanup:db.prepare(`DELETE FROM session_tokens WHERE expires_at < ?`),
-};
-
-
-setInterval(() => {
-  const now = Date.now();
-  for (const [token, session] of sessionTokens) {
-    if (now > session.expiresAt) sessionTokens.delete(token);
-  }
-  try { sessionStmts.cleanup.run(now); } catch {}
-}, 10 * 60 * 1000);
 
 
 const ADMIN_COOKIE = "cc_admin_session";
@@ -742,8 +759,14 @@ app.use((req, res, next) => {
 const RATE_LIMIT_RELAXED = process.env.RATE_LIMIT_RELAXED === "1" && NODE_ENV === "test";
 if (process.env.RATE_LIMIT_RELAXED === "1" && !RATE_LIMIT_RELAXED) console.warn("[BOOT] RATE_LIMIT_RELAXED is set, but only the test runner may relax the rate limits; ignored.");
 const relaxedMax = (max) => RATE_LIMIT_RELAXED ? max * 100 : max;
-const apiLimiter = rateLimit({ windowMs: 60_000, max: relaxedMax(30), keyGenerator: (req) => hashIP(req.ip), message: { error: "Too many requests." } });
-const studentLimiter = rateLimit({ windowMs: 60_000, max: relaxedMax(30), keyGenerator: (req) => hashIP(req.ip) });
+// Every 429 below carries code "rate_limited" and retryAfterSeconds, so the
+// client can tell the student how long to wait instead of "Something went
+// wrong"; the student limiter used to answer in plain text.
+const apiLimiter = rateLimit({ windowMs: 60_000, max: relaxedMax(30), keyGenerator: (req) => hashIP(req.ip), handler: rateLimitedHandler("Too many requests.") });
+const studentLimiter = rateLimit({ windowMs: 60_000, max: relaxedMax(30), keyGenerator: (req) => hashIP(req.ip), handler: rateLimitedHandler("Too many requests. Wait a moment and try again.") });
+// /api/chat: per student after sign-in (60 a minute), with a 300-a-minute
+// per-IP ceiling ahead of it (security/security-hardening.js).
+const { chatIpLimiter, chatStudentLimiter } = createChatRateLimiters({ hashIP, relax: relaxedMax });
 const scorecardLimiter = rateLimit({ windowMs: 60_000, max: relaxedMax(40), keyGenerator: (req) => hashIP(req.ip), message: { error: "Too many college search requests." } });
 const authLimiter = rateLimit({
   ...AUTH_RATE_LIMIT,
@@ -1000,7 +1023,6 @@ registerSimulationsRoutes(app, routeDeps);
 registerEcRoutes(app, routeDeps);
 registerEcNarrativeRoutes(app, routeDeps);
 registerEcStrengthRoutes(app, routeDeps);
-registerEcResearchRoutes(app, routeDeps);
 registerFilesRoutes(app, routeDeps);
 registerNarrativeRoutes(app, routeDeps);
 registerDirectionalityRoutes(app, routeDeps);
@@ -1067,7 +1089,13 @@ app.use((err, _req, res, _next) => {
 });
 
 
-startListening(routeDeps);
+// The HTTP server, for shutdown to stop accepting and drain requests. Null
+// until server/boot.js returns the handle app.listen gives it.
+let httpServer = null;
+httpServer = startListening(routeDeps) || null;
+setTimeout(() => {
+  sweepErasedStudents().catch((err) => console.warn("[ERASURE] boot sweep failed:", err.message));
+}, 10_000).unref();
 // Memory in the log (a new high, or hourly), so a restart for memory on the
 // host can be read back, and the data directory's size once, against the
 // 1 GB disk. Silent under the test runner.

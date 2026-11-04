@@ -2,8 +2,13 @@
 // RETENTION — Automated data lifecycle management
 // ═══════════════════════════════════════════════════════════════════════
 // Enforces retention policies:
-//   - Uploaded documents: 72 hours
-//   - Conversation logs: 30 days (consumer), per-institution (school)
+//   - Document vault (pii-vault.js storeDocument): 72 hours
+//   - Activity evidence files (ec_attachments, direct and chat uploads):
+//     kept until the student removes one (DELETE /api/ec/attachments/:id)
+//     or deletes the account. The 72-hour line above used to read as if it
+//     covered uploads, but nothing stores an upload in the document vault.
+//   - Conversation logs: 30 days (consumer), per-institution (school), and
+//     the thread memory built from them goes with them
 //   - Audit logs: 90 days (consumer), 5+ years (institutional)
 //   - Canonical facts: until superseded + 90 days
 //   - Vector embeddings: updated on diff, no raw backing
@@ -14,6 +19,7 @@
 export const RETENTION_POLICIES = {
   consumer: {
     documents: { hours: 72, label: "72 hours" },
+    uploaded_evidence: { days: null, label: "Until the student removes it or deletes the account" },
     conversation_logs: { days: 30, label: "30 days" },
     audit_events: { days: 90, label: "90 days" },
     notifications: { days: 90, label: "90 days" },
@@ -23,6 +29,7 @@ export const RETENTION_POLICIES = {
   },
   institutional: {
     documents: { hours: 72, label: "72 hours" },
+    uploaded_evidence: { days: null, label: "Until the student removes it or deletes the account" },
     conversation_logs: { days: null, label: "Per institutional agreement" },
     audit_events: { years: 7, label: "7 years (FERPA minimum)" },
     notifications: { years: 7, label: "7 years" },
@@ -41,7 +48,7 @@ export function runRetentionCleanup(db, piiVaultDb, mode = "consumer") {
   if (piiVaultDb) {
     try {
       const docResult = piiVaultDb.prepare(
-        `DELETE FROM document_vault WHERE auto_delete = 1 AND retention_expires_at < datetime('now')`
+        `DELETE FROM document_vault WHERE auto_delete = 1 AND julianday(retention_expires_at) < julianday('now')`
       ).run();
       results.documents = { deleted: docResult.changes };
     } catch (e) {
@@ -111,17 +118,44 @@ export function runRetentionCleanup(db, piiVaultDb, mode = "consumer") {
   // 7. Clean old conversation logs (chat history). chat_messages.content is
   //    plaintext student-typed text, so honor the declared conversation_logs
   //    retention. Skip when days is null (institutional mode keeps per agreement).
+  //    The thread memory (chat_graph_facts and their edges, an excerpt of each
+  //    question and answer) goes with the messages it was built from. It used
+  //    to stay forever: the counselor kept recalling "deleted" conversations
+  //    as THREAD MEMORY, and once the thread itself aged out nothing could
+  //    remove them short of deleting the account. A fact whose user message
+  //    no longer exists is removed, which also clears the facts earlier runs
+  //    left behind. The sidebar's message counts are recomputed, since they
+  //    were only ever incremented and kept claiming the purged turns.
   if (policy.conversation_logs?.days) {
     try {
       const d = policy.conversation_logs.days;
-      const msgResult = db.prepare(
-        `DELETE FROM chat_messages WHERE created_at < datetime('now', '-${d} days')`
-      ).run();
-      // Drop now-orphaned / stale threads (no remaining messages and inactive past the window).
-      const threadResult = db.prepare(
-        `DELETE FROM chat_threads WHERE updated_at < datetime('now', '-${d} days') AND id NOT IN (SELECT DISTINCT thread_id FROM chat_messages)`
-      ).run();
-      results.conversation_logs = { messagesDeleted: msgResult.changes, threadsDeleted: threadResult.changes };
+      const hasTable = (name) => !!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name);
+      const tx = db.transaction(() => {
+        const msgResult = db.prepare(
+          `DELETE FROM chat_messages WHERE created_at < datetime('now', '-${d} days')`
+        ).run();
+        // Drop now-orphaned / stale threads (no remaining messages and inactive past the window).
+        const threadResult = db.prepare(
+          `DELETE FROM chat_threads WHERE updated_at < datetime('now', '-${d} days') AND id NOT IN (SELECT DISTINCT thread_id FROM chat_messages)`
+        ).run();
+        let factsDeleted = 0;
+        let edgesDeleted = 0;
+        if (hasTable("chat_graph_facts")) {
+          const orphanFacts = `SELECT id FROM chat_graph_facts
+            WHERE message_id NOT IN (SELECT id FROM chat_messages)
+               OR thread_id NOT IN (SELECT id FROM chat_threads)`;
+          if (hasTable("chat_graph_edges")) {
+            edgesDeleted = db.prepare(`DELETE FROM chat_graph_edges WHERE fact_id IN (${orphanFacts})`).run().changes;
+          }
+          factsDeleted = db.prepare(`DELETE FROM chat_graph_facts WHERE id IN (${orphanFacts})`).run().changes;
+        }
+        const recounted = db.prepare(
+          `UPDATE chat_threads SET message_count = (SELECT COUNT(*) FROM chat_messages WHERE thread_id = chat_threads.id)
+           WHERE message_count IS NOT (SELECT COUNT(*) FROM chat_messages WHERE thread_id = chat_threads.id)`
+        ).run().changes;
+        return { messagesDeleted: msgResult.changes, threadsDeleted: threadResult.changes, factsDeleted, edgesDeleted, threadsRecounted: recounted };
+      });
+      results.conversation_logs = tx();
     } catch (e) {
       results.conversation_logs = { error: e.message };
     }

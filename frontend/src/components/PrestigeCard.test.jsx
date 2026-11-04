@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import PrestigeCard from "./PrestigeCard.jsx";
 
 // The prestige card shows what the read matched and where it found the
@@ -59,5 +59,40 @@ describe("PrestigeCard", () => {
     expect(card).toHaveTextContent("name it and the level you reached");
     expect(card).not.toHaveTextContent("Level:");
     expect(card).not.toHaveTextContent("Sources cited");
+  });
+
+  // A 5xx, a timeout or an ended session used to render "No prestige
+  // rationale cached yet", which was false (ui-12).
+  it("a failed request says so with a retry, not the empty state", async () => {
+    let calls = 0;
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      calls += 1;
+      const body = calls === 1 ? { error: "Internal error" } : { ok: true, score: 0.5, rationale: "Read again." };
+      return { ok: calls > 1, status: calls === 1 ? 500 : 200, headers: { get: () => "application/json" }, json: async () => body, text: async () => JSON.stringify(body) };
+    }));
+    render(<PrestigeCard ecName="Science Olympiad" />);
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("the server had a problem");
+    expect(screen.queryByText("No prestige rationale cached yet for this activity.")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByTestId("prestige-card")).toHaveTextContent("Read again.");
+  });
+
+  it("a 404 with a friendly message is still the empty state", async () => {
+    const body = { error: "no_cached_rationale", friendlyMessage: "Not researched yet." };
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 404, headers: { get: () => "application/json" }, json: async () => body, text: async () => JSON.stringify(body) })));
+    render(<PrestigeCard ecName="Food Bank" />);
+    expect(await screen.findByText("Not researched yet.")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("an ended session says to sign in again and offers no retry", async () => {
+    window.__CC_SESSION_TOKEN__ = "stale";
+    const body = { error: "unauthorized" };
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 401, headers: { get: () => "application/json" }, json: async () => body, text: async () => JSON.stringify(body) })));
+    render(<PrestigeCard ecName="Food Bank" locale="ko" />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("다시 로그인하면 볼 수 있습니다");
+    expect(screen.queryByRole("button", { name: "다시 시도" })).toBeNull();
+    window.__CC_SESSION_TOKEN__ = null;
   });
 });

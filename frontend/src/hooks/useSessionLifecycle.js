@@ -8,13 +8,23 @@ import { clearSession, storageKeyFor, encrypt, buildVaultBlob, storageApi } from
 import { S } from "../app-shared.js";
 import { sessionTimer } from "../session/server-session.js";
 import { describeSetAside, syncFailureMessage } from "../profile/sync-result.js";
+import { baseFromPayload, buildSyncPayload, describeProfileConflict, isDirty, readServerProfile, reconcileProfile, vaultSyncRecord } from "../profile/profile-reconcile.js";
+import { localDateString } from "../profile/dates.js";
+import { schoolsDueForNewCycle } from "../profile/deadline-cycle-refresh.js";
+import { setAsideRowsFrom } from "../profile/set-aside-rows.js";
+
+// A 409 is answered by joining the server's profile and sending again; a
+// server that keeps refusing must not be retried in a loop every second.
+const MAX_CONFLICT_RETRIES = 2;
 
 export function useSessionLifecycle(ctx) {
   const {
     authedFetch, data, passphrase, reconcileWithBackendProfile, refreshCollegeFit, refreshThreadList,
-    screen, setCalendarCtx, setData, setExpiryWarning, setLError, setMessages,
-    setOfflineMode, setPassphrase, setReauthStatus, setScreen, setSyncNote, setSyncStatus,
-    setUser, targetSchools, user,
+    screen, setCalendarCtx, setData, setExpiryWarning,
+    setOfflineMode, setReauthStatus, setScreen, setSyncNote, setSyncStatus,
+    targetSchools, user,
+    endSession, initialScreen, profileReady, setSyncBase, syncBase, syncInFlightRef,
+    recreateDeadlines, locale, setSetAsideRows,
   } = ctx;
   // The inactivity notice, shown as a toast in both the survey and the chat.
   const EXPIRY_NOTICE = "Still there? You'll be signed out in about a minute of inactivity — click or type to stay signed in.";
@@ -43,68 +53,120 @@ export function useSessionLifecycle(ctx) {
   // account" link. Routing by "do any accounts exist" is deliberately gone:
   // it would disclose account existence before authentication, which the
   // backend's uniform invalid-credentials response is designed to avoid.
+  // After a deleted account the fresh tree opens on account creation.
   useEffect(() => {
     clearSession();
-    setScreen(S.LOGIN);
+    setScreen(initialScreen || S.LOGIN);
   }, []);
 
   // ─── AUTO-SAVE data + SYNC TO RAG BACKEND ───
+  // The vault is written when the data or the sync base moved, and the
+  // server is sent only what it has not received. The save used to fire a
+  // second after every screen change too, so reaching the chat posted the
+  // whole vault, and a day-old device posted its stale record over a newer
+  // one before anything had compared the two. It now waits until this
+  // session has joined its data with the server's (profileReady), and each
+  // save carries the revision its data was based on.
+  const lastVaultWriteRef = useRef({ data: null, base: null });
+  const conflictRetriesRef = useRef(0);
+  const conflictNoticeRef = useRef(false);
   useEffect(() => {
     if ((screen !== S.CHAT && screen !== S.SURVEY) || !user || !passphrase) return;
     const t = setTimeout(async () => {
       // 1. Save to encrypted localStorage (offline-first). Identity is written
-      //    alongside the data — it is the only copy login can read back.
-      const storageKey = await storageKeyFor(user.email);
-      const e = await encrypt(buildVaultBlob(data, { name: user.name, grade: user.grade }), passphrase, user.email);
-      try { await storageApi.set(storageKey, e); } catch (err) { console.warn("Auto-save failed:", err?.message); }
+      //    alongside the data — it is the only copy login can read back — and
+      //    so is the sync base, so the next sign-in can tell edits from age.
+      if (lastVaultWriteRef.current.data !== data || lastVaultWriteRef.current.base !== syncBase) {
+        lastVaultWriteRef.current = { data, base: syncBase };
+        const storageKey = await storageKeyFor(user.email);
+        const e = await encrypt(buildVaultBlob(data, { name: user.name, grade: user.grade }, { sync: vaultSyncRecord(data, syncBase) }), passphrase, user.email);
+        try { await storageApi.set(storageKey, e); } catch (err) { console.warn("Auto-save failed:", err?.message); }
+      }
 
       // 2. Sync to RAG backend — persists grades/GPA/ECs server-side so
       //    they survive restarts AND are reachable from any device.
       //    Routed through authedFetch so a stale token (post-restart)
       //    is healed and the write actually lands instead of silently
-      //    no-oping.
-      if (data.profile) {
-        try {
-          const response = await authedFetch("/api/students/sync", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              profile: data.profile,
-              activities: data.activities || [],
-              goals: data.goals || [],
-              majorInterest: data.majorInterest || "",
-              trigger: "auto_sync"
-            })
-          });
-          setOfflineMode(false); // the backend answered — it is reachable
-          // authedFetch resolves on every HTTP status; a refused save (413,
-          // 429, 500, 503) used to show as synced and refresh College Fit
-          // against the old record.
-          if (!response?.ok) {
-            setSyncNote(syncFailureMessage(response?.status));
-            setSyncStatus("failed");
+      //    no-oping. Saves go one at a time (syncInFlightRef); the one
+      //    that is out moves the base when it answers, which runs this
+      //    effect again.
+      if (!profileReady || !data.profile || !isDirty(data, syncBase)) return;
+      if (syncInFlightRef?.current) return;
+      const payload = buildSyncPayload(data, syncBase);
+      if (syncInFlightRef) syncInFlightRef.current = true;
+      try {
+        const response = await authedFetch("/api/students/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...payload, trigger: "auto_sync" }),
+        });
+        setOfflineMode(false); // the backend answered — it is reachable
+        if (response?.status === 409) {
+          const conflict = await response.json().catch(() => ({}));
+          let server = readServerProfile(conflict);
+          // A conflict answer without the profile is joined with a fresh read
+          // of it, never sent again blind over the other device's save.
+          if (conflict?.code === "profile_revision_conflict" && !server.exists) {
+            const fresh = await authedFetch("/api/students/profile").catch(() => null);
+            if (fresh?.ok) server = readServerProfile(await fresh.json().catch(() => ({})));
+          }
+          if (conflict?.code === "profile_revision_conflict" && server.exists && conflictRetriesRef.current < MAX_CONFLICT_RETRIES
+              && !(server.revision != null && String(server.revision) === String(syncBase?.serverRevision))) {
+            // Another device saved since this one's base. Join its profile:
+            // this device's edits stay, the rest follows the other device,
+            // and the new base runs this effect again to send what was kept.
+            conflictRetriesRef.current += 1;
+            const result = reconcileProfile({ local: data, server, base: syncBase });
+            setData((prev) => reconcileProfile({ local: prev, server, base: syncBase }).data);
+            setSyncBase(result.base);
+            conflictNoticeRef.current = true;
+            setSyncNote(describeProfileConflict(result) || "Your profile changed on another device; this device now shows the latest version.");
+            setSyncStatus("partial");
             return;
           }
-          const body = await response.json().catch(() => ({}));
-          const setAsideNote = describeSetAside(body?.setAside);
-          if (setAsideNote) {
-            // Saved, but a field the server could not store was left out.
-            setSyncNote(setAsideNote);
-            setSyncStatus("partial");
-          } else {
-            setSyncStatus("ok");
-            setSyncNote("");
-            setTimeout(() => setSyncStatus((s) => (s === "ok" ? "idle" : s)), 2000);
-          }
-          // 3. The College Fit card follows the record: once the sync has
-          //    landed (the server reads the profile it holds), re-read the
-          //    shown school if a course, score, activity or major changed.
-          refreshCollegeFit(data);
-        } catch (err) { console.warn("RAG sync failed (non-blocking):", err?.message); setSyncNote(""); setSyncStatus("failed"); }
+        }
+        // authedFetch resolves on every HTTP status; a refused save (413,
+        // 429, 500, 503) used to show as synced and refresh College Fit
+        // against the old record.
+        if (!response?.ok) {
+          setSyncNote(syncFailureMessage(response?.status));
+          setSyncStatus("failed");
+          return;
+        }
+        conflictRetriesRef.current = 0;
+        const body = await response.json().catch(() => ({}));
+        // The server now holds what was sent: that is the next save's base.
+        setSyncBase(baseFromPayload(payload, body?.revision ?? syncBase?.serverRevision ?? null));
+        const setAsideNote = describeSetAside(body?.setAside, { locale });
+        // The sidebar marks each score the server set aside, where it is.
+        setSetAsideRows?.(setAsideRowsFrom(body?.setAside, payload.profile));
+        if (setAsideNote) {
+          // Saved, but a field the server could not store was left out.
+          conflictNoticeRef.current = false;
+          setSyncNote(setAsideNote);
+          setSyncStatus("partial");
+        } else if (conflictNoticeRef.current) {
+          // The save that follows a conflict leaves its notice up: the
+          // student should still read what came from the other device.
+          conflictNoticeRef.current = false;
+        } else {
+          setSyncStatus("ok");
+          setSyncNote("");
+          setTimeout(() => setSyncStatus((s) => (s === "ok" ? "idle" : s)), 2000);
+        }
+        // 3. The College Fit card follows the record: once the sync has
+        //    landed (the server reads the profile it holds), re-read the
+        //    shown school if a course, score, activity or major changed.
+        refreshCollegeFit(data);
+      } catch (err) {
+        if (err?.name === "AbortError") return; // the session ended
+        console.warn("RAG sync failed (non-blocking):", err?.message); setSyncNote(""); setSyncStatus("failed");
+      } finally {
+        if (syncInFlightRef) syncInFlightRef.current = false;
       }
     }, 1000);
     return () => clearTimeout(t);
-  }, [data, screen, user, passphrase, authedFetch, refreshCollegeFit]);
+  }, [data, screen, user, passphrase, authedFetch, refreshCollegeFit, syncBase, profileReady]);
 
   // ─── Admissions-calendar refresh ───
   // Pull today + cycle calendar + per-target-school deadlines whenever the
@@ -117,6 +179,8 @@ export function useSessionLifecycle(ctx) {
   // server resolves the saved schools itself when none are sent, so when
   // its answer already names the list, nothing is fetched again.
   const calendarTunedForRef = useRef(null);
+  // The cycle this student applies in, as the calendar read reports it.
+  const [studentCycle, setStudentCycle] = useState(null);
   useEffect(() => {
     if (screen !== S.CHAT || !user) return;
     if (calendarTunedForRef.current != null && calendarTunedForRef.current === calTargetsKey) return;
@@ -135,28 +199,68 @@ export function useSessionLifecycle(ctx) {
         if (!alive) return;
         calendarTunedForRef.current = Array.isArray(body?.targetSchools) ? body.targetSchools.join("|") : calTargetsKey;
         setCalendarCtx(body);
+        if (Number.isInteger(body?.studentCycle?.startYear)) {
+          setStudentCycle((prev) => (prev?.startYear === body.studentCycle.startYear && prev?.classOf === body.studentCycle.classOf ? prev : body.studentCycle));
+        }
       } catch (err) { if (alive) console.warn("[CALENDAR] fetch failed:", err?.message); }
     })();
     return () => { alive = false; ctrl.abort(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [calTargetsKey, screen, user?.email]);
 
+  // ─── A new cycle's reminders (input-8) ───
+  // A school's reminders are made once, when it joins the target list, so
+  // after a cycle rollover (or for rows made before reminders followed the
+  // student's class year) the school kept only an earlier cycle's dates and
+  // the ones the student applies by never appeared. Each school on the list
+  // is checked once a session: when every reminder it has belongs to an
+  // earlier cycle than the student's (profile/deadline-cycle-refresh.js), its
+  // reminders are made again for the student's cycle. The old rows stay; the
+  // bulk route de-duplicates within a cycle, so a second session adds nothing.
+  const cycleCheckedRef = useRef(new Set());
+  const recreateRef = useRef(recreateDeadlines);
+  recreateRef.current = recreateDeadlines;
+  useEffect(() => {
+    if (screen !== S.CHAT || !user || !studentCycle || typeof recreateRef.current !== "function") return;
+    const unchecked = targetSchools.filter((s) => !cycleCheckedRef.current.has(String(s).toLowerCase()));
+    if (!unchecked.length) return;
+    unchecked.forEach((s) => cycleCheckedRef.current.add(String(s).toLowerCase()));
+    const list = targetSchools.slice();
+    (async () => {
+      try {
+        const r = await authedFetch(`/api/students/deadlines?today=${encodeURIComponent(localDateString())}`);
+        if (!r?.ok) return;
+        const body = await r.json().catch(() => ({}));
+        const due = schoolsDueForNewCycle({ targetSchools: unchecked, deadlines: body?.deadlines, studentCycle });
+        // One school at a time: each one is a calendar read and a bulk write,
+        // and the rate limiter counts both.
+        for (const school of due) await recreateRef.current?.(school, { targetSchools: list });
+      } catch (err) {
+        if (err?.name !== "AbortError") console.warn("[DEADLINES] cycle check failed:", err?.message);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calTargetsKey, screen, user?.email, studentCycle]);
+
   // ─── SPONTANEOUS BACKEND → FRONTEND PULL ───
   // Poll /api/students/profile every 30s while on CHAT to surface server-side updates
   // (percentile recalculations, milestone awards, and freshly synced metrics).
   // Writes to `serverMetrics` — NEVER overwrites local profile to avoid clobbering edits.
   const [serverMetrics, setServerMetrics] = useState(null);
-  // One-shot backend-profile recovery per chat-screen entry. If the
-  // local vault is sparser than the backend (vault reset, new browser,
-  // post-restart), adopt the durable backend data so courses/GPA/ECs
-  // reappear in the sidebar without needing to open the editor.
-  const recoveredRef = useRef(false);
+  // Joining with the server's profile when sign-in could not: the backend
+  // was unreachable, or its profile read failed. Sign-in itself joins the
+  // two before the chat opens, so this does nothing then. Until it succeeds
+  // the auto-save holds this device's edits, and it is retried while the
+  // chat is open so they go out once the server answers.
+  const reconcileRef = useRef(reconcileWithBackendProfile);
+  reconcileRef.current = reconcileWithBackendProfile;
   useEffect(() => {
-    if (screen !== S.CHAT || !user) { recoveredRef.current = false; return; }
-    if (recoveredRef.current) return;
-    recoveredRef.current = true;
-    reconcileWithBackendProfile(data).catch(() => {});
-  }, [screen, user, reconcileWithBackendProfile, data]);
+    if (screen !== S.CHAT || !user || profileReady) return undefined;
+    const attempt = () => { reconcileRef.current().catch(() => {}); };
+    attempt();
+    const retry = setInterval(attempt, 30000);
+    return () => clearInterval(retry);
+  }, [screen, user, profileReady]);
   useEffect(() => {
     if (screen !== S.CHAT || !user) return;
     // Pull the student's saved chat threads whenever the chat screen
@@ -195,17 +299,18 @@ export function useSessionLifecycle(ctx) {
   }, [screen, user]);
 
   // ─── SESSION TIMEOUT — auto-logout after 15min inactivity ───
+  // The expiry ends the session the way logging out does (endSession in
+  // App.jsx): the server session is revoked with the token in hand, and the
+  // student tree remounts empty with the notice on the login screen. It used
+  // to reset five pieces of state, revoke nothing and leave the passphrase in
+  // the login field.
+  const endSessionRef = useRef(endSession);
+  endSessionRef.current = endSession;
   useEffect(() => {
     if (screen !== S.CHAT && screen !== S.SURVEY) { sessionTimer.clear(); setExpiryWarning(false); return; }
     const expire = () => {
       setExpiryWarning(false);
-      clearSession();
-      setUser(null);
-      setPassphrase("");
-      setData({ profile:null, activities:[], studyNotes:[], documents:[] });
-      setMessages([]);
-      setScreen(S.LOGIN);
-      setLError("Session expired due to inactivity. Please sign in again.");
+      endSessionRef.current?.("expired");
     };
     sessionTimer.reset(expire, setExpiryWarning);
     const activityEvents = ["mousedown","keydown","touchstart","scroll"];

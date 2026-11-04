@@ -1,5 +1,7 @@
-﻿// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// RAG ENGINE ??Retrieval-Augmented Generation (redesigned)
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// REDESIGNED: Small-context retrieval, no PII in context, rules-first.
+﻿// ═══════════════════════════════════════════════════════════════════════
+// RAG ENGINE — Retrieval-Augmented Generation (redesigned)
+// ═══════════════════════════════════════════════════════════════════════
+// REDESIGNED: Small-context retrieval, no PII in context, rules-first.
 //
 // Changes from original:
 //   - Student PII lives in pii-vault.js, NOT here
@@ -10,19 +12,24 @@
 //   - Only latest snapshot by default (history only when trends requested)
 //   - Student identity replaced with [STUDENT] placeholder in context
 //   - Baseline tables remain here (operational data, not PII)
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??
+// ═══════════════════════════════════════════════════════════════════════
 import crypto from "node:crypto";
 import { computePercentile, computeAPRigorIndex } from "../chat/rules-engine.js";
 import { normalizeClassRank } from "../academics/test-catalog.js";
+// Every reader here takes the best SAT and ACT sitting, as College Fit
+// does: the first entry was the oldest, so a retaker's 1480 read as her
+// first 1250 in the percentiles, the profile summary and the matches.
+import { chooseTestSitting } from "../academics/test-sittings.js";
 import { getCollegeHistory, summarizeCollegeHistory } from "../colleges/college-scorecard.js";
 import { recomputeStudentDirectionality } from "../activities/ec-vectorizer.js";
 import { recomputeStudentECStrengthVectors, buildDefaultLLMClient, toPublicShape as toStrengthPublicShape } from "../activities/ec-strength-vectorizer.js";
 import { getActiveNarrative } from "../activities/narrative-store.js";
-export { initRAGTables, seedBaselines, hydrateBaselineWebsites, prepareRAGStatements } from "./rag-schema.js";
+export { initRAGTables, seedBaselines, hydrateBaselineWebsites, prepareRAGStatements, compactProfileHistory, PROFILE_HISTORY_LIMITS } from "./rag-schema.js";
 
 
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// COLLEGE SCORECARD ??historical data helpers
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??
+// ═══════════════════════════════════════════════════════════
+// COLLEGE SCORECARD — historical data helpers
+// ═══════════════════════════════════════════════════════════
 /**
  * For each unitId in the list, fetch ~10 years of Scorecard history and
  * persist it in `scorecard_history` + `scorecard_cache`. Schools whose
@@ -159,37 +166,113 @@ export function extractGoalUnitIds(goals) {
 }
 
 
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// STUDENT SYNC + CHANGE DETECTION
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??
+// ═══════════════════════════════════════════════════════════
+// STUDENT SYNC + CHANGE DETECTION
+// ═══════════════════════════════════════════════════════════
+// The profile's revision: an opaque token that changes only when a new
+// snapshot is stored. The latest snapshot's id is exactly that, because an
+// unchanged sync stores nothing and compaction never removes the newest
+// snapshot. The client sends it back as `baseRevision`, so a device holding
+// an older copy cannot overwrite a newer save from another device.
+export function profileRevision(snapshot) {
+  return snapshot?.id ? String(snapshot.id) : null;
+}
+
+// What a sync would store, column by column, in the form insertSnapshot
+// writes it.
+function storedSnapshotColumns(profile, activities, goals, majorInterest) {
+  const classRank = normalizeClassRank(profile?.classRank);
+  return {
+    gpa_unweighted: profile?.gpa?.unweighted ?? null,
+    gpa_weighted: profile?.gpa?.weighted ?? null,
+    courses_json: JSON.stringify(profile?.courses || []),
+    ap_scores_json: JSON.stringify(profile?.apScores || []),
+    test_scores_json: JSON.stringify(profile?.testScores || []),
+    activities_json: JSON.stringify(activities || []),
+    major_interest: majorInterest || null,
+    goals_json: JSON.stringify(goals || []),
+    class_rank_json: classRank ? JSON.stringify(classRank) : null,
+    // "" when the save makes no such statement (see the migration in
+    // rag-schema.js: NULL is a row from before the columns existed).
+    gpa_status: typeof profile?.gpaStatus === "string" ? profile.gpaStatus : "",
+    testing_status: typeof profile?.testingStatus === "string" ? profile.testingStatus : "",
+  };
+}
+
+// Whether the latest snapshot already holds exactly these columns. Every
+// stored column is compared, removals and goals included, which
+// detectChanges (additions and promotions only) does not see.
+// The statuses compare "no statement" ("") equal to a row from before they
+// were stored (NULL), so the first sync after the columns arrived does not
+// write a snapshot only to record that there is still nothing to say.
+const NUMERIC_COLUMNS = new Set(["gpa_unweighted", "gpa_weighted"]);
+const STATUS_COLUMNS = new Set(["gpa_status", "testing_status"]);
+function sameAsSnapshot(prev, columns) {
+  if (!prev) return false;
+  const numeric = (value) => (value == null || value === "" ? null : Number(value));
+  return Object.entries(columns).every(([key, value]) => {
+    if (NUMERIC_COLUMNS.has(key)) return numeric(prev[key]) === numeric(value);
+    if (STATUS_COLUMNS.has(key)) return (prev[key] ?? "") === value;
+    return (prev[key] ?? null) === value;
+  });
+}
+
 export function syncStudentData(stmts, studentId, profile, activities, goals, majorInterest, trigger = "user_update") {
   const prev = stmts.getLatestSnapshot.get(studentId);
+  const columns = storedSnapshotColumns(profile, activities, goals, majorInterest);
+
+  // An unchanged sync stores nothing. The client syncs a second after any
+  // change to its state, a chat answer included, and each of those used to
+  // append a full snapshot and five capability rows (about 6 KB a turn, never
+  // pruned) and rerun the activity-strength and trajectory reads; the no-op
+  // snapshot also became the "prior" one, so one chat turn erased an
+  // improving-GPA trend. The revision stays where it was.
+  if (sameAsSnapshot(prev, columns)) {
+    return {
+      synced: true,
+      unchanged: true,
+      changesDetected: 0,
+      changes: [],
+      revision: profileRevision(prev),
+      ecVectors: null,
+      directionality: null,
+    };
+  }
+
   const changes = detectChanges(prev, profile, activities, majorInterest);
   const academicYear = getAcademicYear();
 
   const snapshotId = crypto.randomUUID();
-  stmts.insertSnapshot.run(
-    snapshotId, studentId, changes.length > 0 ? "update" : "sync",
-    profile?.gpa?.unweighted ?? null,
-    profile?.gpa?.weighted ?? null,
-    JSON.stringify(profile?.courses || []),
-    JSON.stringify(profile?.apScores || []),
-    JSON.stringify(profile?.testScores || []),
-    JSON.stringify(activities || []),
-    majorInterest || null,
-    JSON.stringify(goals || []),
-    trigger
-  );
-  const classRank = normalizeClassRank(profile?.classRank);
-  if (stmts.setSnapshotClassRank) stmts.setSnapshotClassRank.run(classRank ? JSON.stringify(classRank) : null, snapshotId);
-
-  for (const change of changes) {
-    stmts.insertMilestone.run(
-      crypto.randomUUID(), studentId, change.type, change.title,
-      JSON.stringify(change.data), academicYear
+  // The snapshot, its class rank, the milestones and the capability rows
+  // land in one transaction: a failure part-way used to leave a snapshot
+  // without its class rank or its percentiles.
+  const write = () => {
+    stmts.insertSnapshot.run(
+      snapshotId, studentId, changes.length > 0 ? "update" : "sync",
+      columns.gpa_unweighted,
+      columns.gpa_weighted,
+      columns.courses_json,
+      columns.ap_scores_json,
+      columns.test_scores_json,
+      columns.activities_json,
+      columns.major_interest,
+      columns.goals_json,
+      trigger
     );
-  }
+    if (stmts.setSnapshotClassRank) stmts.setSnapshotClassRank.run(columns.class_rank_json, snapshotId);
+    if (stmts.setSnapshotStatuses) stmts.setSnapshotStatuses.run(columns.gpa_status, columns.testing_status, snapshotId);
 
-  recomputeCapabilities(stmts, studentId, profile, activities);
+    for (const change of changes) {
+      stmts.insertMilestone.run(
+        crypto.randomUUID(), studentId, change.type, change.title,
+        JSON.stringify(change.data), academicYear
+      );
+    }
+
+    recomputeCapabilities(stmts, studentId, profile, activities, snapshotId);
+  };
+  if (typeof stmts.inTransaction === "function") stmts.inTransaction(write);
+  else write();
 
   // Recompute EC strength vectors on every profile update.
   // Per policy: whenever a student edits any EC, the unified strength
@@ -200,7 +283,7 @@ export function syncStudentData(stmts, studentId, profile, activities, goals, ma
   // the 5-factor recompute so both systems see the same inputs. Errors
   // are logged but never fail the sync (match the resilience pattern
   // above). Awaiting isn't practical here because syncStudentData is
-  // synchronous ??we fire-and-track, and the next sync or an explicit
+  // synchronous — we fire-and-track, and the next sync or an explicit
   // POST /api/ec/strength/recompute will pick up any failure.
   let ecStrengthRecomputePromise = null;
   try {
@@ -254,8 +337,10 @@ export function syncStudentData(stmts, studentId, profile, activities, goals, ma
 
   return {
     synced: true,
+    unchanged: false,
     changesDetected: changes.length,
     changes,
+    revision: snapshotId,
     ecVectors: {
       count: Array.isArray(activities) ? activities.filter((a) => a?.name).length : 0,
       recomputedAt: new Date().toISOString(),
@@ -284,7 +369,7 @@ function detectChanges(prevSnapshot, profile, activities, majorInterest) {
     const direction = newGpa > prevGpa ? "improved" : "changed";
     changes.push({
       type: "gpa_change", significant: true,
-      title: `GPA ${direction}: ${prevGpa.toFixed(2)} ??${newGpa.toFixed(2)}`,
+      title: `GPA ${direction}: ${prevGpa.toFixed(2)} → ${newGpa.toFixed(2)}`,
       data: { previous: prevGpa, current: newGpa, delta: +(newGpa - prevGpa).toFixed(2) }
     });
   } else if (prevGpa == null && newGpa != null) {
@@ -305,7 +390,7 @@ function detectChanges(prevSnapshot, profile, activities, majorInterest) {
     } else if (existing.totalScore !== nt.totalScore) {
       changes.push({
         type: "test_score_updated", significant: true,
-        title: `${(nt.test || "").toUpperCase()} updated: ${existing.totalScore} ??${nt.totalScore}`,
+        title: `${(nt.test || "").toUpperCase()} updated: ${existing.totalScore} → ${nt.totalScore}`,
         data: { previous: existing.totalScore, current: nt.totalScore, test: nt.test }
       });
     }
@@ -342,7 +427,7 @@ function detectChanges(prevSnapshot, profile, activities, majorInterest) {
       if (!wasLeader && isLeader) {
         changes.push({
           type: "ec_leadership", significant: true,
-          title: `Leadership promotion: ${ne.name} ??${ne.role}`,
+          title: `Leadership promotion: ${ne.name} — ${ne.role}`,
           data: { activity: ne.name, previousRole: existing.role, newRole: ne.role }
         });
       }
@@ -379,7 +464,7 @@ function detectChanges(prevSnapshot, profile, activities, majorInterest) {
   if (majorInterest && prevMajor && majorInterest !== prevMajor) {
     changes.push({
       type: "major_changed", significant: true,
-      title: `Major interest changed: ${prevMajor} ??${majorInterest}`,
+      title: `Major interest changed: ${prevMajor} → ${majorInterest}`,
       data: { previous: prevMajor, current: majorInterest }
     });
   }
@@ -388,9 +473,57 @@ function detectChanges(prevSnapshot, profile, activities, majorInterest) {
 }
 
 
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// CAPABILITY COMPUTATION ??delegates to rules-engine.js
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??
-function recomputeCapabilities(stmts, studentId, profile, activities) {
+// ═══════════════════════════════════════════════════════════
+// CAPABILITY COMPUTATION — delegates to rules-engine.js
+// ═══════════════════════════════════════════════════════════
+function recomputeCapabilities(stmts, studentId, profile, activities, snapshotId = null) {
+  const metrics = capabilityMetrics(stmts, profile, activities);
+  for (const m of metrics) {
+    stmts.insertCapability.run(crypto.randomUUID(), studentId, m.metric, m.value, m.pNat, m.pCoh, snapshotId);
+  }
+  return metrics.length;
+}
+
+function snapshotProfile(snapshot) {
+  return {
+    profile: {
+      gpa: { unweighted: snapshot.gpa_unweighted, weighted: snapshot.gpa_weighted },
+      courses: safeParseJSON(snapshot.courses_json, []),
+      testScores: safeParseJSON(snapshot.test_scores_json, []),
+    },
+    activities: safeParseJSON(snapshot.activities_json, []),
+  };
+}
+
+// A snapshot that has no capability rows of its own (one stored before
+// snapshot_id existed) gets them computed from what it holds. The
+// percentiles are deterministic from the seeded baselines, so this is the
+// value the sync would have written.
+function ensureSnapshotCapabilities(stmts, snapshot) {
+  if (!snapshot?.id || !stmts.countCapabilitiesForSnapshot) return 0;
+  if ((stmts.countCapabilitiesForSnapshot.get(snapshot.id)?.n || 0) > 0) return 0;
+  const { profile, activities } = snapshotProfile(snapshot);
+  return recomputeCapabilities(stmts, snapshot.student_id, profile, activities, snapshot.id);
+}
+
+// Once at boot: link every student's latest snapshot to capability rows of
+// its own, for students whose rows predate snapshot_id. Without it their
+// latest metrics would read as empty until their next changed save.
+export function backfillLatestCapabilities(stmts) {
+  if (!stmts.latestSnapshotsWithoutCapabilities) return { students: 0 };
+  const pending = stmts.latestSnapshotsWithoutCapabilities.all();
+  let students = 0;
+  const run = () => {
+    for (const snapshot of pending) {
+      if (ensureSnapshotCapabilities(stmts, snapshot) > 0) students += 1;
+    }
+  };
+  if (typeof stmts.inTransaction === "function") stmts.inTransaction(run);
+  else run();
+  return { students };
+}
+
+function capabilityMetrics(stmts, profile, activities) {
   const metrics = [];
 
   // GPA percentile (delegated to rules-engine.js computePercentile)
@@ -406,7 +539,7 @@ function recomputeCapabilities(stmts, studentId, profile, activities) {
   }
 
   // SAT percentile
-  const satScore = (profile?.testScores || []).find(t => t.test === "sat");
+  const satScore = chooseTestSitting(profile?.testScores, "sat", { mode: "best" });
   if (satScore?.totalScore) {
     const natl = computePercentile(stmts.getSATBaseline.all("national"), satScore.totalScore, "score");
     const cohort = computePercentile(stmts.getSATBaseline.all("college_bound"), satScore.totalScore, "score");
@@ -414,7 +547,7 @@ function recomputeCapabilities(stmts, studentId, profile, activities) {
   }
 
   // ACT percentile
-  const actScore = (profile?.testScores || []).find(t => t.test === "act");
+  const actScore = chooseTestSitting(profile?.testScores, "act", { mode: "best" });
   if (actScore?.totalScore) {
     const natl = computePercentile(stmts.getACTBaseline.all("national"), actScore.totalScore, "score");
     metrics.push({ metric: "act_total", value: actScore.totalScore, pNat: natl, pCoh: null });
@@ -431,14 +564,14 @@ function recomputeCapabilities(stmts, studentId, profile, activities) {
     metrics.push({ metric: "ap_rigor_index", value: apResult.index, pNat: null, pCoh: null });
   }
 
-  for (const m of metrics) {
-    stmts.insertCapability.run(crypto.randomUUID(), studentId, m.metric, m.value, m.pNat, m.pCoh);
-  }
+  return metrics;
 }
 
 
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// RAG CONTEXT ASSEMBLY ??small-context, PII-free
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// Returns a structured summary (100-200 tokens for model context)
+// ═══════════════════════════════════════════════════════════
+// RAG CONTEXT ASSEMBLY — small-context, PII-free
+// ═══════════════════════════════════════════════════════════
+// Returns a structured summary (100-200 tokens for model context)
 // instead of raw data dumps. Student identity is [STUDENT].
 
 export function assembleRAGContext(stmts, studentId, queryFocus, options = {}) {
@@ -456,7 +589,7 @@ export function assembleRAGContext(stmts, studentId, queryFocus, options = {}) {
   const studentContext = buildStudentSummary(latestSnap, capabilities, includeTrends ? stmts : null, studentId);
   studentContext.structuredData = structuredData;
 
-  // Attach numeric/categorical vectors ??closes the EC+AP+GPA integration
+  // Attach numeric/categorical vectors — closes the EC+AP+GPA integration
   // gap. All values here are scores or tiers (no raw activity names, no
   // PII). EC names go through a lightweight screening pass before
   // inclusion.
@@ -486,9 +619,9 @@ export function assembleRAGContext(stmts, studentId, queryFocus, options = {}) {
   // Comparisons
   const comparisons = buildComparisons(capabilities);
 
-  // ?? College history context ?????????????????????????????????????????????
+  // ── College history context ─────────────────────────────────────────────
   // Pull cached Scorecard history rows for each goal school that has a
-  // known unitId. This is read-only ??the background fetch is triggered
+  // known unitId. This is read-only — the background fetch is triggered
   // separately (on sync or on explicit /api/colleges/history/:id call).
   let collegeContext = null;
   try {
@@ -517,10 +650,10 @@ export function assembleRAGContext(stmts, studentId, queryFocus, options = {}) {
   };
 }
 
-// Assemble the numeric vectors block ??no PII, just scores + tiers.
+// Assemble the numeric vectors block — no PII, just scores + tiers.
 // EC names are screened and replaced with `activity_N` for any token
 // that resembles a personal name (all-cap initials, honorifics). This
-// is intentionally conservative ??the point is the tier/factor shape,
+// is intentionally conservative — the point is the tier/factor shape,
 // not the EC label.
 function buildVectorsBlock(stmts, studentId) {
   const out = { ec_strength: [], ap_subjects: [], directionality: null };
@@ -567,8 +700,8 @@ export function getDirectStructuredStudentData(stmts, studentId, options = {}) {
   const testScores = safeParseJSON(snapshot.test_scores_json, []);
   const activities = safeParseJSON(snapshot.activities_json, []);
 
-  const sat = testScores.find((t) => String(t?.test || "").toLowerCase() === "sat");
-  const act = testScores.find((t) => String(t?.test || "").toLowerCase() === "act");
+  const sat = chooseTestSitting(testScores, "sat", { mode: "best" });
+  const act = chooseTestSitting(testScores, "act", { mode: "best" });
   const apCourses = courses.filter((c) => {
     const type = String(c?.type || c?.level || "").toLowerCase();
     return type === "ap" || /^ap\b/i.test(String(c?.name || ""));
@@ -634,7 +767,7 @@ function screenECName(name, idx) {
   return looksLikeName ? `activity_${idx + 1}` : s;
 }
 
-// Build a structured student summary ??NO PII, NO raw dumps
+// Build a structured student summary — NO PII, NO raw dumps
 function buildStudentSummary(snapshot, capabilities, stmts, studentId) {
   const profile = {
     gpa: { unweighted: snapshot.gpa_unweighted, weighted: snapshot.gpa_weighted },
@@ -683,10 +816,10 @@ function buildTextSummary(profile, capabilities, majorInterest) {
 
   if (profile.gpa?.unweighted) parts.push(`GPA: ${profile.gpa.unweighted}`);
 
-  const sat = profile.testScores?.find(t => t.test === "sat");
+  const sat = chooseTestSitting(profile.testScores, "sat", { mode: "best" });
   if (sat?.totalScore) parts.push(`SAT: ${sat.totalScore}`);
 
-  const act = profile.testScores?.find(t => t.test === "act");
+  const act = chooseTestSitting(profile.testScores, "act", { mode: "best" });
   if (act?.totalScore) parts.push(`ACT: ${act.totalScore}`);
 
   const apCount = (profile.courses || []).filter(c => c.type === "ap").length;
@@ -714,8 +847,9 @@ function buildTextSummary(profile, capabilities, majorInterest) {
 }
 
 
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// BASELINE ASSEMBLY ??query-focused, small context
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??
+// ═══════════════════════════════════════════════════════════
+// BASELINE ASSEMBLY — query-focused, small context
+// ═══════════════════════════════════════════════════════════
 function assembleBaselineForQuery(stmts, focus, studentCtx) {
   const baseline = {
     source: "NCES IPEDS, CollegeBoard, ACT.org, NACAC",
@@ -745,7 +879,7 @@ function assembleBaselineForQuery(stmts, focus, studentCtx) {
   }
 
   if (focus === "college_fit" || focus === "holistic") {
-    // Only top-level stats, not full profiles ??keep context small
+    // Only top-level stats, not full profiles — keep context small
     baseline.collegeProfiles = stmts.searchColleges.all().map(c => ({
       unitId: c.unit_id, name: c.name, state: c.state,
       sat25: c.sat_25, sat75: c.sat_75,
@@ -778,17 +912,18 @@ function buildComparisons(capabilities) {
 }
 
 function interpretPercentile(p) {
-  if (p >= 95) return "Exceptional ??top 5% nationally";
-  if (p >= 90) return "Excellent ??top 10%";
-  if (p >= 75) return "Above average ??top 25%";
+  if (p >= 95) return "Exceptional — top 5% nationally";
+  if (p >= 90) return "Excellent — top 10%";
+  if (p >= 75) return "Above average — top 25%";
   if (p >= 50) return "At or above the median";
-  if (p >= 25) return "Below median ??room for improvement";
-  return "Below average ??focus on strengthening this area";
+  if (p >= 25) return "Below median — room for improvement";
+  return "Below average — focus on strengthening this area";
 }
 
 
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// TREND ANALYSIS
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??
+// ═══════════════════════════════════════════════════════════
+// TREND ANALYSIS
+// ═══════════════════════════════════════════════════════════
 export function getStudentTrends(stmts, studentId) {
   const trends = {};
   for (const metric of ["gpa_uw", "gpa_w", "sat_total", "act_total", "ec_count", "ap_rigor_index"]) {
@@ -810,22 +945,23 @@ export function getStudentTrends(stmts, studentId) {
 }
 
 
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// COLLEGE FIT SCORING ??enhanced with baseline data
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??
+// ═══════════════════════════════════════════════════════════
+// COLLEGE FIT SCORING — enhanced with baseline data
+// ═══════════════════════════════════════════════════════════
 export function enhancedCollegeMatch(stmts, studentId, filters) {
   const snap = stmts.getLatestSnapshot.get(studentId);
   if (!snap) return { error: "No profile data", results: [] };
 
   const testScores = safeParseJSON(snap.test_scores_json, []);
-  const satEntry = testScores.find(t => t.test === "sat");
-  const actEntry = testScores.find(t => t.test === "act");
+  const satEntry = chooseTestSitting(testScores, "sat", { mode: "best" });
+  const actEntry = chooseTestSitting(testScores, "act", { mode: "best" });
   const sat = satEntry?.totalScore || (actEntry ? actToSat(actEntry.totalScore) : null);
   const gpa = snap.gpa_unweighted;
   const apCourses = safeParseJSON(snap.courses_json, []).filter(c => c.type === "ap");
   const activities = safeParseJSON(snap.activities_json, []);
   const major = snap.major_interest || filters?.majorKeyword;
 
-  // Jiyeon UX audit F4 ??the narrative was never weighted into college fit.
+  // Jiyeon UX audit F4 — the narrative was never weighted into college fit.
   // If we have an active narrative, pull its majorBuckets + themes and use
   // them as a 4th signal alongside SAT / GPA / AP / EC. This is what makes
   // "MIT for computational biology" actually outscore "MIT for anything"
@@ -893,10 +1029,10 @@ export function enhancedCollegeMatch(stmts, studentId, filters) {
     }
 
     // Narrative alignment (0-100). Two signals:
-    //   1. Major bucket match ??does any of the student's detected major
+    //   1. Major bucket match — does any of the student's detected major
     //      buckets (from narrative_store) appear in this college's top_majors?
     //      Worth up to 70 points.
-    //   2. Theme co-occurrence ??do the student's written themes appear in
+    //   2. Theme co-occurrence — do the student's written themes appear in
     //      the college's top_majors list (loose substring match)?
     //      Worth up to 30 points.
     // If the student has no narrative, we leave narrativeFit undefined so
@@ -967,8 +1103,9 @@ export function enhancedCollegeMatch(stmts, studentId, filters) {
 }
 
 
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??// UTILITIES
-// ?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧?먥븧??
+// ═══════════════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════════════
 function safeParseJSON(str, fallback) {
   try { return str ? JSON.parse(str) : fallback; }
   catch { return fallback; }

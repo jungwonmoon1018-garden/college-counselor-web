@@ -5,27 +5,22 @@
 // reloads (a per-device convenience; nothing else depends on it). The
 // heading row can carry an action on the right (the "+ New" chat button).
 import { useState } from "react";
+import { safeGetJson, safeSet } from "../session/safe-storage.js";
 
 const STORAGE_KEY = "cc.sidebar.collapsed";
 
 function readCollapsed() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
+  const parsed = safeGetJson(STORAGE_KEY, {});
+  return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
 }
 
 function writeCollapsed(id, collapsed) {
-  try {
-    const all = readCollapsed();
-    if (collapsed) all[id] = true;
-    else delete all[id];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
-  } catch {
-    // Storage can be unavailable (private windows); the section still toggles.
-  }
+  // Storage can be unavailable (private windows, blocked site data);
+  // safe-storage then holds it for this page load and the section still toggles.
+  const all = readCollapsed();
+  if (collapsed) all[id] = true;
+  else delete all[id];
+  safeSet(STORAGE_KEY, JSON.stringify(all));
 }
 
 export default function SidebarSection({ id, title, count, action, defaultOpen = true, style, children }) {

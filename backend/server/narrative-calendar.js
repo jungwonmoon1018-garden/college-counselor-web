@@ -3,12 +3,15 @@
 // admissions calendar. Moved out of server.js on 2026-09-20.
 // `deps` is server.js's routeDeps object: live getters onto the bindings
 // these functions read there (AUTO_NARRATIVE_TRIGGERS, C7_PRIORITY_WEIGHTS,
-// db, profileSummaryForPrompt, ragStmts).
+// authStore, db, profileSummaryForPrompt, ragStmts).
 import { NARRATIVE_MAX_CHARS, NARRATIVE_MIN_CHARS, computeProfileFingerprint, getActiveNarrative, saveNarrative } from "../activities/narrative-store.js";
 import { assembleProfileForGeneration } from "./verified-data.js";
 import { buildStudentCallLLM, safeParseJSON } from "./model-calls.js";
 import { extractGoalUnitIds } from "../storage/rag-engine.js";
 import { extractTargetSchoolNames } from "../cds/cds-search.js";
+import { closingCycleStartYear, cycleLabel, planningCycleStartYear, typicalDeadlineDates } from "../shared/admissions-cycle.js";
+import { anywhereOnEarthToday } from "../shared/calendar-date.js";
+import { resolveCdsRecordForSchool } from "../cds/cds-store.js";
 
 let deps;
 export function bindNarrativeCalendar(serverDeps) { deps = serverDeps; }
@@ -79,6 +82,9 @@ export async function maybeAutoRegenerateNarrative(studentId, changes) {
       schoolBlock = schoolPrioritiesPromptBlock(priorities);
     } catch { /* non-fatal */ }
     const draft = await generateNarrativeDraftText({ profile, existing, callLLM, modelConfig, schoolBlock });
+    // The model call can outlive an account deletion; a draft saved then
+    // would be an orphan row of an erased student.
+    if (deps.authStore?.studentExists && !deps.authStore.studentExists(studentId)) return { skipped: "account_deleted" };
     try {
       const saved = saveNarrative(deps.ragStmts.narrative, studentId, draft, { source: "auto", profileFingerprint: fp });
       console.log(`[AUTO-NARRATIVE] regenerated for ${String(studentId).slice(0, 8)} (${saved.id.slice(0, 8)})`);
@@ -90,6 +96,9 @@ export async function maybeAutoRegenerateNarrative(studentId, changes) {
     }
   } catch (err) {
     if (err?.budget) return { skipped: "budget", code: err.code || "budget_denied" };
+    // buildStudentCallLLM refuses a student without the AI consents; that is
+    // a decision, not a failure worth a warning line.
+    if (err?.code === "consent_required") return { skipped: "consent_required" };
     console.warn("[AUTO-NARRATIVE] failed:", err.message);
     return { skipped: "error" };
   }
@@ -139,14 +148,13 @@ export function admitRatePercentOf(value) {
 
 export async function getSchoolPriorities(schoolNames) {
   if (!Array.isArray(schoolNames) || !schoolNames.length) return [];
-  let loadValidatedRecord;
-  try { ({ loadValidatedRecord } = await import("../cds/cds-validator.js")); }
-  catch { return schoolNames.map((s) => ({ school: s, hasData: false })); }
-  const slugify = (n) => String(n).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
   const out = [];
   for (const name of schoolNames) {
     let rec = null;
-    try { rec = loadValidatedRecord(deps.ragStmts, slugify(name)); } catch { /* ignore */ }
+    // The canonical resolver (cds-store): an exact slug of the name missed
+    // the baseline's "Columbia University in the City of New York" and every
+    // "Georgia Tech" or "NYU", so those targets lost their C7 priorities.
+    try { rec = resolveCdsRecordForSchool(deps.ragStmts, name); } catch { /* ignore */ }
     if (!rec) { out.push({ school: name, hasData: false }); continue; }
     const factors = Object.entries(rec.c7 || {})
       .map(([k, label]) => ({ factor: k, label, weight: deps.C7_PRIORITY_WEIGHTS[label] ?? null }))
@@ -187,15 +195,14 @@ export function schoolPrioritiesPromptBlock(priorities) {
 // (always fresh), so the agent is never date-blind even without web access.
 // ───────────────────────────────────────────────────────────
 export function buildAdmissionsCalendar(now = new Date()) {
-  const y = now.getUTCFullYear();
   const m = now.getUTCMonth() + 1; // 1..12
   // A senior applying in the fall of `cycleStartYear` matriculates the next
-  // fall (`cycleEntryYear`). The cycle rolls forward to the NEXT season once
-  // RD season is over (February onward): from Feb–Jul the just-finished
-  // cycle's EA/ED/RD/deposit dates are all in the past, so the relevant
-  // deadlines to outline are the UPCOMING fall's. January is the one month
-  // still inside the active RD window, so it stays on that cycle.
-  const cycleStartYear = m >= 2 ? y : y - 1;
+  // fall (`cycleEntryYear`). The outline rolls forward to the NEXT season
+  // once the main RD window is over (February onward), so the deadlines it
+  // lists are the UPCOMING fall's. January is the one month still inside
+  // that window, so it stays on that cycle. This is the planning cycle every
+  // deadline path shares (shared/admissions-cycle.js).
+  const cycleStartYear = planningCycleStartYear(now);
   const cycleEntryYear = cycleStartYear + 1;
   let phase;
   if (m >= 8 && m <= 10) phase = "early-application season — EA/ED apps due ~Nov 1";
@@ -203,6 +210,33 @@ export function buildAdmissionsCalendar(now = new Date()) {
   else if (m === 12) phase = "early decisions releasing; RD apps due ~Jan 1";
   else if (m === 1) phase = "regular-decision deadlines (~Jan 1-15)";
   else phase = "planning the upcoming cycle — research, essays, and target list for applications this fall";
+  // The cycle the outline left on Feb 1 is not over (to Jul 31): late
+  // regular deadlines, decisions and the May 1 deposit are still ahead, and
+  // the seniors are still in it. With only the planning cycle outlined, a
+  // senior asking in February was told her deposit was due May 1 of the
+  // following year. The phase carries it too, because the phase is the line
+  // the chat's date preamble prints (frontend chat-orchestrator.js).
+  const closingStart = closingCycleStartYear(now);
+  let closingCycle = null;
+  if (closingStart != null) {
+    const entry = closingStart + 1;
+    const depositISO = `${entry}-05-01`;
+    const depositPassed = anywhereOnEarthToday(now.getTime()) > depositISO;
+    closingCycle = {
+      cycle: cycleLabel(closingStart),
+      cycleStartYear: closingStart,
+      cycleEntryYear: entry,
+      applicationCycle: `Class entering Fall ${entry}`,
+      rdDecisionsRelease: `mid-Mar–early-Apr ${entry}`,
+      nationalDepositDeadline: `May 1 ${entry}`,
+      depositISO,
+      depositPassed,
+      note: `Seniors applying for Fall ${entry} entry are still in this cycle until Jul 31 ${entry}: date their deposit, decisions and any late regular deadline in ${entry}, not by the planning cycle above.`,
+    };
+    phase += depositPassed
+      ? `; for seniors, the ${closingCycle.cycle} cycle is closing — its May 1 ${entry} enrollment deposit date has passed`
+      : `; for seniors, the ${closingCycle.cycle} cycle is closing — late regular deadlines, decisions and the May 1 ${entry} enrollment deposit are still ahead`;
+  }
   return {
     today: now.toISOString().slice(0, 10),
     cycleStartYear,
@@ -228,13 +262,8 @@ export function buildAdmissionsCalendar(now = new Date()) {
     },
     // Concrete ISO fallbacks (parseable) so the UI can always create dated
     // deadline entries even when no per-school web data is available.
-    typicalISO: {
-      earlyEaEd: `${cycleStartYear}-11-01`,
-      regularDecision: `${cycleEntryYear}-01-01`,
-      financialAidPriority: `${cycleEntryYear}-02-01`,
-      fafsaOpens: `${cycleStartYear}-10-01`,
-      nationalDepositDeadline: `${cycleEntryYear}-05-01`,
-    },
+    typicalISO: typicalDeadlineDates(cycleStartYear),
+    ...(closingCycle ? { closingCycle } : {}),
     note: "Approximate US norms — exact dates vary by school and year; verify on each school's admissions/financial-aid site.",
   };
 }

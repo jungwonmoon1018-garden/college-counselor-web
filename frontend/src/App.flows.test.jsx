@@ -167,5 +167,9 @@ describe("App flows", () => {
     expect(window.__CC_SESSION_TOKEN__).toBeNull();
     expect(calls.some((c) => c.method === "POST" && c.path.includes("/api/students/logout"))).toBe(true);
     expect(screen.queryByText("E 35 · M 31 · R 34 · S 32")).not.toBeInTheDocument();
+    // The next person at the computer finds no email or passphrase typed in
+    // (App.session.test.jsx walks the rest of the session boundary).
+    expect(screen.getByLabelText("Email")).toHaveValue("");
+    expect(screen.getByLabelText("Passphrase")).toHaveValue("");
   }, 40000);
 });

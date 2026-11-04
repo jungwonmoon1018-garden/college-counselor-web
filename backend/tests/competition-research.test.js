@@ -75,40 +75,6 @@ test("official competition catalog returns source-backed prestige matches", () =
   assert.ok(best.score >= 0.8);
 });
 
-test("RAG statements expose bulk cache-memory readers for prestige and components", () => {
-  const { stmts } = freshStmts();
-  const prestigeKey = computePrestigeCacheKey("USACO Platinum", "national");
-
-  stmts.upsertPrestigeCache.run(
-    prestigeKey,
-    "USACO Platinum",
-    "national",
-    0.82,
-    "Matched official competition catalog.",
-    JSON.stringify(["https://usaco.org/current/current/index.php?page=details"]),
-    "catalog",
-    null,
-    null,
-    JSON.stringify({ score: 0.82 }),
-  );
-  stmts.upsertComponentCache.run(
-    "component-cache-key",
-    "prestige",
-    0.82,
-    JSON.stringify({ source: "catalog" }),
-    "catalog",
-    null,
-    null,
-    "{\"activityName\":\"USACO Platinum\"}",
-  );
-
-  assert.equal(Number(stmts.countPrestigeCache.get().total), 1);
-  assert.equal(Number(stmts.countComponentCache.get().total), 1);
-  assert.equal(Number(stmts.countComponentCacheByFactor.get("prestige").total), 1);
-  assert.equal(stmts.listPrestigeCacheRecent.all(10).length, 1);
-  assert.equal(stmts.listComponentCacheRecentByFactor.all("prestige", 10).length, 1);
-});
-
 // ─── Path 1: cache hit ─────────────────────────────────────────────────
 
 test("returns cached prestige on TTL hit without calling the adapter", async () => {

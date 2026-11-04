@@ -59,6 +59,20 @@ test("Korean crisis first message is also caught", () => {
   assert.equal(title, "Support resources");
 });
 
+// A typographic apostrophe (the iOS / macOS default) used to slip past the
+// lexicon, and the crisis words became the sidebar title.
+test("a crisis first message typed with a typographic apostrophe is caught", () => {
+  const { title } = firstMessageTitle("I’m not safe at home and I don’t want to live");
+  assert.equal(title, "Support resources");
+});
+
+// A prevention club is application material, not a disclosure; its title
+// stays the student's own words.
+test("a first message naming suicide as a topic keeps its own title", () => {
+  const { title } = firstMessageTitle("Our suicide prevention club needs a fundraiser");
+  assert.equal(title, "Our suicide prevention club needs a fundraiser");
+});
+
 test("ordinary first message still auto-titles from the text", () => {
   const { title } = firstMessageTitle("What AP courses should I take for CS?");
   assert.equal(title, "What AP courses should I take for CS?");
