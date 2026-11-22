@@ -105,6 +105,22 @@ function tr(locale, key, params, fallback) {
   return text === key ? (fallback ?? "") : text;
 }
 
+// A Common Data Set fallback row (values.fallback "cds_admission_factors")
+// carries its C7 factor and tier as keys; the server's English theme and
+// summary stay the matrix's matching text and the fallback here. A Korean
+// card showed these rows in English (mock run, 2026-11-22).
+export function cdsFactorLabel(values, v, locale) {
+  if (values?.fallback !== "cds_admission_factors" || !v?.factor) return v?.theme;
+  return tr(locale, `fit.c7_factor_${v.factor}`, null, v.theme);
+}
+
+export function cdsFactorSummary(values, v, locale) {
+  if (values?.fallback !== "cds_admission_factors" || !v?.tier) return v?.summary;
+  const tier = tr(locale, `fit.c7_tier_${v.tier}`, null, "");
+  if (!tier) return v.summary;
+  return tr(locale, "fit.c7_summary", { tier, school: values.displayName || "", year: values.cdsYear ? `, ${values.cdsYear}` : "" }, v.summary);
+}
+
 export function labelKeyOf(read) {
   if (!read) return null;
   if (read.labelKey) return String(read.labelKey);
@@ -744,7 +760,7 @@ export default function CalibratedFitCard({ collegeValues, positioning, loading,
       {/* ── Core values + per-value coverage (kept from the original view) ── */}
       {values?.note && (
         <div style={{ fontSize: 9, color: "#f6ad55", background: "rgba(246,173,85,0.08)", border: "1px solid rgba(246,173,85,0.2)", borderRadius: 6, padding: "5px 8px", marginBottom: 8, lineHeight: 1.5 }}>
-          {values.note}
+          {values.fallback === "cds_admission_factors" ? tr(locale, "fit.values_note_cds", null, values.note) : values.note}
         </div>
       )}
       {values && <div data-testid="fit-matrix">
@@ -754,9 +770,9 @@ export default function CalibratedFitCard({ collegeValues, positioning, loading,
           return (
             <div key={v.theme} style={{ marginBottom: 8, paddingBottom: 8, borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: "#ddd" }}>
-                {v.theme} {coverage && <span style={{ fontSize: 9, color: coverageColor(coverage), marginLeft: 6 }}>{coverageLabel(coverage, locale)}</span>}
+                {cdsFactorLabel(values, v, locale)} {coverage && <span style={{ fontSize: 9, color: coverageColor(coverage), marginLeft: 6 }}>{coverageLabel(coverage, locale)}</span>}
               </div>
-              {v.summary && <div style={{ fontSize: 10, color: "#888", marginTop: 2 }}>{v.summary}</div>}
+              {v.summary && <div style={{ fontSize: 10, color: "#888", marginTop: 2 }}>{cdsFactorSummary(values, v, locale)}</div>}
               {v.evidence && <div style={{ fontSize: 9, color: "#666", fontStyle: "italic", marginTop: 3 }}>{"“"}{v.evidence}{"”"}</div>}
               {(coverage?.evidence || []).slice(0, 4).map((e, i) => (
                 <div key={i} style={{ fontSize: 9, lineHeight: 1.5, color: "#9a9aa8", display: "flex", gap: 5, marginTop: 1 }}>
