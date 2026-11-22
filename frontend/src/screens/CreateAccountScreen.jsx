@@ -83,12 +83,13 @@ export default function CreateAccountScreen(props) {
           <div style={{ display:"flex",gap:10 }}>
             <div style={{ flex:1 }}>
               <label htmlFor="create-first" style={labelStyle}>First name</label>
-              <input id="create-first" value={cFirst} onChange={e=>setCFirst(e.target.value)} placeholder="Alex"
+              {/* The server takes a full name of up to 100 characters. */}
+              <input id="create-first" value={cFirst} onChange={e=>setCFirst(e.target.value)} placeholder="Alex" maxLength={49}
                      name="given-name" autoComplete="given-name" autoCapitalize="words" style={inputStyle} />
             </div>
             <div style={{ flex:1 }}>
               <label htmlFor="create-last" style={labelStyle}>Last name</label>
-              <input id="create-last" value={cLast} onChange={e=>setCLast(e.target.value)} placeholder="Kim"
+              <input id="create-last" value={cLast} onChange={e=>setCLast(e.target.value)} placeholder="Kim" maxLength={50}
                      name="family-name" autoComplete="family-name" autoCapitalize="words" style={inputStyle} />
             </div>
           </div>

@@ -976,6 +976,21 @@ test("transcript import accepts already-extracted text from the chat card", asyn
   assert.equal(missing.status, 400);
 });
 
+// PR #7 security review: the redactor compiles a pattern from the
+// registered name on every chat turn, so registration bounds the name.
+test("registration refuses a name over 100 characters and keeps one at the bound", async () => {
+  const register = (name, label) => request("POST", "/api/students/register", {
+    body: { email: `${label}-${Date.now()}@example.test`, password: "correct horse battery staple", grade: 11, name },
+  });
+  const tooLong = await register(`${"A".repeat(60)} ${"B".repeat(40)}`, "name-over");
+  assert.equal(tooLong.status, 400, JSON.stringify(tooLong.data));
+  assert.equal(tooLong.data.code, "invalid_name");
+  const huge = await register(Array.from({ length: 50_000 }, () => "Ab").join(" "), "name-huge");
+  assert.equal(huge.status, 400);
+  const atBound = await register(`${"A".repeat(49)} ${"B".repeat(50)}`, "name-bound");
+  assert.equal(atBound.status, 201, JSON.stringify(atBound.data));
+});
+
 // A mock run on 2026-11-22 found a real transcript's header reaching the
 // provider with the student's name, ID number, date of birth, the school's
 // +82 phone number and street address, and the counselor's name. The

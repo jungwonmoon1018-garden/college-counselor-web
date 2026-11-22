@@ -9,7 +9,7 @@ import { getOnboardingConsentRequirements, validateRequiredConsents } from "../s
 import { getBudgetStatus } from "../security/usage-budget.js";
 import { extractGoalUnitIds, fetchAndPersistCollegeHistory, getDirectStructuredStudentData, getStudentTrends, profileRevision, syncStudentData } from "../storage/rag-engine.js";
 import * as chatHistory from "../chat/chat-history.js";
-import { redactProviderText, screenInput, screenOutput } from "../chat/content-moderation.js";
+import { MAX_REGISTERED_NAME_CHARS, redactProviderText, screenInput, screenOutput } from "../chat/content-moderation.js";
 import { isCrisisText } from "../chat/policy-router.js";
 import { renderCrisisText } from "../chat/rules-engine.js";
 import { parseAttachedFilesPreface } from "../activities/ec-chat-evidence.js";
@@ -105,6 +105,13 @@ export function registerStudentsRoutes(app, deps) {
     if (![9, 10, 11, 12].includes(grade)) {
       return res.status(400).json({ error: "Grade 9-12 is required.", code: "invalid_grade" });
     }
+    // The provider redactor builds a pattern from this name on every chat
+    // turn (content-moderation.js knownNameRules); an unbounded name of
+    // about a megabyte held the server for seconds per turn (PR #7 review).
+    const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+    if (name.length > MAX_REGISTERED_NAME_CHARS) {
+      return res.status(400).json({ error: `Use a name of ${MAX_REGISTERED_NAME_CHARS} characters or fewer.`, code: "invalid_name" });
+    }
     const emailHash = deps.hashEmail(email);
     const piiEmailHash = hashPIIEmail(email, deps.piiVault.encryptionKey);
     if (deps.piiStmts.getStudentByEmailHash?.get(piiEmailHash) || deps.authStore.hasStudentCredential(emailHash)) {
@@ -116,7 +123,7 @@ export function registerStudentsRoutes(app, deps) {
       const recovery = deps.authStore.createStudentCredential(studentId, emailHash, req.body?.password, { grade });
       try {
         storeStudentPII(deps.piiStmts, deps.piiVault, studentId, {
-          name: req.body?.name || "",
+          name,
           email,
           emailHash: piiEmailHash,
           isMinor: true,
