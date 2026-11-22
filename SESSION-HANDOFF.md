@@ -9,22 +9,27 @@ sheet. Long forms of older entries: `git show 350f9e6:SESSION-HANDOFF.md`
 
 ## Where things stand (2026-11-22)
 
-- **Deployed:** production runs `1561fd8` (the #6 merge). On 2026-11-22 its
-  `/` served `assets/main-9lhtNdfj.js`, the same hash as a local build of
-  `1561fd8`, and `/api/health` answered ok. CI for that push passed.
-- **Open, not merged:**
-  [#7](https://github.com/jungwonmoon1018-garden/college-counselor-web/pull/7)
-  from `ops/mock-run-2026-11-22`: `d6d76d9`, `a8bf703`, `5d15c20` plus this
-  file. Its CI had not reported when this was written. Auto-fix is on for it
-  in the desktop app; auto-merge is off. Merging it deploys a frontend and
-  backend change (the `main-*.js` hash in `/` changes).
-- **Tests on #7's head, after the last code edit (Node 25.9):**
-  - backend: 1,158 tests, 1,154 pass, 4 skipped, 0 fail; lint 0 errors,
-    38 warnings; `node --check server.js` clean;
-  - frontend: 56 files, 421 tests; `npm run build` clean.
-- **Working tree:** clean on `ops/mock-run-2026-11-22`. The main checkout
-  (`Downloads\college-counselor-web`) sits on the merged
-  `ops/chancing-ap-2026-10-09` and was not touched.
+- **AI calls fail in production — the owner's to fix.** After the #7
+  deploy, every model call answered 502: the chat route reports upstream
+  404 from OpenRouter in about 200 ms (`provider_error`), and the
+  transcript import `http_error`. The packaged tier defaults are still in
+  OpenRouter's public catalog, so the likely cause is the model chosen on
+  `/admin.html` or the OpenRouter account's provider or data settings
+  leaving no endpoint. Not known whether it began before the deploy: no
+  model call was made against production earlier in the session. The
+  crisis reply, registration, consents and erasure work (they make no
+  model call).
+- **Deployed:** `main` at `b316183` (identity-redaction follow-up) on top
+  of the #7 merge `a8107a4`. The #7 deploy was confirmed by `/` serving
+  `assets/main-DVxEdzW0.js`, the hash of a local build of the merged
+  frontend; `b316183` is backend-only (see "Verified live").
+- **Tests on `b316183` (Node 25.9):** backend 1,166 tests, 1,162 pass, 4
+  skipped, 0 fail; lint 0 errors, 38 warnings; `node --check server.js`
+  clean. Frontend (unchanged since #7): 56 files, 421 tests; build clean.
+  CI on `main` passed for both pushes.
+- **Working tree:** this worktree is on `main`, clean after the handoff
+  commit. The main checkout (`Downloads\college-counselor-web`) sits on
+  the merged `ops/chancing-ap-2026-10-09` and was not touched.
 - **Standing authorizations from the user:** push straight to `main`;
   create and delete throwaway `probe-*@example.test` accounts on
   production. Never ask for or use the counselor's or a real student's
@@ -44,6 +49,21 @@ browser as three throwaway students. Mid-run the user supplied a real
 four-year transcript PDF "to model the course list"; it went through the
 survey's import on the parity stack only, and every copy was deleted. None
 of its content is in the repo or the commits.
+
+**Identity redaction hardened by review and three adversarial rounds** —
+`cb2e86a`, `f8cd681` (on #7), `b316183` (on `main`). The PR #7 review found
+a phone number taking the GPA printed under it, Korean labels masking
+everyday words, and (P1) an unbounded registered name compiled into a
+pattern on every chat turn. Three workflow rounds of independent breakers,
+each claim re-run by a verifier, confirmed 45, 33 and 35 more inputs. The
+identity section of `chat/content-moderation.js` now reads a value only
+inside its line, column and field, reads a name by its shape and requires
+it to be the whole field, checks a Hangul value for a Korean surname, keeps
+sentences, statuses, occupations, activity blocks and résumés whole, and
+masks the registered name in any order, romanization or spelling.
+Registration refuses a name over 100 characters (400 `invalid_name`). A
+quadratic field-start pattern (minutes on 200,000 spaces) was found and
+made linear. Every confirmed case is pinned in `provider-redaction.test.js`.
 
 **A transcript's identity fields stay off the model provider** —
 `d6d76d9`. The import sent the provider the student's name, ID number,
@@ -92,21 +112,31 @@ reorganization.
   document; term labels, counts, the N/A row, the GPA question (cancel
   keeps the saved GPA), Korean chips and the Korean CDS rows. Account
   deletion leaves old tokens and fresh sign-ins at 401.
+- **Verified live on 2026-11-22 after the #7 deploy** (throwaway
+  `probe-*@example.test` students, all deleted): a 106-character name is
+  refused with 400 `invalid_name`; registration and the three consents
+  work; "I need the suicide hotline number" gets 200, `crisisSafe: true`
+  and 988; erasure leaves the token at 401 `session_invalid`.
 - **Not verified:**
-  - CI on Node 22.22 for #7 (pending when written);
-  - production after #7 (not merged, no production probe this session);
+  - any model call on production: all fail with upstream 404 (top item);
   - the redaction against a real provider: on production the wire cannot
     be read, so it rests on the route test and the parity capture;
-  - the first-boot memory and scout status after #6 (still unchecked on
-    `/admin.html`).
+  - the first-boot memory and scout status (unchecked on `/admin.html`,
+    which needs the counselor's sign-in).
 
 ## Open items and things to watch
 
-- **Merge #7 once CI is green**, then the live probe below.
-- **Redaction edges:** an unlabeled name in a header the student did not
-  register under (only labels and the registered name are masked); a city
-  and postal code line stays; one-word Latin registered names are never
-  masked alone, by design.
+- **Restore model calls:** on `/admin.html`, check the model chosen for
+  each tier and the scout status; on the OpenRouter account, credits and
+  provider or data-policy settings. Then re-run the live probe below with a
+  transcript import and a chat turn.
+- **Redaction edges, by design or known:** values in a row under a separate
+  row of labels (US header tables, the 학생부 담임성명 table); an unlabeled
+  name the student did not register under; one-word Latin registered names
+  never masked alone. Each adversarial round still found new inputs (45,
+  33, 35): a fourth round on `b316183` is worth running before trusting the
+  patterns further, by the same workflow (four lenses: bleed, leaks,
+  English and Korean false positives, each claim re-run by a verifier).
 - **Locale residual:** College Fit's evidence line "Course rigor: …" is
   still English on a Korean card.
 - **Idea, not done:** the mock-run harness (a fetch mock that answers the
@@ -142,14 +172,19 @@ answer `{"safe":true}`, and anything else a short prose plan. Add
 `openai/gpt-5.6-luna` to the mock catalog or the large tier reports
 not_in_catalog. Clean up with `prod-parity.mjs --clean`.
 
-**Live probe after #7** (Node 22+, requests about 2.6 s apart):
-1. Register `probe-…@example.test` (grade 12), grant the three consents.
-2. `POST /api/students/transcript-import` with `{text: "<invented
+**Live probe** (Node 22+, requests about 2.6 s apart; print status and
+codes only):
+1. `POST /api/students/register` with a 101-character `name`: expect 400
+   `invalid_name`. Then register `probe-…@example.test` (grade 12) and
+   grant the three consents.
+2. `POST /api/chat` with "I need the suicide hotline number": 200,
+   `crisisSafe: true`, 988 in the answer (no model call).
+3. Once model calls work again: `POST /api/chat` with an ordinary question
+   (expect 200 and an answer; on failure read `upstreamStatus`), and
+   `POST /api/students/transcript-import` with `{text: "<invented
    transcript with Name:, Student ID Number:, Date of Birth:, two semester
-   rows and an N/A row>"}`. Expect 200, the courses, and the note "one from
-   an earlier school year is saved without a grade".
-3. The 2026-11-04 crisis and enhanced-ACT checks still apply
-   (`git show 350f9e6:SESSION-HANDOFF.md`).
+   rows and an N/A row>"}` (expect 200, the courses, and the note "one
+   from an earlier school year is saved without a grade").
 4. `DELETE /api/students`; the token then answers 401.
 
 **Deploy markers:** the `assets/main-*.js` hash in `/` changes when
