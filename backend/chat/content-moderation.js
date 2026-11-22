@@ -165,7 +165,7 @@ function achievementAmountAsUsd(match, offset, whole, captures) {
 // house number and a street, and were masked as addresses; the quantified
 // impact of the activity went with them.
 const EVENT_BEFORE_DRIVE = /\b(?:blood|food|book|books|toy|toys|coat|coats|clothing|clothes|canned|can|cans|charity|supply|supplies|fund|donation|donations|donor|coin|coins|shoe|shoes|sock|socks|diaper|diapers|hygiene|holiday|winter|backpack|backpacks|voter|registration|recycling|plasma|marrow|textbook|textbooks|uniform|uniforms|blanket|blankets|meal|meals|grocery|groceries|toiletry|toiletries|eyeglass|eyeglasses|e-?waste|electronics|pet|penny|membership|fundraising|relief)\s+$/i;
-const EVENT_BEFORE_COURT = /\b(?:moot|food|tennis|basketball|volleyball|badminton|squash|pickleball|handball|racquetball|supreme|federal|district|appeals?|appellate|juvenile|teen|youth|traffic|family|mock|county|state|superior|circuit|peer|student|honor)\s+$/i;
+const EVENT_BEFORE_COURT = /\b(?:moot|food|tennis|basketball|volleyball|badminton|squash|pickleball|handball|racquetball|supreme|federal|district|appeals?|appellate|juvenile|teen|youth|traffic|family|mock|county|state|superior|circuit|peer|student|honor|homecoming|prom|royal|snowball|sweetheart|winter|spring)\s+$/i;
 const EVENT_AFTER_PLACE = /^\s+(?:events?|trips?|races?|runs?|tournaments?|teams?|competitions?|cases?|sessions?|campaigns?|programs?|drives?|clinics?|rall(?:y|ies)|shows?|challenges?|clean-?ups?|projects?|games?|matches|meets?|seasons?|members?|volunteers?|collections?|fundraisers?)\b/i;
 
 function isEventNotAddress(match, offset, whole) {
@@ -213,31 +213,31 @@ function isCommonNounPair(match) {
 // such a field and keep its label, so the parser still sees which line is
 // the header.
 //
-// What a value may take was narrowed after the PR #7 review and two
+// What a value may take was narrowed after the PR #7 review and three
 // adversarial rounds over the first versions:
 //   - a value stays on its line and in its column (a tab or two spaces end
 //     it) and stops before the next label on the line, so "Counselor: Dana
 //     Whitfield Cumulative GPA: 3.86" keeps the GPA, and "Phone: +82
 //     02-555-0142" never takes the "3.86" printed under it;
 //   - a name is read by its shape AND must be the whole field: capitalized
-//     or all-caps words, initials, a title, "Last, First", ending at the
-//     line, a column gap, "|" or the next label. "Student: Sure! I'm a
-//     junior", "Counselor: So, which schools", "Legal name: my passport
-//     name" and "Father: Deceased" are sentences or facts, not names;
+//     or all-caps words, initials, a title, "Last, First", particles,
+//     accents, ending at the line, a column gap, "|" or the next label. A
+//     sentence ("Student: Sure! I'm a junior", "Student: Economics."), a
+//     status ("Counselor: Submitted"), an occupation or a degree is not a
+//     name, and a Hangul value starts with a Korean surname and is not a
+//     word ("보호자: 반대", "Mother: 간호사");
 //   - a date of birth is a date (a month name, a four-digit year, 년, or
 //     three numbers), never "parties for 25" or "Do B students";
 //   - labels that are also everyday words ("Name:", "Student:", 성명, 보호자,
 //     학번, 주소) count only at the start of a line or a column, and a
-//     Korean name or address must be the whole value: "보호자: 엄마가
-//     반대해요", "수시 최저로 3합", "가군 연세대로 1개" and "이메일 주소:
-//     학교 계정으로" are left alone.
-// A field starts at its first character after a line start, a tab or two
-// spaces. The negative lookahead comes first so a position inside a run of
+//     Korean address needs its province or district and a road or lot
+//     number, never a subject ("과학탐구 물리 2") or a 정시 group ("가군 연세대로 1").
+// A field starts at its first character after a line start, a tab, two
+// spaces, or (pdf.js joins columns with one space) the previous field's
+// number. The negative lookahead comes first so a position inside a run of
 // spaces fails at once: "(?<=[ \t]{2})[ \t]*" rescanned the rest of the
 // run from every position in it, and 200,000 spaces in an attachment took
 // minutes (quadratic) on the one server process.
-// pdf.js joins two columns with one space, so a field also starts right
-// after the previous field's number ("Grade: 11 Counselor: Dana Whitfield").
 const FIELD_START = String.raw`(?![ \t])(?:^|(?<=^[ \t]+)|(?<=[ \t]{2})|(?<=\t)|(?<=[\d)][ ]))`;
 const FIELD_END = String.raw`(?=[ \t]{2,}|\t|\r|$)`;
 const FIELD_LABEL_PREFIX = /^[^:：]*[:：][ \t]*/;
@@ -252,95 +252,168 @@ function anyCase(phrase) {
     .join(String.raw`[ \t]+`);
 }
 const anyOf = (...phrases) => `(?:${phrases.map(anyCase).join("|")})`;
+// The same word with a capital first letter: the next column of a
+// transcript line ("Class of 2027"), not the next word of a sentence
+// ("year was rough").
+function capitalized(phrase) {
+  const word = phrase.trim();
+  return escapeForRegExp(word[0].toUpperCase()) + escapeForRegExp(word.slice(1)).replace(/[A-Za-z]/g, (ch) => `[${ch.toLowerCase()}${ch.toUpperCase()}]`);
+}
 
 // The next label on a line ("Grade:", "Cumulative GPA:", "Date of Birth:",
 // "CEEB Code:"): a value stops in front of it.
-const LABEL_WORD = anyOf("student", "name", "id", "number", "no", "date", "birth", "birthdate", "dob", "grade", "level",
+const LABEL_WORDS = ["student", "name", "id", "number", "no", "date", "birth", "birthdate", "dob", "grade", "level",
   "gpa", "cumulative", "weighted", "unweighted", "class", "rank", "credits", "credit", "graduation", "address", "phone",
   "tel", "fax", "email", "e-mail", "counselor", "counsellor", "principal", "gender", "sex", "year", "school", "ceeb",
   "code", "term", "semester", "program", "programme", "diploma", "coordinator", "director", "registrar", "advisor",
   "adviser", "preferred", "parent", "guardian", "mother", "father", "signature", "title", "homeroom", "sasid", "ssid",
-  "state", "perm", "local", "ssn", "citizenship", "nationality", "enrollment", "entry", "status", "age", "major", "track");
-const NEXT_LABEL = String.raw`${LABEL_WORD}(?:[ \t]+[A-Za-z#.'’()\/-]+){0,3}[ \t]*[:：]`;
+  "state", "perm", "local", "ssn", "citizenship", "nationality", "enrollment", "entry", "status", "age", "major", "track"];
+const LABEL_WORD = anyOf(...LABEL_WORDS);
+const LABEL_WORD_CAP = `(?:${LABEL_WORDS.map(capitalized).join("|")})`;
+// Words that qualify a one-word label: "SAT Total:", "Unwtd. GPA:".
+const LABEL_QUALIFIER = anyOf("sat", "act", "ap", "ib", "total", "unwtd.", "wtd.", "cum.", "cumulative", "weighted", "unweighted",
+  "class", "expected", "graduation", "attendance", "test", "home", "cell", "student", "school", "parent", "date", "overall",
+  "final", "current", "entry", "exit", "toefl", "ielts");
+const NEXT_LABEL = String.raw`(?:${LABEL_WORD}(?:[ \t]+[A-Za-z#.'’()\/-]+){0,3}|(?:${LABEL_QUALIFIER}[ ])?[A-Z][A-Za-z.]*)[ \t]*[:：]`;
 // Course words that open the next column of a transcript line.
 const COURSE_WORDS = "AP|IB|Honors|Hon|Studies|English|History|Biology|Bio|Chemistry|Chem|Physics|Calculus|Calc|Algebra|Geometry|Spanish|French|Korean|Chinese|Latin|Religious|Global|World|Science|Math|Literature|Lit|Seminar|Research|Economics|Psychology|Statistics|Stats|Period|Room|Rm";
 
 // ─── Names ───
-// Letters with accents count ("María José García López").
-const UPPER = "A-ZÀ-ÖØ-Þ";
-const LETTER = "A-Za-zÀ-ÖØ-öø-ÿĀ-ſ";
+// Letters with accents and the Latin extensions count ("María José García
+// López", "Nguyễn Thị Lan", "Łukasz Wójcik").
+const UPPER = "A-ZÀ-ÖØ-ÞĀ-ſƀ-ɏḀ-ỿ";
+const LETTER = "A-Za-zÀ-ÖØ-öø-ÿĀ-ſƀ-ɏḀ-ỿ";
 // A title is a whole word ("Dr" in "Drama" is not one), and so is every
-// name word.
-const NAME_WORD = String.raw`(?:(?:Mrs|Mr|Ms|Mx|Dr|Prof|Rev|Fr)(?:\.|(?![${LETTER}]))|[${UPPER}][${LETTER}'’-]*\.?)(?![${LETTER}])`;
-// "Last, First", "Daniel and Sora", "van der Berg", "de la Cruz".
-const NAME_JOIN = String.raw`(?:,[ ]|[ ](?:and|&)[ ]|(?:[ ](?:van|von|der|den|de|del|della|da|di|du|dos|das|la|le|bin|binti|al|el|ten|ter)){1,2}[ ]|[ ])`;
-// The field ends after the name: the line, a column gap, "|", ";", "(",
-// "/", the next label, or the next column of a transcript line ("Jordan
-// Ellis Class of 2027", "Dr. Helen Moore Economics A 0.5").
-const NAME_END = String.raw`(?=[ \t]*\r?$|[ \t]{2,}|\t|[ ]?[|;(\/]|,?[ ]${NEXT_LABEL}|[ ](?:${LABEL_WORD}|${COURSE_WORDS})(?![A-Za-z]))`;
+// name word; "(Grace)" between names is a preferred name.
+const NAME_WORD = String.raw`(?:(?:Mrs|Mr|Ms|Mx|Dr|Prof|Rev|Fr)(?:\.|(?![${LETTER}]))|[${UPPER}][${LETTER}'’-]*\.?|\([${UPPER}][${LETTER}'’-]*\))(?![${LETTER}])`;
+// "Last, First", "Daniel and Sora", "van der Berg", "de los Angeles".
+const NAME_JOIN = String.raw`(?:,[ ]|[ ](?:and|&)[ ]|(?:[ ](?:van|von|der|den|de|del|della|da|di|du|dos|das|la|las|los|le|dela|delos|y|e|bin|binti|al|el|ten|ter)){1,2}[ ]|[ ])`;
+// A trailing credential: "Rachel Lin, M.Ed.", "Dr. Helen Moore, Ed.D.".
+const CREDENTIAL = String.raw`(?:,[ ](?:[A-Z][A-Za-z]{0,3}\.){1,3})?`;
 // A label or course word is never the next word of a name: "Dana Whitfield
 // Class Rank 15" is a name and the next column.
-const LATIN_NAME = String.raw`${NAME_WORD}(?:${NAME_JOIN}(?!${NEXT_LABEL}|(?:${LABEL_WORD}|${COURSE_WORDS})(?![A-Za-z]))${NAME_WORD}){0,4}`;
-// A Hangul name under an English label is the whole field ("Name: 박민지").
-const NAME_VALUE = String.raw`(?:${LATIN_NAME}|[가-힣]{2,4})${NAME_END}`;
-// A capitalized word that opens a sentence, and words that make a value an
-// organization, an activity, an occupation, a status or a heading rather
-// than a person ("Drama Club", "Registered Nurse", "Deceased",
-// "Recommendation Letter").
+const NEXT_NAME_WORD = String.raw`(?!${NEXT_LABEL}|(?:${LABEL_WORD}|${COURSE_WORDS})(?![A-Za-z]))`;
+const LATIN_NAME = String.raw`${NAME_WORD}(?:${NAME_JOIN}${NEXT_NAME_WORD}${NAME_WORD}){0,7}${CREDENTIAL}`;
+const LATIN_NAME_2 = String.raw`${NAME_WORD}(?:${NAME_JOIN}${NEXT_NAME_WORD}${NAME_WORD}){1,7}`;
+// The field ends after the name: the line, a column gap, "|", ";", "(",
+// " /", or the next label.
+const NAME_END = String.raw`(?=[ \t]*\r?$|[ \t]{2,}|\t|[ ]?[|;(]|[ ]\/|,?[ ]${NEXT_LABEL})`;
+// Or a name of two words or more runs into the next column of a pdf.js
+// line: "Jordan Ellis Class of 2027", "Dr. Helen Moore Economics A 0.5".
+const NAME_COLUMN_END = String.raw`(?=[ ](?:${LABEL_WORD_CAP}|${COURSE_WORDS})(?![A-Za-z]))`;
+// A Hangul or Han name under an English label is the whole field.
+const NAME_VALUE = String.raw`(?:(?:${LATIN_NAME}|[가-힣]{2,4}|[一-鿿]{2,4})${NAME_END}|${LATIN_NAME_2}${NAME_COLUMN_END})`;
+
+// A capitalized word that opens a sentence, a status, a family word, and
+// words that make a value an organization, an activity, an occupation, a
+// degree or a heading rather than a person.
 const NAME_STOPWORDS = new Set(("i i'm im we you he she it they what how why when where who which whose should can could would "
   + "will do does did is are was were be been the a an this that these those my your our their his her its yes no ok okay hi "
   + "hello hey thanks thank please not none n/a na tbd tba same see unknown pending one two three four five six seven eight "
   + "nine ten first last next sure well so great honestly yeah yep nope maybe hmm um uh really just also actually basically "
-  + "definitely absolutely apply applied applying good nice cool wow oh dear sorry let let's maybe deceased divorced separated "
+  + "definitely absolutely apply applied applying good nice cool wow oh dear sorry let let's deceased divorced separated "
   + "married single widowed retired unemployed self-employed homemaker mom dad mum mother father grandma grandpa grandmother "
-  + "grandfather aunt uncle sister brother parents guardian self").split(" "));
+  + "grandfather aunt uncle sister brother parents guardian self submitted requested sent received done completed waiting "
+  + "asked confirmed declined approved missing outstanding excellent advanced exceeds meets proficient strong average fair "
+  + "poor staff unassigned undeclared vacant understood perfect correct right exactly agreed junior senior freshman "
+  + "sophomore fall spring summer winter unweighted weighted dream final middle elementary").split(" "));
 const NOT_NAME_WORDS = new Set(("club team society council program programme project academy school university college institute "
   + "foundation association league band orchestra choir committee center centre bank hospital church olympiad competition "
   + "tournament award awards prize scholarship camp lab laboratory research debate robotics science math model united nations "
   + "office department report transcript record letter form sheet profile summary recommendation official secondary "
   + "information page ap ib honors course courses class biology chemistry physics calculus history english literature "
   + "studies counseling diploma statement essay draft feedback voice story varsity jv soccer basketball baseball football "
-  + "volleyball tennis swimming swim track golf hockey lacrosse wrestling newspaper yearbook drama theater theatre choir "
+  + "volleyball tennis swimming swim track golf hockey lacrosse wrestling newspaper yearbook drama theater theatre "
   + "nurse engineer teacher doctor driver manager owner worker citizen citizenship resident employee clerk accountant lawyer "
-  + "professor pastor chef cook officer military army navy business company store shop restaurant").split(" "));
+  + "professor pastor chef cook officer military army navy business company store shop restaurant pharmacist electrician "
+  + "plumber technician mechanic carpenter farmer cashier salesperson designer developer programmer scientist analyst "
+  + "consultant dentist therapist librarian secretary assistant housewife homemaker degree bachelor master associate "
+  + "doctorate ged phd mba grandparent parent trial bowl squad scouts scout government country relay hacks deca fbla hosa "
+  + "nhs quiz initiative alliance coalition movement network organization chapter").split(" "));
+// A word and its plural or possessive read the same: "Teachers", "Bachelor's".
+const nameWordKey = (word) => word.replace(/['’]s$/, "").replace(/(?<=[a-z]{3})s$/, "");
+// Korean: a name is two to four syllables, starts with a surname, and is
+// not a word ("반대", "간호사", "한국인", "그렇군요", "귀하").
+const KO_SURNAMES = new Set("김 이 박 최 정 강 조 윤 장 임 한 오 서 신 권 황 안 송 전 홍 유 고 문 양 손 배 백 허 남 심 노 하 곽 성 차 주 우 구 민 류 나 진 지 엄 채 원 천 방 공 현 함 변 염 여 추 도 소 석 선 설 마 길 연 위 표 명 기 반 라 왕 금 옥 육 인 맹 제 모 탁 국 어 은 편 용 예 경 봉 사 부 피 범 승 갈".split(" "));
+const KO_COMPOUND_SURNAMES = /^(?:남궁|황보|제갈|선우|독고|사공|서문|동방)/;
+const KO_NOT_A_NAME = new Set(("할머니 외할머니 할아버지 외할아버지 어머니 아버지 엄마 아빠 부모님 부모 조부모 이모 고모 삼촌 외삼촌 큰아버지 "
+  + "작은아버지 형 누나 언니 오빠 본인 없음 미정 해당없음 선생님 반대 찬성 사망 이혼 별거 재혼 한국인 미국인 외국인 중국인 "
+  + "일본인 회사원 주부 자영업 공무원 교사 간호사 의사 학생 무직 은퇴 직장인 한글 국문 영문 한자 제한없음 귀하 담당자 "
+  + "대리인 서명 날인 직인 확인 추천 명의 새엄마 새아빠 양부모 조모 조부 고민 진행 완료 대기 제출 미제출 동의 미동의").split(" "));
+function isKoreanName(value) {
+  if (!/^[가-힣]{2,4}$/.test(value) || KO_NOT_A_NAME.has(value)) return false;
+  if (/(?:요|다|니다|군요|죠|네|음|함|됨|임|중)$/.test(value)) return false;
+  return KO_SURNAMES.has(value[0]) || KO_COMPOUND_SURNAMES.test(value);
+}
 function notAName(prefix) {
   return (match) => {
     const value = match.replace(prefix, "").trim();
     if (!value || MASKED_TOKEN.test(value)) return true;
-    const words = value.toLowerCase().replace(/[.,&]/g, " ").split(/\s+/).filter(Boolean);
-    if (NAME_STOPWORDS.has(words[0]) || words.some((word) => NOT_NAME_WORDS.has(word))) return true;
-    // Every word an everyday capitalized noun ("Early Action", "Spring
-    // Break") is not a name either, unless it is a surname ("Grace Park").
+    if (/^[가-힣]+$/.test(value)) return !isKoreanName(value);
+    // A sentence ends in a period; a name ends in an initial or a title.
+    const lastWord = value.split(/\s+/).at(-1);
+    if (/\.$/.test(lastWord) && !/^(?:[A-Z]\.|(?:[A-Z][A-Za-z]{0,3}\.){1,3}|Jr\.|Sr\.)$/.test(lastWord)) return true;
+    const words = value.toLowerCase().replace(/[.,&()]/g, " ").split(/\s+/).filter(Boolean);
+    if (NAME_STOPWORDS.has(words[0])) return true;
+    if (words.some((word) => NOT_NAME_WORDS.has(word) || NOT_NAME_WORDS.has(nameWordKey(word)))) return true;
+    // Every word an everyday capitalized noun ("Early Action") is not a
+    // name either, unless it ends in a surname ("Grace Park").
     return words.length > 1 && words.every((word) => COMMON_CAPITALIZED_WORDS.has(word)) && !SURNAME_WORDS.has(words.at(-1));
   };
 }
-// Bare labels that take a name: "Name:", "Student:", "Preferred:",
-// "Mother:", "Parent/Guardian:". "First:", "Family:" and "Last:" take a
-// name only with "Name" after them.
-// A format hint may sit before the colon: "Name (Last, First, M.I.):".
+const notKoreanName = (prefix) => (match) => !isKoreanName(match.replace(prefix, "").trim());
+
+// "Name: Mock Trial\nPosition: Lead Attorney" is an activity, not a person:
+// a bare name label next to activity fields, or under "Activity 2".
+const ACTIVITY_FIELD = /^[ \t]*(?:[-*•][ \t]*)?(?:position|role|title|hours|grades?|category|type|description|organization|activity|level|leadership|award|weeks|participation|timing)\b[^:\n]{0,24}:/i;
+function inActivityBlock(match, offset, whole) {
+  const end = offset + match.length;
+  const nextBreak = whole.indexOf("\n", end);
+  const nextLine = nextBreak < 0 ? "" : whole.slice(nextBreak + 1).split("\n")[0];
+  const lineStart = whole.lastIndexOf("\n", offset - 1);
+  const prevLine = lineStart > 0 ? whole.slice(whole.lastIndexOf("\n", lineStart - 1) + 1, lineStart) : "";
+  return ACTIVITY_FIELD.test(nextLine) || /^[ \t]*(?:activit(?:y|ies)\b|ec\b|\d+[.)])/i.test(prevLine);
+}
+const notAPersonField = (prefix) => (match, offset, whole) => notAName(prefix)(match) || inActivityBlock(match, offset, whole);
+
+// Labels that take a name: "Name:", "Student:", "Preferred:", "Mother:",
+// "Parent/Guardian:", "Parent 1:", "Applicant Name:", "Surname:",
+// "Parents' Names:". "First:", "Family:" and "Last:" take a name only with
+// "Name" after them. A format hint may sit before the colon: "Name (Last,
+// First, M.I.):".
 const LABEL_HINT = String.raw`(?:[ \t]*\([^)\n]{1,24}\))?`;
-const NAME_LABEL = String.raw`(?:(?:${anyOf("student", "preferred", "mother", "father", "guardian")}(?:['’][sS])?(?:[ \t]+${anyCase("name")})?`
-  + String.raw`|${anyOf("full", "legal", "first", "last", "given", "family", "middle")}[ \t]+${anyCase("name")}`
-  + String.raw`|${anyCase("parent")}(?:[sS]|\([sS]\))?(?:[ \t]*\d)?(?:[ \t]*\/[ \t]*${anyCase("guardian")}(?:[sS]|\([sS]\))?)?(?:['’][sS])?(?:[ \t]+${anyCase("name")})?`
-  + String.raw`|${anyCase("name")}(?:[ \t]+${anyCase("of")}[ \t]+${anyOf("student", "parent", "guardian")})?|${anyCase("emergency contact")}(?:[ \t]+${anyCase("name")})?)${LABEL_HINT})`;
-const QUALIFIED_NAME_LABEL = String.raw`${anyOf("student", "full", "legal", "preferred", "first", "last", "given", "family", "middle", "mother", "father", "guardian", "parent")}(?:['’][sS])?[ \t]+${anyCase("name")}`;
+const PARENT_WORD = String.raw`${anyCase("parent")}(?:[sS]|\([sS]\))?(?:['’][sS]?)?(?:[ \t]*\d)?(?:[ \t]*(?:\/|${anyCase("or")})[ \t]*${anyCase("guardian")}(?:[sS]|\([sS]\))?)?`;
+const NAME_WORD_LABEL = String.raw`${anyCase("name")}(?:[sS])?`;
+const NAME_LABEL = String.raw`(?:(?:${anyOf("student", "preferred", "mother", "father", "guardian", "surname", "applicant", "candidate")}(?:['’][sS])?(?:[ \t]+${NAME_WORD_LABEL})?`
+  + String.raw`|${anyOf("full", "legal", "first", "last", "given", "family", "middle", "english", "korean", "chinese", "native")}[ \t]+${NAME_WORD_LABEL}`
+  + String.raw`|${PARENT_WORD}(?:[ \t]+${NAME_WORD_LABEL})?`
+  + String.raw`|${NAME_WORD_LABEL}(?:[ \t]+${anyCase("of")}[ \t]+(?:${anyOf("student", "guardian")}|${PARENT_WORD}))?|${anyCase("emergency contact")}(?:[ \t]+${NAME_WORD_LABEL})?)${LABEL_HINT})`;
+const QUALIFIED_NAME_LABEL = String.raw`(?:${anyOf("student", "full", "legal", "preferred", "first", "last", "given", "family", "middle", "mother", "father", "guardian", "applicant", "candidate", "english", "korean", "chinese", "native")}|${PARENT_WORD})(?:['’][sS])?[ \t]+${NAME_WORD_LABEL}`;
+// School staff, with the modifiers a school title takes: "University
+// Counsellor", "IB Diploma Programme Coordinator", "College & Career
+// Counselor", "Director of College Counseling", "Head of Upper School".
 const STAFF_TITLE = anyOf("counselor", "counsellor", "principal", "vice principal", "headmaster", "headmistress", "head of school",
-  "head teacher", "registrar", "coordinator", "director", "advisor", "adviser", "teacher", "dean");
-const STAFF_LABEL = String.raw`(?:[^\s:：]+[ \t]+){0,4}?${STAFF_TITLE}(?:[ \t]+${anyCase("of")}(?:[ \t]+[A-Za-z&]+){1,4})?(?:['’][sS])?(?:[ \t]+${anyOf("name", "signature")})?${LABEL_HINT}`;
+  "head teacher", "head", "registrar", "coordinator", "director", "advisor", "adviser", "teacher", "dean");
+const STAFF_MODIFIER = anyOf("college", "guidance", "school", "university", "academic", "assistant", "associate", "upper", "lower",
+  "middle", "senior", "ib", "dp", "diploma", "programme", "program", "career", "careers", "international", "admissions",
+  "homeroom", "vice", "deputy", "lead", "chief", "high", "&", "and", "english", "math", "science", "history");
+const STAFF_OF = String.raw`(?:[ \t]+${anyCase("of")}(?:[ \t]+[A-Za-z&]+){1,4})?`;
+const STAFF_LABEL = String.raw`(?:${STAFF_MODIFIER}[ \t]+){0,4}${STAFF_TITLE}${STAFF_OF}(?:['’][sS])?(?:[ \t]+${anyOf("name", "signature")})?${LABEL_HINT}`;
 const SIGNED_BY = String.raw`${anyOf("authorized", "authorised", "signed", "certified", "issued", "attested", "approved", "prepared", "verified", "reviewed")}[ \t]+${anyCase("by")}`;
-// A signature block's title line: the whole line is the title ("Director
-// of College Counseling"), in Title Case.
-const TITLE_LINE = String.raw`(?:[A-Z][A-Za-z&]*[ \t]+){0,4}${STAFF_TITLE}(?:[ \t]+${anyCase("of")}(?:[ \t]+[A-Z][A-Za-z&]*){1,4})?[ \t]*\r?$`;
+// A signature block's title line: the whole line is the title, with an
+// optional ", School Name" or "| School Name" after it.
+const TITLE_LINE = String.raw`(?:${STAFF_MODIFIER}[ \t]+){0,4}${STAFF_TITLE}(?:[ \t]+${anyCase("of")}(?:[ \t]+[A-Z][A-Za-z&]*){1,4})?(?:[ \t]*[,|][^\n]{1,60})?[ \t]*\r?$`;
 
 // 성명, 보호자, 담임, 교장, 학생 이름: with a colon at a field's start, or the
 // form field with the name and nothing after it. 이름 alone heads a club
-// or a project as often as a person ("이름: 방송부"), and 할머니 or 본인
-// under 보호자 is who the guardian is, not a name.
-const KO_NAME_LABEL = String.raw`(?:성[ \t]*명|학생[ \t]*(?:성명|이름)|보호자(?:[ \t]*(?:성명|이름))?|담임(?:[ \t]*(?:교사|성명))?|교[ \t]*장|[부모][ \t]*성명)(?:[ \t]*\([A-Za-z .]{1,12}\))?`;
-const KO_NAME_FIELD = String.raw`(?:성[ \t]*명|학생[ \t]*성명|보호자[ \t]*성명)(?:[ \t]*\([A-Za-z .]{1,12}\))?`;
+// or a project as often as a person ("이름: 방송부"). A sub-label may sit in
+// between ("성명(한글): 박민지", "성명  한글  김민지  영문  KIM MINJI").
+const KO_LABEL_HINT = String.raw`(?:[ \t]*\([가-힣A-Za-z .]{1,12}\))?`;
+const KO_NAME_LABEL = String.raw`(?:성[ \t]*명|학생[ \t]*(?:성명|이름)|보호자(?:[ \t]*(?:성명|이름))?|담임(?:[ \t]*(?:교사|성명))?|교[ \t]*장|[부모][ \t]*성명)${KO_LABEL_HINT}`;
+const KO_NAME_FIELD = String.raw`(?:성[ \t]*명|학생[ \t]*성명|보호자[ \t]*성명)${KO_LABEL_HINT}(?:[ \t]+(?:한글|국문))?`;
 const KO_NAME_END = String.raw`(?=[ \t]*(?:\r?$|[(,;|])|[ \t]{2,}|\t)`;
-const KO_NOT_A_NAME = /^(?:외?할머니|외?할아버지|어머니|아버지|엄마|아빠|부모님|부모|조부모|이모|고모|외?삼촌|큰아버지|작은아버지|형|누나|언니|오빠|본인|없음|미정|해당없음|선생님)$/;
-const notKoreanName = (prefix) => (match) => KO_NOT_A_NAME.test(match.replace(prefix, "").trim());
+// A seal after a signer: "(인)", "[직인]".
+const KO_SEAL = String.raw`[ \t]*(?:[[(]직?인[)\]]|직인|인(?![가-힣]))`;
 
 // ─── Dates of birth ───
 // A month by its name or abbreviation: "juniors" and "decisions" are not
@@ -349,8 +422,9 @@ const MONTH = String.raw`(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may
 // A number token is the whole number: "2009" is one token, not "200" and "9".
 const DATE_TOKEN = String.raw`(?:${MONTH}|\d{1,4}(?!\d)(?:[ \t]*[년월일])?)`;
 const DATE_VALUE = String.raw`(?:\d{8}\b|${DATE_TOKEN}(?:[ \t]*[\/.,-]?[ \t]*${DATE_TOKEN}){1,2}\.?)`;
-// "DOB", "D.O.B.", "D. O. B."; "Do B students" is not one.
-const DOB_LABEL = String.raw`(?:date[ \t]+of[ \t]+birth|birth[ \t]*date|birthdate|birthday|d(?:\.[ \t]?)?o(?:\.[ \t]?)?b\.?)(?![A-Za-z])(?:[ \t]*\([^)\n]{1,12}\))?`;
+// "DOB", "D.O.B.", "D. O. B.", "Date and Place of Birth", "DOB/Sex",
+// "Date of Birth / Age"; "Do B students" is not one.
+const DOB_LABEL = String.raw`(?:date[ \t]+(?:and|&)[ \t]+place[ \t]+of[ \t]+birth|date[ \t]+of[ \t]+birth|birth[ \t]*date|birthdate|birthday|d(?:\.[ \t]?)?o(?:\.[ \t]?)?b\.?)(?![A-Za-z])(?:[ \t]*\/[ \t]*[A-Za-z]+)?(?:[ \t]*\([^)\n]{1,12}\))?`;
 // A colon may end its line, with the date on the next one ("Date of
 // Birth:\nMar/04/2008"); the date itself stays on that line.
 const DOB_SEPARATOR = String.raw`(?:[ \t]*[:：](?:[ \t]*\r?\n)?|[ \t]+is)?[ \t]*`;
@@ -371,7 +445,7 @@ function notADate(prefix) {
 // "Course ID: 1220", "Meeting ID: 845 2231 0098" and "CEEB Code" are not
 // the student's.
 const NOT_A_STUDENT_ID = String.raw`(?<!\b${anyOf("course", "class", "section", "exam", "test", "school", "college", "unit", "program", "activity", "club", "team", "ceeb", "app", "room", "order", "ticket", "meeting", "zoom", "webinar", "session", "event", "tracking", "confirmation")}[ \t]*)`;
-const ID_WORDS = String.raw`(?:${anyCase("student")}[ \t]*)?${anyOf("id", "identification")}(?:[ \t]*${anyOf("number", "num", "no.", "no", "#")})?`;
+const ID_WORDS = String.raw`(?:${anyCase("student")}[ \t]*)?${anyOf("id", "identification", "i.d.", "i. d.")}(?:[ \t]*${anyOf("number", "num", "no.", "no", "#")})?`;
 const FIELD_ID_PREFIX = /^[^\n]*?(?:\bis\b|[:：=#])[ \t]*/i;
 const KO_ID_LABEL = String.raw`(?:학[ \t]*번|학생[ \t]*번호|수험[ \t]*번호)`;
 
@@ -383,23 +457,31 @@ const PHONE_LABEL = String.raw`(?:\b${anyOf("phone", "tel", "telephone", "mobile
 
 // ─── Addresses ───
 // An address stops before the next label or label word ("Grade 11",
-// "Weighted GPA 4.21", "Class Rank 15/412") and after a ZIP code.
+// "SAT Total: 1480", "Weighted GPA 4.21") and after a ZIP code.
 const ADDRESS_VALUE = String.raw`\S+(?:(?<!\b\d{5}(?:-\d{4})?)[ ](?!${NEXT_LABEL}|${LABEL_WORD}(?![A-Za-z]))\S+){0,11}`;
 const KO_PROVINCE = String.raw`(?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|충청북|충청남|전북|전남|전라북|전라남|경북|경남|경상북|경상남|제주)(?:특별시|광역시|특별자치시|특별자치도|도|시)?`;
-// A district: a city or county of two syllables or more, or a 구 ("중구").
-// "가군" (a 정시 group), "수시" and "혹시" are not districts.
-const KO_DISTRICT = String.raw`(?:[가-힣]{2,}(?:시|군)|[가-힣]+구)`;
+// A district: a city or county of two syllables or more, or a 구 that is
+// not a word ("탐구", "축구", "연구"). "가군" (a 정시 group), "수시" and
+// "혹시" are not districts.
+const KO_NOT_GU = String.raw`(?![가-힣]*(?:탐구|연구|친구|축구|야구|농구|배구|입구|출구|요구|도구|가구|기구|구구)(?![가-힣]))`;
+const KO_DISTRICT = String.raw`(?:[가-힣]{2,}(?:시|군)|${KO_NOT_GU}[가-힣]+구)`;
+// A 동 or 리 with a lot number, never a subject ("물리 2", "윤리 2",
+// "활동 3").
+const KO_NOT_DONG = String.raw`(?![가-힣]*(?:물리|지리|윤리|심리|논리|원리|관리|처리|정리|수리|총리|활동|운동|행동|감동|이동|자동|공동|변동|노동|충동)(?![가-힣]))`;
+const KO_LOT = String.raw`${KO_NOT_DONG}[가-힣]+(?:동|읍|면|리)`;
+// A building, an apartment and a unit after the number: "래미안아파트
+// 101동 1203호".
+const KO_UNIT = String.raw`(?:[ ][가-힣A-Za-z0-9]*(?:아파트|빌라|오피스텔|타워|맨션|빌딩))?(?:[ ]\d+동)?(?:[ ]\d+호)?`;
 // A Korean address: an optional province, a district, more districts, then
-// a road (not a noun with 으로) or a 동 with a building or lot number at
-// the end of the field.
-const KO_ADDRESS = String.raw`(?:${KO_PROVINCE} )?${KO_DISTRICT}(?: [가-힣]+(?:구|읍|면|동))* (?:[가-힣0-9]+(?<!으)(?:로|길)(?: ?\d+(?:번)?길)?|[가-힣]+(?:동|읍|면|리)) ?\d+(?:-\d+)?(?:번지)?(?![가-힣.\d])(?: ?\([^)\n]{1,20}\))?`;
+// a road (not a noun with 으로) or a 동 with a building or lot number.
+const KO_ADDRESS = String.raw`(?:${KO_PROVINCE} )?${KO_DISTRICT}(?: [가-힣]+(?:구|읍|면|동))* (?:[가-힣0-9]+(?<!으)(?:로|길)(?: ?\d+(?:번)?길)?|${KO_LOT}) ?\d+(?:-\d+)?(?:번지)?(?![가-힣.\d])(?: ?\([^)\n]{1,20}\))?${KO_UNIT}`;
 // One 시/구/면 ending is not an address: everyday words end in them (이면,
 // 수시, 축구, 혹시 진로). A province with a district, a road with a number,
 // or a lot number is.
 const KO_ADDRESS_SHAPE = new RegExp([
   String.raw`(?<![가-힣])${KO_PROVINCE} ${KO_DISTRICT}(?![가-힣])`,
   String.raw`[가-힣0-9]+(?<!으)(?:로|길) ?\d+(?![가-힣.\d])`,
-  String.raw`[가-힣]+(?:동|읍|면|리) ?\d+(?:-\d+)?(?:번지)?(?![가-힣.\d])`,
+  String.raw`${KO_LOT} ?\d+(?:-\d+)?(?:번지)?(?![가-힣.\d])`,
 ].join("|"));
 // An address starts with a house number before a street word, or is a
 // Korean address: "Texas, but I live in Seoul" and "3 blocks from school"
@@ -414,11 +496,12 @@ function notAnAddress(prefix) {
       || KO_ADDRESS_SHAPE.test(value));
   };
 }
-// A course row or a teacher, not an address: "1 AP Calculus BC Dr. Nguyen",
-// "Religious St. B+ 0.5", "Period 2 AP Bio Dr. Kim".
+// A course row, a teacher or a placement, not an address: "1 AP Calculus
+// BC Dr. Nguyen", "Religious St. B+ 0.5", "2 First Place".
 const COURSE_MARKER = new RegExp(String.raw`\b(?:${COURSE_WORDS})\b`);
 function isCourseRowNotAddress(match, offset, whole) {
   if (COURSE_MARKER.test(match)) return true;
+  if (/^\d{1,3} (?:First|Second|Third|Fourth|Fifth|Sixth|Seventh|Eighth|Ninth|Tenth|Honorable)\b/.test(match)) return true;
   return /\bDr\.?$/.test(match) && /^ [A-Z]/.test(whole.slice(offset + match.length, offset + match.length + 2));
 }
 
@@ -450,9 +533,10 @@ const IDENTITY_ADDRESS_PATTERNS = [
   // Banpo-daero 58" keeps the class year.
   { pattern: /\b\d{1,4}(?:-\d{1,4})?,? [A-Z][a-z]+(?:[ -]?\d{1,3})?-(?:gil|ro|daero)\b(?: \d{1,3}(?:beon)?-gil\b)?(?! \d)(?:,? [A-Z][a-z]+-(?:gu|si|gun|dong|eup|myeon|do)\b)*/g, type: "street_address", label: "STREET_ADDRESS", restorable: false },
   { pattern: /\b[A-Z][a-z]+(?:[ -]?\d{1,3})?-(?:gil|ro|daero)(?: \d{1,3}(?:beon)?-gil)? \d{1,4}(?:-\d{1,4})?\b(?!-(?:gil|ro|daero|beon))(?:,? [A-Z][a-z]+-(?:gu|si|gun|dong|eup|myeon|do)\b)*/g, type: "street_address", label: "STREET_ADDRESS", restorable: false },
-  // 서울특별시 서초구 반포대로 12 with no label: the province, a district, a
-  // road and the building number ending the field.
-  { pattern: new RegExp(String.raw`(?<![가-힣\d])${KO_PROVINCE} ${KO_DISTRICT}(?: [가-힣]+(?:구|읍|면))? [가-힣0-9]+(?<!으)(?:로|길)(?: ?\d+(?:번)?길)? ?\d+(?:-\d+)?(?=[ \t]*(?:$|[,)(\r\n])|번지)`, "gm"), type: "street_address", label: "STREET_ADDRESS", restorable: false },
+  // 서울특별시 서초구 반포대로 12 래미안아파트 101동 1203호, 서울시 강남구 역삼동
+  // 123-45, with no label: the province, a district, a road or a 동 and its
+  // number, and any building and unit.
+  { pattern: new RegExp(String.raw`(?<![가-힣\d])${KO_PROVINCE} ${KO_DISTRICT}(?: [가-힣]+(?:구|읍|면))? (?:[가-힣0-9]+(?<!으)(?:로|길)(?: ?\d+(?:번)?길)?|${KO_LOT}) ?\d+(?:-\d+)?(?:번지)?(?=[ \t]*(?:$|[,)(\r\n])|번지|[ ][가-힣A-Za-z0-9]*(?:아파트|빌라|오피스텔|타워|맨션|빌딩)|[ ]\d+동|[ ]?(?:에|에서|에요|이에요|예요|입니다|살아요|거주)(?![가-힣]))${KO_UNIT}`, "gm"), type: "street_address", label: "STREET_ADDRESS", restorable: false },
   { pattern: new RegExp(String.raw`\b${anyOf("home", "mailing", "street", "permanent", "residential", "current", "student", "student's", "school")}[ \t]+${anyCase("address")}[ \t]*[:：][ \t]*${ADDRESS_VALUE}`, "g"), type: "street_address", label: "STREET_ADDRESS", restorable: false, trimPrefix: FIELD_LABEL_PREFIX, keep: notAnAddress(FIELD_LABEL_PREFIX) },
   { pattern: new RegExp(String.raw`${FIELD_START}${anyCase("address")}[ \t]*[:：][ \t]*${ADDRESS_VALUE}`, "gm"), type: "street_address", label: "STREET_ADDRESS", restorable: false, trimPrefix: FIELD_LABEL_PREFIX, keep: notAnAddress(FIELD_LABEL_PREFIX) },
   // 주소: the Korean address itself, not the sentence after it ("기숙사
@@ -461,14 +545,15 @@ const IDENTITY_ADDRESS_PATTERNS = [
 ];
 
 const IDENTITY_NUMBER_PATTERNS = [
-  // "Student ID Number: 48213", "ID No. 48213", "my student id is 48213".
+  // "Student ID Number: 48213", "Student I.D.: 204871", "my student id is 48213".
   { pattern: new RegExp(String.raw`${NOT_A_STUDENT_ID}\b${ID_WORDS}[ \t]*(?:${anyCase("is")}|[:：=#])[ \t]*[A-Z]{0,4}-?\d{3,}[A-Z0-9-]*\b`, "g"), type: "student_id", label: "STUDENT_ID", restorable: false, trimPrefix: FIELD_ID_PREFIX },
   // "Student ID:" with the number on the next line, as pdf.js reads a table.
   { pattern: new RegExp(String.raw`${FIELD_START}${ID_WORDS}[ \t]*[:：][ \t]*\r?\n[ \t]*[A-Z]{0,4}-?\d{4,}[A-Z0-9-]*(?=[ \t]*\r?$)`, "gm"), type: "student_id", label: "STUDENT_ID", restorable: false, trimPrefix: FIELD_NEXT_LINE_PREFIX },
   // "Student ID 204871" in a header column, with no colon.
   { pattern: new RegExp(String.raw`\b${anyCase("student")}[ \t]+${anyCase("id")}(?:[ \t]*${anyOf("number", "no.", "#")})?[ \t]+[A-Z]{0,4}-?\d{4,}[A-Z0-9-]*\b`, "g"), type: "student_id", label: "STUDENT_ID", restorable: false, trimPrefix: /^[^\d]*?(?=[A-Z]{0,4}-?\d{4,})/ },
-  // State and district numbers: "SASID: 10483726", "Perm #: 204871".
-  { pattern: new RegExp(String.raw`\b(?:${anyOf("sasid", "ssid", "osis", "oen", "nsn")}|${anyOf("state", "local")}[ \t]+(?:${anyCase("student")}[ \t]+)?${anyCase("id")}|${anyCase("perm")}(?:${anyCase("anent")})?[ \t]*(?:#|${anyOf("id", "number", "no.")}))[ \t]*[:#：]?[ \t]*[A-Z]{0,4}-?\d{4,}[A-Z0-9-]*\b`, "g"), type: "student_id", label: "STUDENT_ID", restorable: false, trimPrefix: /^[^\n]*?(?=[A-Z]{0,4}-?\d{4,})/ },
+  // State, district and admission numbers: "SASID: 10483726", "Perm #:
+  // 204871", "Admission No.: 20230512".
+  { pattern: new RegExp(String.raw`\b(?:${anyOf("sasid", "ssid", "osis", "oen", "nsn")}|${anyOf("state", "local")}[ \t]+(?:${anyCase("student")}[ \t]+)?${anyCase("id")}|${anyCase("perm")}(?:${anyCase("anent")})?[ \t]*(?:#|${anyOf("id", "number", "no.")})|${anyOf("admission", "admissions", "enrollment", "enrolment")}[ \t]*(?:#|${anyOf("number", "no.", "no")}))[ \t]*[:#：]?[ \t]*[A-Z]{0,4}-?\d{4,}[A-Z0-9-]*\b`, "g"), type: "student_id", label: "STUDENT_ID", restorable: false, trimPrefix: /^[^\n]*?(?=[A-Z]{0,4}-?\d{4,})/ },
   { pattern: /\bstudent[ \t]*(?:number|num|no\.?|#)[ \t]*(?:is|:|：|=)?[ \t]*[A-Z]{0,4}-?\d{3,}[A-Z0-9-]*\b/gi, type: "student_id", label: "STUDENT_ID", restorable: false, trimPrefix: /^student[ \t]*(?:number|num|no\.?|#)[ \t]*(?:is|:|：|=)?[ \t]*/i },
   // 학번: 20231234 anywhere, the number alone ("학번: 2023학번이면" is a
   // cohort); without the colon only as a form field.
@@ -482,11 +567,11 @@ const IDENTITY_NUMBER_PATTERNS = [
 
 const IDENTITY_NAME_PATTERNS = [
   // "Student Name: …", "Legal name: …", "Parent/Guardian Name: …" anywhere.
-  { pattern: new RegExp(String.raw`\b${QUALIFIED_NAME_LABEL}[ \t]*[:：][ \t]*${NAME_VALUE}`, "gm"), type: "person_name", label: "PERSON_NAME", restorable: true, trimPrefix: FIELD_LABEL_PREFIX, keep: notAName(FIELD_LABEL_PREFIX) },
+  { pattern: new RegExp(String.raw`\b${QUALIFIED_NAME_LABEL}${LABEL_HINT}[ \t]*[:：][ \t]*${NAME_VALUE}`, "gm"), type: "person_name", label: "PERSON_NAME", restorable: true, trimPrefix: FIELD_LABEL_PREFIX, keep: notAPersonField(FIELD_LABEL_PREFIX) },
   // "Name:", "Student:", "Mother:", "Parent/Guardian:" at a field's start,
   // with the name on the label's line or alone on the next one.
-  { pattern: new RegExp(String.raw`${FIELD_START}${NAME_LABEL}[ \t]*[:：][ \t]*${NAME_VALUE}`, "gm"), type: "person_name", label: "PERSON_NAME", restorable: true, trimPrefix: FIELD_LABEL_PREFIX, keep: notAName(FIELD_LABEL_PREFIX) },
-  { pattern: new RegExp(String.raw`${FIELD_START}${NAME_LABEL}[ \t]*[:：][ \t]*\r?\n[ \t]*${NAME_VALUE}`, "gm"), type: "person_name", label: "PERSON_NAME", restorable: true, trimPrefix: FIELD_NEXT_LINE_PREFIX, keep: notAName(FIELD_NEXT_LINE_PREFIX) },
+  { pattern: new RegExp(String.raw`${FIELD_START}${NAME_LABEL}[ \t]*[:：][ \t]*${NAME_VALUE}`, "gm"), type: "person_name", label: "PERSON_NAME", restorable: true, trimPrefix: FIELD_LABEL_PREFIX, keep: notAPersonField(FIELD_LABEL_PREFIX) },
+  { pattern: new RegExp(String.raw`${FIELD_START}${NAME_LABEL}[ \t]*[:：][ \t]*\r?\n[ \t]*${NAME_VALUE}`, "gm"), type: "person_name", label: "PERSON_NAME", restorable: true, trimPrefix: FIELD_NEXT_LINE_PREFIX, keep: notAPersonField(FIELD_NEXT_LINE_PREFIX) },
   // The adults who sign or stand behind the document: "Counselor:",
   // "University Counsellor:", "IB Diploma Programme Coordinator:",
   // "Counselor's Signature:", "Authorized by:".
@@ -494,48 +579,62 @@ const IDENTITY_NAME_PATTERNS = [
   { pattern: new RegExp(String.raw`${FIELD_START}${STAFF_LABEL}[ \t]*[:：][ \t]*\r?\n[ \t]*${NAME_VALUE}`, "gm"), type: "person_name", label: "PERSON_NAME", restorable: true, trimPrefix: FIELD_NEXT_LINE_PREFIX, keep: notAName(FIELD_NEXT_LINE_PREFIX) },
   { pattern: new RegExp(String.raw`\b${SIGNED_BY}[ \t]*[:：][ \t]*${NAME_VALUE}`, "gm"), type: "person_name", label: "PERSON_NAME", restorable: true, trimPrefix: FIELD_LABEL_PREFIX, keep: notAName(FIELD_LABEL_PREFIX) },
   // A signature block: a name of two words or more alone on its line, a
-  // title alone on the next one.
-  { pattern: new RegExp(String.raw`^[ \t]*${NAME_WORD}(?:${NAME_JOIN}${NAME_WORD}){1,4}(?=[ \t]*\r?\n[ \t]*${TITLE_LINE})`, "gm"), type: "person_name", label: "PERSON_NAME", restorable: true, trimPrefix: /^[ \t]*/, keep: notAName(/^[ \t]*/) },
+  // school title alone on the next one.
+  { pattern: new RegExp(String.raw`^[ \t]*${NAME_WORD}(?:${NAME_JOIN}${NAME_WORD}){1,4}${CREDENTIAL}(?=[ \t]*\r?\n[ \t]*${TITLE_LINE})`, "gm"), type: "person_name", label: "PERSON_NAME", restorable: true, trimPrefix: /^[ \t]*/, keep: notAName(/^[ \t]*/) },
   { pattern: new RegExp(String.raw`${FIELD_START}${KO_NAME_LABEL}[ \t]*[:：][ \t]*[가-힣]{2,4}${KO_NAME_END}`, "gm"), type: "person_name", label: "PERSON_NAME", restorable: true, trimPrefix: FIELD_LABEL_PREFIX, keep: notKoreanName(FIELD_LABEL_PREFIX) },
   { pattern: new RegExp(String.raw`${FIELD_START}${KO_NAME_FIELD}[ \t]+[가-힣]{2,4}${KO_NAME_END}`, "gm"), type: "person_name", label: "PERSON_NAME", restorable: true, trimPrefix: new RegExp(String.raw`^[ \t]*${KO_NAME_FIELD}[ \t]+`), keep: notKoreanName(new RegExp(String.raw`^[ \t]*${KO_NAME_FIELD}[ \t]+`)) },
-  // "한빛고등학교장  김철수  [직인]": the principal signing, set apart by a
-  // column gap. "학교장 추천", "학교장 확인서" and "교장 선생님" are not names.
-  { pattern: /(?:학교장|교장)(?:[ \t]{2,}|\t)(?!추천|직인|명의|선생|확인)[가-힣]{2,4}(?![가-힣])(?=[ \t]{2,}|\t|[ \t]*[[(]?직?인|[ \t]*\r?$)/gm, type: "person_name", label: "PERSON_NAME", restorable: true, trimPrefix: /^(?:학교장|교장)[ \t]+/ },
+  // The romanized name beside it: "성명(영문): PARK MINJI", "영문  KIM MINJI".
+  { pattern: new RegExp(String.raw`${FIELD_START}(?:${KO_NAME_FIELD}[ \t]*\((?:영문|English)\)|(?:성[ \t]*명[ \t]+)?영문(?:[ \t]*(?:성명|이름))?)[ \t]*[:：]?[ \t]*${LATIN_NAME}${NAME_END}`, "gm"), type: "person_name", label: "PERSON_NAME", restorable: true, trimPrefix: /^(?:[^:：\n]*[:：][ \t]*|[^A-Za-z]*)/, keep: notAName(/^(?:[^:：\n]*[:：][ \t]*|[^A-Za-z]*)/) },
+  // The signer: "한빛고등학교장  김철수  [직인]", "담임 이수정 (인)". "학교장
+  // 추천", "학교장 확인서", "학교장 귀하" and "교장 선생님" are not names.
+  { pattern: new RegExp(String.raw`(?:학교장|교장)(?:[ \t]{2,}|\t)[가-힣]{2,4}(?![가-힣])(?=[ \t]{2,}|\t|${KO_SEAL}|[ \t]*\r?$)`, "gm"), type: "person_name", label: "PERSON_NAME", restorable: true, trimPrefix: /^(?:학교장|교장)[ \t]+/, keep: notKoreanName(/^(?:학교장|교장)[ \t]+/) },
+  { pattern: new RegExp(String.raw`(?:학교장|교장|담임(?:[ \t]*교사)?)[ \t]+[가-힣]{2,4}(?![가-힣])(?=${KO_SEAL})`, "g"), type: "person_name", label: "PERSON_NAME", restorable: true, trimPrefix: /^(?:학교장|교장|담임(?:[ \t]*교사)?)[ \t]+/, keep: notKoreanName(/^(?:학교장|교장|담임(?:[ \t]*교사)?)[ \t]+/) },
 ];
 
 // ─── The student's own registered name ───
 // The patterns find a name only by its shape or its label. The server holds
 // the name the student registered with, and a document prints it in any
 // form: "MINJI PARK" as a heading, "Park, Minji" in a roster, "Minji G.
-// Park" with a middle initial, "PARK, MIN-JI" romanized another way. The
-// whole name is masked, in either order, in any case, with a comma, a
-// capitalized middle name or initial, and a hyphen or space inside a
-// romanized part; one part alone ("Park", "Grace") is too often an
-// ordinary word, and "Minji from Park City" has no middle name. A single
-// Hangul name of three syllables or more ("김민지") is masked as written.
+// Park" or "Minji (Grace) Park", "PARK MIN JI" or "Min-ji" romanized
+// another way, "GARCIA LOPEZ, MARIA" without its accents. The whole name is
+// masked in any order of its parts, with a comma only after the family
+// name, a middle name, and a hyphen or a space inside a romanized part.
+// Each part starts with a capital ("let's go to the park, Minji" is a
+// sentence), one part alone ("Park", "Grace") is too often an ordinary
+// word, and a title before the family name is someone else ("Ms. Park,
+// Minji here"). A Hangul name of three syllables or more ("김민지", "박
+// 민지") is masked as written.
 function escapeForRegExp(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// One letter in either case, with and without its accent: "María" also
-// reads "MARIA".
-function nameLetter(ch) {
+// One letter in either case (or as a capital), with and without its
+// accent: "María" also reads "MARIA".
+function nameLetter(ch, { capital = false } = {}) {
+  if (ch === "'" || ch === "’") return "['’]";
+  if (!/\p{L}/u.test(ch)) return escapeForRegExp(ch);
   const base = ch.normalize("NFD").replace(/\p{M}/gu, "");
-  const forms = new Set([ch.toLowerCase(), ch.toUpperCase(), base.toLowerCase(), base.toUpperCase()]);
-  return forms.size > 1 || /\p{L}/u.test(ch) ? `[${[...forms].map(escapeForRegExp).join("")}]` : escapeForRegExp(ch);
+  const forms = capital
+    ? [ch.toUpperCase(), base.toUpperCase()]
+    : [ch.toLowerCase(), ch.toUpperCase(), base.toLowerCase(), base.toUpperCase()];
+  return `[${[...new Set(forms)].map(escapeForRegExp).join("")}]`;
 }
 
-// "Minji" in either case, and also "Min-ji" and "MIN JI".
-function namePartPattern(part) {
-  const letters = [...part].map(nameLetter);
-  return /^\p{L}{3,}$/u.test(part) ? letters.join("[- ]?") : letters.join("");
+// A part: a capital first ("Minji"), the rest in either case, a hyphen or
+// a space before a capital allowed inside ("Min-ji", "MIN JI").
+function namePart(part, { capital = true } = {}) {
+  const chars = [...part];
+  return [nameLetter(chars[0], { capital }), ...chars.slice(1).map((ch) => nameLetter(ch))].join(String.raw`(?:-|[ ](?=\p{Lu}))?`);
 }
 
-// The whole name with its parts in this order, a hyphen, a space or a
-// comma allowed between any two letters: a romanized Korean name is "Park
-// Min Ji", "Park Min-ji" and "PARK, MINJI" on three documents.
-function nameRun(parts) {
-  return parts.map((part) => [...part].map(nameLetter).join("(?:[- ]|, ?)?")).join("(?:[- ]|, ?|[ \t]+)?");
+// The parts in this order: separated by a space (or, in a reversed order,
+// a comma after the family name: "García López, María"), or joined
+// ("Min" + "ji").
+function nameRun(parts, { comma = false } = {}) {
+  const separator = comma ? String.raw`(?:,[ \t]*|[ \t]+)` : String.raw`[ \t]+`;
+  return parts.map((part, i) => (i === 0
+    ? namePart(part)
+    : `(?:${separator}${namePart(part)}|-?${namePart(part, { capital: false })})`)).join("");
 }
 
 // A pattern is built from the name on every chat turn, so the name is
@@ -545,6 +644,7 @@ function nameRun(parts) {
 // megabyte held the one server process for seconds per turn (PR #7 review).
 export const MAX_REGISTERED_NAME_CHARS = 100;
 const MAX_REGISTERED_NAME_PARTS = 6;
+const NO_TITLE_BEFORE = String.raw`(?<!(?:Mrs?|Ms|Mx|Dr|Prof)\.?[ \t])`;
 
 function knownNameRules(names) {
   const rules = [];
@@ -552,30 +652,26 @@ function knownNameRules(names) {
   for (const raw of Array.isArray(names) ? names.slice(0, 4) : []) {
     const text = String(raw || "").normalize("NFKC").trim();
     if (!text || text.length > MAX_REGISTERED_NAME_CHARS) continue;
-    const parts = text.split(/[\s,]+/).filter((part) => /\p{L}/u.test(part));
+    // "Min-ji" registers the hyphen as optional.
+    const parts = text.split(/[\s,]+/).map((part) => part.replace(/-/g, "")).filter((part) => /\p{L}/u.test(part));
     if (parts.length > MAX_REGISTERED_NAME_PARTS) continue;
     let alternatives = [];
-    if (parts.length >= 2) {
-      const patterns = parts.map(namePartPattern);
-      const first = patterns.slice(0, -1).join(String.raw`[ \t]+`);
-      const last = patterns.at(-1);
-      const middle = String.raw`(?:[ \t]+[A-Z][A-Za-z'’-]*\.?)?`;
-      // "Ms. Park, Minji here": a title before the family name is someone
-      // else, so the reversed forms need no title in front.
-      const noTitle = String.raw`(?<!(?:Mrs?|Ms|Mx|Dr|Prof)\.?[ \t])`;
-      alternatives = [
-        String.raw`${first}${middle}[ \t,]+${last}`,
-        // "Park, Minji Grace" in a roster cell: a trailing middle name only
-        // where the cell ends.
-        String.raw`${noTitle}${last}[ \t]*,?[ \t]*${first}(?:[ ][A-Z][A-Za-z'’.-]*(?=[ \t]{2,}|\t|$))?`,
-      ];
-      // Every rotation of the parts, letter by letter.
+    if (parts.length === 1 && /^\p{Script=Hangul}{3,}$/u.test(parts[0])) {
+      alternatives = [[...parts[0]].join(String.raw`[ \t]?`)];
+    } else if (parts.length >= 2 && parts.every((part) => !/\p{Script=Hangul}/u.test(part))) {
+      // Every rotation of the parts.
       for (let shift = 0; shift < parts.length; shift += 1) {
         const order = [...parts.slice(shift), ...parts.slice(0, shift)];
-        alternatives.push(`${shift > 0 ? noTitle : ""}${nameRun(order)}`);
+        alternatives.push(`${shift > 0 ? NO_TITLE_BEFORE : ""}${nameRun(order, { comma: shift > 0 })}`);
       }
-    } else if (parts.length === 1 && /^\p{Script=Hangul}{3,}$/u.test(parts[0])) {
-      alternatives = [escapeForRegExp(parts[0])];
+      // The first given name and the family name, with any middle name or
+      // initial between them, or none: "Minji G. Park", "Minji (Grace)
+      // Park", "Minji Park" for "Minji Grace Park". Not for a name with a
+      // romanized syllable ("Park Min Ji"): "Park Ji" would be someone else.
+      if (parts.length === 2 || parts.every((part) => part.length >= 3)) {
+        const middle = String.raw`(?:[ \t]+(?:\p{Lu}[\p{L}'’-]*\.?|\(\p{Lu}[\p{L}'’-]*\)))?`;
+        alternatives.push(String.raw`${namePart(parts[0])}${middle}[ \t]+${namePart(parts.at(-1))}`);
+      }
     }
     const key = alternatives.join("|");
     if (!alternatives.length || seen.has(key)) continue;
@@ -593,7 +689,7 @@ function knownNameRules(names) {
 const STREET_SUFFIX = String.raw`(?:Street|St\.?|Avenue|Ave\.?|Road|Rd\.?|Boulevard|Blvd\.?|Lane|Ln\.?|Drive|Dr\.?|Court|Ct\.?|Parkway|Pkwy\.?|Highway|Hwy\.?)`;
 // Words that are also common nouns ("2 First Place awards", "8 Story
 // Circle nights") end an address only where an address ends: a comma, the
-// line, a unit, or a city and state.
+// line, a unit, or a column gap.
 const STREET_SUFFIX_NOUN = String.raw`(?:Way|Circle|Cir\.?|Place|Pl\.?|Terrace|Ter\.?|Trail|Trl\.?|Square|Sq\.?|Plaza|Loop)`;
 const ADDRESS_TAIL = String.raw`(?=,|[ \t]*\r?$|[ \t]+(?:Apt|Suite|Unit|#)\b|[ \t]{2,}|\t)`;
 const streetKeep = (match, offset, whole) => isEventNotAddress(match, offset, whole) || isCourseRowNotAddress(match, offset, whole);

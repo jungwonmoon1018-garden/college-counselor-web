@@ -357,6 +357,27 @@ const UNCHANGED = [
   "학번: 2023학번이면 몇 학년이에요?",
   "Grade: 09 2023-2024 / Grade 09 2022-2023 Grade 10 2023-2024\nEnglish 9 A 1.0 Biology A- 1.0\nTerm 01 2025-2026",
   "Hours: 10/wk   |   Emergency contact: Mom",
+  // Third round: dialogue, short answers, statuses, occupations, degrees,
+  // activity blocks, résumés and Korean words are not names.
+  "Mock counseling session:\nStudent: Junior year was rough for me.\nCounselor: Senior year grades still count.\nStudent: Unweighted GPA is 3.7.\nCounselor: Fall semester is your last chance to raise it.",
+  "Interviewer: Where are you from?\nStudent: Seoul, South Korea.\nInterviewer: What do you want to study?\nStudent: Economics.\nInterviewer: Which school is your first choice?\nStudent: Northwestern.",
+  "Rec letter checklist:\n- Counselor: Submitted\n- Teacher: Requested\n- Transcript: Sent",
+  "Am I first-gen?\nMother: Pharmacist (Bachelor's Degree)\nFather: Electrician (High School Diploma)",
+  "Parent info for FAFSA:\nMother: Registered Nurse\nFather: N/A",
+  "Activity 2\nName: Mock Trial\nPosition: Lead Attorney\nHours: 6/wk\n\nActivity 3\nName: Hope Squad\nPosition: Peer Leader",
+  "VOLUNTEER EXPERIENCE\nGreen Earth Initiative\nOutreach Coordinator\nJune 2024 - Present\nOrganized 6 beach cleanups.",
+  "Meeting Notes\nWith My College Counselor\n- Apply EA to Michigan\n- Retake SAT in March",
+  "Honors: Elected to 2024 Homecoming Court, National Merit Commended",
+  "DECA States: 2 First Place, 1 Second Place",
+  "Overall Rating by Counselor: Outstanding\nRecommended Level by Teacher: Advanced",
+  "Activities\nGirls Who Code\nChapter Director\n\nSunrise Movement Westfield\nOutreach Coordinator",
+  "유학 의견 정리\n보호자: 반대\n담임: 찬성\n나: 고민 중",
+  "어제 담임 상담 내용\n담임: 그래, 교과로 6장 다 써봐\n나: 학종은요?\n담임: 글쎄, 세특이 좀 약해",
+  "For the CSS Profile:\nParents: 이혼\nFather: 사망\nMother: 간호사",
+  "FAFSA 자격 질문이요\nMother: 한국인\nFather: 미국인\n저는 이중국적이에요",
+  "Counselor: 자기소개 해볼래요?\nStudent: 네! 저는 물리를 좋아하는 고3입니다\nCounselor: 좋아요\nStudent: 감사합니다\nCounselor: 그렇군요",
+  "모의고사 현주소: 과학탐구 물리 2, 화학 3이에요. 메디컬 가능할까요?",
+  "위와 같이 신청합니다.\n2026. 3. 2.\n한빛고등학교장  귀하",
 ];
 
 const MASKED = [
@@ -396,6 +417,24 @@ const MASKED = [
     ["Daniel", "Sora", "Ellis, Jordan"], []],
   ["Address: 1427 Maple Ridge Rd Grade 11 2025-2026\nHome Address: 1427 Maple Ridge Rd, Springfield, IL 62704 Weighted GPA 4.21 Class Rank 15/412",
     ["Maple Ridge"], ["Grade 11 2025-2026", "Weighted GPA 4.21 Class Rank 15/412"]],
+  // Third round.
+  ["성명  한글  김민지  영문  KIM MINJI", ["김민지", "KIM MINJI"], ["성명", "영문"]],
+  ["Student Name: Jordan Ellis Grade: 11\nAddress: 1427 Maple Ridge Rd SAT Total: 1480\nSpringfield, IL 62704 Cumulative GPA: 3.86",
+    ["Jordan Ellis", "Maple Ridge"], ["Grade: 11", "SAT Total: 1480", "Cumulative GPA: 3.86"]],
+  ["Counselor: Dana Whitfield SAT: 1480\nPrincipal: Dr. Helen Moore Attendance: 98%\nParent/Guardian: Daniel Park TOEFL: 112",
+    ["Dana Whitfield", "Helen Moore", "Daniel Park"], ["SAT: 1480", "Attendance: 98%", "TOEFL: 112"]],
+  ["Counselor: Dana Whitfield Unwtd. GPA: 3.86\nPrincipal: Dr. Helen Moore Total Credits: 26.5", ["Dana Whitfield", "Helen Moore"], ["Unwtd. GPA: 3.86", "Total Credits: 26.5"]],
+  ["Sincerely,\n\nRachel Lin, M.Ed.\nDirector of College Counseling\n\nDana Whitfield\nCollege & Career Counselor\n\nPrincipal: Dr. Helen Moore, Ed.D.",
+    ["Rachel Lin", "Dana Whitfield", "Helen Moore"], ["Director of College Counseling", "College & Career Counselor"]],
+  ["Applicant Name: Jordan Ellis\nCandidate Name: Jordan Ellis\nName of Parent or Guardian: Daniel Park\nParents' Names: Daniel Park and Sora Choi\nEnglish Name: Grace Park   Korean Name: 박민지",
+    ["Jordan Ellis", "Daniel Park", "Sora Choi", "Grace Park", "박민지"], []],
+  ["Student Name: Nguyễn Thị Lan\nStudent Name: Łukasz Wójcik\nStudent Name: 王小明 (Wang Xiaoming)", ["Nguyễn", "Łukasz", "Wójcik", "王小明"], []],
+  ["Parent(s): Mr. Daniel Park and Mrs. Sora Choi-Park\nStudent: Maria de los Angeles Torres\nStudent Name: Minji (Grace) Park",
+    ["Daniel Park", "Sora Choi", "Angeles Torres", "Minji"], []],
+  ["한빛고등학교장 김철수 (직인)\n성명(한글): 박민지  성명(영문): PARK MINJI\n담임 이수정 (인)", ["김철수", "박민지", "PARK MINJI", "이수정"], []],
+  ["저희 집이 서울특별시 서초구 반포대로 12 래미안아파트 101동 1203호예요. 서울 거주로 지원해도 되나요?\n서울시 강남구 역삼동 123-45 살아요",
+    ["반포대로 12", "래미안아파트", "1203호", "역삼동 123-45"], ["서울 거주로 지원해도 되나요?"]],
+  ["Date and Place of Birth: 04/03/2008, Seoul, Korea\nDOB/Sex: 03/04/2008 / F", ["04/03/2008", "03/04/2008"], ["Seoul, Korea"]],
 ];
 
 test("adversarial student writing and record lines pass the identity patterns unchanged", () => {
@@ -423,6 +462,16 @@ test("the registered name is masked with a middle name, an initial or another ro
   // Korean order and syllable splits; accents and their absence.
   assert.doesNotMatch(redactProviderText("MINJI PARK\nPark Min-ji\nMin-Ji Park\nPARK MIN JI", { knownNames: ["Park Min Ji"] }).text, /min|park/i);
   assert.doesNotMatch(redactProviderText("García López, María\nGARCIA LOPEZ, MARIA\nMaría García López", { knownNames: ["María García López"] }).text, /mar[ií]a|garc[ií]a/i);
+  // A hyphen registered is optional; a Hangul name may be spaced; a
+  // middle name may be left out.
+  assert.equal(redactProviderText("OFFICIAL TRANSCRIPT\nMINJI PARK\nClass of 2027\n성명: 박 민지", { knownNames: ["Min-ji Park", "박민지"] }).text,
+    "OFFICIAL TRANSCRIPT\n[STUDENT_NAME_01]\nClass of 2027\n성명: [STUDENT_NAME_02]");
+  assert.doesNotMatch(redactProviderText("Minji Park\nO’NEIL, MARY-KATE", { knownNames: ["Minji Grace Park", "Mary-Kate O'Neil"] }).text, /minji|neil|mary/i);
+  // A list of officers, a lowercase word and a grade level after the name.
+  for (const clean of ["Officers: Kim Minji, Park Sora, Lee Jiwoo. Should I list myself as VP?", "\"Let's go to the park, Minji,\" my dad said, and that is where my essay starts."]) {
+    assert.equal(redactProviderText(clean, { knownNames: ["Minji Park"] }).text, clean, clean);
+  }
+  assert.match(redactProviderText("Student Name Grade Level\nPark, Minji Junior", { knownNames: ["Minji Park"] }).text, /\[STUDENT_NAME_\d{2}\] Junior$/);
 });
 
 // A field start that rescanned whitespace made every field pattern
