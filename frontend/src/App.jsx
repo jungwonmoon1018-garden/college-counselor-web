@@ -41,6 +41,7 @@ import { isSessionExpiryResponse } from "./chat/chat-errors.js";
 import "./chat/markdown.jsx";
 import "./chat/chat-orchestrator.js";
 import ChatScreen from "./screens/ChatScreen.jsx";
+import { quickPrompts } from "./chat/quick-prompts.js";
 import { send as sendImpl } from "./handlers/chat-send.js";
 import "./handlers/auth-handlers.js";
 import { handleSurveyComplete as handleSurveyCompleteImpl, hydrateSurveyFromCurrentData as hydrateSurveyFromCurrentDataImpl, reconcileWithBackendProfile as reconcileWithBackendProfileImpl, editECFromProfile as editECFromProfileImpl, UNPLACED_YEAR } from "./handlers/survey-handlers.js";
@@ -646,8 +647,9 @@ function StudentApp({ endedBy = null, onSessionEnd }) {
     // Import a transcript file (PDF / image / DOCX): the backend extracts text
     // locally, parses courses on the small model tier, and returns them for
     // review here — nothing is saved until the student finishes the survey.
-    // Courses whose grade couldn't be read arrive as "IP" so nothing is
-    // fabricated; the note below tells the student to fix them.
+    // Courses whose grade couldn't be read arrive without one (an earlier
+    // year) or as "IP" (this year) so nothing is fabricated; the note below
+    // tells the student to fix them.
     const importTranscript = async (file) => {
       if (!file || sImportBusy) return;
       setSurveyError(""); setSImportNote("");
@@ -687,7 +689,7 @@ function StudentApp({ endedBy = null, onSessionEnd }) {
         // alone, the spring row of every semester-graded course was dropped
         // as a "duplicate" of the fall row, grade and all; the shared merge
         // keys on the term too and says which rows the limit left out.
-        const importOptions = { years: SURVEY_YEARS, fallbackYear: sCourseYear };
+        const importOptions = { years: SURVEY_YEARS, fallbackYear: sCourseYear, currentYear: currentYearKey(user?.grade) };
         const { note } = mergeSurveyImport(sCoursesRef.current, body.courses, importOptions);
         setSCourses(prev => mergeSurveyImport(prev, body.courses, importOptions).merged);
         if (body.gpa != null) setSGpaUw(prev => prev || String(body.gpa));
@@ -797,9 +799,11 @@ function StudentApp({ endedBy = null, onSessionEnd }) {
   const sidebarProps = {
     activeThreadId, activities, addTargetSchool, beginEdit, budgetStatus, collegePositioning, collegePositioningLoading, collegeValues, collegeValuesHint, collegeValuesLoading, collegeValuesQuery, collegeVerification, collegeVerifying, commitProfile, data, deleteThread, draftA, draftB, editECFromProfile, editingField, evidenceVersion, expandedEC, handleDeleteAccount, handleLogout, locale, lookupCollege, newThread, openProfileEditor, openThread, profile, removeTargetSchool, renameThreadTitle, renamingThreadId, rereadCollegeValues, searchThreads, setActivePanel, setAsideRows, setCollegeValues, setCollegeValuesHint, setCollegeValuesQuery, setData, setDraftA, setDraftB, setEditingField, setEvidenceVersion, setExpandedEC, setLocale, setRenamingThreadId, setShowAllCourses, setShowAllECs, setTargetSchoolInput, setThreadSearchQ, setThreadSearchResults, showAllCourses, showAllECs, setSidebarOpen, sidebarOpen, targetSchoolInput, targetSchools, threadList, threadSearchQ, threadSearchResults, user, verifyCollegeFit,
   };
+  // The quick questions follow the student's year, major and language.
+  const quickQuestions = quickPrompts({ locale, grade: user?.grade, major: data.majorInterest || data.profile?.majorInterest });
   // Everything ChatScreen reads from this component (see ChatScreen.jsx).
   const chatProps = {
-    agentStatus, budgetStatus, cancelPendingRequest, chatEnd, chatFiles, chatFilesExpanded, chatTextareaRef, clearChatFiles, councilDecisionType, deadlineRefreshKey, dismissTool, fileInputRef, folderInputRef, handleChatFilesSelect, handleExportData, importParsedTranscript, input, inputRef, loading, locale, messages, narrativeVersion, openTool, parseTranscriptText, pendingFile, removeChatFile, send, setChatFilesExpanded, setCouncilDecisionType, setInput, setNarrativeVersion, setPendingFile, setSNarrativeSaved, setSidebarOpen, sidebarOpen, targetSchools, user,
+    agentStatus, budgetStatus, cancelPendingRequest, chatEnd, chatFiles, chatFilesExpanded, chatTextareaRef, clearChatFiles, councilDecisionType, deadlineRefreshKey, dismissTool, fileInputRef, folderInputRef, handleChatFilesSelect, handleExportData, importParsedTranscript, input, inputRef, loading, locale, messages, narrativeVersion, openTool, parseTranscriptText, pendingFile, quickQuestions, removeChatFile, send, setChatFilesExpanded, setCouncilDecisionType, setInput, setNarrativeVersion, setPendingFile, setSNarrativeSaved, setSidebarOpen, sidebarOpen, targetSchools, user,
   };
   return (
     <div style={{ display:"flex",height:"100dvh",fontFamily:FONT,background:BG,color:"#e8e6e3" }}>

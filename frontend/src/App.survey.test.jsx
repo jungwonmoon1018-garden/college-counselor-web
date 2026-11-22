@@ -104,7 +104,10 @@ describe("survey transcript step", () => {
     };
     await openTranscriptStep();
     attachTranscript();
-    expect(await screen.findByText(/Imported 2 courses \(skipped: 1 already on your list\)\./, {}, { timeout: 5000 })).toBeInTheDocument();
+    // One course in two semester entries: the note counts courses as the
+    // survey's total does (mock run, 2026-11-22), and says why the entries
+    // outnumber them.
+    expect(await screen.findByText(/Imported 1 course in 2 entries \(a course graded each semester has one per term\) \(skipped: 1 already on your list\)\./, {}, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.queryByText(/duplicates or over the/)).not.toBeInTheDocument();
     // Calculus BC, plus the fall and the spring Chemistry rows.
     expect(screen.getByRole("button", { name: "Junior (3)" })).toBeInTheDocument();

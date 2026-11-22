@@ -43,6 +43,7 @@ export default function ChatScreen(props) {
     openTool,
     parseTranscriptText,
     pendingFile,
+    quickQuestions,
     removeChatFile,
     send,
     setChatFilesExpanded,
@@ -479,7 +480,7 @@ export default function ChatScreen(props) {
         <div className="cc-quick-actions" style={{display:"flex",gap:5,marginTop:8,flexWrap:"wrap",alignItems:"center"}}>
           <span style={{fontSize:10,color:"#444",marginRight:2}}>📎 PDF, DOCX, TXT/MD, images</span>
           <span style={{color:"rgba(255,255,255,0.06)"}}>|</span>
-          {["What's my profile?","Suggest ECs for me","Search colleges for CS","Plan my junior year"].map(q=>(
+          {(quickQuestions || []).map(q=>(
             <button key={q} onClick={()=>{setInput(q);setTimeout(()=>(chatTextareaRef.current||inputRef.current)?.focus(),50)}} style={{padding:"3px 9px",borderRadius:7,border:"1px solid rgba(255,255,255,0.05)",background:"transparent",color:"#6a6a7a",fontSize:10.5,cursor:"pointer",transition:"all 0.15s"}}
               onMouseEnter={e=>{e.target.style.borderColor="rgba(55,138,221,0.3)";e.target.style.color="#63b3ed"}}
               onMouseLeave={e=>{e.target.style.borderColor="rgba(255,255,255,0.05)";e.target.style.color="#6a6a7a"}}>{q}</button>

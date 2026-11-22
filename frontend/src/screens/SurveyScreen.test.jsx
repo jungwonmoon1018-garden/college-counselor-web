@@ -79,6 +79,19 @@ describe("SurveyScreen", () => {
     expect(screen.getByText(/Total: 2 courses/).textContent).toMatch(/Total: 2 courses . 1 AP/);
   });
 
+  // Mock run, 2026-11-22: the pair showed as "AP Biology — A" and "AP
+  // Biology — B" with no term, and read as a duplicate to delete.
+  it("names the term on each semester chip and none on a full-year one", () => {
+    render(<Harness step={1} courses={{ junior: [
+      { name: "Biology", type: "ap", grade: "A", semester: "fall" },
+      { name: "Biology", type: "ap", grade: "B", semester: "spring" },
+      { name: "Chemistry", type: "regular", grade: "A", semester: "full_year" },
+    ] }} />);
+    expect(screen.getByText(/AP Biology \(Fall\) — A/)).toBeTruthy();
+    expect(screen.getByText(/AP Biology \(Spring\) — B/)).toBeTruthy();
+    expect(screen.getByText(/^Chemistry — /)).toBeTruthy();
+  });
+
   it("asks for the TOEFL scale and sizes the inputs to it", () => {
     render(<Harness step={2} initialTest={blankTestForm("toefl")} />);
     const scale = screen.getByLabelText("TOEFL score scale");

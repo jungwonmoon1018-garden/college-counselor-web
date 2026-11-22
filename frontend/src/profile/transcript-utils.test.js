@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { looksLikeTranscript, currentYearKey, countDistinctCourses, mergeImportedCourses, mergeSurveyImport, summarizeParsedTranscript } from "./transcript-utils.js";
+import { looksLikeTranscript, currentYearKey, countDistinctCourses, courseTermLabel, mergeImportedCourses, mergeSurveyImport, summarizeParsedTranscript } from "./transcript-utils.js";
 
 const TRANSCRIPT = `Official Transcript — Springfield High School
 Student: [redacted]   Grade Level: 11   Cumulative GPA: 3.82
@@ -120,5 +120,48 @@ describe("semester rows", () => {
     expect(out.note).toBe("Imported 1 course (skipped: 1 already on your list).");
     const capped = mergeSurveyImport({}, parsed, { fallbackYear: "junior", maxCourses: 1 });
     expect(capped.note).toBe("Imported 1 course (skipped: 1 over the 1-course limit).");
+  });
+});
+
+// Mock run, 2026-11-22: a four-year transcript with semester grades and
+// ungraded rows. The import counted entries where the survey counted
+// courses, the pairs showed no term, and a finished year's N/A row became
+// "in progress".
+describe("an imported transcript as the student reviews it", () => {
+  const parsed = {
+    freshman: [
+      { name: "World History", type: "regular", grade: "A", semester: "fall" },
+      { name: "World History", type: "regular", grade: "B", semester: "spring" },
+      { name: "Geometry", type: "regular", grade: "A-", semester: "fall" },
+      { name: "Geometry", type: "regular", grade: "A-", semester: "spring" },
+    ],
+    junior: [{ name: "Library Aide", type: "elective", grade: null, semester: "full_year" }],
+    senior: [{ name: "French III", type: "regular", grade: null, semester: "full_year" }],
+  };
+
+  it("counts courses, not semester entries, and says why the entries outnumber them", () => {
+    const out = mergeSurveyImport({}, parsed, { fallbackYear: "senior", currentYear: "senior" });
+    expect(out.added).toBe(6);
+    expect(out.note).toBe("Imported 4 courses in 6 entries (a course graded each semester has one per term).");
+  });
+
+  it("saves an earlier year's ungraded row without a grade, and this year's as in progress", () => {
+    const out = mergeSurveyImport({}, parsed, { fallbackYear: "senior", currentYear: "senior" });
+    expect(out.merged.junior[0].grade).toBe("");
+    expect(out.merged.senior[0].grade).toBe("IP");
+    // With no school year on the account, nothing is called finished.
+    const unknown = mergeSurveyImport({}, parsed, { fallbackYear: "senior" });
+    expect(unknown.merged.junior[0].grade).toBe("IP");
+    // The chat card's merge follows the same rule.
+    const chat = mergeImportedCourses([], parsed, { fallbackYear: "senior" });
+    expect(chat.courses.find((c) => c.year === "junior").grade).toBe("");
+    expect(chat.courses.find((c) => c.year === "senior").grade).toBe("IP");
+  });
+
+  it("names the term of a semester row and nothing for a full-year one", () => {
+    expect(courseTermLabel("fall")).toBe("Fall");
+    expect(courseTermLabel("Spring")).toBe("Spring");
+    expect(courseTermLabel("full_year")).toBe("");
+    expect(courseTermLabel(undefined)).toBe("");
   });
 });

@@ -42,6 +42,9 @@ describe("sanitizeParsedTranscript", () => {
     // Invalid type/grade/semester fall back to safe defaults, never invented grades.
     assert.deepEqual(result.years.junior[1], { name: "Ceramics", type: "regular", grade: null, semester: "full_year" });
     assert.ok(result.warnings.some((w) => w.includes("no final grade on this document")));
+    // A finished year's N/A row is not a course in progress (mock run, 2026-11-22).
+    assert.ok(!result.warnings.some((w) => /they are saved as in progress/.test(w)));
+    assert.ok(result.warnings.some((w) => w.includes("one from an earlier school year is saved without a grade")));
   });
 
   it("drops nameless courses, dedupes, and caps the total", () => {

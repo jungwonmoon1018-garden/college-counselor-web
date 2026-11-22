@@ -6,7 +6,7 @@ import { t as tt } from "../i18n.js";
 import { GRADE_SCALE } from "../app-shared.js";
 import { apCoursesOffered, latestApScoreYear } from "../profile/ap-entry.js";
 import { TEST_ORDER, blankTestForm, entryLabel, formToEntry, formatSections, scaleChoices, scoreLimits, sectionDefs, testLabel, withScale, withSection } from "../profile/test-scores.js";
-import { countDistinctCourses } from "../profile/transcript-utils.js";
+import { countDistinctCourses, courseTermLabel } from "../profile/transcript-utils.js";
 import CloseButton from "../components/CloseButton.jsx";
 import { BG, FONT, GLOBAL_CSS, inputStyle, labelStyle } from "../app-shared.js";
 import { UNPLACED_YEAR } from "../handlers/survey-handlers.js";
@@ -267,7 +267,10 @@ export default function SurveyScreen(props) {
               });
               setSCourses(p=>({...p,[sCourseYear]:p[sCourseYear].filter((_,j)=>j!==i)}));
             };
-            const label = `${c.type==="ap"?formatApLabel(c.name):c.type==="ib"?"IB "+c.name:c.name} \u2014 ${gradeLabel(c.grade)}`;
+            // The term names a semester row; without it the pair read as a
+            // duplicate a student would delete, grade and all.
+            const term = courseTermLabel(c.semester);
+            const label = `${c.type==="ap"?formatApLabel(c.name):c.type==="ib"?"IB "+c.name:c.name}${term ? ` (${term})` : ""} \u2014 ${gradeLabel(c.grade)}`;
             return (
               <div
                 key={i}
