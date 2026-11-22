@@ -8,6 +8,7 @@ import { redactProviderText, restorePII, screenInput, screenOutput } from "../ch
 import { TOPIC_TYPES, canHandleDeterministically, classifyTopic, isCrisisTopicMention, isLookupQuestion } from "../chat/policy-router.js";
 import { resolveLocale } from "../shared/i18n.js";
 import { validateRequiredConsents } from "../security/consent.js";
+import { studentNamesForRedaction } from "../storage/pii-vault.js";
 import { OPENROUTER_CATALOG, ensureOpenRouterCatalog } from "../scouts/openrouter-model-refresh.js";
 import { buildSystemPrompt, redactPayloadForModel } from "../chat/orchestration-engine.js";
 import { composeAnswer, composeDeterministicAnswer } from "../chat/answer-composer.js";
@@ -329,10 +330,13 @@ export function registerChatRoutes(app, deps) {
         deps.queueChatEvidence(studentId, filesFromInlinedBlocks(userText, inlinedTexts.filter((b) => b.index === lastIndex)), questionText, { source: "chat turn" });
       }
 
+      // The student's registered name is masked wherever the turn carries it:
+      // an attached transcript prints it in its header, in any form.
+      const knownNames = studentNamesForRedaction(deps.piiStmts, deps.piiVault, studentId);
       const redacted = redactPayloadForModel({
         system: payload.system || "",
         messages: payload.messages,
-      }, studentId);
+      }, studentId, { knownNames });
 
       // Student-profile context, injected server-side. The desktop app's
       // client-side tools (fetch_rag_context / get_student_profile) never run
@@ -348,7 +352,7 @@ export function registerChatRoutes(app, deps) {
         studentProfile = jsonUtilityCall ? null : deps.assembleProfileForGeneration(studentId);
         const profileText = studentProfile ? formatProfileForModel(studentProfile) : "";
         if (profileText) {
-          const masked = redactProviderText(profileText);
+          const masked = redactProviderText(profileText, { knownNames });
           profileContext = masked.text;
           profileTokenMap = masked.tokenMap || {};
         }
@@ -373,7 +377,7 @@ export function registerChatRoutes(app, deps) {
             historyQuestions,
           });
           if (memory.text) {
-            const masked = redactProviderText(memory.text);
+            const masked = redactProviderText(memory.text, { knownNames });
             threadMemoryContext = masked.text;
             profileTokenMap = { ...profileTokenMap, ...(masked.tokenMap || {}) };
             threadMemoryCount = memory.count;

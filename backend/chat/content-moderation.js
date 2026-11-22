@@ -201,15 +201,148 @@ function isCommonNounPair(match) {
   return !SURNAME_WORDS.has(last) && words.every((word) => COMMON_CAPITALIZED_WORDS.has(word));
 }
 
+// ─── Identity fields of a school document ───
+// A transcript or a school record names its student in labeled header
+// fields, and until 2026-11-22 the shapes above were all the provider
+// boundary knew: a US phone number, "123 Main Street", "ID: A1234",
+// "First Last from". A mock run of the transcript import sent a real
+// international school's header to the model with the student's name,
+// student ID number, date of birth, the school's +82 phone number and
+// Korean street address, and the signing counselor's name all intact;
+// only the two emails were masked. The patterns below mask the VALUE of
+// such a field and keep its label, so the parser still sees which line
+// is the header. Bare labels ("Name:", "Counselor:") count only at the
+// start of a line or a layout column: in a chat sentence ("a question for
+// my counselor: should I…") they introduce the student's words, not a name.
+const FIELD_START = String.raw`(?:^|(?<=[ \t]{2})|(?<=\t))[ \t]*`;
+// A name: up to five words on one line, never across a column gap. A value
+// that is only an earlier pattern's token is kept (fieldValueIsMasked); one
+// that starts with a token and goes on ("[STREET_ADDRESS_01] Apt 4,
+// Springfield") is masked whole.
+const FIELD_NAME_VALUE = String.raw`\S+(?:[ \t]\S+){0,4}`;
+// An address: up to twelve words on one line.
+const FIELD_ADDRESS_VALUE = String.raw`\S+(?:[ \t]\S+){0,11}`;
+const FIELD_LABEL_PREFIX = /^[^:：]*[:：][ \t]*/;
+const FIELD_ID_PREFIX = /^[\s\S]*?(?:\bis\b|[:：=#])[ \t]*/i;
+const DATE_TOKEN = String.raw`(?:[A-Za-z]{3,9}\.?|\d{1,4}(?:\s*[년월일])?)`;
+const DATE_VALUE = String.raw`${DATE_TOKEN}(?:\s*[\/.,-]?\s*${DATE_TOKEN}){1,2}`;
+const DOB_LABEL = String.raw`(?:date\s+of\s+birth|birth\s*date|birthdate|birthday|d\.?\s?o\.?\s?b\.?)(?![A-Za-z])`;
+const DOB_PREFIX = new RegExp(String.raw`^${DOB_LABEL}(?:\s*[:：]|\s+is)?\s*`, "i");
+
+// A field whose value an earlier pattern already masked keeps its token.
+function fieldValueIsMasked(match) {
+  const value = match.replace(FIELD_LABEL_PREFIX, "");
+  return /^(?:\s*\[[A-Z_]+_\d{2}\][\s,;/]*)+$/.test(value) || !/[\p{L}\p{N}]/u.test(value);
+}
+// "birthday party next week" has the label and no date.
+const dateHasNoDigit = (match) => !/\d/.test(match.replace(DOB_PREFIX, ""));
+// "+1.0 weighted" and "+0.5 for honors" have the start of an international
+// number; a phone number has at least eight digits.
+const tooFewDigitsForPhone = (match) => (match.match(/\d/g) || []).length < 8;
+
+const IDENTITY_FIELD_PATTERNS = [
+  // Korean resident registration number (주민등록번호), with or without the
+  // back half already starred out: the front half is the date of birth.
+  { pattern: /\b\d{6}\s?-\s?[1-8](?:\d{6}\b|\*{6})/g, type: "national_id", label: "NATIONAL_ID", restorable: false },
+  // International numbers: "+82 2-555-0100", "(+82) 02-555-0100", "+1 (555) 123-4567".
+  { pattern: /(?:\(\s*)?\+\d{1,3}(?:\s*\))?[\s.-]*(?:\(?\d{1,4}\)?[\s.-]*){1,4}\d{2,4}\b/g, type: "phone", label: "PHONE", restorable: false, keep: tooFewDigitsForPhone },
+  // Korean domestic numbers: "02-555-0100", "010-1234-5678", "031) 123-4567".
+  { pattern: /\b0\d{1,2}(?:\)\s?|[-.\s])\d{3,4}[-.\s]\d{4}\b/g, type: "phone", label: "PHONE", restorable: false },
+  { pattern: /(?:\b(?:phone|tel|telephone|mobile|cell|fax)(?:\s+(?:number|no\.?))?|전화\s*(?:번호)?|연락처|휴대\s*(?:폰|전화)(?:\s*번호)?)\s*[:：]\s*\+?[\d(][\d\s().-]{5,}\d/gi, type: "phone", label: "PHONE", restorable: false, trimPrefix: FIELD_LABEL_PREFIX },
+];
+
+const IDENTITY_ADDRESS_PATTERNS = [
+  // Romanized Korean road addresses: "12 Banpo-daero 3-gil, Seocho-gu",
+  // "Teheran-ro 123". The hyphen is required: "AP Euro 5" is a score.
+  // A sub-road may follow the road: "12 Banpo-daero 3-gil", "Teheran-ro 10-gil 7".
+  { pattern: /\b\d{1,4}(?:-\d{1,4})?,?\s+[A-Z][a-z]+(?:[\s-]?\d{1,3})?-(?:gil|ro|daero)\b(?:\s+\d{1,3}(?:beon)?-gil\b)?(?:,?\s+[A-Z][a-z]+-(?:gu|si|gun|dong|eup|myeon|do)\b)*/g, type: "street_address", label: "STREET_ADDRESS", restorable: false },
+  { pattern: /\b[A-Z][a-z]+(?:[\s-]?\d{1,3})?-(?:gil|ro|daero)(?:\s+\d{1,3}(?:beon)?-gil)?\s+\d{1,4}(?:-\d{1,4})?\b(?:,?\s+[A-Z][a-z]+-(?:gu|si|gun|dong|eup|myeon|do)\b)*/g, type: "street_address", label: "STREET_ADDRESS", restorable: false },
+  // 서울특별시 서초구 샘마을2길 33
+  { pattern: /(?:[가-힣]+(?:특별시|광역시|특별자치시|특별자치도|도)\s+)?[가-힣]+(?:시|군|구)\s+(?:[가-힣]+(?:구|읍|면)\s+)?[가-힣0-9]+(?:로|길)\s*\d+(?:-\d+)?/g, type: "street_address", label: "STREET_ADDRESS", restorable: false },
+  { pattern: new RegExp(String.raw`\b(?:home|mailing|street|permanent|residential|current|student(?:'s|’s)?)\s+address[ \t]*[:：][ \t]*${FIELD_ADDRESS_VALUE}`, "gi"), type: "street_address", label: "STREET_ADDRESS", restorable: false, trimPrefix: FIELD_LABEL_PREFIX, keep: fieldValueIsMasked },
+  { pattern: new RegExp(String.raw`${FIELD_START}address[ \t]*[:：][ \t]*${FIELD_ADDRESS_VALUE}`, "gim"), type: "street_address", label: "STREET_ADDRESS", restorable: false, trimPrefix: FIELD_LABEL_PREFIX, keep: fieldValueIsMasked },
+  { pattern: new RegExp(String.raw`${FIELD_START}주\s*소[ \t]*[:：]?[ \t]*${FIELD_ADDRESS_VALUE}`, "gm"), type: "street_address", label: "STREET_ADDRESS", restorable: false, trimPrefix: /^[ \t]*주\s*소[ \t]*[:：]?[ \t]*/, keep: fieldValueIsMasked },
+];
+
+const IDENTITY_NUMBER_PATTERNS = [
+  // "Student ID Number: 48213", "ID No. 48213", "my student id is 48213".
+  { pattern: /\b(?:student\s*)?(?:id|identification)(?:\s*(?:number|num|no\.?|#))?\s*(?:is|:|：|=|#)\s*[A-Z]{0,4}-?\d{3,}[A-Z0-9-]*\b/gi, type: "student_id", label: "STUDENT_ID", restorable: false, trimPrefix: FIELD_ID_PREFIX },
+  { pattern: /\bstudent\s*(?:number|num|no\.?|#)\s*(?:is|:|：|=)?\s*[A-Z]{0,4}-?\d{3,}[A-Z0-9-]*\b/gi, type: "student_id", label: "STUDENT_ID", restorable: false, trimPrefix: /^student\s*(?:number|num|no\.?|#)\s*(?:is|:|：|=)?\s*/i },
+  { pattern: /(?:학번|학생\s*번호|수험\s*번호)\s*[:：]?\s*[A-Z0-9-]*\d{3,}[A-Z0-9-]*/g, type: "student_id", label: "STUDENT_ID", restorable: false, trimPrefix: /^(?:학번|학생\s*번호|수험\s*번호)\s*[:：]?\s*/ },
+  // "Date of Birth: Mar/04/2008", "DOB 2008-03-04", "생년월일: 2008년 3월 4일".
+  { pattern: new RegExp(String.raw`\b${DOB_LABEL}(?:\s*[:：]|\s+is)?\s*${DATE_VALUE}`, "gi"), type: "date_of_birth", label: "DATE_OF_BIRTH", restorable: false, trimPrefix: DOB_PREFIX, keep: dateHasNoDigit },
+  { pattern: new RegExp(String.raw`생년월일\s*[:：]?\s*${DATE_VALUE}`, "g"), type: "date_of_birth", label: "DATE_OF_BIRTH", restorable: false, trimPrefix: /^생년월일\s*[:：]?\s*/ },
+];
+
+const IDENTITY_NAME_PATTERNS = [
+  // "Student Name: …", "Legal name: …", "Parent/Guardian Name: …".
+  { pattern: new RegExp(String.raw`\b(?:(?:student|parent|guardian|mother|father)(?:'s|’s)?|full|legal|preferred|given|family|first|last|middle|parent\s*\/\s*guardian)\s+name[ \t]*[:：][ \t]*${FIELD_NAME_VALUE}`, "gi"), type: "person_name", label: "PERSON_NAME", restorable: true, trimPrefix: FIELD_LABEL_PREFIX, keep: fieldValueIsMasked },
+  { pattern: new RegExp(String.raw`\bname\s+of\s+(?:student|parent|guardian)[ \t]*[:：][ \t]*${FIELD_NAME_VALUE}`, "gi"), type: "person_name", label: "PERSON_NAME", restorable: true, trimPrefix: FIELD_LABEL_PREFIX, keep: fieldValueIsMasked },
+  // A bare "Name:" heads a line or a column.
+  { pattern: new RegExp(String.raw`${FIELD_START}name[ \t]*[:：][ \t]*${FIELD_NAME_VALUE}`, "gim"), type: "person_name", label: "PERSON_NAME", restorable: true, trimPrefix: FIELD_LABEL_PREFIX, keep: fieldValueIsMasked },
+  // The adults who sign or stand behind the document.
+  { pattern: new RegExp(String.raw`${FIELD_START}(?:(?:school|guidance|college|academic(?:\s+(?:and|&)\s+college)?|homeroom)\s+)?(?:counsel(?:l)?or|principal|vice[\s-]principal|headmaster|head\s+of\s+school|registrar|homeroom\s+teacher)[ \t]*[:：][ \t]*${FIELD_NAME_VALUE}`, "gim"), type: "person_name", label: "PERSON_NAME", restorable: true, trimPrefix: FIELD_LABEL_PREFIX, keep: fieldValueIsMasked },
+  { pattern: new RegExp(String.raw`\b(?:authori[sz]ed|signed|certified|issued|attested|approved|prepared|verified)\s+by[ \t]*[:：][ \t]*${FIELD_NAME_VALUE}`, "gi"), type: "person_name", label: "PERSON_NAME", restorable: true, trimPrefix: FIELD_LABEL_PREFIX, keep: fieldValueIsMasked },
+  // 성명 김민지 / 이름: 김민지 / 보호자 성명: … (이름 only with a colon: it is
+  // also the everyday word for "name").
+  { pattern: /(?:성\s*명|학생\s*(?:성명|이름)|보호자\s*(?:성명|이름)?|담임\s*(?:교사)?|교\s*장)\s*[:：]?\s*[가-힣]{2,5}(?![가-힣])/g, type: "person_name", label: "PERSON_NAME", restorable: true, trimPrefix: /^(?:성\s*명|학생\s*(?:성명|이름)|보호자\s*(?:성명|이름)?|담임\s*(?:교사)?|교\s*장)\s*[:：]?\s*/ },
+  { pattern: /이\s*름\s*[:：]\s*[가-힣]{2,5}(?![가-힣])/g, type: "person_name", label: "PERSON_NAME", restorable: true, trimPrefix: /^이\s*름\s*[:：]\s*/ },
+];
+
+// ─── The student's own registered name ───
+// The patterns find a name only by its shape or its label. The server holds
+// the name the student registered with, and a document prints it in any
+// form: "MINJI PARK" as a heading, "Park, Minji" in a roster. The whole
+// name is masked, in either order, in any case, with or without a comma;
+// one part alone ("Park", "Grace") is too often an ordinary word. A single
+// Hangul name of three syllables or more ("김민지") is masked as written.
+function escapeForRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function knownNameRules(names) {
+  const rules = [];
+  const seen = new Set();
+  for (const raw of Array.isArray(names) ? names : []) {
+    const parts = String(raw || "").normalize("NFKC").split(/[\s,]+/).filter((part) => /\p{L}/u.test(part));
+    let alternatives = [];
+    if (parts.length >= 2) {
+      const escaped = parts.map(escapeForRegExp);
+      alternatives = [
+        escaped.join(String.raw`[\s,]+`),
+        `${escaped.at(-1)}\\s*,?\\s*${escaped.slice(0, -1).join(String.raw`\s+`)}`,
+      ];
+    } else if (parts.length === 1 && /^\p{Script=Hangul}{3,}$/u.test(parts[0])) {
+      alternatives = [escapeForRegExp(parts[0])];
+    }
+    const key = alternatives.join("|").toLowerCase();
+    if (!alternatives.length || seen.has(key)) continue;
+    seen.add(key);
+    rules.push({
+      pattern: new RegExp(String.raw`(?<![\p{L}\p{N}])(?:${alternatives.join("|")})(?![\p{L}\p{N}])`, "giu"),
+      type: "student_name_known",
+      label: "STUDENT_NAME",
+      restorable: true,
+    });
+  }
+  return rules;
+}
+
 const PROVIDER_REDACTION_PATTERNS = [
   { pattern: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, type: "email", label: "STUDENT_EMAIL", restorable: true },
+  ...IDENTITY_FIELD_PATTERNS,
   { pattern: /\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/g, type: "phone", label: "PHONE", restorable: false },
   // Deliberately broader than the input screen's SSN shape: a bare
   // nine-digit run no longer blocks a question, so it is masked here instead.
   { pattern: /\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b/g, type: "ssn", label: "SSN", restorable: false },
   { pattern: MONEY_AMOUNT, type: "financial", label: "ANNUAL_INCOME", restorable: false, rewrite: achievementAmountAsUsd },
   { pattern: /\b\d{1,6}\s+[A-Z][A-Za-z0-9.'-]*(?:\s+[A-Z][A-Za-z0-9.'-]*){0,4}\s+(?:Street|St\.?|Avenue|Ave\.?|Road|Rd\.?|Boulevard|Blvd\.?|Lane|Ln\.?|Drive|Dr\.?|Court|Ct\.?)\b/g, type: "street_address", label: "STREET_ADDRESS", restorable: false, keep: isEventNotAddress },
+  ...IDENTITY_ADDRESS_PATTERNS,
   { pattern: /\b(?:student\s*id|id)\s*(?:is|:|=)?\s*[A-Z]-?\d{3,}\b/gi, type: "student_id", label: "STUDENT_ID", restorable: false },
+  // Numbers and dates before names: a name field's value runs to the end of
+  // its line, and a header line can carry the ID after the name.
+  ...IDENTITY_NUMBER_PATTERNS,
+  ...IDENTITY_NAME_PATTERNS,
   { pattern: /\b[A-Z][a-z]+ [A-Z][a-z]+\s+from\b/g, type: "student_name_context", label: "STUDENT_NAME", restorable: true, trimSuffix: /\s+from$/i, keep: isCommonNounPair },
   { pattern: /\bfrom\s+[A-Z][A-Za-z0-9.'-]*(?:\s+[A-Z][A-Za-z0-9.'-]*){0,3}\s+(?:High|School|Academy|Preparatory|Prep)\b/g, type: "school_context", label: "CURRENT_SCHOOL", restorable: true, trimPrefix: /^from\s+/i },
 ];
@@ -576,8 +709,11 @@ export function redactDocumentForInference(content, docClassification) {
   return { redacted, piiRemoved };
 }
 
-function makeProviderRedactionState() {
+function makeProviderRedactionState(options = {}) {
   return {
+    rules: options.knownNames?.length
+      ? [...knownNameRules(options.knownNames), ...PROVIDER_REDACTION_PATTERNS]
+      : PROVIDER_REDACTION_PATTERNS,
     counters: {},
     tokenMap: {},
     countsByType: {},
@@ -595,7 +731,7 @@ function nextProviderToken(state, label) {
 function redactProviderString(value, state) {
   if (typeof value !== "string" || value.length === 0) return value;
   let out = value;
-  for (const rule of PROVIDER_REDACTION_PATTERNS) {
+  for (const rule of state.rules) {
     out = out.replace(rule.pattern, (match, ...args) => {
       // replace() passes the captures, then the offset and the whole string.
       const whole = args[args.length - 1];
@@ -629,12 +765,13 @@ function redactProviderString(value, state) {
 // provider-redaction patterns. Returns the masked text plus a tokenMap so the
 // caller can restore restorable tokens (student name / school) if the model
 // echoes them back to the student. Used to mask the profile context that
-// /api/chat builds outside the payload-redaction boundary.
-export function redactProviderText(value) {
+// /api/chat builds outside the payload-redaction boundary. `knownNames` is
+// the student's own registered name, masked wherever it appears.
+export function redactProviderText(value, options = {}) {
   if (typeof value !== "string" || value.length === 0) {
     return { text: value || "", tokenMap: {}, applied: false, byType: {} };
   }
-  const state = makeProviderRedactionState();
+  const state = makeProviderRedactionState(options);
   const text = redactProviderString(value, state);
   return { text, tokenMap: state.tokenMap, applied: state.applied, byType: state.countsByType };
 }
@@ -687,7 +824,7 @@ export function stripStructuredFinancialPII(payload) {
 
 export function sanitizeProviderPayload(payload, options = {}) {
   const structured = stripStructuredFinancialPII(payload);
-  const state = makeProviderRedactionState();
+  const state = makeProviderRedactionState(options);
   const sanitizedPayload = sanitizeDeep(structured.payload, state);
   const redactionReport = {
     applied: state.applied || structured.structuredSanitization.applied,

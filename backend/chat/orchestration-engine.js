@@ -355,7 +355,9 @@ export function isModelAllowed(model) {
 export { DEFAULT_MODELS, COLLEGE_ALIASES, resolveTierDefault, TIER_DEFAULTS };
 
 // ─── PII masking for model payloads ───
-export function redactPayloadForModel(payload, studentId) {
+// `knownNames` is the student's registered name (pii-vault.js
+// studentNamesForRedaction), masked wherever the payload carries it.
+export function redactPayloadForModel(payload, studentId, { knownNames = [] } = {}) {
   // Hash the student ID for the provider metadata field (never raw PII)
   const hashedId = studentId ? hashStudentIdForProvider(studentId) : null;
 
@@ -366,7 +368,7 @@ export function redactPayloadForModel(payload, studentId) {
     withMetadata.metadata = { ...(withMetadata.metadata || {}), user_id: hashedId };
   }
 
-  const sanitized = sanitizeProviderPayload(withMetadata, { boundary: "model_payload" });
+  const sanitized = sanitizeProviderPayload(withMetadata, { boundary: "model_payload", knownNames });
   return {
     payload: sanitized.sanitizedPayload,
     hashedStudentId: hashedId,
@@ -377,8 +379,8 @@ export function redactPayloadForModel(payload, studentId) {
   };
 }
 
-export function redactProviderPayload(payload, studentId = null) {
-  return redactPayloadForModel(payload, studentId);
+export function redactProviderPayload(payload, studentId = null, options = {}) {
+  return redactPayloadForModel(payload, studentId, options);
 }
 
 export function restoreProviderResponse(response, tokenMap = {}) {

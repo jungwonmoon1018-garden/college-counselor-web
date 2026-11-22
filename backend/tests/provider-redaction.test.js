@@ -135,6 +135,117 @@ test("redactProviderText is a no-op on non-strings and clean text", () => {
   assert.equal(r.applied, false);
 });
 
+// ─── A school document's identity fields ───
+// A mock run on 2026-11-22 sent an international school's transcript
+// header to the provider with the student's name, ID number, date of
+// birth, a +82 phone number, a Korean street address and the signing
+// counselor's name intact. The identities below are invented.
+const TRANSCRIPT_HEADER = [
+  "NORTHGATE INTERNATIONAL SCHOOL",
+  "HIGH SCHOOL TRANSCRIPT",
+  "Student Information School Information",
+  "Name: Minji Park",
+  "NIS Student ID Number: 48213",
+  "Date of Birth: Mar/04/2008",
+  "Date of Graduation: June/18/2027",
+  "Northgate International School",
+  "12 Banpo-daero 3-gil, Seocho-gu,",
+  "Seoul, South Korea 06500",
+  "CEEB: 682000",
+  "Phone: (+82) 02-555-0142",
+  "Counselor: Hana Lee",
+  "Unweighted Cumulative GPA :",
+  "3.86",
+  "SCHOOL YEAR: 2024-25 GRADE: 11 SCHOOL YEAR: 2025-26 GRADE: 12",
+  "AP Calculus BC A 1.0 AP Statistics A 1.0",
+  "Algebra II A+ A+ 1.0 AP Biology A 1.0",
+  "Credits: 7 GPA: 4.85 (Unweighted: 4.00)",
+  "Authorized by: Hana Lee",
+].join("\n");
+
+test("a transcript header reaches the provider without the student's identifiers, and its course rows intact", () => {
+  const { text, tokenMap } = redactProviderText(TRANSCRIPT_HEADER);
+  for (const raw of ["Minji Park", "48213", "Mar/04/2008", "02-555-0142", "Banpo-daero", "Hana Lee"]) {
+    assert.doesNotMatch(text, new RegExp(raw.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")), raw);
+  }
+  // The labels stay, so the parser can tell the header from the record.
+  assert.match(text, /^Name: \[PERSON_NAME_\d{2}\]$/m);
+  assert.match(text, /^NIS Student ID Number: \[STUDENT_ID_\d{2}\]$/m);
+  assert.match(text, /^Date of Birth: \[DATE_OF_BIRTH_\d{2}\]$/m);
+  assert.match(text, /^Counselor: \[PERSON_NAME_\d{2}\]$/m);
+  for (const kept of [
+    "AP Calculus BC A 1.0 AP Statistics A 1.0",
+    "Algebra II A+ A+ 1.0 AP Biology A 1.0",
+    "Credits: 7 GPA: 4.85 (Unweighted: 4.00)",
+    "SCHOOL YEAR: 2024-25 GRADE: 11 SCHOOL YEAR: 2025-26 GRADE: 12",
+    "CEEB: 682000",
+    "3.86",
+  ]) assert.ok(text.includes(kept), kept);
+  // Names are restorable if the model echoes them; numbers are not kept.
+  assert.ok(Object.values(tokenMap).includes("Minji Park"));
+  assert.ok(!Object.values(tokenMap).includes("48213"));
+});
+
+test("Korean record fields, resident numbers and domestic phone numbers are masked", () => {
+  const { text } = redactProviderText([
+    "성명: 김민지  생년월일: 2008년 3월 4일",
+    "주민등록번호 080304-4123456, 080304-4******",
+    "학번: 20231234",
+    "주소: 서울특별시 서초구 반포대로 12",
+    "Tel: 010-9876-5432",
+    "DOB 2008-03-04, Student No. 48213, Home Address: 12 Elm St Apt 4, Springfield",
+    "my student id is 48213",
+  ].join("\n"));
+  for (const raw of ["김민지", "2008년 3월 4일", "080304", "20231234", "반포대로", "010-9876-5432", "2008-03-04", "48213", "Elm St", "Apt 4"]) {
+    assert.ok(!text.includes(raw), `${raw} reached the provider: ${text}`);
+  }
+});
+
+test("the student's registered name is masked in any form a document prints it, and its parts alone are not", () => {
+  const { text, tokenMap } = redactProviderText(
+    "MINJI PARK\nPark, Minji — roster\nPark Minji attended. Minji led the club near Central Park.\n김민지 학생",
+    { knownNames: ["Minji Park", "김민지"] },
+  );
+  assert.doesNotMatch(text, /minji park|park,? minji|김민지/i);
+  assert.match(text, /Minji led the club near Central Park/);
+  assert.ok(Object.values(tokenMap).includes("MINJI PARK"));
+});
+
+test("ordinary counseling text and the app's own figures pass the identity patterns unchanged", () => {
+  for (const clean of [
+    "My GPA is 3.86 and I scored 1480 on the SAT (720 + 760).",
+    "AP Euro 5, AP Calc BC 4. AP/IB +1.0 weighted, honors +0.5.",
+    "I volunteered 3 hours a week for 30 weeks; scores rose +60.",
+    "The deadline is 11/01/2026 and the middle 50% SAT is 1330-1490.",
+    "Club name: Robotics\nActivity name: Debate\nGrade Level: 11\nCredits earned: 2.0",
+    "A question for my counselor: should I take AP Physics C or AP Statistics next year?",
+    "My birthday party is next week, will that affect my essay?",
+    "SCHOOL YEAR: 2024-25 GRADE: 11 Credits: 7 GPA: 4.85 (Unweighted: 4.00)",
+    "Class of 2027, CEEB: 682490, school year 2023-24",
+    "내 이름은 민지야. 이름 바꾸는 것도 지원서에 영향이 있을까?",
+    "Central Park and Grace Hopper Academy",
+  ]) {
+    const r = redactProviderText(clean, { knownNames: ["Minji Park"] });
+    assert.equal(r.text, clean, clean);
+  }
+});
+
+test("an attachment in the chat payload is masked with the registered name and restored in the reply", () => {
+  const redacted = redactProviderPayload({
+    messages: [{ role: "user", content: [
+      { type: "text", text: `${TRANSCRIPT_HEADER}\n\nPARK, MINJI — page 2` },
+      { type: "text", text: "Which of my senior classes should I list first?" },
+    ] }],
+  }, "student-1", { knownNames: ["Minji Park"] });
+  const serialized = JSON.stringify(redacted.payload);
+  for (const raw of ["Minji", "48213", "Mar/04/2008", "02-555-0142", "Hana Lee"]) {
+    assert.ok(!serialized.includes(raw), raw);
+  }
+  const token = Object.keys(redacted.tokenMap).find((key) => /^\[STUDENT_NAME_/.test(key));
+  const restored = restoreProviderResponse({ content: [{ type: "text", text: `Hi ${token}, list AP Calculus BC first.` }] }, redacted.tokenMap);
+  assert.match(restored.response.content[0].text, /Minji Park|PARK, MINJI/);
+});
+
 // ─── Server-side essay ghost-writing refusal ───
 test("screenInput blocks essay ghost-writing requests with a coaching redirect", () => {
   for (const req of [

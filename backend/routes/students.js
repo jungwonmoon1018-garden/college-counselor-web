@@ -3,7 +3,7 @@
 // the server's routeDeps object: live getters onto the module bindings
 // these handlers use (CHAT_EXTRACT_MAX_BYTES, SCORECARD_API_KEY, assembleProfileForGeneration, authLimiter, authStore, baselineCollegeNames, bearerToken, buildStudentCallLLM, chatGraphStmts, collectStudentRows, createSessionToken, db, eraseStudent, hashEmail, hashIP, maybeAutoRegenerateNarrative, piiStmts, piiVault, queueChatEvidence, ragStmts, requireStudentAuth, safeJSON, shapeDeadline, shouldCullOverdue, stmts, studentLimiter, vectorStore).
 import { normalizeEmail } from "../security/security-auth.js";
-import { deleteAllStudentPII, hashEmail as hashPIIEmail, retrieveStudentPII, storeStudentPII } from "../storage/pii-vault.js";
+import { deleteAllStudentPII, hashEmail as hashPIIEmail, retrieveStudentPII, storeStudentPII, studentNamesForRedaction } from "../storage/pii-vault.js";
 import crypto from "node:crypto";
 import { getOnboardingConsentRequirements, validateRequiredConsents } from "../security/consent.js";
 import { getBudgetStatus } from "../security/usage-budget.js";
@@ -722,9 +722,16 @@ export function registerStudentsRoutes(app, deps) {
         return res.status(503).json({ error: "AI parsing is not configured on this server.", code: "openrouter_not_configured" });
       }
 
-      // Provider boundary: strip student/school identifiers before the text
-      // leaves the machine. The parser only needs course lines.
-      const masked = redactProviderText(extractedText);
+      // Provider boundary: strip the student's identifiers before the text
+      // leaves the machine. The parser only needs course lines. A
+      // transcript's header names the student, the ID number, the date of
+      // birth, the school's phone and street address, and the counselor who
+      // signed it; until 2026-11-22 every one of them reached the provider
+      // except the emails. The registered name is masked in any form the
+      // document prints it, and the labeled fields by their labels.
+      const masked = redactProviderText(extractedText, {
+        knownNames: studentNamesForRedaction(deps.piiStmts, deps.piiVault, req.studentId),
+      });
       const { system, user } = buildTranscriptParseMessages(masked.text);
 
       // Small tier first; if its reply isn't valid transcript JSON (small open
