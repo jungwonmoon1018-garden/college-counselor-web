@@ -3,13 +3,13 @@
 // the server's routeDeps object: live getters onto the module bindings
 // these handlers use (CHAT_EXTRACT_MAX_BYTES, SCORECARD_API_KEY, assembleProfileForGeneration, authLimiter, authStore, baselineCollegeNames, bearerToken, buildStudentCallLLM, chatGraphStmts, collectStudentRows, createSessionToken, db, eraseStudent, hashEmail, hashIP, maybeAutoRegenerateNarrative, piiStmts, piiVault, queueChatEvidence, ragStmts, requireStudentAuth, safeJSON, shapeDeadline, shouldCullOverdue, stmts, studentLimiter, vectorStore).
 import { normalizeEmail } from "../security/security-auth.js";
-import { deleteAllStudentPII, hashEmail as hashPIIEmail, retrieveStudentPII, storeStudentPII } from "../storage/pii-vault.js";
+import { deleteAllStudentPII, hashEmail as hashPIIEmail, retrieveStudentPII, storeStudentPII, studentNamesForRedaction } from "../storage/pii-vault.js";
 import crypto from "node:crypto";
 import { getOnboardingConsentRequirements, validateRequiredConsents } from "../security/consent.js";
 import { getBudgetStatus } from "../security/usage-budget.js";
 import { extractGoalUnitIds, fetchAndPersistCollegeHistory, getDirectStructuredStudentData, getStudentTrends, profileRevision, syncStudentData } from "../storage/rag-engine.js";
 import * as chatHistory from "../chat/chat-history.js";
-import { redactProviderText, screenInput, screenOutput } from "../chat/content-moderation.js";
+import { MAX_REGISTERED_NAME_CHARS, redactProviderText, screenInput, screenOutput } from "../chat/content-moderation.js";
 import { isCrisisText } from "../chat/policy-router.js";
 import { renderCrisisText } from "../chat/rules-engine.js";
 import { parseAttachedFilesPreface } from "../activities/ec-chat-evidence.js";
@@ -105,6 +105,13 @@ export function registerStudentsRoutes(app, deps) {
     if (![9, 10, 11, 12].includes(grade)) {
       return res.status(400).json({ error: "Grade 9-12 is required.", code: "invalid_grade" });
     }
+    // The provider redactor builds a pattern from this name on every chat
+    // turn (content-moderation.js knownNameRules); an unbounded name of
+    // about a megabyte held the server for seconds per turn (PR #7 review).
+    const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+    if (name.length > MAX_REGISTERED_NAME_CHARS) {
+      return res.status(400).json({ error: `Use a name of ${MAX_REGISTERED_NAME_CHARS} characters or fewer.`, code: "invalid_name" });
+    }
     const emailHash = deps.hashEmail(email);
     const piiEmailHash = hashPIIEmail(email, deps.piiVault.encryptionKey);
     if (deps.piiStmts.getStudentByEmailHash?.get(piiEmailHash) || deps.authStore.hasStudentCredential(emailHash)) {
@@ -116,7 +123,7 @@ export function registerStudentsRoutes(app, deps) {
       const recovery = deps.authStore.createStudentCredential(studentId, emailHash, req.body?.password, { grade });
       try {
         storeStudentPII(deps.piiStmts, deps.piiVault, studentId, {
-          name: req.body?.name || "",
+          name,
           email,
           emailHash: piiEmailHash,
           isMinor: true,
@@ -722,9 +729,16 @@ export function registerStudentsRoutes(app, deps) {
         return res.status(503).json({ error: "AI parsing is not configured on this server.", code: "openrouter_not_configured" });
       }
 
-      // Provider boundary: strip student/school identifiers before the text
-      // leaves the machine. The parser only needs course lines.
-      const masked = redactProviderText(extractedText);
+      // Provider boundary: strip the student's identifiers before the text
+      // leaves the machine. The parser only needs course lines. A
+      // transcript's header names the student, the ID number, the date of
+      // birth, the school's phone and street address, and the counselor who
+      // signed it; until 2026-11-22 every one of them reached the provider
+      // except the emails. The registered name is masked in any form the
+      // document prints it, and the labeled fields by their labels.
+      const masked = redactProviderText(extractedText, {
+        knownNames: studentNamesForRedaction(deps.piiStmts, deps.piiVault, req.studentId),
+      });
       const { system, user } = buildTranscriptParseMessages(masked.text);
 
       // Small tier first; if its reply isn't valid transcript JSON (small open

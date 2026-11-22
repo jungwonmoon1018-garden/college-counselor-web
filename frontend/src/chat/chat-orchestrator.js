@@ -10,6 +10,7 @@ import { ACADEMICS_AGENT, EC_AGENT, COLLEGE_AGENT, STRATEGY_AGENT, GATEKEEPER, O
 import { entryLabel, formatSections, formatClassRank } from "../profile/test-scores.js";
 import { crisisResponseText, crisisTurnResult, isCrisisStatement, isCrisisTopicMention, isDistressed, stripResourceFooters, withResourceFooter, withSupport } from "./crisis-lexicon.js";
 import { sanitizeFilename } from "./chat-files.js";
+import { countDistinctCourses, courseTermLabel } from "../profile/transcript-utils.js";
 
 // Build a message-history array suitable for prepending to a new turn.
 // `history` is the messages[] React state slice; entries with role "user"
@@ -278,7 +279,8 @@ function maybeHandleQuickQuery(userMsg, data, user) {
     const lines = [
       user?.name ? `${user.name}'s profile` : "Your profile",
       gpaLine || "GPA: not yet available.",
-      courses.length ? `Courses: ${courses.length}` : "Courses: none added yet.",
+      // A semester pair is one course, as the survey and sidebar count it.
+      courses.length ? `Courses: ${countDistinctCourses(courses)}` : "Courses: none added yet.",
       tests.length ? `Test scores: ${tests.map(testLine).join(", ")}` : (profile.testingStatus === "planned" ? "Test scores: not taken yet." : "Test scores: none added yet."),
       profile.classRank ? `Class rank: ${formatClassRank(profile.classRank)}` : null,
       apScores.length ? `AP exams: ${apScores.map(x => `${x.exam || x.subject || x.name} ${x.score}${x.year ? ` (${x.year})` : ""}`).join(", ")}` : null,
@@ -298,7 +300,14 @@ function maybeHandleQuickQuery(userMsg, data, user) {
   }
   if (new RegExp(`^(what courses (am i taking|do i have)?|my courses|what classes (am i taking|do i have)?|classes am i taking|show (me )?my courses)${trailer}`).test(q)) {
     if (!courses.length) return "I don't have any courses saved yet.";
-    return courses.map(c => `${c.year ? `${c.year}: ` : ""}${c.name} — ${c.grade || "In Progress"}`).join("\n");
+    // "IP" is a course under way; an empty grade is a course saved without
+    // one (a finished year's N/A or pass/fail row), which this reply used to
+    // call in progress too. The term names each half of a semester pair.
+    return courses.map(c => {
+      const term = courseTermLabel(c.semester);
+      const grade = c.grade === "IP" ? "In Progress" : (c.grade || "no grade recorded");
+      return `${c.year ? `${c.year}: ` : ""}${c.name}${term ? ` (${term})` : ""} — ${grade}`;
+    }).join("\n");
   }
   if (new RegExp(`^(what (are )?my activities|my activities|my ecs|my extracurriculars|show (me )?my (activities|ecs|extracurriculars))${trailer}`).test(q)) {
     if (!activities.length) return "I don't have any extracurriculars saved yet.";

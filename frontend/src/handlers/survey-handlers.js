@@ -10,6 +10,7 @@ import { latestApScoreYear } from "../profile/ap-entry.js";
 import { storageApi, safeBtoa } from "../session/vault-storage.js";
 import { safeSet } from "../session/safe-storage.js";
 import { formatGpa, hasGpa } from "../profile/gpa.js";
+import { countDistinctCourses } from "../profile/transcript-utils.js";
 import { baseFromPayload, buildSyncPayload, describeProfileConflict, readServerProfile, reconcileProfile } from "../profile/profile-reconcile.js";
 
 // The school years the survey has a tab for, and the bucket for a course
@@ -148,8 +149,10 @@ export async function handleSurveyComplete(ctx) {
   if (hasGpa(profile.gpa)) sum.push(`GPA: ${formatGpa(profile.gpa)}`);
   else if (sNoGpaYet) sum.push("GPA: not yet available");
   if (allCourses.length) {
-    const apCount = allCourses.filter(c => c.type === "ap").length;
-    sum.push(`${allCourses.length} courses${apCount ? ` (${apCount} AP)` : ""}`);
+    // Counted as the survey counts them: a semester pair is one course.
+    const courseCount = countDistinctCourses(allCourses);
+    const apCount = countDistinctCourses(allCourses.filter(c => c.type === "ap"));
+    sum.push(`${courseCount} course${courseCount === 1 ? "" : "s"}${apCount ? ` (${apCount} AP)` : ""}`);
   }
   if (profile.apScores.length) sum.push(`${profile.apScores.length} AP exam scores`);
   // The catalog's own name for each entry, scale included ("PSAT 8/9",

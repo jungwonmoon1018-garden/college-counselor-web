@@ -582,9 +582,14 @@ export function buildValuesFromCds(record, now = new Date()) {
   for (const [tier, label] of tiers) {
     for (const [factor, weight] of Object.entries(c7)) {
       if (weight !== tier || values.length >= 10) continue;
+      // `theme` and `summary` stay English: the fit matrix matches on their
+      // text. `factor` and `tier` let the card say them in the student's
+      // language; a Korean card showed these rows and the note in English.
       values.push({
         theme: C7_FACTOR_LABELS[factor] || factor,
         summary: `${label} in ${record.school}'s admission decisions, per its Common Data Set (section C7${record.yearLabel ? `, ${record.yearLabel}` : ""}).`,
+        factor,
+        tier,
         evidence: null,
         sourceUrl: record.sourceUrl || null,
         quoteVerified: false,
@@ -600,6 +605,7 @@ export function buildValuesFromCds(record, now = new Date()) {
     sourceUrl: record.sourceUrl || null,
     extractedAt: now.toISOString(),
     fallback: "cds_admission_factors",
+    cdsYear: record.yearLabel || null,
     note: "This school's website couldn't be read automatically — showing the admission priorities it declares in its Common Data Set instead of quoted mission-page values.",
   };
 }

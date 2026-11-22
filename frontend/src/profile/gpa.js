@@ -8,6 +8,8 @@
 // refuses the same values on sync; backend tests/profile-input.test.js pins
 // the two copies together.
 
+import { GRADE_SCALE } from "../app-shared.js";
+
 export const GPA_LIMITS = Object.freeze({
   unweighted: Object.freeze({ min: 0, max: 5 }),
   weighted: Object.freeze({ min: 0, max: 6 }),
@@ -69,4 +71,68 @@ export function validateGpa({ unweighted, weighted } = {}) {
     }
   }
   return { ok: errors.length === 0, errors };
+}
+
+// ─── The GPA the course list implies ───
+// Moved from Sidebar.jsx on 2026-11-22. Unweighted on the 4.0 scale,
+// weighted with the course form's rigor bonuses (AP, IB and dual enrollment
+// +1.0, honors +0.5). Rows with no letter or number grade (IP, W, P, no
+// grade recorded) are left out. A semester row is half a course: a course
+// graded each semester is two rows, and counting each as a whole course
+// gave it twice the weight of a full-year one.
+const GPA_POINTS = { "A+":4.0, "A":4.0, "A-":3.7, "B+":3.3, "B":3.0, "B-":2.7, "C+":2.3, "C":2.0, "C-":1.7, "D+":1.3, "D":1.0, "D-":0.7, "F":0.0 };
+const GPA_WEIGHT_BONUS = { honors: 0.5, ap: 1.0, ib: 1.0, dual_enrollment: 1.0 };
+
+export function gpaPointsForGrade(grade) {
+  if (grade == null || grade === "") return null;
+  const s = String(grade).trim().toUpperCase();
+  if (s in GPA_POINTS) return GPA_POINTS[s];
+  if (["IP", "W", "P", "NP", "CR", "NC", "AUDIT"].includes(s)) return null;
+  const num = parseFloat(s);
+  if (Number.isFinite(num)) {
+    if (num <= 5) return Math.min(4, num);
+    const band = GRADE_SCALE.find((e) => num >= e.min && num <= e.max);
+    if (band) return GPA_POINTS[band.grade] ?? null;
+  }
+  return null;
+}
+
+export function computeGpaFromCourses(courses) {
+  let sumU = 0;
+  let sumW = 0;
+  let weight = 0;
+  let count = 0;
+  for (const c of courses || []) {
+    const pts = gpaPointsForGrade(c?.grade);
+    if (pts == null) continue;
+    const term = String(c?.semester || "").toLowerCase();
+    const share = term === "fall" || term === "spring" ? 0.5 : 1;
+    const bonus = GPA_WEIGHT_BONUS[String(c?.type || "").toLowerCase()] || 0;
+    sumU += pts * share;
+    sumW += (pts + bonus) * share;
+    weight += share;
+    count += 1;
+  }
+  if (!weight) return null;
+  return {
+    unweighted: Math.round((sumU / weight) * 100) / 100,
+    weighted: Math.round((sumW / weight) * 100) / 100,
+    count,
+  };
+}
+
+// What the student is asked before the calculation replaces a saved GPA,
+// or null when nothing would change (or nothing is saved). The button used
+// to overwrite in one click: the transcript's GPA gave way to this average,
+// which put every grade on one scale, it synced, and College Fit and the
+// fidelity check then held the student to the estimate.
+export function gpaReplacementQuestion(saved, computed) {
+  const current = normalizeGpa(saved);
+  if (!current || !computed) return null;
+  const sameWeighted = current.weighted == null || current.weighted === computed.weighted;
+  if (current.unweighted === computed.unweighted && sameWeighted) return null;
+  const entries = `${computed.count} graded course entr${computed.count === 1 ? "y" : "ies"}`;
+  return `Replace your saved GPA (${formatGpa(current)}) with ${computed.unweighted} / ${computed.weighted}w, the average of ${entries}?\n\n`
+    + "The GPA your school prints on your transcript is the one colleges read, so keep it unless it is out of date. "
+    + "This average puts every grade on one scale (A+ and A as 4.0, honors +0.5, AP, IB and dual enrollment +1.0), which may not be your school's.";
 }

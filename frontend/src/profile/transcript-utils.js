@@ -76,27 +76,62 @@ export function currentYearKey(grade) {
   return null;
 }
 
+// The term a semester row belongs to, for a list that shows it: a course
+// graded each semester is two rows, and shown without the term the pair
+// read as a duplicate ("Biology — A" twice, "World History — A" and
+// "World History — B") that a student would delete, grade and all.
+export function courseTermLabel(semester) {
+  const term = String(semester || "").toLowerCase();
+  return term === "fall" ? "Fall" : term === "spring" ? "Spring" : "";
+}
+
+// A year before the student's current one is finished. The import read a
+// missing grade as "in progress" in every year, so a transcript's N/A or
+// pass/fail row from two years ago was saved as a course still under way;
+// a finished year's row without a grade is saved without one ("No grade
+// recorded"), and only this year's (or a year the account cannot place)
+// as "IP".
+function isEarlierYear(year, currentYear) {
+  const at = SURVEY_YEAR_KEYS.indexOf(year);
+  const now = SURVEY_YEAR_KEYS.indexOf(currentYear);
+  return at >= 0 && now >= 0 && at < now;
+}
+
 // One imported row in the profile's course shape. A grade on a scale other
 // than the US letters (Korean 성취도) keeps its `gradeScale`.
-function importedCourse(raw, name) {
+function importedCourse(raw, name, { year = null, currentYear = null } = {}) {
   const course = {
     name,
     type: raw?.type || "regular",
-    grade: raw?.grade || "IP",
+    grade: raw?.grade || (isEarlierYear(year, currentYear) ? "" : "IP"),
     semester: raw?.semester || "full_year",
   };
   if (raw?.grade && raw?.gradeScale) course.gradeScale = raw.gradeScale;
   return course;
 }
 
+// What an import added, counted as courses: a semester pair is one course
+// in two entries, so a note that counted entries over a list whose total
+// counted courses told the student some courses had gone missing.
+function importNote(addedRows, { duplicates, overCap, maxCourses }) {
+  const courses = countDistinctCourses(addedRows);
+  const entries = addedRows.length;
+  const skippedParts = [];
+  if (duplicates) skippedParts.push(`${duplicates} already on your list`);
+  if (overCap) skippedParts.push(`${overCap} over the ${maxCourses}-course limit`);
+  const split = entries > courses ? ` in ${entries} entries (a course graded each semester has one per term)` : "";
+  return `Imported ${courses} course${courses === 1 ? "" : "s"}${split}${skippedParts.length ? ` (skipped: ${skippedParts.join(", ")})` : ""}.`;
+}
+
 // Merge courses parsed from a transcript ({ freshman: [...], ..., unknown: [...] })
 // into the profile's flat, year-tagged course list. Duplicates (same year,
 // name and term) are skipped and counted apart from the rows over the cap
 // (`duplicates`, `overCap`; `skipped` is both); a course with no
-// readable grade is stored as "IP" (in progress) — never guessed. Courses
+// readable grade is stored as "IP" (in progress) in the student's current
+// year and without a grade in an earlier one — never guessed. Courses
 // whose year the transcript didn't state go to `fallbackYear` (the
 // student's current year) when known.
-export function mergeImportedCourses(existing, parsedYears, { fallbackYear = null, maxCourses = MAX_PROFILE_COURSES } = {}) {
+export function mergeImportedCourses(existing, parsedYears, { fallbackYear = null, currentYear = fallbackYear, maxCourses = MAX_PROFILE_COURSES } = {}) {
   const courses = Array.isArray(existing) ? existing.slice() : [];
   const seen = new Set(courses.map((c) => courseKey(c.year, c)));
   let added = 0;
@@ -113,7 +148,7 @@ export function mergeImportedCourses(existing, parsedYears, { fallbackYear = nul
       if (seen.has(key)) { duplicates += 1; continue; }
       if (courses.length >= maxCourses) { overCap += 1; continue; }
       seen.add(key);
-      courses.push({ ...importedCourse(raw, name), year: targetYear });
+      courses.push({ ...importedCourse(raw, name, { year: targetYear, currentYear }), year: targetYear });
       added += 1;
     }
   }
@@ -124,13 +159,16 @@ export function mergeImportedCourses(existing, parsedYears, { fallbackYear = nul
 // and a row with no school year goes to `fallbackYear` (the year tab open).
 // Returns the merged map, the counts, and the note the survey shows, which
 // says why rows were skipped instead of blaming duplicates for the cap.
-export function mergeSurveyImport(byYear, parsedYears, { years = SURVEY_YEAR_KEYS, fallbackYear, maxCourses = MAX_PROFILE_COURSES } = {}) {
+// `currentYear` is the student's own school year (not the tab open): a row
+// from an earlier year with no grade is saved without one.
+export function mergeSurveyImport(byYear, parsedYears, { years = SURVEY_YEAR_KEYS, fallbackYear, currentYear = null, maxCourses = MAX_PROFILE_COURSES } = {}) {
   const merged = { ...(byYear || {}) };
   const seen = new Set(Object.entries(merged).flatMap(([year, list]) => (Array.isArray(list) ? list : []).map((c) => courseKey(year, c))));
   let total = Object.values(merged).reduce((n, list) => n + (Array.isArray(list) ? list.length : 0), 0);
   let added = 0;
   let duplicates = 0;
   let overCap = 0;
+  const addedRows = [];
   for (const [year, list] of Object.entries(parsedYears || {})) {
     const targetYear = years.includes(year) ? year : fallbackYear;
     for (const raw of (Array.isArray(list) ? list : [])) {
@@ -140,15 +178,14 @@ export function mergeSurveyImport(byYear, parsedYears, { years = SURVEY_YEAR_KEY
       if (seen.has(key)) { duplicates += 1; continue; }
       if (total >= maxCourses) { overCap += 1; continue; }
       seen.add(key);
-      merged[targetYear] = [...(merged[targetYear] || []), importedCourse(raw, name)];
+      const course = importedCourse(raw, name, { year: targetYear, currentYear });
+      merged[targetYear] = [...(merged[targetYear] || []), course];
+      addedRows.push({ ...course, year: targetYear });
       total += 1;
       added += 1;
     }
   }
-  const skippedParts = [];
-  if (duplicates) skippedParts.push(`${duplicates} already on your list`);
-  if (overCap) skippedParts.push(`${overCap} over the ${maxCourses}-course limit`);
-  const note = `Imported ${added} course${added === 1 ? "" : "s"}${skippedParts.length ? ` (skipped: ${skippedParts.join(", ")})` : ""}.`;
+  const note = importNote(addedRows, { duplicates, overCap, maxCourses });
   return { merged, added, duplicates, overCap, note };
 }
 

@@ -220,6 +220,21 @@ export function retrieveStudentPII(stmts, vault, studentId) {
   };
 }
 
+// ─── The student's own name, for the provider redactor ───
+// The registered name, so a document the student uploads (a transcript
+// heading "MINJI PARK", a roster line "Park, Minji") reaches the model
+// with it masked. Empty, never a throw: a vault read that fails must not
+// fail the turn, and the shape-based patterns still run.
+export function studentNamesForRedaction(stmts, vault, studentId) {
+  if (!studentId) return [];
+  try {
+    const name = retrieveStudentPII(stmts, vault, studentId)?.name;
+    return typeof name === "string" && name.trim() ? [name.trim()] : [];
+  } catch {
+    return [];
+  }
+}
+
 // ─── Store a document with short retention ───
 export function storeDocument(stmts, vault, studentId, docType, content, options = {}) {
   const id = crypto.randomUUID();

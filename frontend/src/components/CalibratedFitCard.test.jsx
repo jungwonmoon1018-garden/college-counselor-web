@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import CalibratedFitCard, { labelKeyOf, valuesErrorText, verificationErrorText } from "./CalibratedFitCard.jsx";
+import CalibratedFitCard, { cdsFactorLabel, cdsFactorSummary, labelKeyOf, valuesErrorText, verificationErrorText } from "./CalibratedFitCard.jsx";
 import { STRINGS } from "../i18n.js";
 
 // The positioning payload's profileComparison block: what the College Fit
@@ -526,5 +526,26 @@ describe("fit strings", () => {
     expect(missing).toEqual([]);
     const extra = [...ko].filter((k) => !STRINGS["en-US"][k]);
     expect(extra).toEqual([]);
+  });
+});
+
+// Mock run, 2026-11-22: a school whose site could not be read showed its
+// Common Data Set priorities on a Korean card in English.
+describe("CalibratedFitCard Common Data Set fallback rows", () => {
+  const values = { fallback: "cds_admission_factors", displayName: "Example University", cdsYear: "2025-26" };
+  const row = { theme: "Rigor of Secondary School Record", summary: "Very Important in Example University's admission decisions, per its Common Data Set (section C7, 2025-26).", factor: "rigor", tier: "very_important" };
+
+  it("names the factor and its weight in the card's language", () => {
+    expect(cdsFactorLabel(values, row, "ko")).toBe("고교 교육과정의 난이도");
+    expect(cdsFactorSummary(values, row, "ko")).toBe("Example University의 Common Data Set(C7 항목, 2025-26) 기준, 입학 결정에서 '매우 중요' 요소입니다.");
+    expect(cdsFactorLabel(values, row, "en-US")).toBe("Rigor of Secondary School Record");
+    expect(cdsFactorSummary(values, row, "en-US")).toBe(row.summary);
+  });
+
+  it("keeps the server's text for a quoted values read and a factor it does not know", () => {
+    expect(cdsFactorLabel({}, row, "ko")).toBe(row.theme);
+    expect(cdsFactorSummary({}, row, "ko")).toBe(row.summary);
+    expect(cdsFactorLabel(values, { ...row, factor: "new_factor" }, "ko")).toBe(row.theme);
+    expect(cdsFactorSummary(values, { ...row, tier: "considered" }, "ko")).toBe(row.summary);
   });
 });

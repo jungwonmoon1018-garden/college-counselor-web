@@ -164,6 +164,11 @@ describe("buildValuesFromCds (blocked-site fallback)", () => {
     assert.match(result.values[2].summary, /Important/);
     assert.equal(result.sourceUrl, "https://www.example.edu/cds.pdf");
     assert.ok(result.note.includes("Common Data Set"));
+    // Keys the card localizes by; the English theme stays the matrix's key.
+    assert.deepEqual(result.values.map((v) => [v.factor, v.tier]), [
+      ["rigor", "very_important"], ["application_essay", "very_important"], ["ec", "important"],
+    ]);
+    assert.equal(result.cdsYear, "2025-26");
   });
 
   it("returns null when the record has no usable C7 grid", () => {

@@ -976,6 +976,86 @@ test("transcript import accepts already-extracted text from the chat card", asyn
   assert.equal(missing.status, 400);
 });
 
+// PR #7 security review: the redactor compiles a pattern from the
+// registered name on every chat turn, so registration bounds the name.
+test("registration refuses a name over 100 characters and keeps one at the bound", async () => {
+  const register = (name, label) => request("POST", "/api/students/register", {
+    body: { email: `${label}-${Date.now()}@example.test`, password: "correct horse battery staple", grade: 11, name },
+  });
+  const tooLong = await register(`${"A".repeat(60)} ${"B".repeat(40)}`, "name-over");
+  assert.equal(tooLong.status, 400, JSON.stringify(tooLong.data));
+  assert.equal(tooLong.data.code, "invalid_name");
+  const huge = await register(Array.from({ length: 50_000 }, () => "Ab").join(" "), "name-huge");
+  assert.equal(huge.status, 400);
+  const atBound = await register(`${"A".repeat(49)} ${"B".repeat(50)}`, "name-bound");
+  assert.equal(atBound.status, 201, JSON.stringify(atBound.data));
+});
+
+// A mock run on 2026-11-22 found a real transcript's header reaching the
+// provider with the student's name, ID number, date of birth, the school's
+// +82 phone number and street address, and the counselor's name. The
+// identities here are invented.
+test("transcript import and a chat attachment reach the model without the student's identifiers", async () => {
+  const registered = await request("POST", "/api/students/register", {
+    body: {
+      email: `identity-mask-${Date.now()}@example.test`,
+      password: "correct horse battery staple",
+      grade: 12,
+      name: "Minji Park",
+    },
+  });
+  assert.equal(registered.status, 201, JSON.stringify(registered.data));
+  const token = registered.data.token;
+  for (const consentType of ["data_processing", "ai_interaction", "cross_border_transfer"]) {
+    const consent = await request("POST", "/api/consent/grant", { token, body: { consentType, grantedBy: "student" } });
+    assert.equal(consent.status, 200, JSON.stringify(consent.data));
+  }
+  const transcript = [
+    "NORTHGATE INTERNATIONAL SCHOOL",
+    "HIGH SCHOOL TRANSCRIPT",
+    "PARK, MINJI",
+    "NIS Student ID Number: 48213",
+    "Date of Birth: Mar/04/2008",
+    "12 Banpo-daero 3-gil, Seocho-gu, Seoul 06500",
+    "Phone: (+82) 02-555-0142",
+    "Counselor: Hana Lee",
+    "SCHOOL YEAR: 2024-25 GRADE: 11",
+    "AP Calculus BC   A   1.0",
+    "Authorized by: Hana Lee",
+  ].join("\n");
+  const identifiers = ["Minji", "MINJI", "48213", "Mar/04/2008", "Banpo-daero", "02-555-0142", "Hana Lee"];
+
+  const imported = await request("POST", "/api/students/transcript-import", {
+    token,
+    body: { base64: Buffer.from(transcript, "utf8").toString("base64"), mimeType: "text/plain", filename: "transcript.txt" },
+  });
+  assert.equal(imported.status, 200, JSON.stringify(imported.data));
+  let calls = loggedModelCalls();
+  let wire = JSON.stringify(calls[calls.length - 1].messages);
+  assert.match(wire, /Transcript text:/);
+  assert.match(wire, /AP Calculus BC {3}A {3}1\.0/);
+  for (const raw of identifiers) assert.ok(!wire.includes(raw), `${raw} reached the transcript parser`);
+
+  const turn = await request("POST", "/api/chat", {
+    token,
+    body: {
+      messages: [{
+        role: "user",
+        content: [
+          { type: "document", source: { type: "base64", media_type: "text/plain", data: Buffer.from(transcript, "utf8").toString("base64") } },
+          { type: "text", text: `The student uploaded "transcript.txt". Which class should I list first? MOCKREPLY:${b64("List AP Calculus BC first.")}:` },
+        ],
+      }],
+      request_id: "identity-mask-chat-1",
+    },
+  });
+  assert.equal(turn.status, 200, `${JSON.stringify(turn.data)}\n${serverOutput}`);
+  calls = loggedModelCalls();
+  wire = JSON.stringify(calls[calls.length - 1]);
+  assert.match(wire, /AP Calculus BC/);
+  for (const raw of identifiers) assert.ok(!wire.includes(raw), `${raw} reached the chat model`);
+});
+
 test("chat grounds a college question in the VERIFIED DATA block", async () => {
   const token = await registerWithProfile("verified-data");
   const reply = "Stanford's acceptance rate is 3.9% [Source: NCES IPEDS, data year 2023], so treat it as a reach.";

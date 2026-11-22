@@ -5,7 +5,7 @@
 import { TEST_ORDER, blankTestForm, entryLabel, entryToForm, formToEntry, formatClassRank, formatSections, normalizeClassRank, scaleChoices, scoreLimits, sectionDefs, testLabel, validateTestEntry, withScale, withSection } from "../profile/test-scores.js";
 import { t as tt } from "../i18n.js";
 import { formatServerDate } from "../profile/dates.js";
-import { formatGpa, gpaNumber, hasGpa, validateGpa } from "../profile/gpa.js";
+import { computeGpaFromCourses, formatGpa, gpaNumber, gpaReplacementQuestion, hasGpa, validateGpa } from "../profile/gpa.js";
 import { useState } from "react";
 import SidebarSection from "../components/SidebarSection.jsx";
 import CloseButton from "../components/CloseButton.jsx";
@@ -13,9 +13,9 @@ import CalibratedFitCard, { valuesErrorText } from "../components/CalibratedFitC
 import { MAX_TARGET_SCHOOLS, targetListHas } from "../profile/target-schools.js";
 import EcEvidence, { ChatEvidenceSync } from "../components/EcEvidence.jsx";
 import PrestigeCard from "../components/PrestigeCard.jsx";
-import { GRADE_SCALE } from "../app-shared.js";
 import { apExamsWithScores, latestApScoreYear, validateApEntry } from "../profile/ap-entry.js";
 import { setAsideMarkFor, setAsideMarkText } from "../profile/set-aside-rows.js";
+import { countDistinctCourses, courseTermLabel } from "../profile/transcript-utils.js";
 
 // Under a score the last save set aside: why, and the two ways out. The
 // save's note named the score, but every row looked alike, so a student with
@@ -33,48 +33,8 @@ function SetAsideNote({ mark, locale, onFix, onRemove }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════
-// GPA CALCULATOR — unweighted (4.0 scale) + weighted (rigor bonus).
-// Rigor bonuses match the course-form RIGOR table: AP/IB/dual +1.0,
-// honors +0.5, regular/elective +0. Non-graded rows (IP/W/Pass) are
-// excluded. Letter grades map to standard GPA points; numeric grades
-// are treated as percentages (banded) or as an already-4.0 value.
-// ═══════════════════════════════════════════════════════════
-const GPA_POINTS = { "A+":4.0,"A":4.0,"A-":3.7,"B+":3.3,"B":3.0,"B-":2.7,"C+":2.3,"C":2.0,"C-":1.7,"D+":1.3,"D":1.0,"D-":0.7,"F":0.0 };
-
-const GPA_WEIGHT_BONUS = { honors:0.5, ap:1.0, ib:1.0, dual_enrollment:1.0 };
-
-function gpaPointsForGrade(grade) {
-  if (grade == null || grade === "") return null;
-  const s = String(grade).trim().toUpperCase();
-  if (s in GPA_POINTS) return GPA_POINTS[s];
-  if (["IP","W","P","NP","CR","NC","AUDIT"].includes(s)) return null; // not counted
-  const num = parseFloat(s);
-  if (Number.isFinite(num)) {
-    if (num <= 5) return Math.min(4, num);                 // already a GPA-style value
-    const band = GRADE_SCALE.find(e => num >= e.min && num <= e.max);
-    if (band) return GPA_POINTS[band.grade] ?? null;        // percentage → band → points
-  }
-  return null;
-}
-
-function computeGpaFromCourses(courses) {
-  let sumU = 0, sumW = 0, n = 0;
-  for (const c of (courses || [])) {
-    const pts = gpaPointsForGrade(c?.grade);
-    if (pts == null) continue;
-    const bonus = GPA_WEIGHT_BONUS[String(c?.type || "").toLowerCase()] || 0;
-    sumU += pts;
-    sumW += pts + bonus;
-    n += 1;
-  }
-  if (!n) return null;
-  return {
-    unweighted: Math.round((sumU / n) * 100) / 100,
-    weighted: Math.round((sumW / n) * 100) / 100,
-    count: n,
-  };
-}
+// The GPA calculator (computeGpaFromCourses, gpaReplacementQuestion) lives
+// in profile/gpa.js, where it is tested.
 
 function formatAcademicYearLabel(year) {
   const labels = { freshman:"Freshman", sophomore:"Sophomore", junior:"Junior", senior:"Senior" };
@@ -620,6 +580,10 @@ export default function Sidebar(props) {
             onClick={() => {
               const g = computeGpaFromCourses(profile.courses);
               if (!g) { alert("Add courses with letter/number grades first — none of the current courses have a gradeable mark."); return; }
+              // A saved GPA (usually the transcript's) is replaced only when
+              // the student says so; one click used to overwrite it.
+              const question = gpaReplacementQuestion(profile.gpa, g);
+              if (question && !window.confirm(question)) return;
               commitProfile(p => { p.gpa = { unweighted: g.unweighted, weighted: g.weighted }; });
             }}
             title="Compute unweighted + weighted GPA from your course grades"
@@ -671,7 +635,7 @@ export default function Sidebar(props) {
 
         </SidebarSection>
         {profile.courses?.length > 0 && (
-          <SidebarSection id="courses" title="Courses" count={profile.courses.length}>
+          <SidebarSection id="courses" title="Courses" count={countDistinctCourses(profile.courses)}>
           {(showAllCourses ? profile.courses : profile.courses.slice(0,5)).map((c,i)=>(
             editingField === `course:${i}` ? (
               <div key={i} style={{ display:"flex",gap:6,alignItems:"center",padding:"4px 0",borderBottom:"1px solid rgba(255,255,255,0.03)" }}>
@@ -686,14 +650,14 @@ export default function Sidebar(props) {
             ) : (
               <div key={i} onDoubleClick={()=>beginEdit(`course:${i}`, c.name ?? "", c.grade ?? "")} title="Double-click to edit"
                 style={{ fontSize:12,padding:"4px 0",borderBottom:"1px solid rgba(255,255,255,0.03)",display:"flex",justifyContent:"space-between",cursor:"pointer",userSelect:"none" }}>
-                <span><span style={{color:c.type==="ap"?"#f6ad55":"#666"}}>{c.type==="ap" && !/^ap\s+/i.test(String(c.name || ""))?"AP ":""}</span>{c.name}</span>
+                <span><span style={{color:c.type==="ap"?"#f6ad55":"#666"}}>{c.type==="ap" && !/^ap\s+/i.test(String(c.name || ""))?"AP ":""}</span>{c.name}{courseTermLabel(c.semester) && <span style={{color:"#6a6a7a",fontSize:10.5}}>{` (${courseTermLabel(c.semester)})`}</span>}</span>
                 <span style={{color:"#63b3ed",fontWeight:600}}>{c.grade}</span>
               </div>
             )
           ))}
           {profile.courses.length > 5 && (
             <button onClick={()=>setShowAllCourses(v=>!v)} style={{ marginTop:6,fontSize:10.5,color:"#6a8ab5",background:"transparent",border:"1px solid rgba(99,179,237,0.18)",borderRadius:6,padding:"3px 9px",cursor:"pointer" }}>
-              {showAllCourses ? "Show less" : `Show all ${profile.courses.length}`}
+              {showAllCourses ? "Show less" : `Show all ${profile.courses.length} entries`}
             </button>
           )}
           </SidebarSection>

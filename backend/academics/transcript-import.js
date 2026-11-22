@@ -123,7 +123,10 @@ export function sanitizeParsedTranscript(raw) {
   const ungraded = TRANSCRIPT_YEARS.reduce(
     (count, year) => count + years[year].filter((course) => course.grade === null).length, 0,
   );
-  if (ungraded > 0) warnings.push(`${ungraded} course(s) have no final grade on this document — they are saved as in progress; add a grade later if one is missing by mistake.`);
+  // The client decides how each one is saved: a course from a finished
+  // school year without a grade (N/A, pass/fail, withdrawn) is not a course
+  // in progress, which is what this note used to promise for all of them.
+  if (ungraded > 0) warnings.push(`${ungraded} course(s) have no final grade on this document — one from an earlier school year is saved without a grade, one from this year as in progress; add a grade if one is missing by mistake.`);
 
   return { gpa, years, courseCount: total, warnings };
 }
